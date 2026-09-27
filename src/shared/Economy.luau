@@ -7,22 +7,29 @@ local Config = require(script.Parent.Config)
 local Donuts = require(script.Parent.Donuts)
 local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
+local Pets = require(script.Parent.Pets)
 
 local Economy = {}
 
 --------------------------------------------------------------------------------
 -- Speed
 --------------------------------------------------------------------------------
--- WalkSpeed from the Speed stat, before the world bonus and carry slowdown.
+-- WalkSpeed from the Speed stat, before the world bonus and carry slowdown. A straight line:
+-- every Config.Speed.SpeedPerWalk Speed is +1 WalkSpeed.
 function Economy.WalkSpeedFromStat(stat: number): number
 	local s = Config.Speed
-	local walk = s.BaseWalkSpeed + s.WalkPerDoubling * math.log(1 + math.max(stat, 0) / s.StatScale, 2)
+	local walk = s.BaseWalkSpeed + math.max(stat, 0) / s.SpeedPerWalk
 	return math.min(walk, s.MaxWalkSpeed)
 end
 
 function Economy.StatForWalkSpeed(walkSpeed: number): number
 	local s = Config.Speed
-	return s.StatScale * (2 ^ ((walkSpeed - s.BaseWalkSpeed) / s.WalkPerDoubling) - 1)
+	return math.max(0, (walkSpeed - s.BaseWalkSpeed) * s.SpeedPerWalk)
+end
+
+-- The old logarithmic curve (saves from before the Speed stat became linear are converted with it).
+function Economy.LegacyWalkSpeed(stat: number): number
+	return math.min(16 + 3 * math.log(1 + math.max(stat, 0) / 5, 2), 180)
 end
 
 function Economy.WorldWalkMultiplier(worldId: number?): number
@@ -49,8 +56,9 @@ function Economy.GuardWalkSpeed(areaId: number): number
 	return (Economy.WalkSpeedFromStat(area.RecommendedSpeed) + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World)
 end
 
+-- Treadmill multiplier from the Speed Multiplier upgrade (+5% per level, adds up).
 function Economy.SpeedMultiplier(level: number): number
-	return Config.SpeedMultiplier.PerLevel ^ level
+	return 1 + Config.SpeedMultiplier.PerLevel * level
 end
 
 -- Price to go from `level` to `level + 1`.
@@ -94,13 +102,16 @@ end
 
 -- Speed gained per second on the treadmill.
 -- indexBonus: total Index speed bonus in % (e.g. 35 = +35%).
-function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?): number
+-- petBonus: total speed bonus of your equipped pets (0.25 = +25%).
+function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?): number
 	local index = math.min((indexBonus or 0) / 100, Config.Index.MaxSpeedBonus)
+	local pets = math.min(petBonus or 0, Config.Pets.MaxSpeedBonus)
 	return Economy.TreadmillTier(treadmillLevel).Rate
 		* Economy.SpeedMultiplier(multiplierLevel)
 		* speedPassMultiplier
 		* Economy.RebirthSpeedMultiplier(rebirths or 0)
 		* (1 + index)
+		* (1 + pets)
 end
 
 --------------------------------------------------------------------------------
@@ -182,6 +193,22 @@ function Economy.MoneyMultiplier(ownedPasses: { [string]: boolean }): number
 		end
 	end
 	return result
+end
+
+--------------------------------------------------------------------------------
+-- Pets
+--------------------------------------------------------------------------------
+-- Total money / speed bonus of a list of equipped pet ids (0.5 = +50%), capped by Config.Pets.
+function Economy.PetBonuses(petIds: { string }): (number, number)
+	local money, speed = 0, 0
+	for _, id in petIds do
+		local pet = Pets.ById[id]
+		if pet then
+			money += pet.Money
+			speed += pet.Speed
+		end
+	end
+	return math.min(money, Config.Pets.MaxMoneyBonus), math.min(speed, Config.Pets.MaxSpeedBonus)
 end
 
 function Economy.SpeedPassMultiplier(ownedPasses: { [string]: boolean }): number

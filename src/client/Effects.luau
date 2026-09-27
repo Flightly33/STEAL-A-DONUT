@@ -25,6 +25,7 @@ local Format = require(Shared.Format)
 local Theme = require(script.Parent.UI.Theme)
 local State = require(script.Parent.State)
 local AreaTracker = require(script.Parent.AreaTracker)
+local Bases = require(script.Parent.Bases)
 
 local Effects = {}
 
@@ -64,7 +65,7 @@ type Floater = { Root: BasePart, Base: CFrame, Phase: number, Spin: number, Bob:
 
 local function makeFloater(spin: number, bob: number): (Instance) -> Floater?
 	return function(instance: Instance): Floater?
-		if not instance:IsA("Model") or CollectionService:HasTag(instance, "BaseDonut") then
+		if not instance:IsA("Model") or CollectionService:HasTag(instance, "BaseDonut") or instance:GetAttribute("Follower") then
 			return nil
 		end
 		local root = instance.PrimaryPart or instance:WaitForChild("Root", 5)
@@ -163,8 +164,12 @@ local function startTreadmills()
 			return nil
 		end
 		task.wait(0.5) -- let the slats replicate
+		local treadmill = instance.Parent
+		if not treadmill then
+			return nil -- rebuilt already (the base moved worlds)
+		end
 		local slats: { BasePart } = {}
-		for _, child in (instance.Parent :: Instance):GetChildren() do
+		for _, child in treadmill:GetChildren() do
 			if child:IsA("BasePart") and child.Name == "Slat" then
 				table.insert(slats, child)
 			end
@@ -281,10 +286,7 @@ local function startPopups()
 		local interval = 3
 		while true do
 			task.wait(interval)
-			local index = State.Get("PlotIndex")
-			local map = workspace:FindFirstChild("Map")
-			local plots = map and map:FindFirstChild("Plots")
-			local plot = plots and plots:FindFirstChild("Plot" .. tostring(index))
+			local plot = Bases.Mine()
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if plot and root and (root.Position - plot:GetPivot().Position).Magnitude < 120 then
 				local mult = math.max(1, State.Number("MoneyMultiplier"))

@@ -1,10 +1,14 @@
 --[[
 	Treadmill (client): step onto your own treadmill and you're locked onto the belt, running in
 	place automatically. Press Space / Jump (or the "Get off" button) to step off.
-	While running, a "+speed" popup appears at a random spot on the screen every second.
+	While running: a "+speed" popup every second, the camera zooms out a little (FOV kick), speed
+	lines streak across the screen, a trail in your treadmill's colour follows you, and every time
+	you gain a whole point of WalkSpeed (every Config.Speed.SpeedPerWalk Speed) a "+1 WALK SPEED!"
+	burst pops up.
+	Every treadmill's LED strips and fan are animated here too (faster while someone runs on it).
 
 	The server decides how much speed you actually get (TreadmillService); this only handles the
-	feel: pinning you to the belt, the run animation and the popups.
+	feel.
 ]]
 
 local Players = game:GetService("Players")
@@ -13,12 +17,16 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local CollectionService = game:GetService("CollectionService")
+
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.UI.Theme)
 local State = require(script.Parent.State)
+local Bases = require(script.Parent.Bases)
 
 local Treadmill = {}
 
@@ -36,6 +44,11 @@ local cooldownUntil = 0
 local hint: Frame
 local popupLayer: Frame
 local rateLabel: TextLabel
+local speedLines: Frame
+local trail: Trail? = nil
+local trailAttachments: { Attachment } = {}
+local baseFov = 70
+local lastWalkPoint = 0
 
 local function getCharacter(): (Model?, BasePart?, Humanoid?)
 	local character = player.Character
@@ -45,10 +58,7 @@ local function getCharacter(): (Model?, BasePart?, Humanoid?)
 end
 
 local function getBelt(): BasePart?
-	local index = State.Get("PlotIndex")
-	local map = workspace:FindFirstChild("Map")
-	local plots = map and map:FindFirstChild("Plots")
-	local plot = plots and plots:FindFirstChild("Plot" .. tostring(index))
+	local plot = Bases.Mine()
 	local treadmill = plot and plot:FindFirstChild("Treadmill")
 	local belt = treadmill and treadmill:FindFirstChild("Belt")
 	return if belt and belt:IsA("BasePart") then belt else nil
@@ -56,7 +66,168 @@ end
 
 local function currentRate(): number
 	local level = math.max(1, State.Number("TreadmillLevel"))
-	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("Rebirths"), State.Number("IndexBonus"))
+	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("Rebirths"), State.Number("IndexBonus"), State.Number("PetSpeedBonus"))
+end
+
+local function tierColor(): Color3
+	return Economy.TreadmillTier(math.max(1, State.Number("TreadmillLevel"))).Accent
+end
+
+-- Trail + FOV kick + speed lines while running
+local function setRunFX(on: boolean, root: BasePart?)
+	local camera = workspace.CurrentCamera
+	if camera then
+		if on then
+			baseFov = camera.FieldOfView
+		end
+		TweenService:Create(camera, TweenInfo.new(0.5, Enum.EasingStyle.Sine), { FieldOfView = if on then baseFov + 10 else baseFov }):Play()
+	end
+	speedLines.Visible = on
+	if trail then
+		trail:Destroy()
+		trail = nil
+	end
+	for _, attachment in trailAttachments do
+		attachment:Destroy()
+	end
+	trailAttachments = {}
+	if on and root then
+		local a0 = Instance.new("Attachment")
+		a0.Position = Vector3.new(0, 1, 0)
+		a0.Parent = root
+		local a1 = Instance.new("Attachment")
+		a1.Position = Vector3.new(0, -1.5, 0)
+		a1.Parent = root
+		local t = Instance.new("Trail")
+		t.Attachment0 = a0
+		t.Attachment1 = a1
+		t.Color = ColorSequence.new(tierColor(), Color3.new(1, 1, 1))
+		t.LightEmission = 0.8
+		t.Lifetime = 0.35
+		t.Transparency = NumberSequence.new(0.3, 1)
+		t.FaceCamera = true
+		t.Parent = root
+		trail = t
+		trailAttachments = { a0, a1 }
+	end
+end
+
+-- Streaks flying across the screen while you run
+local function buildSpeedLines(parent: Instance)
+	speedLines = Theme.new("Frame", { Name = "SpeedLines", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Visible = false, Parent = parent })
+	local lines = {}
+	for i = 1, 14 do
+		local line = Theme.new("Frame", {
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.75,
+			BorderSizePixel = 0,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Size = UDim2.fromOffset(math.random(80, 220), 3),
+			Position = UDim2.fromScale(math.random(), (i - 0.5) / 14),
+			Parent = speedLines,
+		})
+		table.insert(lines, { Frame = line, Speed = math.random(9, 16) / 10, Y = (i - 0.5) / 14 })
+	end
+	RunService.RenderStepped:Connect(function(dt: number)
+		if not speedLines.Visible then
+			return
+		end
+		for _, line in lines do
+			local x = line.Frame.Position.X.Scale - dt * line.Speed
+			if x < -0.15 then
+				x = 1.15
+				line.Frame.BackgroundColor3 = tierColor():Lerp(Color3.new(1, 1, 1), 0.5)
+			end
+			-- keep the middle of the screen clear
+			local edge = math.abs(line.Y - 0.5) > 0.22
+			line.Frame.BackgroundTransparency = if edge then 0.7 else 1
+			line.Frame.Position = UDim2.fromScale(x, line.Y)
+		end
+	end)
+end
+
+-- "+1 WALK SPEED!" every time the Speed stat crosses a whole WalkSpeed point
+local function walkSpeedBurst(points: number)
+	local label = Theme.Label({
+		Text = `+{points} WALK SPEED! 🏃`,
+		TextColor3 = Color3.fromRGB(120, 255, 140),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.3),
+		Size = UDim2.fromOffset(360, 56),
+		StrokeThickness = 3.5,
+		Parent = popupLayer,
+	})
+	local scale = Theme.new("UIScale", { Scale = 0.2, Parent = label })
+	TweenService:Create(scale, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = Theme.CurrentScale() * 1.1 }):Play()
+	TweenService:Create(label, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = UDim2.fromScale(0.5, 0.22) }):Play()
+	task.delay(0.9, function()
+		TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+		task.wait(0.45)
+		label:Destroy()
+	end)
+end
+
+-- LED strips chase along every treadmill, the fans spin (both faster while someone runs on it)
+local function startTreadmillAnimations()
+	type LED = { Part: BasePart, Index: number, Model: Instance }
+	local leds: { [Instance]: LED } = {}
+	local fans: { [Instance]: { Model: Model, Base: CFrame } } = {}
+	local function addLED(instance: Instance)
+		if instance:IsA("BasePart") then
+			leds[instance] = { Part = instance, Index = (instance:GetAttribute("LEDIndex") :: number?) or 0, Model = instance.Parent :: Instance }
+		end
+	end
+	local function addFan(instance: Instance)
+		if instance:IsA("Model") and instance.PrimaryPart then
+			fans[instance] = { Model = instance, Base = instance:GetPivot() }
+		end
+	end
+	for _, led in CollectionService:GetTagged("TreadmillLED") do
+		addLED(led)
+	end
+	for _, fan in CollectionService:GetTagged("TreadmillFan") do
+		addFan(fan)
+	end
+	CollectionService:GetInstanceAddedSignal("TreadmillLED"):Connect(addLED)
+	CollectionService:GetInstanceAddedSignal("TreadmillFan"):Connect(function(instance)
+		task.wait(0.2)
+		addFan(instance)
+	end)
+	CollectionService:GetInstanceRemovedSignal("TreadmillLED"):Connect(function(instance)
+		leds[instance] = nil
+	end)
+	CollectionService:GetInstanceRemovedSignal("TreadmillFan"):Connect(function(instance)
+		fans[instance] = nil
+	end)
+	local fanAngle: { [Instance]: number } = {}
+	RunService.RenderStepped:Connect(function(dt: number)
+		local t = os.clock()
+		local camera = workspace.CurrentCamera
+		local cam = if camera then camera.CFrame.Position else Vector3.zero
+		for instance, led in leds do
+			if not instance.Parent then
+				leds[instance] = nil
+				continue
+			end
+			if (led.Part.Position - cam).Magnitude < 120 then
+				local running = led.Model:GetAttribute("Running") == true
+				local speed = if running then 14 else 3
+				local wave = math.sin(t * speed - led.Index * 0.8)
+				led.Part.Transparency = if running then 0.5 - wave * 0.5 else 0.35 - wave * 0.3
+			end
+		end
+		for instance, fan in fans do
+			if not instance.Parent then
+				fans[instance] = nil
+				continue
+			end
+			if (fan.Base.Position - cam).Magnitude < 120 then
+				local running = (fan.Model.Parent :: Instance):GetAttribute("Running") == true
+				fanAngle[instance] = (fanAngle[instance] or 0) + dt * (if running then 22 else 3)
+				fan.Model:PivotTo(fan.Base * CFrame.Angles(fanAngle[instance], 0, 0))
+			end
+		end
+	end)
 end
 
 -- Disable / enable walking input (so holding W doesn't fight the treadmill).
@@ -110,6 +281,8 @@ local function start(belt: BasePart, character: Model, root: BasePart, humanoid:
 	end
 	rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
 	hint.Visible = true
+	lastWalkPoint = math.floor(State.Number("Speed") / Config.Speed.SpeedPerWalk)
+	setRunFX(true, root)
 end
 
 local function stop(stepOff: boolean)
@@ -134,6 +307,7 @@ local function stop(stepOff: boolean)
 		track = nil
 	end
 	setControls(true)
+	setRunFX(false, nil)
 end
 
 local function isOnBelt(belt: BasePart, position: Vector3): boolean
@@ -179,7 +353,18 @@ function Treadmill.Init()
 		end)
 	end)
 	local gui = Theme.ScreenGui("Treadmill", 4)
+	buildSpeedLines(gui)
 	popupLayer = Theme.new("Frame", { Name = "Popups", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = gui })
+	startTreadmillAnimations()
+	State.OnAttribute("Speed", function(value)
+		if running and type(value) == "number" then
+			local point = math.floor(value / Config.Speed.SpeedPerWalk)
+			if point > lastWalkPoint then
+				walkSpeedBurst(point - lastWalkPoint)
+			end
+			lastWalkPoint = point
+		end
+	end)
 
 	hint = Theme.new("Frame", {
 		Name = "RunningHint",
@@ -264,6 +449,7 @@ function Treadmill.Init()
 		track = nil
 		hint.Visible = false
 		setControls(true)
+		setRunFX(false, nil)
 	end)
 end
 

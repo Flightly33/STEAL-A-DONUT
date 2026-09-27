@@ -14,8 +14,9 @@
 		and the Portal models (Hub/Portals, Worlds/WorldN/HomePortal).
 
 	All areas live in Lane/AreaN, whichever world they belong to: World 1's lane starts at the hub,
-	the other worlds' lanes are far away along X (Areas.Worlds[].OffsetX) with a small safe landing
-	(Worlds/WorldN) and a portal back home.
+	the other worlds' lanes are far away along X (Areas.Worlds[].OffsetX), each with its own hub
+	(Worlds/WorldN) that has a base plot for every player (Worlds/WorldN/Plots/PlotN) and a portal
+	back home.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -41,7 +42,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 2
+local MAP_VERSION = 3
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -87,14 +88,32 @@ local function buildPortal(parent: Instance, name: string, cf: CFrame, color: Co
 	return portal
 end
 
+local function portalSubtitle(world: Areas.World): string
+	local rebirths = if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
+	return `🔒 Needs {rebirths}  •  Everyone is x{world.WalkMultiplier} faster`
+end
+
 local function buildHubPortals(hub: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Portals"
 	folder.Parent = hub
 	for _, world in Areas.Worlds do
 		if world.Id > 1 then
-			local rebirths = if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
-			buildPortal(folder, "Portal_World" .. world.Id, Layout.PortalCFrame(world.Id), world.Color, `{world.Icon} {string.upper(world.Name)}`, `🔒 Needs {rebirths}  •  Everyone is x{world.WalkMultiplier} faster`, world.Id, false)
+			buildPortal(folder, "Portal_World" .. world.Id, Layout.PortalCFrame(world.Id), world.Color, `{world.Icon} {string.upper(world.Name)}`, portalSubtitle(world), world.Id, false)
+		end
+	end
+end
+
+-- A saved map keeps the text it was built with; rewrite the parts that come from the config.
+local function refreshPortalSigns(hub: Instance)
+	local portals = hub:FindFirstChild("Portals")
+	for _, world in Areas.Worlds do
+		local portal = portals and portals:FindFirstChild("Portal_World" .. world.Id)
+		local trigger = portal and portal:FindFirstChild("Trigger")
+		local sign = trigger and trigger:FindFirstChild("PortalSign")
+		local subtitle = sign and sign:FindFirstChild("Subtitle")
+		if subtitle and subtitle:IsA("TextLabel") then
+			subtitle.Text = portalSubtitle(world)
 		end
 	end
 end
@@ -158,23 +177,28 @@ local function buildBridge(parent: Instance, world: Areas.World)
 	end
 end
 
--- The safe landing in front of a world's lane (worlds 2+), with the portal home.
+-- The safe hub in front of a world's lane (worlds 2+): same size as the main hub, with a base plot
+-- for every player (your base follows you to whichever world you're in), and the portal home.
+local buildPlot: (parent: Instance, plotIndex: number, worldId: number) -> ()
+
 local function buildWorldLanding(parent: Instance, world: Areas.World)
 	local folder = Instance.new("Model")
 	folder.Name = "World" .. world.Id
 	folder:SetAttribute("WorldId", world.Id)
-	local x0, z0, depth, half = world.OffsetX, map.SafeZoneZ, Layout.LandingDepth, map.LaneHalfWidth + 20
+	local x0, z0, depth, half = world.OffsetX, map.SafeZoneZ, map.HubDepth, map.HubHalfWidth
 	local first = Areas.ByWorld[world.Id][1]
-	Build.CheckerFloor(folder, x0 - half, x0 + half, z0 - depth, z0, map.TileSize, { first.Floor[1]:Lerp(Color3.new(1, 1, 1), 0.15), first.Floor[2]:Lerp(Color3.new(1, 1, 1), 0.15) }, first.FloorMaterial)
-	local t, h = 4, 30
+	local floorColors = { first.Floor[1]:Lerp(Color3.new(1, 1, 1), 0.15), first.Floor[2]:Lerp(Color3.new(1, 1, 1), 0.15) }
+	Build.CheckerFloor(folder, x0 - half, x0 + half, z0 - depth, z0, map.TileSize, floorColors, first.FloorMaterial)
+	local t, h = 4, map.HubWallHeight
 	local wallColors = first.Wall
-	Build.CheckerWall(folder, Vector3.new(x0 - half - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, wallColors, first.WallMaterial, 15)
-	Build.CheckerWall(folder, Vector3.new(x0 + half + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, wallColors, first.WallMaterial, 15)
-	Build.CheckerWall(folder, Vector3.new(x0 - half - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, t, wallColors, first.WallMaterial, 15)
+	Build.CheckerWall(folder, Vector3.new(x0 - half - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, wallColors, first.WallMaterial, 20)
+	Build.CheckerWall(folder, Vector3.new(x0 + half + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, wallColors, first.WallMaterial, 20)
+	Build.CheckerWall(folder, Vector3.new(x0 - half - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, t, wallColors, first.WallMaterial, 20)
 	local laneOuter = map.LaneHalfWidth + t
 	for _, side in { -1, 1 } do
 		local from = if side < 0 then x0 - half - t else x0 + laneOuter
-		Build.CheckerWall(folder, Vector3.new(from, 0, z0 + t / 2), Vector3.new(1, 0, 0), half + t - laneOuter, h, t, wallColors, first.WallMaterial, 15)
+		Build.CheckerWall(folder, Vector3.new(from, 0, z0 + t / 2), Vector3.new(1, 0, 0), half + t - laneOuter, h, t, wallColors, first.WallMaterial, 20)
+		Build.Part({ Parent = folder, Name = "WallTop", Size = Vector3.new(t + 1, 2, depth + t), Position = Vector3.new(x0 + side * (half + t / 2), h + 1, z0 - depth / 2 - t / 2), Color = first.Trim, Material = first.TrimMaterial })
 	end
 	-- Safe zone line
 	Build.Part({ Parent = folder, Name = "SafeZoneLine", Size = Vector3.new(map.LaneHalfWidth * 2, 0.2, 1.5), Position = Vector3.new(x0, 0.1, z0 - 0.75), Color = rgb(255, 50, 50), Material = Enum.Material.Neon, CanCollide = false })
@@ -195,10 +219,16 @@ local function buildWorldLanding(parent: Instance, world: Areas.World)
 	gui.LightInfluence = 0
 	gui.Parent = beam
 	Build.Text(gui, `{world.Icon} WORLD {world.Id}: {string.upper(world.Name)} {world.Icon}`, { TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(20, 20, 40) })
-	buildPortal(folder, "HomePortal", Layout.PortalCFrame(world.Id, true), rgb(120, 230, 90), "🏠 BACK HOME", "Carrying a donut? Walk in - it goes straight to your base!", 1, true)
+	buildPortal(folder, "HomePortal", Layout.PortalCFrame(world.Id, true), rgb(120, 230, 90), "🏠 BACK TO DONUT LAND", "Your base comes with you!", 1, true)
 	buildBridge(folder, world)
 	local marker = Build.Part({ Parent = folder, Name = "Arrival", Size = Vector3.new(4, 1, 4), CFrame = Layout.WorldArrival(world.Id), Transparency = 1, CanCollide = false, CanQuery = false })
 	folder.PrimaryPart = marker
+	local plots = Instance.new("Folder")
+	plots.Name = "Plots"
+	plots.Parent = folder
+	for i = 1, Config.Plots.Count do
+		buildPlot(plots, i, world.Id)
+	end
 	folder.Parent = parent
 end
 
@@ -302,8 +332,9 @@ local function buildLeaderboards(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Leaderboards"
 	folder.Parent = parent
+	local count = #Config.Leaderboards.Boards
 	for index, board in Config.Leaderboards.Boards do
-		local x = -54 + (index - 1) * 33
+		local x = (index - (count + 1) / 2) * 33
 		local z = -250
 		local model = Instance.new("Model")
 		model.Name = "Board_" .. board.Id
@@ -375,6 +406,14 @@ end
 -- Lane / areas
 -- Every area is built around X = 0 and then moved to its world's lane.
 --------------------------------------------------------------------------------
+-- Third line of an area's arch sign. Rewritten on every start (refreshAreaSigns), so a saved map
+-- never shows an old guard name or old speeds after a rebalance.
+local function guardInfoText(area: Areas.Area): string
+	local guardSpeed = math.floor(Economy.GuardWalkSpeed(area.Id))
+	local rec = if area.RecommendedSpeed > 0 then "⚡ Recommended Speed: " .. Format.Number(area.RecommendedSpeed) else "⚡ Any speed works here!"
+	return `😴 {Config.Guard.Name} speed: {guardSpeed}   •   {rec}`
+end
+
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	local half = map.LaneHalfWidth
 	local arch = Instance.new("Model")
@@ -401,10 +440,27 @@ local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	list.Parent = gui
 	Build.Text(gui, "AREA " .. area.Id, { Size = UDim2.fromScale(1, 0.22), TextColor3 = rgb(255, 255, 255), LayoutOrder = 1 })
 	Build.Text(gui, string.upper(area.Name), { Size = UDim2.fromScale(1, 0.45), TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.35), LayoutOrder = 2 })
-	local guardSpeed = math.floor(Economy.GuardWalkSpeed(area.Id))
-	local rec = if area.RecommendedSpeed > 0 then "⚡ Recommended Speed: " .. Format.Number(area.RecommendedSpeed) else "⚡ Any speed works here!"
-	Build.Text(gui, `😴 {Config.Guard.Name} speed: {guardSpeed}   •   {rec}`, { Size = UDim2.fromScale(1, 0.25), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne, LayoutOrder = 3 })
+	Build.Text(gui, guardInfoText(area), { Name = "GuardInfo", Size = UDim2.fromScale(1, 0.25), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne, LayoutOrder = 3 })
 	arch.Parent = parent
+end
+
+local function refreshAreaSigns(mapFolder: Instance)
+	local lane = mapFolder:FindFirstChild("Lane")
+	for _, area in Areas.List do
+		local folder = lane and lane:FindFirstChild("Area" .. area.Id)
+		local arch = folder and folder:FindFirstChild("Arch")
+		local sign = arch and arch:FindFirstChild("ArchSign")
+		local gui = sign and sign:FindFirstChildOfClass("SurfaceGui")
+		if gui then
+			for _, label in gui:GetChildren() do
+				-- Older maps have no names on the labels: the guard line is the one with the 😴.
+				if label:IsA("TextLabel") and (label.Name == "GuardInfo" or string.find(label.Text, "😴", 1, true)) then
+					label.Name = "GuardInfo"
+					label.Text = guardInfoText(area)
+				end
+			end
+		end
+	end
 end
 
 -- Guard bed position before the area is moved to its world (X = 0).
@@ -416,15 +472,21 @@ local function buildGuardBed(parent: Instance, areaId: number)
 	local home = localGuardHome(areaId)
 	local bed = Instance.new("Model")
 	bed.Name = "GuardBed"
-	-- Picnic blanket
-	for i = 0, 3 do
-		for j = 0, 2 do
-			Build.Decor({ Parent = bed, Name = "Blanket", Size = Vector3.new(4, 0.25, 4), Position = home + Vector3.new(-6 + i * 4, 0.13, -4 + j * 4), Color = if (i + j) % 2 == 0 then rgb(220, 40, 40) else rgb(255, 255, 255), Material = Enum.Material.Fabric })
+	-- Picnic blanket, big enough for a HUGE guard (he lies along Z, head towards the back)
+	local scale = Config.Guard.Scale
+	local tile = math.max(4, math.floor(1.6 * scale + 0.5))
+	local columns, rows = 4, math.max(3, math.ceil((5.5 * scale + 2) / tile))
+	for i = 0, columns - 1 do
+		for j = 0, rows - 1 do
+			local x = (i - (columns - 1) / 2) * tile
+			local z = (j - (rows - 1) / 2) * tile - 0.5 * scale -- a bit towards his feet
+			Build.Decor({ Parent = bed, Name = "Blanket", Size = Vector3.new(tile, 0.25, tile), Position = home + Vector3.new(x, 0.13, z), Color = if (i + j) % 2 == 0 then rgb(220, 40, 40) else rgb(255, 255, 255), Material = Enum.Material.Fabric })
 		end
 	end
 	-- Stack of empty pink donut boxes
+	local boxX = columns * tile / 2 + 3
 	for n = 0, 3 do
-		Build.Decor({ Parent = bed, Name = "DonutBox", Size = Vector3.new(4, 1, 4), CFrame = CFrame.new(home + Vector3.new(11, 0.5 + n * 1.02, 3)) * CFrame.Angles(0, n * 0.2, 0), Color = rgb(255, 150, 200), Material = Enum.Material.SmoothPlastic })
+		Build.Decor({ Parent = bed, Name = "DonutBox", Size = Vector3.new(4, 1, 4), CFrame = CFrame.new(home + Vector3.new(boxX, 0.5 + n * 1.02, 3)) * CFrame.Angles(0, n * 0.2, 0), Color = rgb(255, 150, 200), Material = Enum.Material.SmoothPlastic })
 	end
 	local marker = Build.Part({ Parent = bed, Name = "GuardHome", Size = Vector3.new(2, 1, 2), CFrame = CFrame.lookAt(home + Vector3.new(0, 0.5, 0), home + Vector3.new(0, 0.5, -10)), Transparency = 1, CanCollide = false, CanQuery = false })
 	marker:SetAttribute("Area", areaId)
@@ -541,12 +603,12 @@ end
 --------------------------------------------------------------------------------
 -- Donut stands: rows of 4 starting at the FRONT of the plot (see Layout.SlotOffset). Stands you
 -- haven't unlocked yet are shown see-through by PlotService.
-local function buildSlots(plot: Model, plotIndex: number)
+local function buildSlots(plot: Model, plotIndex: number, worldId: number)
 	local old = plot:FindFirstChild("Slots")
 	if old then
 		old:Destroy()
 	end
-	local cf = Layout.PlotCFrame(plotIndex)
+	local cf = Layout.PlotCFrame(plotIndex, worldId)
 	local fh = Layout.PlotFloorHeight
 	local classic = Config.Skins[1]
 	local slots = Instance.new("Folder")
@@ -568,14 +630,15 @@ local function buildSlots(plot: Model, plotIndex: number)
 	end
 end
 
-local function buildPlot(parent: Instance, plotIndex: number)
-	local cf = Layout.PlotCFrame(plotIndex)
+function buildPlot(parent: Instance, plotIndex: number, worldId: number)
+	local cf = Layout.PlotCFrame(plotIndex, worldId)
 	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
 	local classic = Config.Skins[1]
 
 	local plot = Instance.new("Model")
 	plot.Name = "Plot" .. plotIndex
 	plot:SetAttribute("PlotIndex", plotIndex)
+	plot:SetAttribute("WorldId", worldId)
 
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
@@ -633,13 +696,14 @@ local function buildPlot(parent: Instance, plotIndex: number)
 	fenceLine(Vector3.new(-hw, 0, -hd), Vector3.new(-gap, 0, -hd)) -- front left
 	fenceLine(Vector3.new(gap, 0, -hd), Vector3.new(hw, 0, -hd)) -- front right
 
-	buildSlots(plot, plotIndex)
+	buildSlots(plot, plotIndex, worldId)
 
 	-- Anchors used by other services
 	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, -hd + 12), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 20, hd - 6), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-17, 0, -hd - 12), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(17, 0, -hd - 11), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, 0, -hd - 22), Transparency = 1, CanCollide = false, CanQuery = false })
 
 	local skinFx = Instance.new("Folder")
 	skinFx.Name = "SkinFX"
@@ -654,7 +718,7 @@ local function buildPlots(parent: Folder)
 	plots.Name = "Plots"
 	plots.Parent = parent
 	for i = 1, Config.Plots.Count do
-		buildPlot(plots, i)
+		buildPlot(plots, i, 1)
 	end
 end
 
@@ -732,17 +796,72 @@ function MapBuilder.Build(): Folder
 			if not hub:FindFirstChild("Portals") then
 				buildHubPortals(hub)
 			end
+			refreshPortalSigns(hub)
 		end
-		if (existing:GetAttribute("MapVersion") or 1) < 2 then
+		local version = (existing:GetAttribute("MapVersion") or 1) :: number
+		if version < 2 then
 			-- Version 2: donut stands moved to the front of each base (and more of them).
 			local plots = existing:FindFirstChild("Plots")
 			for plotIndex = 1, Config.Plots.Count do
 				local plot = plots and plots:FindFirstChild("Plot" .. plotIndex)
 				if plot and plot:IsA("Model") then
-					buildSlots(plot, plotIndex)
+					buildSlots(plot, plotIndex, 1)
 				end
 			end
-			existing:SetAttribute("MapVersion", MAP_VERSION)
+		end
+		if version < 3 then
+			-- Version 3: Domer is HUGE now, so his blanket is bigger.
+			local lane = existing:FindFirstChild("Lane")
+			for _, area in Areas.List do
+				local folder = lane and lane:FindFirstChild("Area" .. area.Id)
+				local oldBed = folder and folder:FindFirstChild("GuardBed")
+				if folder and oldBed then
+					oldBed:Destroy()
+					buildGuardBed(folder, area.Id)
+					local offset = Layout.WorldOffset(area.World)
+					local bed = folder:FindFirstChild("GuardBed")
+					if bed and offset ~= 0 then
+						for _, part in bed:GetDescendants() do
+							if part:IsA("BasePart") then
+								part.CFrame += Vector3.new(offset, 0, 0)
+							end
+						end
+					end
+				end
+			end
+			-- Version 3: every world has a full hub with its own base plots (and incubators).
+			local worlds = existing:FindFirstChild("Worlds")
+			if worlds then
+				worlds:Destroy()
+			end
+			local plots = existing:FindFirstChild("Plots")
+			for plotIndex = 1, Config.Plots.Count do
+				local plot = plots and plots:FindFirstChild("Plot" .. plotIndex)
+				if plot and plot:IsA("Model") then
+					plot:SetAttribute("WorldId", 1)
+					if not plot:FindFirstChild("IncubatorAnchor") then
+						Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = Layout.PlotCFrame(plotIndex, 1) * CFrame.new(0, 0, -Layout.PlotDepth / 2 - 22), Transparency = 1, CanCollide = false, CanQuery = false })
+					end
+				end
+			end
+		end
+		existing:SetAttribute("MapVersion", MAP_VERSION)
+		refreshAreaSigns(existing)
+		if hub then
+			-- New leaderboards (e.g. donations): rebuild the row of boards.
+			local boards = hub:FindFirstChild("Leaderboards")
+			local missing = boards == nil
+			for _, board in Config.Leaderboards.Boards do
+				if boards and not boards:FindFirstChild("Board_" .. board.Id) then
+					missing = true
+				end
+			end
+			if missing then
+				if boards then
+					boards:Destroy()
+				end
+				buildLeaderboards(hub)
+			end
 		end
 		buildLane(existing) -- adds any areas that are missing (new worlds)
 		if not existing:FindFirstChild("Worlds") then
@@ -774,8 +893,13 @@ function MapBuilder.Get(): Folder
 	return mapFolder :: Folder
 end
 
-function MapBuilder.GetPlot(index: number): Model
-	return MapBuilder.Get():WaitForChild("Plots"):WaitForChild("Plot" .. index) :: Model
+-- A base plot in a world's hub (world 1 = the main hub).
+function MapBuilder.GetPlot(index: number, worldId: number?): Model
+	local world = worldId or 1
+	if world == 1 then
+		return MapBuilder.Get():WaitForChild("Plots"):WaitForChild("Plot" .. index) :: Model
+	end
+	return MapBuilder.Get():WaitForChild("Worlds"):WaitForChild("World" .. world):WaitForChild("Plots"):WaitForChild("Plot" .. index) :: Model
 end
 
 function MapBuilder.GetArea(index: number): Folder

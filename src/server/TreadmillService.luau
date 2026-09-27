@@ -6,6 +6,9 @@
 	gain Speed every tick (checked here, on the server).
 
 	Upgrading the treadmill (Shop) rebuilds it as a cooler model with a faster gain rate.
+	Every tier has LED strips and a fan (animated by the clients, faster while someone runs), and
+	while the owner runs the belt throws sparks and dust (the model's "Running" attribute).
+	The treadmill moves with your base when you go to another world.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -35,7 +38,7 @@ function TreadmillService.GetRate(player: Player): number
 		return 0
 	end
 	local data = profile.Data
-	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data))
+	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data))
 end
 
 local function updateScreen(player: Player)
@@ -61,6 +64,14 @@ local function updateScreen(player: Player)
 	end
 end
 
+function TreadmillService.Remove(player: Player)
+	local belt = belts[player]
+	belts[player] = nil
+	if belt and belt.Parent then
+		(belt.Parent :: Instance):Destroy()
+	end
+end
+
 function TreadmillService.Build(player: Player)
 	local plot = PlotService.GetPlotModel(player)
 	local profile = DataService.Get(player)
@@ -71,6 +82,8 @@ function TreadmillService.Build(player: Player)
 	if not anchor then
 		return
 	end
+	-- Remove the old one (it may be in another world if the base just moved)
+	TreadmillService.Remove(player)
 	local old = plot:FindFirstChild("Treadmill")
 	if old then
 		old:Destroy()
@@ -149,6 +162,69 @@ function TreadmillService.Build(player: Player)
 			CollectionService:AddTag(glow, "RainbowPart")
 		end
 	end
+	-- LED strips along both sides of the belt (every tier): the clients run a chase pattern on them.
+	for _, side in { -1, 1 } do
+		for i = 0, 9 do
+			local led = Build.Decor({ Parent = model, Name = "LED", Size = Vector3.new(0.3, 0.2, 0.9), CFrame = at(side * 3.45, 1.32, 0.5 - BELT_LENGTH / 2 + 0.7 + i * (BELT_LENGTH - 1.4) / 9), Color = tier.Accent, Material = Enum.Material.Neon })
+			led:SetAttribute("LEDIndex", i)
+			CollectionService:AddTag(led, "TreadmillLED")
+		end
+	end
+	-- A fan on the console that spins (faster while someone runs)
+	local fan = Instance.new("Model")
+	fan.Name = "Fan"
+	local fanCenter = at(0, 3.2, -5.75) * CFrame.Angles(0, math.pi / 2, 0) -- on the runner's side of the console
+	local hub = Build.Decor({ Parent = fan, Name = "FanHub", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 0.7, 0.7), CFrame = fanCenter, Color = tier.Accent, Material = Enum.Material.Neon })
+	for i = 0, 3 do
+		Build.Decor({ Parent = fan, Name = "Blade", Size = Vector3.new(0.12, 1.5, 0.45), CFrame = fanCenter * CFrame.Angles(i * math.pi / 2, 0, 0) * CFrame.new(0, 0.85, 0), Color = tier.Base:Lerp(Color3.new(1, 1, 1), 0.4), Material = Enum.Material.Metal })
+	end
+	Build.Decor({ Parent = fan, Name = "FanRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 3.9, 3.9), CFrame = fanCenter, Color = tier.Base, Material = tier.Material, Transparency = 0.6 })
+	fan.PrimaryPart = hub
+	CollectionService:AddTag(fan, "TreadmillFan")
+	fan.Parent = model
+	-- Sparks + dust thrown off the back of the belt while the owner runs (switched on by the server)
+	local back = Build.Decor({ Parent = model, Name = "RunFX", Size = Vector3.new(BELT_WIDTH, 0.2, 0.2), CFrame = at(0, 1.6, 0.5 + BELT_LENGTH / 2), Transparency = 1 })
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.Name = "Sparks"
+	sparks.Color = ColorSequence.new(tier.Accent, Color3.new(1, 1, 1))
+	sparks.LightEmission = 1
+	sparks.Rate = 18 + level * 3
+	sparks.Lifetime = NumberRange.new(0.3, 0.7)
+	sparks.Speed = NumberRange.new(6, 14)
+	sparks.SpreadAngle = Vector2.new(35, 35)
+	sparks.EmissionDirection = Enum.NormalId.Back
+	sparks.Acceleration = Vector3.new(0, -25, 0)
+	sparks.Size = NumberSequence.new(0.22, 0)
+	sparks.Enabled = false
+	sparks.Parent = back
+	local dust = Instance.new("ParticleEmitter")
+	dust.Name = "Dust"
+	dust.Color = ColorSequence.new(tier.Base:Lerp(Color3.new(1, 1, 1), 0.5))
+	dust.Rate = 10
+	dust.Lifetime = NumberRange.new(0.6, 1.1)
+	dust.Speed = NumberRange.new(2, 5)
+	dust.SpreadAngle = Vector2.new(50, 50)
+	dust.EmissionDirection = Enum.NormalId.Back
+	dust.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 2.2) })
+	dust.Transparency = NumberSequence.new(0.5, 1)
+	dust.Enabled = false
+	dust.Parent = back
+	if level >= 11 then
+		-- Tiers from the later worlds: an energy column rises from the belt while running
+		local column = Instance.new("ParticleEmitter")
+		column.Name = "Aura"
+		column.Color = ColorSequence.new(tier.Accent, Color3.new(1, 1, 1))
+		column.LightEmission = 1
+		column.Rate = 30
+		column.Lifetime = NumberRange.new(0.8, 1.4)
+		column.Speed = NumberRange.new(6, 10)
+		column.SpreadAngle = Vector2.new(6, 6)
+		column.EmissionDirection = Enum.NormalId.Top
+		column.Size = NumberSequence.new(0.5, 0)
+		column.Enabled = false
+		column.Parent = belt
+	end
+
 	if tier.Halo then
 		local center = at(0, 9.5, 0.5)
 		local ring = Instance.new("Model")
@@ -179,14 +255,6 @@ function TreadmillService.Build(player: Player)
 	updateScreen(player)
 end
 
-function TreadmillService.Remove(player: Player)
-	local belt = belts[player]
-	belts[player] = nil
-	if belt and belt.Parent then
-		(belt.Parent :: Instance):Destroy()
-	end
-end
-
 -- Refresh the rate shown on the console (after buying a multiplier / pass).
 function TreadmillService.Refresh(player: Player)
 	updateScreen(player)
@@ -200,7 +268,32 @@ local function isOnBelt(belt: BasePart, position: Vector3): boolean
 		and localPos.Y < 9
 end
 
+-- Sparks / dust / aura on while the owner runs.
+local function setRunning(player: Player, running: boolean)
+	local belt = belts[player]
+	local model = belt and belt.Parent
+	if not model or not belt then
+		return
+	end
+	model:SetAttribute("Running", running)
+	for _, name in { "Sparks", "Dust" } do
+		local fx = model:FindFirstChild("RunFX")
+		local emitter = fx and fx:FindFirstChild(name)
+		if emitter and emitter:IsA("ParticleEmitter") then
+			emitter.Enabled = running
+		end
+	end
+	local aura = belt:FindFirstChild("Aura")
+	if aura and aura:IsA("ParticleEmitter") then
+		aura.Enabled = running
+	end
+end
+
 function TreadmillService.Init()
+	-- The treadmill follows the base to other worlds.
+	PlotService.BaseMoved:Connect(function(player: Player)
+		TreadmillService.Build(player)
+	end)
 	task.spawn(function()
 		while true do
 			local dt = task.wait(TICK)
@@ -218,6 +311,7 @@ function TreadmillService.Init()
 				end
 				if player:GetAttribute("OnTreadmill") ~= onBelt then
 					player:SetAttribute("OnTreadmill", onBelt)
+					setRunning(player, onBelt)
 				end
 			end
 		end

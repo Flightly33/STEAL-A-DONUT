@@ -24,6 +24,8 @@ local Remotes = require(Shared.Remotes)
 local DataService = {}
 
 export type SlotData = { Id: string, Level: number, Mutation: string?, Size: string? }
+export type EggData = { Uid: string, Id: string, HatchAt: number } -- HatchAt: os.time() when it's ready
+export type PetData = { Uid: string, Id: string }
 
 export type Data = {
 	Version: number,
@@ -49,6 +51,13 @@ export type Data = {
 	MusicVolume: number,
 	MusicOn: boolean,
 	Items: { [string]: boolean },
+	Eggs: { EggData },
+	Pets: { PetData },
+	EquippedPets: { string }, -- pet Uids
+	Buddy: string?, -- donut id following you around
+	Donated: number, -- Robux donated
+	Purchases: { string }, -- the last developer product receipts granted (PurchaseIds), newest last
+	UsedAdmin: boolean, -- opened the admin panel (kept off the global leaderboards)
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -57,11 +66,11 @@ export type Profile = {
 	Data: Data,
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
-	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }? },
+	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, GodMode: boolean },
 	NoSave: boolean,
 }
 
-local DATA_VERSION = 2
+local DATA_VERSION = 3
 
 local TEMPLATE: Data = {
 	Version = DATA_VERSION,
@@ -87,6 +96,13 @@ local TEMPLATE: Data = {
 	MusicVolume = Config.Music.DefaultVolume,
 	MusicOn = true,
 	Items = {},
+	Eggs = {},
+	Pets = {},
+	EquippedPets = {},
+	Buddy = nil,
+	Donated = 0,
+	Purchases = {},
+	UsedAdmin = false,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -131,11 +147,46 @@ local function migrate(data: Data, isNew: boolean)
 		data.BestSpeed = math.max(data.BestSpeed, data.Speed)
 		data.Version = 2
 	end
+	if data.Version < 3 then
+		-- Version 3: the Speed stat became linear (WalkSpeed = 16 + Speed / 10). Convert old Speed
+		-- so you keep exactly the WalkSpeed you had; skins bought with the old huge numbers stay owned.
+		if not isNew then
+			local function convert(old: number): number
+				return math.floor(Economy.StatForWalkSpeed(Economy.LegacyWalkSpeed(old)))
+			end
+			data.Speed = convert(data.Speed)
+			data.BestSpeed = convert(data.BestSpeed)
+			-- Speed Multiplier levels used to go to 40 (x1.25 each); the new ones add +5% up to 20.
+			data.SpeedMultLevel = math.min(data.SpeedMultLevel, Config.SpeedMultiplier.MaxLevel)
+		end
+		data.Version = 3
+	end
 end
 
--- Total money multiplier: game passes x rebirths.
+-- Pet ids of the pets the player has equipped.
+function DataService.EquippedPetIds(data: Data): { string }
+	local ids = {}
+	for _, uid in data.EquippedPets do
+		for _, pet in data.Pets do
+			if pet.Uid == uid then
+				table.insert(ids, pet.Id)
+				break
+			end
+		end
+	end
+	return ids
+end
+
+-- Total money multiplier: game passes x rebirths x equipped pets.
 function DataService.MoneyMultiplier(profile: Profile): number
-	return Economy.MoneyMultiplier(profile.Passes) * Economy.RebirthMoneyMultiplier(profile.Data.Rebirths)
+	local petMoney = Economy.PetBonuses(DataService.EquippedPetIds(profile.Data))
+	return Economy.MoneyMultiplier(profile.Passes) * Economy.RebirthMoneyMultiplier(profile.Data.Rebirths) * (1 + petMoney)
+end
+
+-- Speed bonus from equipped pets (0.25 = +25% treadmill speed).
+function DataService.PetSpeedBonus(data: Data): number
+	local _, speed = Economy.PetBonuses(DataService.EquippedPetIds(data))
+	return speed
 end
 
 -- Total Index treadmill bonus in % (from rewards claimed as Speed).
@@ -219,7 +270,7 @@ function DataService.Load(player: Player): Profile?
 		Data = data,
 		Passes = {},
 		SessionSkins = {},
-		Session = { SlowMode = false, Stunned = false, Ready = false, World = 1 },
+		Session = { SlowMode = false, Stunned = false, Ready = false, World = 1, Admin = false, GodMode = false },
 		NoSave = noSave,
 	}
 	profiles[player] = profile
@@ -268,6 +319,16 @@ function DataService.Save(player: Player, release: boolean?)
 	saving[player] = nil
 end
 
+-- Save right now, even if an autosave is already running (waits for it, then saves again).
+-- Used after granting a Robux purchase so the receipt is on disk before it's confirmed.
+function DataService.SaveNow(player: Player)
+	local started = os.clock()
+	while saving[player] and os.clock() - started < 15 do
+		task.wait(0.2)
+	end
+	DataService.Save(player)
+end
+
 function DataService.Release(player: Player)
 	DataService.Save(player, true)
 	profiles[player] = nil
@@ -306,6 +367,8 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("Expansions", data.Expansions)
 	player:SetAttribute("BestSpeed", data.BestSpeed)
 	player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
+	player:SetAttribute("PetSpeedBonus", DataService.PetSpeedBonus(data))
+	player:SetAttribute("Buddy", data.Buddy)
 end
 
 function DataService.AddMoney(player: Player, amount: number, countsAsEarned: boolean?)
@@ -377,6 +440,13 @@ function DataService.PushState(player: Player)
 		Items = profile.Data.Items,
 		PlotIndex = player:GetAttribute("PlotIndex"),
 		SlowMode = profile.Session.SlowMode,
+		Eggs = profile.Data.Eggs,
+		Pets = profile.Data.Pets,
+		EquippedPets = profile.Data.EquippedPets,
+		Buddy = profile.Data.Buddy,
+		Donated = profile.Data.Donated,
+		Admin = profile.Session.Admin,
+		GodMode = profile.Session.GodMode,
 	})
 end
 

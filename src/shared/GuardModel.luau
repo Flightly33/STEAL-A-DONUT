@@ -1,5 +1,5 @@
 --[[
-	GuardModel: builds the guard ("Homer") rig out of plain parts, so no uploaded assets are needed.
+	GuardModel: builds the guard ("Domer") rig out of plain parts, so no uploaded assets are needed.
 
 	Used by the client (the sleeping guard on every blanket: each player sees only their own) and
 	by the server (the guard that wakes up and chases you). Each area's guard gets its own outfit,

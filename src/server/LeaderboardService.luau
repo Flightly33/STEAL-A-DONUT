@@ -1,7 +1,8 @@
 --[[
 	LeaderboardService
 	==================
-	Global top-500 boards (OrderedDataStores) for Money earned, Speed, Rarest donut and Time played.
+	Global top-500 boards (OrderedDataStores) for Money earned, Speed, Rarest donut, Time played and
+	Robux donated.
 
 	* Scores are written for each player every Config.Leaderboards.WriteInterval seconds and on leave.
 	* Boards refresh one at a time on a rotation to stay inside the DataStore request budget
@@ -10,6 +11,10 @@
 	  as log10(value) * 1e9 and decoded for display.
 	* Players in this server are merged in live, so boards show fresh numbers immediately (the global
 	  data only refreshes every few minutes). Without DataStores (Studio) this is all you'll see.
+	* The donation board always starts with Config.Donations.Pinned (shown with a crown instead of a
+	  rank, with its Note under the name; it's never saved and doesn't push anyone's rank down).
+	* Players who used the admin panel are left off every board except donations
+	  (Config.Admin.HideFromLeaderboards).
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -28,7 +33,7 @@ local DataService = require(script.Parent.DataService)
 
 local LeaderboardService = {}
 
-export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number }
+export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number, Note: string?, Pinned: boolean? }
 type Board = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local LOG_SCALE = 1e9
@@ -59,8 +64,15 @@ local function scoreFor(boardId: string, data: DataService.Data): number
 		return data.BestDonutScore
 	elseif boardId == "Time" then
 		return math.floor(data.PlayTime)
+	elseif boardId == "Donated" then
+		return math.floor(data.Donated)
 	end
 	return 0
+end
+
+-- Admin-panel users don't count on the normal boards (donations are real, so they still do).
+local function hidden(boardId: string, data: DataService.Data): boolean
+	return boardId ~= "Donated" and Config.Admin.HideFromLeaderboards and data.UsedAdmin
 end
 
 local function display(boardId: string, score: number): (string, Color3?)
@@ -77,6 +89,8 @@ local function display(boardId: string, score: number): (string, Color3?)
 		return "-", nil
 	elseif boardId == "Time" then
 		return Format.Duration(score), nil
+	elseif boardId == "Donated" then
+		return "R$ " .. (if score < 1_000_000 then Format.Commas(score) else Format.Number(score)), nil
 	end
 	return tostring(score), nil
 end
@@ -126,7 +140,7 @@ function LeaderboardService.WriteScores(player: Player)
 	for _, board in cfg.Boards do
 		local store = stores[board.Id]
 		local score = scoreFor(board.Id, profile.Data)
-		if store and score > 0 and lastWritten[player][board.Id] ~= score then
+		if store and score > 0 and lastWritten[player][board.Id] ~= score and not hidden(board.Id, profile.Data) then
 			local ok, err = pcall(store.SetAsync, store, tostring(player.UserId), score)
 			if ok then
 				lastWritten[player][board.Id] = score
@@ -156,7 +170,9 @@ local function withLivePlayers(boardId: string, board: Board?): Board
 	for player, profile in DataService.GetAll() do
 		local score = scoreFor(boardId, profile.Data)
 		local existing = byUser[player.UserId]
-		if score > 0 and (not existing or score > existing.Score) then
+		if hidden(boardId, profile.Data) then
+			byUser[player.UserId] = nil
+		elseif score > 0 and (not existing or score > existing.Score) then
 			byUser[player.UserId] = { UserId = player.UserId, Name = player.DisplayName, Score = score }
 		end
 	end
@@ -167,7 +183,12 @@ local function withLivePlayers(boardId: string, board: Board?): Board
 	table.sort(rows, function(a, b)
 		return a.Score > b.Score
 	end)
-	local entries = {}
+	local entries: { Entry } = {}
+	if boardId == "Donated" then
+		local pinned = Config.Donations.Pinned
+		local text = display(boardId, pinned.Amount)
+		table.insert(entries, { Rank = 0, UserId = 0, Name = pinned.Name, Display = text, Color = Color3.fromRGB(255, 215, 0), Score = pinned.Amount, Note = pinned.Note, Pinned = true })
+	end
 	for rank = 1, math.min(#rows, cfg.Size) do
 		local row = rows[rank]
 		local text, color = display(boardId, row.Score)

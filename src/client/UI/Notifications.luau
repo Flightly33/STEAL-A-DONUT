@@ -1,5 +1,9 @@
 --[[
-	Notifications: small toasts (top centre) and big server-wide announcements.
+	Notifications: small toasts and big server-wide announcements. Top of the screen, from the top:
+	  y 4    Luck Event pill (HUD)
+	  y 46   big banners (area names, announcements)
+	  y 140  chase banner (Chase) - toasts slide below it while it's showing (SetToastOffset)
+	  y 140+ toasts
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -23,12 +27,18 @@ local KIND_COLORS = {
 local toastHolder: Frame
 local bannerHolder: Frame
 local toastCounter = 0
+local TOAST_Y = 140
+
+-- Push the toasts down while something else (the chase banner) uses that spot.
+function Notifications.SetToastOffset(extra: number)
+	TweenService:Create(toastHolder, TweenInfo.new(0.25), { Position = UDim2.new(0.5, 0, 0, TOAST_Y + extra) }):Play()
+end
 
 function Notifications.Toast(text: string, kind: string?)
 	local color = KIND_COLORS[kind or "info"] or Theme.Colors.Blue
 	toastCounter -= 1 -- newest first
 	local toast = Theme.new("Frame", {
-		Size = UDim2.new(1, 0, 0, 40),
+		Size = UDim2.new(1, 0, 0, 34),
 		BackgroundColor3 = Theme.Colors.Panel,
 		BackgroundTransparency = 0.1,
 		LayoutOrder = toastCounter,
@@ -38,14 +48,14 @@ function Notifications.Toast(text: string, kind: string?)
 		Theme.Stroke(2.5),
 	})
 	Theme.new("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0, Parent = toast }, { Theme.Corner(10) })
-	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -10), Position = UDim2.fromOffset(16, 5), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
+	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -8), Position = UDim2.fromOffset(16, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
 	if kind == "error" then
 		Theme.PlaySound("Error")
 	elseif kind == "event" then
 		Theme.PlaySound("Announce")
 	end
 
-	-- Keep at most 4 toasts
+	-- Keep at most 3 toasts
 	local toasts = {}
 	for _, child in toastHolder:GetChildren() do
 		if child:IsA("Frame") then
@@ -55,7 +65,7 @@ function Notifications.Toast(text: string, kind: string?)
 	table.sort(toasts, function(a, b)
 		return a.LayoutOrder < b.LayoutOrder
 	end)
-	for i = 5, #toasts do
+	for i = 4, #toasts do
 		toasts[i]:Destroy()
 	end
 
@@ -79,14 +89,14 @@ function Notifications.Banner(text: string, color: Color3, duration: number?, su
 	local banner = Theme.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, -120),
-		Size = UDim2.new(1, 0, 0, if subtitle then 92 else 64),
+		Size = UDim2.new(1, 0, 0, if subtitle then 82 else 56),
 		BackgroundTransparency = 1,
 		Parent = bannerHolder,
 	})
-	local title = Theme.Label({ Text = text, TextColor3 = color, Size = UDim2.new(1, 0, 0, 58), StrokeThickness = 3.5, Parent = banner })
+	local title = Theme.Label({ Text = text, TextColor3 = color, Size = UDim2.new(1, 0, 0, 52), StrokeThickness = 3.5, Parent = banner })
 	local sub
 	if subtitle then
-		sub = Theme.Label({ Text = subtitle, Font = Theme.Font, Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 60), TextColor3 = Theme.Colors.White, StrokeThickness = 2, Parent = banner })
+		sub = Theme.Label({ Text = subtitle, Font = Theme.Font, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 54), TextColor3 = Theme.Colors.White, StrokeThickness = 2, Parent = banner })
 	end
 	TweenService:Create(banner, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 0) }):Play()
 	task.delay(duration or 3, function()
@@ -106,8 +116,8 @@ function Notifications.Init()
 	toastHolder = Theme.new("Frame", {
 		Name = "Toasts",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 150),
-		Size = UDim2.fromOffset(480, 200),
+		Position = UDim2.new(0.5, 0, 0, TOAST_Y),
+		Size = UDim2.fromOffset(460, 120),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -117,8 +127,8 @@ function Notifications.Init()
 	bannerHolder = Theme.new("Frame", {
 		Name = "Banners",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 40),
-		Size = UDim2.fromOffset(900, 100),
+		Position = UDim2.new(0.5, 0, 0, 46),
+		Size = UDim2.fromOffset(860, 92),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})

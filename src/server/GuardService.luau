@@ -2,16 +2,21 @@
 	GuardService
 	============
 	Every player has their OWN guards. The sleeping guard on each blanket is drawn by each player's
-	client (see client/Guards.luau), so everyone sees their own sleepy Homer and nobody can wake him
+	client (see client/Guards.luau), so everyone sees their own sleepy Domer and nobody can wake him
 	up for someone else.
 
 	When you steal a donut, the server spawns YOUR chasing guard at the blanket: he wakes up, yells,
 	and chases you until he catches you or you reach the safe zone. Then he poofs away and your
 	client puts him back to sleep on his blanket. Other players' clients hide your guard, so you
-	never see anyone else's Homers.
+	never see anyone else's Domers.
 
 	Guard speed per area comes from Economy.GuardWalkSpeed (i.e. from Areas.RecommendedSpeed and the
 	world's speed bonus).
+
+	Catching is lag compensated: the server keeps a short history of where the guard was and judges
+	the catch against where he was on YOUR screen when you were at your current position (your ping
+	+ Roblox's interpolation delay ago, capped at Config.Guard.MaxRewind). Without this, a fast chase
+	on a laggy connection could "catch" you while he still looked 40 studs behind.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -28,6 +33,7 @@ local Signal = require(Shared.Signal)
 local GuardModel = require(Shared.GuardModel)
 
 local MapBuilder = require(script.Parent.MapBuilder)
+local DataService = require(script.Parent.DataService)
 
 local GuardService = {}
 GuardService.Caught = Signal.new() -- (player, areaId)
@@ -35,6 +41,8 @@ GuardService.Caught = Signal.new() -- (player, areaId)
 local R6_WALK = "rbxassetid://180426354"
 local R6_IDLE = "rbxassetid://180435571"
 local UPDATE_INTERVAL = 0.05
+
+type Sample = { Time: number, Position: Vector3 }
 
 export type Guard = {
 	AreaId: number,
@@ -49,6 +57,7 @@ export type Guard = {
 	LastCheckPos: Vector3,
 	LastCheckTime: number,
 	StuckTime: number,
+	History: { Sample }, -- recent positions, oldest first
 }
 
 local guards: { [Player]: Guard } = {} -- at most one chasing guard per player
@@ -154,6 +163,7 @@ function GuardService.Alert(areaId: number, player: Player): Guard?
 		LastCheckPos = Vector3.zero,
 		LastCheckTime = 0,
 		StuckTime = 0,
+		History = {},
 	}
 	guards[player] = guard
 	pcall(function()
@@ -205,6 +215,38 @@ local function flatDistance(a: Vector3, b: Vector3): number
 	return Vector2.new(a.X - b.X, a.Z - b.Z).Magnitude
 end
 
+-- How far back the player's screen is behind the server's guard (round trip + interpolation).
+local function rewindFor(player: Player): number
+	local ok, ping = pcall(player.GetNetworkPing, player)
+	local rtt = if ok and type(ping) == "number" then ping else 0.1
+	return math.clamp(rtt + Config.Guard.InterpolationDelay, 0, Config.Guard.MaxRewind)
+end
+
+-- Where the guard was `rewind` seconds ago (interpolated from his history).
+local function positionAt(guard: Guard, time: number): Vector3
+	local history = guard.History
+	if #history == 0 or time >= history[#history].Time then
+		return guard.Root.Position
+	end
+	if time <= history[1].Time then
+		return history[1].Position
+	end
+	for i = #history, 2, -1 do
+		local older, newer = history[i - 1], history[i]
+		if older.Time <= time then
+			local alpha = (time - older.Time) / math.max(newer.Time - older.Time, 1e-3)
+			return older.Position:Lerp(newer.Position, alpha)
+		end
+	end
+	return history[1].Position
+end
+
+-- Distance between the guard and `targetPos` as the target saw it (for the catch and for clients).
+function GuardService.PerceivedDistance(guard: Guard, targetPos: Vector3): number
+	local seen = positionAt(guard, os.clock() - rewindFor(guard.Owner))
+	return flatDistance(seen, targetPos)
+end
+
 local function updateGuard(guard: Guard, now: number)
 	if guard.State ~= "Chasing" then
 		return
@@ -223,7 +265,15 @@ local function updateGuard(guard: Guard, now: number)
 		return
 	end
 	local guardPos = guard.Root.Position
-	if flatDistance(guardPos, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 10 then
+	local history = guard.History
+	table.insert(history, { Time = now, Position = guardPos })
+	while #history > 2 and now - history[1].Time > Config.Guard.MaxRewind + 0.25 do
+		table.remove(history, 1)
+	end
+	-- Admins can switch on "Domer can't catch me" in the admin panel.
+	local profile = DataService.Get(target)
+	local godMode = profile ~= nil and profile.Session.GodMode
+	if not godMode and GuardService.PerceivedDistance(guard, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
 		guard.State = "Celebrating"
 		shout(guard, Config.Guard.CatchShouts, Color3.fromRGB(120, 255, 120))
 		vanishAfter(guard, 1.5)
@@ -234,19 +284,20 @@ local function updateGuard(guard: Guard, now: number)
 	local lead = targetRoot.AssemblyLinearVelocity * 0.15
 	local goal = targetPos + Vector3.new(lead.X, 0, lead.Z)
 	local minX, maxX = Layout.LaneLimits(guard.AreaId)
-	goal = Vector3.new(math.clamp(goal.X, minX, maxX), guardPos.Y, math.max(goal.Z, Config.Map.SafeZoneZ + 3))
+	local margin = Config.Guard.Scale -- he's huge: keep his body off the walls
+	goal = Vector3.new(math.clamp(goal.X, minX + margin, maxX - margin), guardPos.Y, math.max(goal.Z, Config.Map.SafeZoneZ + 3 + margin))
 	guard.Humanoid:MoveTo(goal)
 
 	-- Unstick: hop if we haven't moved, nudge forward if still stuck
 	if now - guard.LastCheckTime > 0.5 then
 		local moved = (guardPos - guard.LastCheckPos).Magnitude
-		if moved < 1 then
+		if moved < 0.5 * Config.Guard.Scale then
 			guard.StuckTime += now - guard.LastCheckTime
 			guard.Humanoid.Jump = true
 			if guard.StuckTime > 1.5 then
 				local dir = (goal - guardPos) * Vector3.new(1, 0, 1)
 				if dir.Magnitude > 0.1 then
-					guard.Model:PivotTo(guard.Model:GetPivot() + dir.Unit * 4)
+					guard.Model:PivotTo(guard.Model:GetPivot() + dir.Unit * 2 * Config.Guard.Scale)
 				end
 				guard.StuckTime = 0
 			end

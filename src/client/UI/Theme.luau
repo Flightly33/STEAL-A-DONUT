@@ -40,6 +40,8 @@ local PING = "rbxasset://sounds/electronicpingshort.wav"
 Theme.Sounds = {
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.12, Pitch = 1.15 },
 	Steal = { Id = PING, Volume = 0.18, Pitch = 1.25 },
+	Hatch = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 1.6 },
+	Crack = { Id = "rbxasset://sounds/action_jump_land.mp3", Volume = 0.4, Pitch = 1.8 },
 	Deposit = { Id = PING, Volume = 0.22, Pitch = 0.85 },
 	Collect = { Id = PING, Volume = 0.2, Pitch = 1 },
 	Announce = { Id = PING, Volume = 0.12, Pitch = 0.7 },
@@ -225,12 +227,14 @@ function Theme.SetButtonText(button: TextButton, text: string)
 	end
 end
 
--- Keeps a UIScale in sync with the screen size (UI is designed for 1280x720).
+-- Keeps a UIScale in sync with the screen size (UI is designed for 1280x720, then drawn at
+-- Theme.UIScale of that so it stays out of the way of the game).
+Theme.UIScale = 0.82
 local scales: { UIScale } = {}
 local function currentScale(): number
 	local camera = workspace.CurrentCamera
 	local size = if camera then camera.ViewportSize else Vector2.new(1280, 720)
-	return math.clamp(math.min(size.X / 1280, size.Y / 720), 0.55, 1.3)
+	return math.clamp(math.min(size.X / 1280, size.Y / 720), 0.55, 1.2) * Theme.UIScale
 end
 
 function Theme.CurrentScale(): number

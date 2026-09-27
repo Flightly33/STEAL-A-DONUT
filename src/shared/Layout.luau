@@ -8,7 +8,8 @@
 	       (spawn, shop, leaderboards, portals)
 
 	World 1's lane starts at the hub. Worlds 2 and 3 are separate lanes far away along X
-	(Areas.Worlds[].OffsetX), each with a small safe landing (Z < SafeZoneZ) and a portal home.
+	(Areas.Worlds[].OffsetX), each with its own safe hub (Z < SafeZoneZ): the same 8 base plots as
+	the main hub, and a portal home. Your base follows you to whichever world you're in.
 ]]
 
 local Config = require(script.Parent.Config)
@@ -118,16 +119,17 @@ Layout.PortalRadius = 6
 
 --------------------------------------------------------------------------------
 -- Plots: odd numbers on the left (-X), even on the right (+X), row 0 nearest the lane.
+-- Every world's hub has the same plots around its own lane (worldId, default 1).
 --------------------------------------------------------------------------------
 Layout.PlotWidth = 56
 Layout.PlotDepth = 98
 Layout.PlotRowSpacing = 60
 Layout.PlotFloorHeight = 0.4
 
-function Layout.PlotCFrame(plotIndex: number): CFrame
+function Layout.PlotCFrame(plotIndex: number, worldId: number?): CFrame
 	local side = if plotIndex % 2 == 1 then -1 else 1
 	local row = (plotIndex - 1) // 2
-	local x = side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 2)
+	local x = Layout.WorldOffset(worldId or 1) + side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 2)
 	local z = map.SafeZoneZ - 34 - row * Layout.PlotRowSpacing
 	local center = Vector3.new(x, 0, z)
 	-- LookVector points out of the plot's open side, towards the plaza.
@@ -147,8 +149,8 @@ function Layout.SlotOffset(slotIndex: number): Vector3
 end
 
 -- Is `position` inside the plot's fenced area?
-function Layout.IsInPlot(plotIndex: number, position: Vector3): boolean
-	local localPos = Layout.PlotCFrame(plotIndex):PointToObjectSpace(position)
+function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?): boolean
+	local localPos = Layout.PlotCFrame(plotIndex, worldId):PointToObjectSpace(position)
 	return math.abs(localPos.X) <= Layout.PlotWidth / 2
 		and math.abs(localPos.Z) <= Layout.PlotDepth / 2
 		and localPos.Y > -5

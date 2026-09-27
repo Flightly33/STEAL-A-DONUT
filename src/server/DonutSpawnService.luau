@@ -2,9 +2,13 @@
 	DonutSpawnService
 	=================
 	Keeps a donut on every spawn point in the lane. Donuts are rolled from their area's weighted pool
-	(plus a mutation and a size), re-rolled if nobody steals them for a while, and respawn a few
-	seconds after being stolen. Secret spawns are announced to the whole server.
-	During an area event (EventService) the area's spawns roll mutations with extra luck.
+	(plus a mutation and a size), re-rolled if nobody steals them for a while, and a new one appears
+	a few seconds after one is brought home. Secret and Admin spawns are announced to the server.
+	During an area event (EventService) the area's spawns roll mutations with extra luck, and during
+	a Luck Event (LuckService) every spawn in the server is luckier.
+
+	A stolen donut is only "held" by its thief until they get it home: if they're caught, hit, or
+	fall, the SAME donut pops back onto the spot it was taken from (Return).
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,6 +21,7 @@ local Rarities = require(Shared.Rarities)
 local Economy = require(Shared.Economy)
 local DonutModel = require(Shared.DonutModel)
 local Remotes = require(Shared.Remotes)
+local Signal = require(Shared.Signal)
 
 local MapBuilder = require(script.Parent.MapBuilder)
 
@@ -31,12 +36,25 @@ export type SpawnRecord = {
 	Size: string,
 	SpawnedAt: number,
 	Taken: boolean,
+	Held: { DonutId: string, Mutation: string, Size: string }?, -- what the thief is carrying
+	Planted: boolean?, -- put there with the admin panel (not counted in the global stats)
 	Container: Instance,
 }
+
+export type ServerLuck = { Rarity: number, Mutation: number, Size: number }
 
 local records: { SpawnRecord } = {}
 local rng = Random.new()
 local stealHandler: ((Player, SpawnRecord) -> ())? = nil
+local serverLuck: ServerLuck? = nil
+
+-- Fired for every donut that appears in the lane: (donutId, mutationId). Used by the global stats.
+DonutSpawnService.Spawned = Signal.new()
+
+-- Set by LuckService while a Luck Event runs (nil when it ends).
+function DonutSpawnService.SetServerLuck(luck: ServerLuck?)
+	serverLuck = luck
+end
 
 -- Set by EventService while an event runs: areaId -> { Luck, Boost }
 local areaLuck: { [number]: { Luck: number, Boost: string? } } = {}
@@ -54,15 +72,27 @@ function DonutSpawnService.SetStealHandler(handler: (Player, SpawnRecord) -> ())
 	stealHandler = handler
 end
 
-local function spawnDonut(record: SpawnRecord, announce: boolean)
+type Forced = { DonutId: string, Mutation: string, Size: string }
+
+-- Put a donut on a spawn point: a fresh random one, or `forced` (a stolen donut coming back).
+local function spawnDonut(record: SpawnRecord, announce: boolean, forced: Forced?)
 	if record.Model then
 		record.Model:Destroy()
 		record.Model = nil
 	end
-	local donut = Donuts.Roll(record.AreaId, rng)
 	local luck = areaLuck[record.AreaId]
-	local mutation = Rarities.RollMutation(rng, if luck then luck.Luck else 1, if luck then luck.Boost else nil)
-	local size = Rarities.RollSize(rng)
+	local global = serverLuck
+	local donut, mutation, size
+	if forced and Donuts.ById[forced.DonutId] then
+		donut = Donuts.ById[forced.DonutId]
+		mutation = Rarities.Mutation(forced.Mutation)
+		size = Rarities.Size(forced.Size)
+	else
+		donut = Donuts.Roll(record.AreaId, rng, if global then global.Rarity else nil)
+		local mutationLuck = (if luck then luck.Luck else 1) * (if global then global.Mutation else 1)
+		mutation = Rarities.RollMutation(rng, mutationLuck, if luck then luck.Boost else nil)
+		size = Rarities.RollSize(rng, if global then global.Size else nil)
+	end
 	local model = DonutModel.Build(donut, { Scale = 0.95, Pillar = true, Mutation = mutation.Id, Size = size.Id })
 	DonutModel.PlaceOn(model, record.Point.CFrame)
 	model:SetAttribute("Area", record.AreaId)
@@ -94,15 +124,26 @@ local function spawnDonut(record: SpawnRecord, announce: boolean)
 	record.Size = size.Id
 	record.SpawnedAt = os.clock()
 	record.Taken = false
+	record.Held = nil
+	if forced then
+		return -- a returned donut isn't a new spawn
+	end
+	record.Planted = nil
+	DonutSpawnService.Spawned:Fire(donut.Id, mutation.Id)
 
 	local rarity = Rarities.Get(donut.Rarity)
 	if announce and rarity.Order >= Config.Spawns.AnnounceRarity then
 		local area = Areas.List[record.AreaId]
-		Remotes.Event("AreaAnnouncement"):FireAllClients(`A {string.upper(rarity.Id)} donut appeared in {area.Name}: {Rarities.DisplayName(donut.Name, mutation.Id, size.Id)}!`, rarity.Color)
+		local name = Rarities.DisplayName(donut.Name, mutation.Id, size.Id)
+		local text = if rarity.Id == "Admin"
+			then `🚨 AN ADMIN DONUT APPEARED IN {string.upper(area.Name)}: {name}! 🚨`
+			else `A {string.upper(rarity.Id)} donut appeared in {area.Name}: {name}!`
+		Remotes.Event("AreaAnnouncement"):FireAllClients(text, rarity.Color)
 	end
 end
 
 -- Remove the donut from its spawn point (it was stolen). Returns the donut id, mutation and size.
+-- The spot stays empty until the thief either gets home (Release) or loses it (Return).
 function DonutSpawnService.Take(record: SpawnRecord): (string?, string, string)
 	if record.Taken or not record.Model or not record.DonutId then
 		return nil, "None", "Normal"
@@ -110,15 +151,46 @@ function DonutSpawnService.Take(record: SpawnRecord): (string?, string, string)
 	local donutId = record.DonutId
 	local mutation, size = record.Mutation, record.Size
 	record.Taken = true
+	record.Held = { DonutId = donutId, Mutation = mutation, Size = size }
 	record.Model:Destroy()
 	record.Model = nil
 	record.DonutId = nil
+	return donutId, mutation, size
+end
+
+-- The thief lost the donut (caught, hit, fell, left): it goes back where it was taken from.
+function DonutSpawnService.Return(record: SpawnRecord)
+	local held = record.Held
+	if record.Taken and held then
+		spawnDonut(record, false, held)
+	end
+end
+
+-- The thief got the donut home: a new random donut appears on the spot a few seconds later.
+function DonutSpawnService.Release(record: SpawnRecord)
+	if not record.Taken then
+		return
+	end
+	record.Held = nil
 	task.delay(rng:NextNumber(Config.Spawns.RespawnMin, Config.Spawns.RespawnMax), function()
-		if record.Taken then
+		if record.Taken and not record.Held then
 			spawnDonut(record, true)
 		end
 	end)
-	return donutId, mutation, size
+end
+
+-- Every spawn point (the admin panel uses this to drop a donut in front of you).
+function DonutSpawnService.GetRecords(): { SpawnRecord }
+	return records
+end
+
+-- Replace whatever is on a spawn point with a specific donut (admin panel).
+function DonutSpawnService.ForceSpawn(record: SpawnRecord, donutId: string, mutationId: string, sizeId: string)
+	if record.Taken or not Donuts.ById[donutId] then
+		return
+	end
+	spawnDonut(record, false, { DonutId = donutId, Mutation = mutationId, Size = sizeId })
+	record.Planted = true
 end
 
 -- Re-roll every untaken donut in an area (an event just started there).
@@ -143,7 +215,7 @@ function DonutSpawnService.Init()
 		if spawns then
 			for _, point in spawns:GetChildren() do
 				if point:IsA("BasePart") and point.Name == "DonutSpawn" then
-					local record: SpawnRecord = { Point = point, AreaId = areaId, Model = nil, DonutId = nil, Mutation = "None", Size = "Normal", SpawnedAt = 0, Taken = false, Container = container }
+					local record: SpawnRecord = { Point = point, AreaId = areaId, Model = nil, DonutId = nil, Mutation = "None", Size = "Normal", SpawnedAt = 0, Taken = false, Held = nil, Container = container }
 					table.insert(records, record)
 				end
 			end

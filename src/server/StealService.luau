@@ -4,12 +4,17 @@
 	The core loop:
 	  1. Hold E on a donut in the lane -> you pick it up (it floats above your head) and YOUR guard
 	     for that area wakes up and chases you. Big donuts slow you down while you carry them.
-	  2. Cross the safe-zone line -> the guard gives up (in other worlds, walk into the portal home).
-	  3. Walk into your own base -> the donut is placed on a free stand and starts earning money.
-	  If the guard catches you first, you drop the donut and get sent back to your base.
+	  2. Cross the safe-zone line -> the guard gives up.
+	  3. Walk into your own base (it's in whichever world you're in) -> the donut is placed on a free
+	     stand and starts earning money.
+	  If the guard catches you, you get hit, or you fall, the donut goes BACK to where you took it
+	  from (the same donut, on the same spot) and you're sent back to your base.
 
-	Raids (see RaidService): a donut stolen from another player's base is carried the same way, keeps
-	its level, and goes back to its owner if the thief is hit/flung or dies before reaching home.
+	Everything you can carry uses the same system:
+	  Lane -> a donut from the lane (returns to its spawn spot when lost)
+	  Raid -> a donut stolen from another player's base (see RaidService). You're in slow mode while
+	          you carry it; if you're hit before you get home it flies back onto the owner's stand.
+	  Egg  -> a pet egg from the lane (see PetService; returns to its spot when lost)
 ]]
 
 local RunService = game:GetService("RunService")
@@ -29,24 +34,31 @@ local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
 local DonutSpawnService = require(script.Parent.DonutSpawnService)
 local GuardService = require(script.Parent.GuardService)
+local StatsService = require(script.Parent.StatsService)
 
 local StealService = {}
 
-type Carry = {
-	Kind: string, -- "Lane" | "Raid"
-	DonutId: string,
+export type Carry = {
+	Kind: string, -- "Lane" | "Raid" | "Egg"
+	DonutId: string, -- the donut's id (for eggs: the egg's id)
 	Level: number,
 	Mutation: string,
 	Size: string,
 	Victim: Player?, -- raids: who it was stolen from
+	VictimSlot: number?, -- raids: the stand it was taken from
+	Record: DonutSpawnService.SpawnRecord?, -- lane donuts: the spot it was taken from
 	AreaId: number,
 	Visual: Model?,
 	Secured: boolean,
 	LastPos: Vector3,
 	LastTime: number,
+	-- Custom behaviour (eggs): deposit returns false to keep carrying; lost puts it back.
+	OnDeposit: ((Player) -> boolean)?,
+	OnLost: ((Player) -> ())?,
 }
 
 local carriers: { [Player]: Carry } = {}
+local lastFullWarning: { [Player]: number } = {}
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -54,6 +66,10 @@ end
 
 function StealService.IsCarrying(player: Player): boolean
 	return carriers[player] ~= nil
+end
+
+function StealService.GetCarry(player: Player): Carry?
+	return carriers[player]
 end
 
 local function clearCarry(player: Player): Carry?
@@ -68,6 +84,7 @@ local function clearCarry(player: Player): Carry?
 	if player.Parent then
 		player:SetAttribute("CarryingDonut", nil)
 		player:SetAttribute("CarrySize", nil)
+		player:SetAttribute("CarryKind", nil)
 	end
 	return carry
 end
@@ -76,6 +93,29 @@ local function startCarry(player: Player, carry: Carry)
 	carriers[player] = carry
 	player:SetAttribute("CarryingDonut", carry.DonutId)
 	player:SetAttribute("CarrySize", carry.Size)
+	player:SetAttribute("CarryKind", carry.Kind)
+end
+
+-- Put whatever the player was carrying back where it came from.
+local function returnLost(player: Player, carry: Carry)
+	if carry.OnLost then
+		carry.OnLost(player)
+	elseif carry.Kind == "Lane" and carry.Record then
+		DonutSpawnService.Return(carry.Record)
+	elseif carry.Kind == "Raid" then
+		-- A raided donut flies back onto its owner's stand (if they're still here and have room).
+		local victim = carry.Victim
+		local donut = Donuts.ById[carry.DonutId]
+		if victim and victim.Parent and donut then
+			local name = Rarities.DisplayName(donut.Name, carry.Mutation, carry.Size)
+			if PlotService.AddDonut(victim, carry.DonutId, carry.Level, carry.Mutation, carry.Size, carry.VictimSlot) then
+				notify(victim, `🛡 You got your {name} back!`, "success")
+				Remotes.Event("Alarm"):FireClient(victim, { Stage = "Recovered", Thief = player, Name = name })
+			else
+				notify(victim, `Your {name} was dropped but your base is full, so it's gone.`, "error")
+			end
+		end
+	end
 end
 
 -- Move a player somewhere without tripping the carry speed check (portals, teleports).
@@ -92,7 +132,7 @@ function StealService.Teleport(player: Player, cf: CFrame)
 	end
 end
 
--- Lose the donut without depositing it (died, left, cheated...).
+-- Lose what you're carrying without depositing it (hit, died, left, cheated...). It goes back.
 function StealService.Drop(player: Player, reason: string?)
 	local carry = clearCarry(player)
 	if not carry then
@@ -100,36 +140,26 @@ function StealService.Drop(player: Player, reason: string?)
 	end
 	GuardService.StopChase(player)
 	if player.Parent then
-		Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Lost", Reason = reason })
+		Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Lost", Reason = reason, Kind = carry.Kind })
 	end
-	-- A raided donut goes back to its owner if they're still here and have room.
-	local victim = carry.Victim
-	if carry.Kind == "Raid" and victim and victim.Parent then
-		local donut = Donuts.ById[carry.DonutId]
-		if PlotService.AddDonut(victim, carry.DonutId, carry.Level, carry.Mutation, carry.Size) then
-			notify(victim, `🛡 You got your {donut.Name} back!`, "success")
-		else
-			notify(victim, `Your {donut.Name} was dropped but your base is full, so it's gone.`, "error")
-		end
-	end
+	returnLost(player, carry)
 end
 
--- Weapons and traps call this: anyone carrying a donut drops it.
+-- Weapons and traps call this: anyone carrying something drops it (and it goes back).
 function StealService.Knock(player: Player)
 	if carriers[player] then
-		StealService.Drop(player, "You got hit!")
+		StealService.Drop(player, "You got hit! It went back where it came from.")
 	end
 end
 
-local function attachVisual(player: Player, donutId: string, mutationId: string, sizeId: string): Model?
+-- Weld a model above the player's head (the thing they carry).
+function StealService.AttachAboveHead(player: Player, model: Model): boolean
 	local character = player.Character
 	local head = character and (character:FindFirstChild("Head") :: BasePart?)
-	local donut = Donuts.ById[donutId]
-	if not character or not head or not donut then
-		return nil
+	local root = model.PrimaryPart
+	if not character or not head or not root then
+		return false
 	end
-	local model = DonutModel.Build(donut, { Scale = 0.55, Mutation = mutationId, Size = sizeId })
-	local root = model.PrimaryPart :: BasePart
 	local lift = 1.2 + ((model:GetAttribute("Bottom") :: number?) or 1.4)
 	model:PivotTo(head.CFrame * CFrame.new(0, lift, 0))
 	root.Anchored = false
@@ -140,11 +170,44 @@ local function attachVisual(player: Player, donutId: string, mutationId: string,
 	weld.Parent = root
 	model.Name = "CarriedDonut"
 	model.Parent = character
+	return true
+end
+
+local function attachVisual(player: Player, donutId: string, mutationId: string, sizeId: string): Model?
+	local donut = Donuts.ById[donutId]
+	if not donut then
+		return nil
+	end
+	local model = DonutModel.Build(donut, { Scale = 0.55, Mutation = mutationId, Size = sizeId })
+	if not StealService.AttachAboveHead(player, model) then
+		model:Destroy()
+		return nil
+	end
 	return model
 end
 
+-- Anything else that can be carried (eggs). The guard of `areaId` wakes up if areaId > 0.
+function StealService.StartCustom(player: Player, carry: Carry): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root or carriers[player] then
+		return false
+	end
+	carry.LastPos = root.Position
+	carry.LastTime = os.clock()
+	startCarry(player, carry)
+	local guard = if carry.AreaId > 0 then GuardService.Alert(carry.AreaId, player) else nil
+	Remotes.Event("ChaseStarted"):FireClient(player, {
+		DonutId = carry.DonutId,
+		AreaId = carry.AreaId,
+		Kind = carry.Kind,
+		Guard = guard and guard.Model,
+		GuardSpeed = if carry.AreaId > 0 then Economy.GuardWalkSpeed(carry.AreaId) else nil,
+	})
+	return true
+end
+
 -- Start carrying a donut stolen from `victim`'s base (RaidService already removed it there).
-function StealService.StartRaid(thief: Player, victim: Player, slot: DataService.SlotData)
+function StealService.StartRaid(thief: Player, victim: Player, slot: DataService.SlotData, slotIndex: number)
 	local root = thief.Character and thief.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
 		return
@@ -157,40 +220,51 @@ function StealService.StartRaid(thief: Player, victim: Player, slot: DataService
 		Mutation = mutation,
 		Size = size,
 		Victim = victim,
+		VictimSlot = slotIndex,
+		Record = nil,
 		AreaId = 0,
 		Visual = attachVisual(thief, slot.Id, mutation, size),
-		Secured = true, -- no guard: the only danger is getting hit
+		Secured = true, -- no guard: the danger is the owner hitting you
 		LastPos = root.Position,
 		LastTime = os.clock(),
 	})
-	Remotes.Event("ChaseStarted"):FireClient(thief, { DonutId = slot.Id, AreaId = 0, Raid = true, Mutation = mutation, Size = size })
+	Remotes.Event("ChaseStarted"):FireClient(thief, { DonutId = slot.Id, AreaId = 0, Raid = true, Kind = "Raid", Mutation = mutation, Size = size, Victim = victim })
 end
 
-local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
+-- Checks shared by everything you can pick up. Returns the player's root part if they can.
+function StealService.CanPickUp(player: Player, target: Vector3, reach: number): BasePart?
 	local profile = DataService.Get(player)
-	if not profile or not profile.Session.Ready then
-		return
+	if not profile or not profile.Session.Ready or profile.Session.Stunned then
+		return nil
 	end
 	if carriers[player] then
-		notify(player, "You're already carrying a donut! Bring it home first.", "error")
-		return
-	end
-	if profile.Session.Stunned then
-		return
-	end
-	if not PlotService.HasFreeSlot(player) then
-		notify(player, "Your base is full! Sell a donut (hold F on it) to make room.", "error")
-		return
+		notify(player, "You're already carrying something! Bring it home first.", "error")
+		return nil
 	end
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not humanoid or humanoid.Health <= 0 or not root then
-		return
+		return nil
 	end
 	-- Server-side reach check (prompts are client-activated)
+	if (target - root.Position).Magnitude > reach then
+		return nil
+	end
+	return root
+end
+
+local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
 	local model = record.Model
-	if not model or (model:GetPivot().Position - root.Position).Magnitude > 16 then
+	if not model then
+		return
+	end
+	local root = StealService.CanPickUp(player, model:GetPivot().Position, 16 + 6 * Rarities.Size(record.Size).Scale)
+	if not root then
+		return
+	end
+	if not PlotService.HasFreeSlot(player) then
+		notify(player, "Your base is full! Sell a donut (hold F on it) to make room.", "error")
 		return
 	end
 
@@ -206,6 +280,8 @@ local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
 		Mutation = mutation,
 		Size = size,
 		Victim = nil,
+		VictimSlot = nil,
+		Record = record,
 		AreaId = record.AreaId,
 		Visual = attachVisual(player, donutId, mutation, size),
 		Secured = false,
@@ -217,6 +293,7 @@ local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
 	Remotes.Event("ChaseStarted"):FireClient(player, {
 		DonutId = donutId,
 		AreaId = record.AreaId,
+		Kind = "Lane",
 		Mutation = mutation,
 		Size = size,
 		Guard = guard and guard.Model,
@@ -235,13 +312,27 @@ local function deposit(player: Player)
 	if not carry or not profile then
 		return
 	end
+	if carry.OnDeposit then
+		if carry.OnDeposit(player) then
+			clearCarry(player)
+			GuardService.StopChase(player)
+		end
+		return
+	end
 	local slot = PlotService.AddDonut(player, carry.DonutId, carry.Level, carry.Mutation, carry.Size)
 	if not slot then
-		notify(player, "Your base is full! Sell a donut (hold F on it) to make room.", "error")
+		local now = os.clock()
+		if not lastFullWarning[player] or now - lastFullWarning[player] > 4 then
+			lastFullWarning[player] = now
+			notify(player, "Your base is full! Sell a donut (hold F on it) to make room.", "error")
+		end
 		return -- keep carrying until there's room
 	end
 	clearCarry(player)
 	GuardService.StopChase(player)
+	if carry.Kind == "Lane" and carry.Record then
+		DonutSpawnService.Release(carry.Record)
+	end
 
 	local donut = Donuts.ById[carry.DonutId]
 	local isNew = not profile.Data.Discovered[donut.Id]
@@ -255,11 +346,22 @@ local function deposit(player: Player)
 		profile.Data.BestDonutScore = score
 	end
 	local name = Rarities.DisplayName(donut.Name, carry.Mutation, carry.Size)
-	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Deposited", DonutId = donut.Id, IsNew = isNew, Mutation = carry.Mutation, Size = carry.Size })
+	-- Global "found" counter: only real lane finds (raids just move a donut between bases, and
+	-- admin-planted donuts or players who used the admin panel would skew the rarity numbers).
+	local fromLane = carry.Kind == "Lane"
+	local counts = fromLane and not (carry.Record and carry.Record.Planted) and not profile.Data.UsedAdmin
+	local foundCount = if counts then StatsService.RecordFound(donut.Id, carry.Mutation) else nil
+	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Deposited", DonutId = donut.Id, IsNew = isNew, Mutation = carry.Mutation, Size = carry.Size, Kind = carry.Kind })
 	notify(player, `{name} is earning {Format.Money(Economy.DonutIncome(donut.Id, carry.Level, carry.Mutation, carry.Size))}/s at your base!`, "success")
+	local rarity = Rarities.Get(donut.Rarity)
+	if fromLane and rarity.Order >= Config.Spawns.AnnounceRarity then
+		local ever = if foundCount then ` (#{Format.Commas(foundCount)} ever found)` else ""
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} got a {string.upper(rarity.Id)} donut home: {name}!{ever}`, rarity.Color)
+	end
 	local victim = carry.Victim
 	if carry.Kind == "Raid" and victim and victim.Parent then
 		notify(victim, `😱 {player.DisplayName} got away with your {name}!`, "error")
+		Remotes.Event("Alarm"):FireClient(victim, { Stage = "Lost", Thief = player, Name = name })
 	end
 	if isNew or newMutation then
 		DataService.PushState(player)
@@ -274,8 +376,9 @@ local function onCaught(player: Player, areaId: number)
 	if not carry then
 		return
 	end
+	returnLost(player, carry)
 	local profile = DataService.Get(player)
-	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId })
+	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind })
 	if not profile then
 		return
 	end
@@ -312,7 +415,7 @@ local function updateCarriers()
 			local walkSpeed = Economy.PlayerWalkSpeed(if profile then profile.Data.Speed else 0, Layout.WorldAt(pos))
 			local allowed = (walkSpeed * 1.6 + 25) * (now - carry.LastTime) + 6
 			if flat > allowed then
-				notify(player, "You moved too fast and dropped the donut!", "error")
+				notify(player, "You moved too fast and dropped it!", "error")
 				StealService.Drop(player, "Moved too fast")
 				continue
 			end
@@ -323,7 +426,7 @@ local function updateCarriers()
 		if not carry.Secured and Layout.IsSafe(pos) then
 			carry.Secured = true
 			GuardService.StopChase(player, "Safe")
-			Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Safe", DonutId = carry.DonutId })
+			Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Safe", DonutId = carry.DonutId, Kind = carry.Kind })
 		end
 		if carry.Secured and PlotService.IsInOwnPlot(player, pos) then
 			deposit(player)
@@ -336,15 +439,19 @@ function StealService.OnCharacterAdded(player: Player, character: Model)
 	if humanoid then
 		humanoid.Died:Connect(function()
 			if carriers[player] then
-				StealService.Drop(player, "You fell!")
+				StealService.Drop(player, "You fell! It went back where it came from.")
 			end
 		end)
 	end
 end
 
 function StealService.OnPlayerRemoving(player: Player)
-	clearCarry(player)
+	lastFullWarning[player] = nil
+	local carry = clearCarry(player)
 	GuardService.StopChase(player)
+	if carry then
+		returnLost(player, carry)
+	end
 end
 
 function StealService.Init()

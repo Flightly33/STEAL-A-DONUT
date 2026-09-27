@@ -8,6 +8,10 @@
 	  Rebirth, ClaimIndex { DonutId, Kind }
 	  TeleportWorld <id>, TeleportArea <id>            (Teleporter game pass)
 	  SetSlowMode <bool>, TeleportHome, BuyItem <id>, SetMusic { Volume, On }
+	  SetBuddy <donutId?>                              (a donut you've found follows you around)
+	  HatchEgg <uid?>, EquipPet <uid>, UnequipPet <uid>, EquipBestPets, ReleasePet <uid>
+	  BuyLuck, Donate <amount>                         (Robux developer products)
+	Other services can add their own actions with ShopService.RegisterAction (e.g. the admin panel).
 
 	Game pass ownership is checked with MarketplaceService on join and cached in the player's data,
 	so a player never loses a pass they paid for if Roblox's API has a hiccup.
@@ -30,6 +34,8 @@ local TreadmillService = require(script.Parent.TreadmillService)
 local StealService = require(script.Parent.StealService)
 local ItemService = require(script.Parent.ItemService)
 local WorldService = require(script.Parent.WorldService)
+local PetService = require(script.Parent.PetService)
+local ProductService = require(script.Parent.ProductService)
 
 local ShopService = {}
 
@@ -250,7 +256,7 @@ function Actions.Rebirth(player: Player, profile: DataService.Profile)
 	if spawnCf then
 		StealService.Teleport(player, spawnCf)
 	end
-	notify(player, `🔄 REBIRTH {data.Rebirths}! Money x{Format.Multiplier(Economy.RebirthMoneyMultiplier(data.Rebirths))} and speed x{Format.Multiplier(Economy.RebirthSpeedMultiplier(data.Rebirths))} forever!`, "success")
+	notify(player, `🔄 REBIRTH {data.Rebirths}! Money x{Format.Multiplier(Economy.RebirthMoneyMultiplier(data.Rebirths))} and treadmill speed x{Format.Multiplier(Economy.RebirthSpeedMultiplier(data.Rebirths))} forever!`, "success")
 	DataService.Save(player)
 end
 
@@ -304,6 +310,50 @@ function Actions.SetMusic(player: Player, profile: DataService.Profile, settings
 	end
 end
 
+-- A donut you've found (in the Index) follows you around. nil = no buddy.
+function Actions.SetBuddy(player: Player, profile: DataService.Profile, donutId: any)
+	if donutId == nil or donutId == false then
+		profile.Data.Buddy = nil
+	elseif type(donutId) == "string" and Donuts.ById[donutId] and profile.Data.Discovered[donutId] then
+		profile.Data.Buddy = if profile.Data.Buddy == donutId then nil else donutId
+	else
+		return
+	end
+	player:SetAttribute("Buddy", profile.Data.Buddy)
+	DataService.PushState(player)
+	if profile.Data.Buddy then
+		notify(player, `🍩 {Donuts.ById[profile.Data.Buddy].Name} is your buddy now!`, "success")
+	end
+end
+
+function Actions.HatchEgg(player: Player, _profile: DataService.Profile, uid: any)
+	PetService.Hatch(player, if type(uid) == "string" then uid else nil)
+end
+
+function Actions.EquipPet(player: Player, _profile: DataService.Profile, uid: any)
+	PetService.Equip(player, uid)
+end
+
+function Actions.UnequipPet(player: Player, _profile: DataService.Profile, uid: any)
+	PetService.Unequip(player, uid)
+end
+
+function Actions.EquipBestPets(player: Player)
+	PetService.EquipBest(player)
+end
+
+function Actions.ReleasePet(player: Player, _profile: DataService.Profile, uid: any)
+	PetService.Release(player, uid)
+end
+
+function Actions.BuyLuck(player: Player)
+	ProductService.BuyLuck(player)
+end
+
+function Actions.Donate(player: Player, _profile: DataService.Profile, amount: any)
+	ProductService.Donate(player, amount)
+end
+
 function Actions.SetSlowMode(player: Player, profile: DataService.Profile, enabled: any)
 	profile.Session.SlowMode = enabled == true
 	player:SetAttribute("SlowMode", profile.Session.SlowMode)
@@ -326,6 +376,12 @@ function Actions.TeleportHome(player: Player, profile: DataService.Profile)
 	if spawnCf then
 		StealService.Teleport(player, spawnCf)
 	end
+end
+
+-- Let another service handle a client action (name must be unique).
+function ShopService.RegisterAction(name: string, handler: (Player, DataService.Profile, any) -> ())
+	assert(Actions[name] == nil, "Duplicate action " .. name)
+	Actions[name] = handler
 end
 
 local function isRateLimited(player: Player): boolean

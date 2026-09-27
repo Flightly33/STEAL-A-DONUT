@@ -4,8 +4,8 @@
 	Glues everything together for each player:
 	  join  -> load data -> check game passes -> assign base -> build treadmill -> offline earnings
 	  every second -> base income is paid out, play time ticks up
-	  always -> WalkSpeed follows the Speed stat, the world you're in and the donut you carry
-	            (or slow mode / stun)
+	  always -> WalkSpeed follows the Speed stat (in a straight line), the world you're in and the
+	            donut you carry (or slow mode / stun; a donut stolen from a base forces slow mode)
 	  leave -> drop carried donut -> write leaderboards -> save -> free the base
 ]]
 
@@ -27,6 +27,7 @@ local LeaderboardService = require(script.Parent.LeaderboardService)
 local ItemService = require(script.Parent.ItemService)
 local RaidService = require(script.Parent.RaidService)
 local WorldService = require(script.Parent.WorldService)
+local PetService = require(script.Parent.PetService)
 
 local PlayerService = {}
 
@@ -137,7 +138,10 @@ local function onPlayerAdded(player: Player)
 	grantOfflineEarnings(player)
 
 	profile.Session.Ready = true
+	player:SetAttribute("World", 1)
+	player:SetAttribute("Donated", profile.Data.Donated)
 	DataService.SyncAttributes(player)
+	PetService.OnPlayerReady(player) -- pets' bonuses (money multiplier), followers, incubator
 	DataService.PushState(player)
 
 	player.CharacterAdded:Connect(function(character)
@@ -151,6 +155,7 @@ end
 
 local function onPlayerRemoving(player: Player)
 	StealService.OnPlayerRemoving(player)
+	PetService.OnPlayerRemoving(player)
 	ShopService.OnPlayerRemoving(player)
 	ItemService.OnPlayerRemoving(player)
 	RaidService.OnPlayerRemoving(player)
@@ -169,6 +174,10 @@ local function desiredWalkSpeed(player: Player, profile: DataService.Profile): n
 	end
 	local carrySize = player:GetAttribute("CarrySize")
 	local carry = Economy.CarrySpeed(if type(carrySize) == "string" then carrySize else nil)
+	if player:GetAttribute("CarryKind") == "Raid" then
+		-- Carrying someone else's donut: slow mode until you get it home
+		return Config.Raid.CarryWalkSpeed * carry
+	end
 	if profile.Session.SlowMode then
 		return Config.Speed.SlowModeWalkSpeed * carry
 	end

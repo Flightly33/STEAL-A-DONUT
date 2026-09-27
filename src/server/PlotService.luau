@@ -4,6 +4,10 @@
 	Player bases: plot assignment, the donuts on their stands (with Upgrade / Sell prompts),
 	base income, the owner sign, base expansions (more stands), base skins, and the podium that
 	shows off the player's rarest or best-earning donut.
+
+	Every world's hub has the same 8 plots. You keep the same plot number everywhere, and your base
+	(donuts, treadmill, podium, incubator) moves to whichever world you're in (MoveBase), so you
+	never have to run back to the main hub to drop off a donut.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -18,6 +22,8 @@ local Format = require(Shared.Format)
 local Layout = require(Shared.Layout)
 local DonutModel = require(Shared.DonutModel)
 local Remotes = require(Shared.Remotes)
+local Signal = require(Shared.Signal)
+local Areas = require(Shared.Areas)
 
 local Build = require(script.Parent.Build)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -27,11 +33,15 @@ local PlotService = {}
 
 -- Set by RaidService: called for every new raid prompt (owner, slotIndex, prompt).
 PlotService.RaidHandler = nil :: ((Player, number, ProximityPrompt) -> ())?
+-- Fired after a player's base moved to another world: (player, oldWorld, newWorld).
+-- The treadmill, incubator and traps rebuild themselves from this.
+PlotService.BaseMoved = Signal.new()
 
 local rgb = Color3.fromRGB
 
 local plotOwners: { [number]: Player } = {}
 local playerPlots: { [Player]: number } = {}
+local baseWorlds: { [Player]: number } = {}
 local slotModels: { [Player]: { [number]: Model } } = {}
 local baseIncome: { [Player]: number } = {}
 
@@ -55,9 +65,14 @@ function PlotService.GetPlotIndex(player: Player): number?
 	return playerPlots[player]
 end
 
+-- The world the player's base is in right now.
+function PlotService.GetBaseWorld(player: Player): number
+	return baseWorlds[player] or 1
+end
+
 function PlotService.GetPlotModel(player: Player): Model?
 	local index = playerPlots[player]
-	return if index then MapBuilder.GetPlot(index) else nil
+	return if index then MapBuilder.GetPlot(index, PlotService.GetBaseWorld(player)) else nil
 end
 
 function PlotService.GetSpawnCFrame(player: Player): CFrame?
@@ -68,7 +83,7 @@ end
 
 function PlotService.IsInOwnPlot(player: Player, position: Vector3): boolean
 	local index = playerPlots[player]
-	return index ~= nil and Layout.IsInPlot(index, position)
+	return index ~= nil and Layout.IsInPlot(index, position, PlotService.GetBaseWorld(player))
 end
 
 function PlotService.GetBaseIncome(player: Player): number
@@ -112,8 +127,9 @@ end
 --------------------------------------------------------------------------------
 -- Sign above the plot
 --------------------------------------------------------------------------------
-local function refreshSign(plotIndex: number, owner: Player?)
-	local plot = MapBuilder.GetPlot(plotIndex)
+-- `away`: the owner's base is in another world right now (this plot stays reserved for them).
+local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, away: boolean?)
+	local plot = MapBuilder.GetPlot(plotIndex, worldId)
 	local anchor = plot:FindFirstChild("SignAnchor") :: BasePart?
 	if not anchor then
 		return
@@ -133,9 +149,15 @@ local function refreshSign(plotIndex: number, owner: Player?)
 	local signGui = gui :: BillboardGui
 	local nameLabel = signGui:FindFirstChild("OwnerName") :: TextLabel
 	local incomeLabel = signGui:FindFirstChild("Income") :: TextLabel
-	if owner then
+	if owner and away then
+		nameLabel.Text = `{owner.DisplayName}'s base`
+		nameLabel.TextColor3 = rgb(200, 200, 200)
+		incomeLabel.Text = `(in {Areas.World(PlotService.GetBaseWorld(owner)).Name})`
+		incomeLabel.TextColor3 = rgb(200, 200, 200)
+	elseif owner then
 		nameLabel.Text = owner.DisplayName
 		nameLabel.TextColor3 = rgb(255, 255, 255)
+		incomeLabel.TextColor3 = rgb(90, 255, 90)
 		local profile = DataService.Get(owner)
 		local mult = if profile then DataService.MoneyMultiplier(profile) else 1
 		local rebirths = if profile then profile.Data.Rebirths else 0
@@ -151,7 +173,7 @@ end
 function PlotService.RefreshSign(player: Player)
 	local index = playerPlots[player]
 	if index then
-		refreshSign(index, player)
+		refreshSign(index, player, PlotService.GetBaseWorld(player))
 	end
 end
 
@@ -425,10 +447,14 @@ local function afterSlotsChanged(player: Player)
 	PlotService.RefreshPodium(player)
 end
 
--- Put a donut on the first free stand. Returns the slot index, or nil when the base is full.
-function PlotService.AddDonut(player: Player, donutId: string, level: number?, mutationId: string?, sizeId: string?): number?
+-- Put a donut on the first free stand (or on `preferredSlot` if that one is free: a donut that
+-- was stolen and won back goes back where it was). Returns the slot index, or nil when full.
+function PlotService.AddDonut(player: Player, donutId: string, level: number?, mutationId: string?, sizeId: string?, preferredSlot: number?): number?
 	local profile = DataService.Get(player)
 	local slotIndex = PlotService.GetFreeSlot(player)
+	if profile and preferredSlot and preferredSlot <= PlotService.GetSlotCount(player) and not profile.Data.Slots[tostring(preferredSlot)] then
+		slotIndex = preferredSlot
+	end
 	if not profile or not slotIndex or not Donuts.ById[donutId] then
 		return nil
 	end
@@ -535,8 +561,8 @@ end
 --------------------------------------------------------------------------------
 -- Stands you haven't unlocked yet are see-through with a lock sign on each locked row.
 --------------------------------------------------------------------------------
-local function applySlotLocks(plotIndex: number, unlocked: number)
-	local plot = MapBuilder.GetPlot(plotIndex)
+local function applySlotLocks(plotIndex: number, unlocked: number, worldId: number)
+	local plot = MapBuilder.GetPlot(plotIndex, worldId)
 	local slots = plot:FindFirstChild("Slots")
 	if not slots then
 		return
@@ -563,7 +589,7 @@ local function applySlotLocks(plotIndex: number, unlocked: number)
 				holder.CanTouch = false
 				holder.Transparency = 1
 				holder.Size = Vector3.one
-				local rowCenter = Layout.PlotCFrame(plotIndex) * CFrame.new(0, Layout.PlotFloorHeight + 3, Layout.SlotOffset(index).Z)
+				local rowCenter = Layout.PlotCFrame(plotIndex, worldId) * CFrame.new(0, Layout.PlotFloorHeight + 3, Layout.SlotOffset(index).Z)
 				holder.CFrame = rowCenter
 				local gui = Instance.new("BillboardGui")
 				gui.Size = UDim2.fromScale(22, 2.2)
@@ -580,7 +606,7 @@ end
 function PlotService.RefreshLocks(player: Player)
 	local index = playerPlots[player]
 	if index then
-		applySlotLocks(index, PlotService.GetSlotCount(player))
+		applySlotLocks(index, PlotService.GetSlotCount(player), PlotService.GetBaseWorld(player))
 	end
 end
 
@@ -657,7 +683,7 @@ local function applySkinToPlot(plot: Model, skinId: string)
 		fx.Parent = plot
 	end
 	clearChildren(fx)
-	local center = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number)
+	local center = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number, (plot:GetAttribute("WorldId") :: number?) or 1)
 	local w, d = Layout.PlotWidth, Layout.PlotDepth
 
 	local function areaEmitter(color: Color3, direction: Enum.NormalId, rate: number, speed: number, size: number)
@@ -723,8 +749,53 @@ function PlotService.ApplySkin(player: Player)
 end
 
 --------------------------------------------------------------------------------
--- Assign / release
+-- Assign / release / move to another world
 --------------------------------------------------------------------------------
+-- Put everything that belongs to the player's base on the plot in their current base world.
+local function showBase(player: Player)
+	local index = playerPlots[player]
+	local profile = DataService.Get(player)
+	if not index then
+		return
+	end
+	local worldId = PlotService.GetBaseWorld(player)
+	MapBuilder.GetPlot(index, worldId):SetAttribute("OwnerUserId", player.UserId)
+	player:SetAttribute("BaseWorld", worldId)
+	if profile then
+		for i = 1, Config.Plots.SlotsPerPlot do
+			spawnSlotModel(player, i)
+		end
+	end
+	PlotService.RefreshLocks(player)
+	recalcIncome(player)
+	PlotService.ApplySkin(player)
+	PlotService.RefreshSign(player)
+	PlotService.RefreshPodium(player)
+end
+
+-- Take the player's base off the plot in `worldId` (the plot stays reserved for them if `away`).
+local function hideBase(player: Player, worldId: number, away: boolean)
+	local index = playerPlots[player]
+	if not index then
+		return
+	end
+	if slotModels[player] then
+		for _, model in slotModels[player] do
+			model:Destroy()
+		end
+	end
+	slotModels[player] = {}
+	local plot = MapBuilder.GetPlot(index, worldId)
+	plot:SetAttribute("OwnerUserId", nil)
+	local podium = plot:FindFirstChild("Podium")
+	if podium then
+		podium:Destroy()
+	end
+	applySkinToPlot(plot, "Classic")
+	applySlotLocks(index, Config.Plots.StartSlots, worldId)
+	refreshSign(index, if away then player else nil, worldId, away)
+end
+
 function PlotService.Assign(player: Player): number?
 	if playerPlots[player] then
 		return playerPlots[player]
@@ -741,8 +812,8 @@ function PlotService.Assign(player: Player): number?
 	end
 	plotOwners[index] = player
 	playerPlots[player] = index
+	baseWorlds[player] = 1
 	player:SetAttribute("PlotIndex", index)
-	MapBuilder.GetPlot(index):SetAttribute("OwnerUserId", player.UserId)
 
 	local profile = DataService.Get(player)
 	if profile then
@@ -752,16 +823,28 @@ function PlotService.Assign(player: Player): number?
 				profile.Data.Slots[key] = nil
 			end
 		end
-		for i = 1, Config.Plots.SlotsPerPlot do
-			spawnSlotModel(player, i)
+	end
+	-- The same plot number is reserved for them in the other worlds.
+	for _, world in Areas.Worlds do
+		if world.Id ~= 1 then
+			refreshSign(index, player, world.Id, true)
 		end
 	end
-	PlotService.RefreshLocks(player)
-	recalcIncome(player)
-	PlotService.ApplySkin(player)
-	PlotService.RefreshSign(player)
-	PlotService.RefreshPodium(player)
+	showBase(player)
 	return index
+end
+
+-- Move the player's base to another world (they just arrived there).
+function PlotService.MoveBase(player: Player, worldId: number)
+	local index = playerPlots[player]
+	local old = PlotService.GetBaseWorld(player)
+	if not index or old == worldId or not Areas.Worlds[worldId] then
+		return
+	end
+	baseWorlds[player] = worldId
+	hideBase(player, old, true)
+	showBase(player)
+	PlotService.BaseMoved:Fire(player, old, worldId)
 end
 
 function PlotService.Release(player: Player)
@@ -769,31 +852,23 @@ function PlotService.Release(player: Player)
 	if not index then
 		return
 	end
-	if slotModels[player] then
-		for _, model in slotModels[player] do
-			model:Destroy()
-		end
+	hideBase(player, PlotService.GetBaseWorld(player), false)
+	for _, world in Areas.Worlds do
+		refreshSign(index, nil, world.Id, false)
 	end
 	slotModels[player] = nil
 	baseIncome[player] = nil
 	playerPlots[player] = nil
+	baseWorlds[player] = nil
 	plotOwners[index] = nil
-
-	local plot = MapBuilder.GetPlot(index)
-	plot:SetAttribute("OwnerUserId", nil)
-	local podium = plot:FindFirstChild("Podium")
-	if podium then
-		podium:Destroy()
-	end
-	applySkinToPlot(plot, "Classic")
-	applySlotLocks(index, Config.Plots.StartSlots)
-	refreshSign(index, nil)
 end
 
 function PlotService.Init()
-	for i = 1, Config.Plots.Count do
-		refreshSign(i, nil)
-		applySlotLocks(i, Config.Plots.StartSlots)
+	for _, world in Areas.Worlds do
+		for i = 1, Config.Plots.Count do
+			refreshSign(i, nil, world.Id, false)
+			applySlotLocks(i, Config.Plots.StartSlots, world.Id)
+		end
 	end
 end
 

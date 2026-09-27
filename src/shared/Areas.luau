@@ -12,9 +12,11 @@
 	RecommendedSpeed is in "Speed stat" units (the big number in the HUD). The guard's WalkSpeed is
 	derived from it (see Economy.GuardWalkSpeed) so the two always stay in sync when you rebalance.
 
-	Balance (simulated with ~120ms of network lag): at the recommended speed you escape even from
-	the donut right next to the guard. About 2 walk speed below it, the risky donuts near him get you
-	caught; about 8 below, nothing in the area is safe. Area 1 is escapable at the starting speed.
+	RecommendedSpeed goes up by 90 per area (= +9 WalkSpeed, see Config.Speed), and the guard is
+	GuardSpeedBonus WalkSpeed faster than the recommended speed (5 / 7 / 9 in worlds 1 / 2 / 3).
+	Balance (chase maths with Domer's 10-stud reach): at the recommended speed you get away with
+	almost every donut; the few right in front of him need 1-2 WalkSpeed more. A little below it
+	only the donuts near the safe zone are safe.
 
 	Ambience is applied on the client when you walk into the area.
 ]]
@@ -90,7 +92,7 @@ Areas.Hub = DAY
 Areas.List = {
 	{
 		Id = 1, Name = "Glazed Meadow", Theme = "Meadow",
-		RecommendedSpeed = 0, GuardSpeedBonus = 3, WakeDelay = 1.6, World = 1, Index = 1,
+		RecommendedSpeed = 0, GuardSpeedBonus = 5, WakeDelay = 1.6, World = 1, Index = 1,
 		Floor = { Color3.fromRGB(120, 210, 56), Color3.fromRGB(106, 196, 48) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(206, 136, 78), Color3.fromRGB(192, 124, 68) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(100, 200, 60), TrimMaterial = Enum.Material.Grass,
@@ -99,7 +101,7 @@ Areas.List = {
 	},
 	{
 		Id = 2, Name = "Sprinkle Park", Theme = "Park",
-		RecommendedSpeed = 30, GuardSpeedBonus = 3, WakeDelay = 1.5, World = 1, Index = 2,
+		RecommendedSpeed = 90, GuardSpeedBonus = 5, WakeDelay = 1.5, World = 1, Index = 2,
 		Floor = { Color3.fromRGB(108, 184, 70), Color3.fromRGB(96, 170, 62) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(184, 124, 74), Color3.fromRGB(168, 110, 64) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(230, 110, 180), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -108,7 +110,7 @@ Areas.List = {
 	},
 	{
 		Id = 3, Name = "Sugar Dunes", Theme = "Desert",
-		RecommendedSpeed = 180, GuardSpeedBonus = 3, WakeDelay = 1.4, World = 1, Index = 3,
+		RecommendedSpeed = 180, GuardSpeedBonus = 5, WakeDelay = 1.4, World = 1, Index = 3,
 		Floor = { Color3.fromRGB(214, 190, 134), Color3.fromRGB(200, 176, 120) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(215, 170, 100), Color3.fromRGB(200, 155, 90) }, WallMaterial = Enum.Material.Sandstone,
 		Trim = Color3.fromRGB(255, 240, 200), TrimMaterial = Enum.Material.Sandstone,
@@ -117,7 +119,7 @@ Areas.List = {
 	},
 	{
 		Id = 4, Name = "Frosting Falls", Theme = "Frosting",
-		RecommendedSpeed = 1_100, GuardSpeedBonus = 3, WakeDelay = 1.3, World = 1, Index = 4,
+		RecommendedSpeed = 270, GuardSpeedBonus = 5, WakeDelay = 1.3, World = 1, Index = 4,
 		Floor = { Color3.fromRGB(226, 156, 192), Color3.fromRGB(234, 172, 204) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(150, 95, 60), Color3.fromRGB(135, 85, 55) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -126,7 +128,7 @@ Areas.List = {
 	},
 	{
 		Id = 5, Name = "Chocolate Caverns", Theme = "Chocolate",
-		RecommendedSpeed = 6_500, GuardSpeedBonus = 3, WakeDelay = 1.2, World = 1, Index = 5,
+		RecommendedSpeed = 360, GuardSpeedBonus = 5, WakeDelay = 1.2, World = 1, Index = 5,
 		Floor = { Color3.fromRGB(95, 55, 35), Color3.fromRGB(80, 45, 28) }, FloorMaterial = Enum.Material.Slate,
 		Wall = { Color3.fromRGB(70, 40, 25), Color3.fromRGB(58, 33, 20) }, WallMaterial = Enum.Material.Rock,
 		Trim = Color3.fromRGB(150, 90, 50), TrimMaterial = Enum.Material.Slate,
@@ -135,7 +137,7 @@ Areas.List = {
 	},
 	{
 		Id = 6, Name = "Glacier Glaze", Theme = "Ice",
-		RecommendedSpeed = 40_000, GuardSpeedBonus = 3, WakeDelay = 1.1, World = 1, Index = 6,
+		RecommendedSpeed = 450, GuardSpeedBonus = 5, WakeDelay = 1.1, World = 1, Index = 6,
 		Floor = { Color3.fromRGB(176, 206, 226), Color3.fromRGB(160, 192, 216) }, FloorMaterial = Enum.Material.Ice,
 		Wall = { Color3.fromRGB(150, 205, 240), Color3.fromRGB(130, 190, 230) }, WallMaterial = Enum.Material.Glacier,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Snow,
@@ -144,7 +146,7 @@ Areas.List = {
 	},
 	{
 		Id = 7, Name = "Molten Bakery", Theme = "Lava",
-		RecommendedSpeed = 240_000, GuardSpeedBonus = 3, WakeDelay = 1.0, World = 1, Index = 7,
+		RecommendedSpeed = 540, GuardSpeedBonus = 5, WakeDelay = 1.0, World = 1, Index = 7,
 		Floor = { Color3.fromRGB(45, 35, 35), Color3.fromRGB(60, 42, 38) }, FloorMaterial = Enum.Material.Basalt,
 		Wall = { Color3.fromRGB(50, 40, 40), Color3.fromRGB(38, 30, 30) }, WallMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 100, 0), TrimMaterial = Enum.Material.Neon,
@@ -153,7 +155,7 @@ Areas.List = {
 	},
 	{
 		Id = 8, Name = "Neon Donut City", Theme = "Neon",
-		RecommendedSpeed = 1_400_000, GuardSpeedBonus = 3, WakeDelay = 0.95, World = 1, Index = 8,
+		RecommendedSpeed = 630, GuardSpeedBonus = 5, WakeDelay = 0.95, World = 1, Index = 8,
 		Floor = { Color3.fromRGB(25, 20, 40), Color3.fromRGB(35, 28, 55) }, FloorMaterial = Enum.Material.SmoothPlastic,
 		Wall = { Color3.fromRGB(20, 18, 30), Color3.fromRGB(28, 24, 40) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(0, 255, 220), TrimMaterial = Enum.Material.Neon,
@@ -162,7 +164,7 @@ Areas.List = {
 	},
 	{
 		Id = 9, Name = "Crystal Cosmos", Theme = "Crystal",
-		RecommendedSpeed = 8_500_000, GuardSpeedBonus = 3, WakeDelay = 0.9, World = 1, Index = 9,
+		RecommendedSpeed = 720, GuardSpeedBonus = 5, WakeDelay = 0.9, World = 1, Index = 9,
 		Floor = { Color3.fromRGB(90, 50, 160), Color3.fromRGB(110, 65, 190) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(60, 30, 110), Color3.fromRGB(75, 40, 135) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(200, 150, 255), TrimMaterial = Enum.Material.Neon,
@@ -171,7 +173,7 @@ Areas.List = {
 	},
 	{
 		Id = 10, Name = "Celestial Donut Dimension", Theme = "Celestial",
-		RecommendedSpeed = 50_000_000, GuardSpeedBonus = 3, WakeDelay = 0.85, World = 1, Index = 10,
+		RecommendedSpeed = 810, GuardSpeedBonus = 5, WakeDelay = 0.85, World = 1, Index = 10,
 		Floor = { Color3.fromRGB(15, 10, 35), Color3.fromRGB(25, 15, 55) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 5, 25), Color3.fromRGB(20, 10, 40) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Neon,
@@ -181,7 +183,7 @@ Areas.List = {
 	---------------------------------------------------------------- World 2: Glaze Islands
 	{
 		Id = 11, Name = "Glaze Beach", Theme = "Beach",
-		RecommendedSpeed = 300_000_000, GuardSpeedBonus = 3, WakeDelay = 0.85, World = 2, Index = 1,
+		RecommendedSpeed = 900, GuardSpeedBonus = 7, WakeDelay = 0.85, World = 2, Index = 1,
 		Floor = { Color3.fromRGB(236, 212, 158), Color3.fromRGB(224, 198, 144) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(170, 120, 72), Color3.fromRGB(156, 108, 64) }, WallMaterial = Enum.Material.WoodPlanks,
 		Trim = Color3.fromRGB(80, 200, 255), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -190,7 +192,7 @@ Areas.List = {
 	},
 	{
 		Id = 12, Name = "Coral Crullers", Theme = "Coral",
-		RecommendedSpeed = 1_800_000_000, GuardSpeedBonus = 3, WakeDelay = 0.82, World = 2, Index = 2,
+		RecommendedSpeed = 990, GuardSpeedBonus = 7, WakeDelay = 0.82, World = 2, Index = 2,
 		Floor = { Color3.fromRGB(70, 130, 170), Color3.fromRGB(60, 116, 156) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(35, 85, 130), Color3.fromRGB(28, 72, 115) }, WallMaterial = Enum.Material.Slate,
 		Trim = Color3.fromRGB(255, 120, 150), TrimMaterial = Enum.Material.Neon,
@@ -199,7 +201,7 @@ Areas.List = {
 	},
 	{
 		Id = 13, Name = "Pirate Cove", Theme = "Pirate",
-		RecommendedSpeed = 11_000_000_000, GuardSpeedBonus = 3, WakeDelay = 0.8, World = 2, Index = 3,
+		RecommendedSpeed = 1_080, GuardSpeedBonus = 7, WakeDelay = 0.8, World = 2, Index = 3,
 		Floor = { Color3.fromRGB(135, 95, 58), Color3.fromRGB(120, 82, 50) }, FloorMaterial = Enum.Material.WoodPlanks,
 		Wall = { Color3.fromRGB(70, 58, 46), Color3.fromRGB(58, 48, 38) }, WallMaterial = Enum.Material.Wood,
 		Trim = Color3.fromRGB(230, 185, 60), TrimMaterial = Enum.Material.Foil,
@@ -208,7 +210,7 @@ Areas.List = {
 	},
 	{
 		Id = 14, Name = "Jelly Jungle", Theme = "Jungle",
-		RecommendedSpeed = 65_000_000_000, GuardSpeedBonus = 3, WakeDelay = 0.78, World = 2, Index = 4,
+		RecommendedSpeed = 1_170, GuardSpeedBonus = 7, WakeDelay = 0.78, World = 2, Index = 4,
 		Floor = { Color3.fromRGB(78, 150, 55), Color3.fromRGB(66, 134, 46) }, FloorMaterial = Enum.Material.Grass,
 		Wall = { Color3.fromRGB(52, 105, 42), Color3.fromRGB(44, 92, 36) }, WallMaterial = Enum.Material.Grass,
 		Trim = Color3.fromRGB(255, 80, 170), TrimMaterial = Enum.Material.Neon,
@@ -217,7 +219,7 @@ Areas.List = {
 	},
 	{
 		Id = 15, Name = "Volcano Isle", Theme = "Volcano",
-		RecommendedSpeed = 400_000_000_000, GuardSpeedBonus = 3, WakeDelay = 0.75, World = 2, Index = 5,
+		RecommendedSpeed = 1_260, GuardSpeedBonus = 7, WakeDelay = 0.75, World = 2, Index = 5,
 		Floor = { Color3.fromRGB(72, 56, 50), Color3.fromRGB(86, 66, 56) }, FloorMaterial = Enum.Material.Basalt,
 		Wall = { Color3.fromRGB(58, 40, 36), Color3.fromRGB(46, 32, 30) }, WallMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 120, 20), TrimMaterial = Enum.Material.Neon,
@@ -227,7 +229,7 @@ Areas.List = {
 	---------------------------------------------------------------- World 3: Dream Dimension
 	{
 		Id = 16, Name = "Cloud Bakery", Theme = "Clouds",
-		RecommendedSpeed = 2_400_000_000_000, GuardSpeedBonus = 5, WakeDelay = 0.75, World = 3, Index = 1,
+		RecommendedSpeed = 1_350, GuardSpeedBonus = 9, WakeDelay = 0.75, World = 3, Index = 1,
 		Floor = { Color3.fromRGB(246, 246, 255), Color3.fromRGB(232, 236, 250) }, FloorMaterial = Enum.Material.SmoothPlastic,
 		Wall = { Color3.fromRGB(205, 222, 255), Color3.fromRGB(190, 210, 250) }, WallMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 190, 225), TrimMaterial = Enum.Material.Neon,
@@ -236,7 +238,7 @@ Areas.List = {
 	},
 	{
 		Id = 17, Name = "Toy Factory", Theme = "Toys",
-		RecommendedSpeed = 14_000_000_000_000, GuardSpeedBonus = 5, WakeDelay = 0.72, World = 3, Index = 2,
+		RecommendedSpeed = 1_440, GuardSpeedBonus = 9, WakeDelay = 0.72, World = 3, Index = 2,
 		Floor = { Color3.fromRGB(255, 205, 70), Color3.fromRGB(80, 165, 255) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(240, 80, 80), Color3.fromRGB(80, 200, 110) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -245,7 +247,7 @@ Areas.List = {
 	},
 	{
 		Id = 18, Name = "Haunted Donuttery", Theme = "Haunted",
-		RecommendedSpeed = 85_000_000_000_000, GuardSpeedBonus = 5, WakeDelay = 0.7, World = 3, Index = 3,
+		RecommendedSpeed = 1_530, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 3,
 		Floor = { Color3.fromRGB(62, 52, 72), Color3.fromRGB(52, 44, 62) }, FloorMaterial = Enum.Material.Slate,
 		Wall = { Color3.fromRGB(42, 36, 52), Color3.fromRGB(34, 30, 44) }, WallMaterial = Enum.Material.Brick,
 		Trim = Color3.fromRGB(140, 255, 120), TrimMaterial = Enum.Material.Neon,
@@ -254,7 +256,7 @@ Areas.List = {
 	},
 	{
 		Id = 19, Name = "Clockwork Void", Theme = "Clockwork",
-		RecommendedSpeed = 500_000_000_000_000, GuardSpeedBonus = 5, WakeDelay = 0.7, World = 3, Index = 4,
+		RecommendedSpeed = 1_620, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 4,
 		Floor = { Color3.fromRGB(72, 62, 92), Color3.fromRGB(86, 74, 108) }, FloorMaterial = Enum.Material.DiamondPlate,
 		Wall = { Color3.fromRGB(42, 36, 62), Color3.fromRGB(34, 30, 52) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 190, 60), TrimMaterial = Enum.Material.Neon,
@@ -263,7 +265,7 @@ Areas.List = {
 	},
 	{
 		Id = 20, Name = "Donut Heaven", Theme = "Heaven",
-		RecommendedSpeed = 3_000_000_000_000_000, GuardSpeedBonus = 5, WakeDelay = 0.7, World = 3, Index = 5,
+		RecommendedSpeed = 1_710, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 5,
 		Floor = { Color3.fromRGB(255, 242, 205), Color3.fromRGB(255, 230, 175) }, FloorMaterial = Enum.Material.Marble,
 		Wall = { Color3.fromRGB(255, 250, 238), Color3.fromRGB(245, 238, 220) }, WallMaterial = Enum.Material.Marble,
 		Trim = Color3.fromRGB(255, 215, 90), TrimMaterial = Enum.Material.Neon,
@@ -275,7 +277,7 @@ Areas.List = {
 Areas.Worlds = {
 	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, RequiredRebirths = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
 	{ Id = 2, Name = "Glaze Islands", OffsetX = 2600, BridgeLength = 1600, RequiredRebirths = 1, WalkMultiplier = 1.2, Color = Color3.fromRGB(80, 200, 255), Icon = "🏝️" },
-	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 2400, RequiredRebirths = 2, WalkMultiplier = 1.4, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
+	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 2400, RequiredRebirths = 2, WalkMultiplier = 1.3, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
 } :: { World }
 
 Areas.ByWorld = {} :: { [number]: { Area } }

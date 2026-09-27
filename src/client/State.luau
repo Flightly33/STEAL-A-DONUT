@@ -25,6 +25,13 @@ export type Snapshot = {
 	Items: { [string]: boolean }?,
 	PlotIndex: number?,
 	SlowMode: boolean,
+	Eggs: { { Uid: string, Id: string, HatchAt: number } }?,
+	Pets: { { Uid: string, Id: string } }?,
+	EquippedPets: { string }?,
+	Buddy: string?,
+	Donated: number?,
+	Admin: boolean?,
+	GodMode: boolean?,
 }
 
 local State = {}
@@ -37,6 +44,9 @@ State.Data = {
 	PodiumMode = "Rarest",
 	PlotIndex = nil,
 	SlowMode = false,
+	Eggs = {},
+	Pets = {},
+	EquippedPets = {},
 } :: Snapshot
 
 State.Changed = Signal.new()

@@ -1,19 +1,22 @@
 --[[
 	Shop window with four tabs:
 	  Upgrades  - Speed Multiplier, Treadmill tiers and Base Expansions (in-game money)
-	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed and Teleporter (Robux)
-	  Items     - weapons, traps and the base lock (in-game money)
+	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
+	  Items     - weapons, traps and the base lock (in-game money), with spinning 3D previews of the
+	              real models (shared/ItemModel.luau)
 	  Skins     - base skins (paid with your Speed stat), equip the ones you own
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
+local ItemModel = require(Shared.ItemModel)
 
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
@@ -107,7 +110,7 @@ local function buildUpgrades(page: ScrollingFrame)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
 	local tip = card(page, 5, Theme.Colors.Green)
 	Theme.Label({
-		Text = "💡 Run on your treadmill to gain Speed. Faster = you can steal from further areas, where donuts are rarer and earn way more! Upgrading your donuts (E on them) is cheap early on.",
+		Text = `💡 Run on your treadmill to gain Speed: every {Config.Speed.SpeedPerWalk} Speed is +1 walk speed. Faster = you can steal from further areas, where donuts are rarer and earn way more! Upgrading your donuts (E on them) is cheap early on.`,
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
 	})
 
@@ -123,8 +126,8 @@ local function buildUpgrades(page: ScrollingFrame)
 			Theme.SetButtonColor(multButton, Theme.Colors.Gray)
 		else
 			local cost = Economy.SpeedMultiplierCost(multLevel)
-			local percent = math.floor((Config.SpeedMultiplier.PerLevel - 1) * 100 + 0.5)
-			multInfo.Text = `x{Format.Multiplier(Economy.SpeedMultiplier(multLevel))}  →  x{Format.Multiplier(Economy.SpeedMultiplier(multLevel + 1))}\n+{percent}% treadmill speed EVERY level`
+			local percent = math.floor(Config.SpeedMultiplier.PerLevel * 100 + 0.5)
+			multInfo.Text = `x{Format.Multiplier(Economy.SpeedMultiplier(multLevel))}  →  x{Format.Multiplier(Economy.SpeedMultiplier(multLevel + 1))}\n+{percent}% treadmill speed per level (Lv {multLevel}/{Config.SpeedMultiplier.MaxLevel})`
 			Theme.SetButtonText(multButton, "Buy " .. Format.Money(cost))
 			Theme.SetButtonColor(multButton, if money >= cost then Theme.Colors.Green else Theme.Colors.Gray)
 		end
@@ -161,7 +164,8 @@ local function buildUpgrades(page: ScrollingFrame)
 		end
 
 		local indexBonus = State.Number("IndexBonus")
-		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus)
+		local petBonus = State.Number("PetSpeedBonus")
+		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus)
 		local walk = State.Number("WalkSpeed")
 		local extras = {}
 		if rebirths > 0 then
@@ -169,6 +173,9 @@ local function buildUpgrades(page: ScrollingFrame)
 		end
 		if indexBonus > 0 then
 			table.insert(extras, `📖 +{indexBonus}%`)
+		end
+		if petBonus > 0 then
+			table.insert(extras, `🐾 +{math.floor(petBonus * 100 + 0.5)}%`)
 		end
 		local extraText = if #extras > 0 then " (" .. table.concat(extras, " ") .. ")" else ""
 		summaryText.Text = `<b>YOUR STATS</b>\nTreadmill: <font color="#c9a0ff">+{Format.Number(rate)} speed/s</font>{extraText}\nSpeed: <font color="#c9a0ff">{Format.Number(State.Number("Speed"))}</font> (walk speed {math.floor(walk)})\nIncome: <font color="#8dff6a">{Format.Money(State.Number("Income"))}/s</font>`
@@ -230,6 +237,16 @@ local function buildPasses(page: ScrollingFrame)
 			end
 		end)
 	end
+	-- Luck Event (a developer product: can be bought again and again)
+	local luck = card(page, 90, Color3.fromRGB(60, 200, 90))
+	Theme.Label({ Text = "🍀", Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = luck })
+	Theme.Label({ Text = "LUCK EVENT (10 MIN)", TextColor3 = Color3.fromRGB(140, 255, 160), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = luck })
+	Theme.Label({ Text = "Rarer donuts, more mutations and bigger sizes for EVERYONE in the server", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = luck })
+	local luckButton = Theme.Button({ Text = `R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = luck })
+	luckButton.Activated:Connect(function()
+		State.Action("BuyLuck")
+	end)
+
 	if Config.MoneyPassStacking == "Additive" then
 		local note = card(page, 100, Theme.Colors.Blue)
 		Theme.Label({ Text = "💡 Money passes stack! Own 2x + 3x = 4x money.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
@@ -280,23 +297,47 @@ end
 local KIND_LABEL = { Weapon = "⚔️ WEAPON", Trap = "🪤 TRAP", Lock = "🛡 DEFENSE" }
 
 function buildItems(page: ScrollingFrame)
+	local spinning: { { Camera: Camera, Radius: number, Height: number } } = {}
 	for order, item in Config.Items do
 		local c = card(page, order, item.Color)
-		Theme.Label({ Text = item.Icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = c })
+		-- A 3D preview of the real model, slowly turning
+		local viewport = Theme.new("ViewportFrame", {
+			BackgroundColor3 = Color3.fromRGB(25, 25, 40),
+			Size = UDim2.fromOffset(60, 60),
+			Position = UDim2.fromOffset(8, 6),
+			Ambient = Color3.fromRGB(170, 170, 170),
+			LightColor = Color3.fromRGB(255, 255, 255),
+			LightDirection = Vector3.new(-0.5, -1, 0.8),
+			Parent = c,
+		}, { Theme.Corner(10) })
+		local model = ItemModel.BuildPreview(item)
+		-- The item's +Z is "up the item": stand it upright, then centre it on the origin
+		local upright = CFrame.Angles(math.rad(-90), 0, 0)
+		model:PivotTo(upright)
+		local box, size = model:GetBoundingBox()
+		model:PivotTo(CFrame.new(-box.Position) * upright)
+		model.Parent = viewport
+		local radius = math.max(size.X, size.Y, size.Z) * 1.25 + 1
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 40
+		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -radius), Vector3.zero)
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		table.insert(spinning, { Camera = camera, Radius = radius, Height = 0 })
 		Theme.Label({ Text = string.upper(item.Name), TextColor3 = item.Color:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 30), Position = UDim2.fromOffset(74, 8), Parent = c })
 		Theme.Label({ Text = KIND_LABEL[item.Kind] or item.Kind, Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 200, 210), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 18), Position = UDim2.fromOffset(74, 38), StrokeThickness = 1, Parent = c })
 		Theme.Label({ Text = item.Description, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 36), Position = UDim2.fromOffset(10, 68), StrokeThickness = 1.2, Parent = c })
 		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
 		button.Activated:Connect(function()
-			local owned = State.Data.Items and State.Data.Items[item.Id]
+			local owned = item.Starter or (State.Data.Items and State.Data.Items[item.Id])
 			if not owned then
 				State.Action("BuyItem", item.Id)
 			end
 		end)
 		table.insert(refreshers, function()
-			local owned = State.Data.Items and State.Data.Items[item.Id]
+			local owned = item.Starter or (State.Data.Items and State.Data.Items[item.Id])
 			if owned then
-				Theme.SetButtonText(button, "OWNED ✓ (in hotbar)")
+				Theme.SetButtonText(button, if item.Starter then "FREE ✓ (in hotbar)" else "OWNED ✓ (in hotbar)")
 				Theme.SetButtonColor(button, Theme.Colors.Gray)
 			else
 				Theme.SetButtonText(button, "Buy " .. Format.Money(item.Cost))
@@ -304,6 +345,15 @@ function buildItems(page: ScrollingFrame)
 			end
 		end)
 	end
+	RunService.RenderStepped:Connect(function()
+		if not page.Visible then
+			return
+		end
+		local angle = os.clock() * 0.8
+		for _, entry in spinning do
+			entry.Camera.CFrame = CFrame.lookAt(Vector3.new(math.sin(angle) * entry.Radius, entry.Height, -math.cos(angle) * entry.Radius), Vector3.zero)
+		end
+	end)
 end
 
 function Shop.Open(tab: string?)
@@ -312,7 +362,7 @@ function Shop.Open(tab: string?)
 end
 
 function Shop.Init()
-	modal = Modal.new("🛒 SHOP", Theme.Colors.Green, Vector2.new(760, 500))
+	modal = Modal.new("🛒 SHOP", Theme.Colors.Green, Vector2.new(740, 490))
 	local body = modal.Body
 	selectTab = Modal.Tabs(body, {
 		{ Name = "Upgrades", Text = "⚡ Upgrades", Color = Theme.Colors.Purple },

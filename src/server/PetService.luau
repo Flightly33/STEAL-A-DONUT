@@ -1,0 +1,504 @@
+--[[
+	PetService
+	==========
+	Pet eggs and pets (see Pets.luau / Config.Pets):
+	  * Every Config.Pets.EggCheckInterval seconds each area that can have eggs (Pets.EggsForArea)
+	    may get one somewhere in the lane. It glows (rarer eggs are more mystical) and vanishes after
+	    a while if nobody grabs it. Rare eggs are announced to the server.
+	  * Grab it like a donut: your guard wakes up and chases you. Lose it and it goes back to its
+	    spot. Bring it into your base and it goes into your incubator (next to your treadmill).
+	  * An incubating egg hatches after its HatchSeconds (real time, also while you're offline).
+	    Hatch it from the Pets window: it becomes a random pet from that egg's pool.
+	  * Equip up to Config.Pets.MaxEquipped pets for money / treadmill speed bonuses. Equipped pets
+	    follow you around (drawn by every client from the player's "Pets" attribute).
+]]
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
+local Areas = require(Shared.Areas)
+local Pets = require(Shared.Pets)
+local PetModel = require(Shared.PetModel)
+local Layout = require(Shared.Layout)
+local Format = require(Shared.Format)
+local Remotes = require(Shared.Remotes)
+
+local Build = require(script.Parent.Build)
+local MapBuilder = require(script.Parent.MapBuilder)
+local DataService = require(script.Parent.DataService)
+local PlotService = require(script.Parent.PlotService)
+local TreadmillService = require(script.Parent.TreadmillService)
+local StealService = require(script.Parent.StealService)
+
+local PetService = {}
+
+type EggSpot = {
+	AreaId: number,
+	Model: Model?,
+	EggId: string?,
+	Position: Vector3,
+	SpawnedAt: number,
+	Taken: boolean,
+	Container: Instance,
+}
+
+local cfg = Config.Pets
+local rng = Random.new()
+local spots: { [number]: EggSpot } = {} -- one egg at a time per area
+local lastFullWarning: { [Player]: number } = {}
+local eggLuck = 1
+
+local function notify(player: Player, text: string, kind: string?)
+	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
+end
+
+-- Set by LuckService while a Luck Event runs.
+function PetService.SetEggLuck(luck: number)
+	eggLuck = luck
+end
+
+--------------------------------------------------------------------------------
+-- Player state
+--------------------------------------------------------------------------------
+local function findPet(data: DataService.Data, uid: string): (DataService.PetData?, number?)
+	for index, pet in data.Pets do
+		if pet.Uid == uid then
+			return pet, index
+		end
+	end
+	return nil, nil
+end
+
+-- Equipped pets changed: update bonuses, followers and everything that shows them.
+local function refreshPets(player: Player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local data = profile.Data
+	-- Drop equipped uids that no longer exist
+	local valid = {}
+	for _, uid in data.EquippedPets do
+		if findPet(data, uid) and #valid < cfg.MaxEquipped and not table.find(valid, uid) then
+			table.insert(valid, uid)
+		end
+	end
+	data.EquippedPets = valid
+	player:SetAttribute("Pets", table.concat(DataService.EquippedPetIds(data), ","))
+	player:SetAttribute("PetSpeedBonus", DataService.PetSpeedBonus(data))
+	player:SetAttribute("MoneyMultiplier", DataService.MoneyMultiplier(profile))
+	TreadmillService.Refresh(player)
+	PlotService.RefreshSign(player)
+	DataService.PushState(player)
+end
+
+--------------------------------------------------------------------------------
+-- Incubator at the base
+--------------------------------------------------------------------------------
+local function rebuildIncubator(player: Player, plot: Model?)
+	local target = plot or PlotService.GetPlotModel(player)
+	if not target then
+		return
+	end
+	local old = target:FindFirstChild("Incubator")
+	if old then
+		old:Destroy()
+	end
+	local profile = DataService.Get(player)
+	local anchor = target:FindFirstChild("IncubatorAnchor") :: BasePart?
+	if not profile or not anchor or plot then
+		return -- (a plot passed in explicitly is one the base just left: only clear it)
+	end
+	local incubator = Instance.new("Model")
+	incubator.Name = "Incubator"
+	local cf = anchor.CFrame
+	-- A glowing nest of straw with a sign
+	Build.Part({ Parent = incubator, Name = "Nest", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 13, 13), CFrame = cf * CFrame.new(0, 0.6, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(190, 150, 80), Material = Enum.Material.Grass })
+	local rim = Build.Decor({ Parent = incubator, Name = "NestRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 14, 14), CFrame = cf * CFrame.new(0, 1.1, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(255, 200, 90), Material = Enum.Material.Neon, Transparency = 0.5 })
+	local warmth = Instance.new("PointLight")
+	warmth.Color = Color3.fromRGB(255, 190, 110)
+	warmth.Range = 16
+	warmth.Brightness = 1.2
+	warmth.Parent = rim
+	local signHolder = Build.Part({ Parent = incubator, Name = "SignHolder", Size = Vector3.one, CFrame = cf * CFrame.new(0, 9, 0), Transparency = 1, CanCollide = false, CanQuery = false })
+	local sign = Instance.new("BillboardGui")
+	sign.Size = UDim2.fromScale(14, 2.4)
+	sign.LightInfluence = 0
+	sign.MaxDistance = 110
+	sign.Parent = signHolder
+	Build.Text(sign, `🥚 INCUBATOR {#profile.Data.Eggs}/{cfg.MaxEggs}`, { TextColor3 = Color3.fromRGB(255, 225, 140), TextStrokeColor3 = Color3.fromRGB(60, 30, 0) })
+
+	local count = #profile.Data.Eggs
+	for i, eggData in profile.Data.Eggs do
+		local egg = Pets.EggById[eggData.Id]
+		if egg then
+			local angle = (i - 1) / math.max(count, 1) * math.pi * 2
+			local radius = if count <= 1 then 0 else 3.6
+			local model = PetModel.BuildEgg(egg, { Scale = 1.05 })
+			local bottom = (model:GetAttribute("Bottom") :: number?) or 1.5
+			model:PivotTo(cf * CFrame.new(math.cos(angle) * radius, 1.2 + bottom, math.sin(angle) * radius))
+			model:SetAttribute("HatchAt", eggData.HatchAt)
+			model:SetAttribute("Uid", eggData.Uid)
+			model.Parent = incubator
+			-- Countdown label (the text is updated by each client from HatchAt)
+			local gui = Instance.new("BillboardGui")
+			gui.Name = "EggTimer"
+			gui.Size = UDim2.fromScale(7, 1.8)
+			gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 1.5) + 1.6, 0)
+			gui.LightInfluence = 0
+			gui.MaxDistance = 80
+			gui.Parent = model.PrimaryPart
+			Build.Text(gui, egg.Name, { Name = "EggName", Size = UDim2.fromScale(1, 0.5), TextColor3 = egg.Accent:Lerp(Color3.new(1, 1, 1), 0.4), Font = Enum.Font.FredokaOne })
+			Build.Text(gui, "", { Name = "Countdown", Size = UDim2.fromScale(1, 0.5), Position = UDim2.fromScale(0, 0.5), TextColor3 = Color3.fromRGB(255, 255, 255) })
+		end
+	end
+	incubator.Parent = target
+end
+
+function PetService.AddEgg(player: Player, eggId: string): boolean
+	local profile = DataService.Get(player)
+	local egg = Pets.EggById[eggId]
+	if not profile or not egg then
+		return false
+	end
+	if #profile.Data.Eggs >= cfg.MaxEggs then
+		return false
+	end
+	table.insert(profile.Data.Eggs, { Uid = HttpService:GenerateGUID(false), Id = egg.Id, HatchAt = os.time() + egg.HatchSeconds })
+	rebuildIncubator(player)
+	DataService.PushState(player)
+	return true
+end
+
+-- Hatch one egg (uid) or every ready egg (uid = nil). `force` skips the timer (admin panel).
+function PetService.Hatch(player: Player, uid: string?, force: boolean?)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local data = profile.Data
+	local now = os.time()
+	local hatched = 0
+	local index = 1
+	while index <= #data.Eggs do
+		local eggData = data.Eggs[index]
+		local egg = Pets.EggById[eggData.Id]
+		local wanted = uid == nil or eggData.Uid == uid
+		if wanted and egg and (force or now >= eggData.HatchAt) then
+			if #data.Pets >= cfg.MaxPets then
+				notify(player, `Your pet inventory is full ({cfg.MaxPets})! Release a pet first.`, "error")
+				break
+			end
+			table.remove(data.Eggs, index)
+			local pet = Pets.RollPet(egg, rng)
+			local petData = { Uid = HttpService:GenerateGUID(false), Id = pet.Id }
+			table.insert(data.Pets, petData)
+			hatched += 1
+			Remotes.Event("EggHatched"):FireClient(player, { EggId = egg.Id, PetId = pet.Id, Uid = petData.Uid })
+			local rarity = Pets.Rarity(pet.Rarity)
+			if rarity.Order >= 6 then
+				Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} hatched a {string.upper(rarity.Id)} {pet.Name}! ({string.format("%.2g", Pets.Chance(egg, pet.Id) * 100)}% chance)`, rarity.Color)
+			end
+			-- Auto-equip into a free pet slot
+			if #data.EquippedPets < cfg.MaxEquipped then
+				table.insert(data.EquippedPets, petData.Uid)
+			end
+		elseif wanted and uid then
+			notify(player, "That egg isn't ready yet!", "error")
+			index += 1
+		else
+			index += 1
+		end
+	end
+	if hatched > 0 then
+		rebuildIncubator(player)
+		refreshPets(player)
+	elseif uid == nil then
+		notify(player, "No eggs are ready to hatch yet.", "error")
+	end
+end
+
+function PetService.Equip(player: Player, uid: any)
+	local profile = DataService.Get(player)
+	if not profile or type(uid) ~= "string" or not findPet(profile.Data, uid) then
+		return
+	end
+	local equipped = profile.Data.EquippedPets
+	if table.find(equipped, uid) then
+		return
+	end
+	if #equipped >= cfg.MaxEquipped then
+		notify(player, `You can equip {cfg.MaxEquipped} pets at once. Unequip one first.`, "error")
+		return
+	end
+	table.insert(equipped, uid)
+	refreshPets(player)
+end
+
+function PetService.Unequip(player: Player, uid: any)
+	local profile = DataService.Get(player)
+	if not profile or type(uid) ~= "string" then
+		return
+	end
+	local index = table.find(profile.Data.EquippedPets, uid)
+	if index then
+		table.remove(profile.Data.EquippedPets, index)
+		refreshPets(player)
+	end
+end
+
+-- Equip the pets with the biggest total bonus.
+function PetService.EquipBest(player: Player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local list = table.clone(profile.Data.Pets)
+	table.sort(list, function(a, b)
+		local pa, pb = Pets.ById[a.Id], Pets.ById[b.Id]
+		return (if pa then pa.Money + pa.Speed else 0) > (if pb then pb.Money + pb.Speed else 0)
+	end)
+	local equipped = {}
+	for i = 1, math.min(cfg.MaxEquipped, #list) do
+		table.insert(equipped, list[i].Uid)
+	end
+	profile.Data.EquippedPets = equipped
+	refreshPets(player)
+end
+
+function PetService.Release(player: Player, uid: any)
+	local profile = DataService.Get(player)
+	if not profile or type(uid) ~= "string" then
+		return
+	end
+	local pet, index = findPet(profile.Data, uid)
+	if pet and index then
+		table.remove(profile.Data.Pets, index)
+		local equippedIndex = table.find(profile.Data.EquippedPets, uid)
+		if equippedIndex then
+			table.remove(profile.Data.EquippedPets, equippedIndex)
+		end
+		local def = Pets.ById[pet.Id]
+		notify(player, `Released {if def then def.Name else "your pet"}. Bye bye!`)
+		refreshPets(player)
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Eggs in the lane
+--------------------------------------------------------------------------------
+local spawnEgg: (spot: EggSpot, eggId: string, announce: boolean) -> ()
+
+local function clearSpot(spot: EggSpot)
+	if spot.Model then
+		spot.Model:Destroy()
+	end
+	spot.Model = nil
+	spot.EggId = nil
+	spot.Taken = false
+end
+
+local function tryGrab(player: Player, spot: EggSpot, model: Model)
+	if spot.Model ~= model or spot.Taken or not spot.EggId then
+		return
+	end
+	if not StealService.CanPickUp(player, model:GetPivot().Position, 18) then
+		return
+	end
+	local profile = DataService.Get(player)
+	if profile and #profile.Data.Eggs >= cfg.MaxEggs then
+		notify(player, `Your incubator is full ({cfg.MaxEggs} eggs)! Hatch some eggs first.`, "error")
+		return
+	end
+	local egg = Pets.EggById[spot.EggId]
+	local eggId = spot.EggId
+	spot.Taken = true
+	model:Destroy()
+	spot.Model = nil
+	local visual = PetModel.BuildEgg(egg, { Scale = 0.6 })
+	if not StealService.AttachAboveHead(player, visual) then
+		visual:Destroy()
+	end
+	local started = StealService.StartCustom(player, {
+		Kind = "Egg",
+		DonutId = eggId,
+		Level = 1,
+		Mutation = "None",
+		Size = "Normal",
+		Victim = nil,
+		VictimSlot = nil,
+		Record = nil,
+		AreaId = spot.AreaId,
+		Visual = visual,
+		Secured = false,
+		LastPos = Vector3.zero,
+		LastTime = 0,
+		OnDeposit = function(carrier: Player): boolean
+			if PetService.AddEgg(carrier, eggId) then
+				clearSpot(spot)
+				notify(carrier, `🥚 {egg.Name} is in your incubator! It hatches in {Format.Duration(egg.HatchSeconds)}.`, "success")
+				Remotes.Event("ChaseEnded"):FireClient(carrier, { Result = "Deposited", Kind = "Egg", EggId = eggId })
+				return true
+			end
+			local now = os.clock()
+			if not lastFullWarning[carrier] or now - lastFullWarning[carrier] > 4 then
+				lastFullWarning[carrier] = now
+				notify(carrier, `Your incubator is full ({cfg.MaxEggs} eggs)! Hatch some eggs first.`, "error")
+			end
+			return false
+		end,
+		OnLost = function()
+			-- Back to its spot
+			spot.Taken = false
+			spawnEgg(spot, eggId, false)
+		end,
+	})
+	if not started then
+		visual:Destroy()
+		spot.Taken = false
+		spawnEgg(spot, eggId, false)
+	end
+end
+
+function spawnEgg(spot: EggSpot, eggId: string, announce: boolean)
+	local egg = Pets.EggById[eggId]
+	if not egg then
+		return
+	end
+	if spot.Model then
+		spot.Model:Destroy()
+	end
+	local model = PetModel.BuildEgg(egg, { Scale = 1.1, Pillar = true })
+	local bottom = (model:GetAttribute("Bottom") :: number?) or 1.6
+	model:PivotTo(CFrame.new(spot.Position + Vector3.new(0, bottom + 0.3, 0)))
+	local root = model.PrimaryPart :: BasePart
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "EggPrompt"
+	prompt.ActionText = "Grab Egg"
+	prompt.ObjectText = `{egg.Name} (hatches in {Format.Duration(egg.HatchSeconds)})`
+	prompt.HoldDuration = 0.5
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.Parent = root
+	prompt.Triggered:Connect(function(player)
+		tryGrab(player, spot, model)
+	end)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromScale(8, 2)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 1.6) + 1.8, 0)
+	gui.LightInfluence = 0
+	gui.MaxDistance = 140
+	gui.Parent = root
+	Build.Text(gui, `🥚 {egg.Name}`, { TextColor3 = egg.Accent:Lerp(Color3.new(1, 1, 1), 0.3), Font = Enum.Font.FredokaOne })
+	model.Parent = spot.Container
+	spot.Model = model
+	spot.EggId = eggId
+	spot.SpawnedAt = os.clock()
+	spot.Taken = false
+	if announce and egg.Tier >= 5 then
+		local area = Areas.List[spot.AreaId]
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`🥚 A {string.upper(egg.Name)} appeared in {area.Name}!`, egg.Accent)
+	end
+end
+
+-- A random spot in the lane part of the area, away from the donuts and the guard's blanket.
+local function randomPosition(areaId: number): Vector3?
+	local area = MapBuilder.GetArea(areaId)
+	local spawns = area:FindFirstChild("Spawns")
+	local donutSpots = {}
+	if spawns then
+		for _, point in spawns:GetChildren() do
+			if point:IsA("BasePart") and point.Name == "DonutSpawn" then
+				table.insert(donutSpots, point.Position)
+			end
+		end
+	end
+	local x0 = Layout.WorldOffset(Areas.List[areaId].World)
+	for _ = 1, 30 do
+		local candidate = Vector3.new(x0 + rng:NextNumber(-38, 38), 0, rng:NextNumber(Layout.AreaStart(areaId) + 25, Layout.AreaEnd(areaId) - 40))
+		local ok = true
+		for _, other in donutSpots do
+			if (Vector3.new(other.X, 0, other.Z) - candidate).Magnitude < 10 then
+				ok = false
+				break
+			end
+		end
+		if ok then
+			return candidate
+		end
+	end
+	return nil
+end
+
+--------------------------------------------------------------------------------
+-- Admin helpers
+--------------------------------------------------------------------------------
+function PetService.GiveEgg(player: Player, eggId: string)
+	if not PetService.AddEgg(player, eggId) then
+		notify(player, "Incubator full (or unknown egg).", "error")
+	end
+end
+
+--------------------------------------------------------------------------------
+-- Lifecycle
+--------------------------------------------------------------------------------
+function PetService.OnPlayerReady(player: Player)
+	refreshPets(player)
+	rebuildIncubator(player)
+end
+
+function PetService.OnPlayerRemoving(player: Player)
+	lastFullWarning[player] = nil
+	local plot = PlotService.GetPlotModel(player)
+	local incubator = plot and plot:FindFirstChild("Incubator")
+	if incubator then
+		incubator:Destroy()
+	end
+end
+
+function PetService.Init()
+	PlotService.BaseMoved:Connect(function(player: Player, oldWorld: number)
+		local index = PlotService.GetPlotIndex(player)
+		if index then
+			rebuildIncubator(player, MapBuilder.GetPlot(index, oldWorld))
+		end
+		rebuildIncubator(player)
+	end)
+
+	for _, area in Areas.List do
+		if #Pets.EggsForArea(area.Id) > 0 then
+			local folder = Instance.new("Folder")
+			folder.Name = "ActiveEggs"
+			folder.Parent = MapBuilder.GetArea(area.Id)
+			spots[area.Id] = { AreaId = area.Id, Model = nil, EggId = nil, Position = Vector3.zero, SpawnedAt = 0, Taken = false, Container = folder }
+		end
+	end
+
+	task.spawn(function()
+		while true do
+			task.wait(cfg.EggCheckInterval)
+			local now = os.clock()
+			for areaId, spot in spots do
+				if spot.Taken then
+					continue
+				end
+				if spot.Model and now - spot.SpawnedAt > cfg.EggLifetime then
+					clearSpot(spot)
+				elseif not spot.Model and rng:NextNumber() < cfg.EggChance * eggLuck and #Players:GetPlayers() > 0 then
+					local egg = Pets.RollEgg(areaId, rng)
+					local position = randomPosition(areaId)
+					if egg and position then
+						spot.Position = position
+						spawnEgg(spot, egg.Id, true)
+					end
+				end
+			end
+		end
+	end)
+end
+
+return PetService

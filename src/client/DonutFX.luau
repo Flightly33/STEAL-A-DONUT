@@ -533,7 +533,7 @@ local function register(instance: Instance)
 	local sc = if type(scale) == "number" then scale else 1
 	-- Read the resting position straight away (other effects start moving the donut right after).
 	local ground: CFrame? = nil
-	if root.Anchored then
+	if root.Anchored and not model:GetAttribute("Follower") then
 		ground = CFrame.new(root.Position - Vector3.new(0, if type(bottom) == "number" then bottom else 1.5, 0))
 	end
 

@@ -4,7 +4,7 @@
 	* Builds YOUR sleeping guard on every blanket (only you can see him; everyone has their own).
 	* When you steal a donut the server spawns your chasing guard: your sleeping one disappears in a
 	  puff of smoke, and pops back onto the blanket when the chase is over.
-	* Other players' chasing guards are hidden, so you never see anyone else's Homers.
+	* Other players' chasing guards are hidden, so you never see anyone else's Domers.
 ]]
 
 local CollectionService = game:GetService("CollectionService")

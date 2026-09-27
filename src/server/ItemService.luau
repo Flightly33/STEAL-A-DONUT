@@ -10,7 +10,9 @@
 	  Lock   - click to put a laser across your base entrance for Duration seconds: raids are blocked
 	           and intruders who touch the laser get flung out.
 
-	Anyone who gets flung while carrying a donut drops it (a raided donut goes back to its owner).
+	Anyone who gets flung while carrying a donut drops it: it goes back where it came from (a raided
+	donut flies back onto its owner's stand). The Slap Hand is free for everyone (Config Starter), so
+	every owner can defend their base. The item models themselves live in shared/ItemModel.luau.
 	Every item has sound effects (built-in Roblox sounds, so nothing needs uploading).
 ]]
 
@@ -23,7 +25,10 @@ local Format = require(Shared.Format)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 
+local ItemModel = require(Shared.ItemModel)
+
 local Build = require(script.Parent.Build)
+local MapBuilder = require(script.Parent.MapBuilder)
 local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
 local StealService = require(script.Parent.StealService)
@@ -129,149 +134,6 @@ end
 --------------------------------------------------------------------------------
 -- Tools
 --------------------------------------------------------------------------------
-local function decor(tool: Tool, handle: BasePart, size: Vector3, offset: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): Part
-	local part = Instance.new("Part")
-	part.Name = "Decor"
-	part.Size = size
-	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.TopSurface = Enum.SurfaceType.Smooth
-	part.BottomSurface = Enum.SurfaceType.Smooth
-	if shape then
-		part.Shape = shape
-	end
-	part.CanCollide = false
-	part.CanQuery = false
-	part.CanTouch = false
-	part.Massless = true
-	part.CastShadow = false
-	part.CFrame = handle.CFrame * offset
-	local weld = Instance.new("Weld")
-	weld.Part0 = handle
-	weld.Part1 = part
-	weld.C0 = offset
-	weld.Parent = part
-	part.Parent = tool
-	return part
-end
-
--- Cylinders point along X; this lays one along the tool (Z).
-local ALONG = CFrame.Angles(0, math.pi / 2, 0)
-local BALL, CYL = Enum.PartType.Ball, Enum.PartType.Cylinder
-
--- Every item is modelled along the handle's +Z axis: +Z is "away from the hand".
--- The grip is the classic sword grip, so weapons point forward when you hold them.
-local function makeTool(item: Config.Item): Tool
-	local tool = Instance.new("Tool")
-	tool.Name = item.Name
-	tool.ToolTip = item.Description
-	tool.CanBeDropped = false
-	tool.RequiresHandle = true
-	tool:SetAttribute("ItemId", item.Id)
-
-	local handle = Instance.new("Part")
-	handle.Name = "Handle"
-	handle.CanCollide = false
-	handle.Massless = true
-	handle.Material = Enum.Material.SmoothPlastic
-	handle.TopSurface = Enum.SurfaceType.Smooth
-	handle.BottomSurface = Enum.SurfaceType.Smooth
-	handle.Size = Vector3.new(0.4, 0.4, 1.4)
-	handle.Color = rgb(120, 80, 45)
-	handle.Parent = tool
-	local function grip(z: number)
-		tool.Grip = CFrame.new(0, 0, z, 0, 0, 1, 1, 0, 0, 0, 1, 0)
-	end
-	grip(-0.3)
-
-	if item.Id == "Slap" then
-		-- A giant cartoon glove
-		handle.Size = Vector3.new(0.7, 0.7, 1)
-		handle.Color = rgb(255, 210, 60)
-		handle.Material = Enum.Material.Fabric
-		local white = rgb(250, 250, 250)
-		decor(tool, handle, Vector3.new(0.3, 1.1, 1.1), CFrame.new(0, 0, 0.55) * ALONG, rgb(255, 180, 40), Enum.Material.Fabric, CYL)
-		decor(tool, handle, Vector3.new(1.7, 0.6, 1.5), CFrame.new(0, 0, 1.3), white)
-		for i, x in { -0.6, -0.2, 0.2, 0.6 } do
-			local length = if i == 1 or i == 4 then 0.8 else 1
-			decor(tool, handle, Vector3.new(length, 0.42, 0.42), CFrame.new(x, 0, 2.05 + length / 2 - 0.4) * ALONG, white, nil, CYL)
-			decor(tool, handle, Vector3.one * 0.42, CFrame.new(x, 0, 2.05 + length - 0.4), white, nil, BALL)
-		end
-		decor(tool, handle, Vector3.new(0.8, 0.42, 0.42), CFrame.new(1.05, 0, 1.2) * CFrame.Angles(0, math.rad(40), 0) * ALONG, white, nil, CYL)
-		for _, x in { -0.3, 0, 0.3 } do
-			decor(tool, handle, Vector3.new(0.06, 0.62, 0.7), CFrame.new(x, 0, 1.25), rgb(40, 40, 40))
-		end
-		grip(-0.1)
-	elseif item.Id == "Bat" then
-		-- A baseball bat with a donut stuck on it
-		handle.Material = Enum.Material.Wood
-		handle.Size = Vector3.new(0.34, 0.34, 1.6)
-		handle.Color = rgb(150, 95, 50)
-		decor(tool, handle, Vector3.new(0.2, 0.5, 0.5), CFrame.new(0, 0, -0.85) * ALONG, rgb(90, 60, 35), Enum.Material.Wood, CYL)
-		for i = 0, 4 do
-			local d = 0.42 + i * 0.12
-			decor(tool, handle, Vector3.new(0.5, d, d), CFrame.new(0, 0, 1.0 + i * 0.45) * ALONG, rgb(200, 135, 70), Enum.Material.Wood, CYL)
-		end
-		decor(tool, handle, Vector3.one * 0.92, CFrame.new(0, 0, 3.05), rgb(200, 135, 70), Enum.Material.Wood, BALL)
-		-- the donut ring around the barrel
-		for n = 0, 9 do
-			local angle = n / 10 * math.pi * 2
-			decor(tool, handle, Vector3.one * 0.5, CFrame.new(math.cos(angle) * 0.62, math.sin(angle) * 0.62, 2.1), rgb(222, 165, 95), nil, BALL)
-			decor(tool, handle, Vector3.one * 0.44, CFrame.new(math.cos(angle) * 0.62, math.sin(angle) * 0.62, 1.95), rgb(255, 130, 190), nil, BALL)
-		end
-		grip(-0.4)
-	elseif item.Id == "Hammer" then
-		-- A glowing mega mallet
-		handle.Size = Vector3.new(0.4, 0.4, 3.2)
-		handle.Color = rgb(70, 50, 110)
-		handle.Material = Enum.Material.Metal
-		decor(tool, handle, Vector3.new(2.8, 1.9, 1.9), CFrame.new(0, 0, 1.9), rgb(150, 90, 255), Enum.Material.SmoothPlastic, CYL)
-		for _, x in { -1.25, 1.25 } do
-			decor(tool, handle, Vector3.new(0.3, 2.05, 2.05), CFrame.new(x, 0, 1.9), rgb(255, 220, 90), Enum.Material.Neon, CYL)
-		end
-		local core = decor(tool, handle, Vector3.new(0.5, 1.95, 1.95), CFrame.new(0, 0, 1.9), rgb(200, 150, 255), Enum.Material.Neon, CYL)
-		local light = Instance.new("PointLight")
-		light.Color = rgb(170, 110, 255)
-		light.Range = 10
-		light.Brightness = 1.5
-		light.Parent = core
-		decor(tool, handle, Vector3.one * 0.55, CFrame.new(0, 0, -1.65), rgb(255, 220, 90), Enum.Material.Neon, BALL)
-		grip(-1.1)
-	elseif item.Id == "Banana" then
-		-- A banana peel: stem + three floppy flaps
-		handle.Size = Vector3.new(0.5, 0.5, 0.9)
-		handle.Color = rgb(255, 225, 60)
-		decor(tool, handle, Vector3.new(0.25, 0.25, 0.3), CFrame.new(0, 0, -0.55), rgb(110, 80, 40))
-		for n = 0, 2 do
-			local angle = n / 3 * math.pi * 2
-			decor(tool, handle, Vector3.new(0.4, 0.14, 1.2), CFrame.Angles(0, 0, angle) * CFrame.new(0, 0.3, 0.75) * CFrame.Angles(math.rad(-30), 0, 0), rgb(255, 225, 60))
-		end
-		grip(-0.2)
-	elseif item.Id == "Spring" then
-		-- A mini launch pad with a spring
-		handle.Size = Vector3.new(0.4, 0.4, 0.8)
-		handle.Color = rgb(60, 60, 70)
-		handle.Material = Enum.Material.Metal
-		for i = 0, 3 do
-			decor(tool, handle, Vector3.new(0.12, 0.9, 0.9), CFrame.new(0, 0, 0.5 + i * 0.25) * ALONG, rgb(200, 200, 210), Enum.Material.Metal, CYL)
-		end
-		decor(tool, handle, Vector3.new(0.3, 1.8, 1.8), CFrame.new(0, 0, 1.55) * ALONG, rgb(80, 200, 255), Enum.Material.Neon, CYL)
-		grip(-0.2)
-	elseif item.Id == "Lock" then
-		-- A big golden padlock
-		handle.Size = Vector3.new(0.5, 0.5, 0.6)
-		handle.Color = rgb(60, 60, 70)
-		decor(tool, handle, Vector3.new(1.3, 0.6, 1.2), CFrame.new(0, 0, 0.85), rgb(255, 200, 50), Enum.Material.Foil)
-		decor(tool, handle, Vector3.new(0.25, 0.62, 0.35), CFrame.new(0, 0, 0.85), rgb(40, 30, 20))
-		for _, x in { -0.45, 0.45 } do
-			decor(tool, handle, Vector3.new(0.18, 0.18, 0.7), CFrame.new(x, 0, 1.75), rgb(200, 200, 210), Enum.Material.Metal)
-		end
-		decor(tool, handle, Vector3.new(1.08, 0.18, 0.18), CFrame.new(0, 0, 2.1), rgb(200, 200, 210), Enum.Material.Metal)
-		grip(-0.1)
-	end
-	return tool
-end
-
 -- Classic "swing" animation: the default Animate script plays a slash when it sees this value.
 local function swingAnimation(tool: Tool)
 	local anim = Instance.new("StringValue")
@@ -314,7 +176,7 @@ local function placeTrap(player: Player, item: Config.Item)
 	local root = rootOf(player)
 	local plotIndex = PlotService.GetPlotIndex(player)
 	local plot = PlotService.GetPlotModel(player)
-	if not root or not plotIndex or not plot or not Layout.IsInPlot(plotIndex, root.Position) then
+	if not root or not plotIndex or not plot or not PlotService.IsInOwnPlot(player, root.Position) then
 		notify(player, "Stand inside your own base to place traps.", "error")
 		return
 	end
@@ -397,7 +259,7 @@ local function useLock(player: Player, item: Config.Item)
 	lastUse[player][item.Id] = os.clock()
 
 	-- Laser across the base entrance (the gap in the front fence)
-	local cf = Layout.PlotCFrame(plotIndex)
+	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
 	local laser = Build.Part({
 		Parent = plot, Name = "LockLaser",
 		Size = Vector3.new(18, 8, 0.6),
@@ -448,7 +310,7 @@ local function giveTool(player: Player, item: Config.Item)
 			end
 		end
 	end
-	local tool = makeTool(item)
+	local tool = ItemModel.BuildTool(item)
 	tool.Equipped:Connect(function()
 		local handle = tool:FindFirstChild("Handle")
 		if handle then
@@ -477,7 +339,7 @@ function ItemService.GiveTools(player: Player)
 		return
 	end
 	for _, item in Config.Items do
-		if profile.Data.Items[item.Id] then
+		if profile.Data.Items[item.Id] or item.Starter then
 			giveTool(player, item)
 		end
 	end
@@ -489,7 +351,7 @@ function ItemService.Buy(player: Player, itemId: any)
 	if not item or not profile then
 		return
 	end
-	if profile.Data.Items[item.Id] then
+	if profile.Data.Items[item.Id] or item.Starter then
 		notify(player, "You already own " .. item.Name .. "!")
 		return
 	end
@@ -503,8 +365,8 @@ function ItemService.Buy(player: Player, itemId: any)
 	notify(player, `{item.Icon} {item.Name} bought! It's in your hotbar.`, "success")
 end
 
-function ItemService.OnPlayerRemoving(player: Player)
-	local plot = PlotService.GetPlotModel(player)
+-- Remove the player's traps and base lock (they left, or their base moved to another world).
+local function clearBaseItems(player: Player, plot: Model?)
 	if plot then
 		plot:SetAttribute("Locked", nil)
 	end
@@ -519,6 +381,17 @@ function ItemService.OnPlayerRemoving(player: Player)
 		lockParts[player]:Destroy()
 		lockParts[player] = nil
 	end
+end
+
+function ItemService.Init()
+	PlotService.BaseMoved:Connect(function(player: Player, oldWorld: number)
+		local index = PlotService.GetPlotIndex(player)
+		clearBaseItems(player, if index then MapBuilder.GetPlot(index, oldWorld) else nil)
+	end)
+end
+
+function ItemService.OnPlayerRemoving(player: Player)
+	clearBaseItems(player, PlotService.GetPlotModel(player))
 	lastUse[player] = nil
 	lastFlung[player] = nil
 end

@@ -8,7 +8,11 @@
 	1. Create the Game Passes on the Creator Dashboard and paste their IDs into
 	   Config.GamePasses[...].GamePassId.
 	   A GamePassId of 0 means "not set up yet" and the item shows as "Coming Soon" in live servers.
-	2. In Studio: Game Settings > Security > "Enable Studio Access to API Services" so DataStores work
+	2. Create the Developer Products (Luck Event + one per donation amount) and paste their IDs into
+	   Config.LuckEvent.DeveloperProductId and Config.Donations.Products[...].DeveloperProductId.
+	3. The admin code works for the game's owner and in Studio. To let friends use it, add their
+	   UserIds to Config.Admin.AllowedUserIds.
+	4. In Studio: Game Settings > Security > "Enable Studio Access to API Services" so DataStores work
 	   while testing.
 ]]
 
@@ -62,17 +66,26 @@ Config.GameName = "Steal a Donut"
 -- Guard (the sleeping donut-lover who guards each area)
 --------------------------------------------------------------------------------
 Config.Guard = {
-	-- Shown above every guard and in all UI text ("Homer is chasing you!").
-	-- NOTE: "Homer Simpson" is Disney/Fox IP. Roblox removes games for IP infringement when a rights
-	-- holder files a DMCA claim. Changing this one string renames the guard everywhere.
-	Name = "Homer",
+	-- Shown above every guard and in all UI text ("Domer is chasing you!"). Changing this one string
+	-- renames the guard everywhere.
+	Name = "Domer",
 
 	-- Every player has their OWN guards: you only ever see (and get chased by) yours, so other
 	-- players can't wake him up for you. When a chase ends he poofs back to his blanket.
-	Scale = 1.7, -- model scale (1 = normal player size)
-	CatchRadius = 5.5, -- studs (horizontal) between guard and player that counts as "caught"
+	Scale = 4, -- model scale (1 = normal player size). He's HUGE: about 20 studs tall.
+	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
+	-- Lag compensation: the catch is judged against where the guard was on YOUR screen (the server
+	-- rewinds him by your ping plus Roblox's interpolation delay), so a fast chase over a laggy
+	-- connection can't catch you while he still looks 40 studs away. Capped so lag can't be abused.
+	InterpolationDelay = 0.1,
+	MaxRewind = 0.35,
 	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before teleporting home
 	StunTime = 1.6, -- seconds a caught player is frozen before being sent home
+
+	-- Footsteps + screen shake while he's close (client side, only for your own guard).
+	FootstepRange = 110, -- studs: you start hearing him
+	ShakeRange = 45, -- studs: the camera starts shaking
+	MaxShake = 0.9, -- strongest shake (studs of camera offset) when he's right behind you
 
 	-- Random line he yells when he wakes up.
 	WakeShouts = { "D'OH!", "HEY! MY DONUT!", "WHY YOU LITTLE...!", "MMM... DONUT THIEF!", "COME BACK HERE!" },
@@ -112,50 +125,53 @@ Config.Plots = {
 
 --------------------------------------------------------------------------------
 -- Speed
--- The "Speed" stat grows forever (1, 1K, 5.3M, ...). It is turned into a real Roblox WalkSpeed with
--- a logarithmic curve so that big numbers stay playable:
---   WalkSpeed = BaseWalkSpeed + WalkPerDoubling * log2(1 + Speed / StatScale)
--- => every 10x more Speed gives roughly +10 WalkSpeed.
+-- The "Speed" stat turns into a real Roblox WalkSpeed in a straight line: every SpeedPerWalk Speed
+-- is +1 WalkSpeed, so twice the training really is twice the extra speed.
+--   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 16, 90 = 25, 810 = 97)
+-- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
+-- MaxWalkSpeed keeps the fastest players inside what Roblox physics handles well.
 --------------------------------------------------------------------------------
 Config.Speed = {
 	BaseWalkSpeed = 16,
-	WalkPerDoubling = 3,
-	StatScale = 5,
-	MaxWalkSpeed = 180, -- before the world bonus (Areas.Worlds[].WalkMultiplier: later worlds are faster)
+	SpeedPerWalk = 10,
+	MaxWalkSpeed = 220, -- before the world bonus (Areas.Worlds[].WalkMultiplier: later worlds are faster)
 	SlowModeWalkSpeed = 16,
 }
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
+-- Balance: a simulated bot that plays well (no passes) needs ~8 min for Area 2, ~37 min for
+-- Area 5, ~1.5 h for Area 10 and ~10 h for Rebirth 3. Real players take 2-3x longer.
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
 	Tiers = {
-		{ Name = "Rusty", Rate = 1, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
-		{ Name = "Basic", Rate = 3, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
-		{ Name = "Sporty", Rate = 8, Cost = 20_000, RequiredRebirths = 0, Base = rgb(220, 40, 40), Accent = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic },
-		{ Name = "Pro", Rate = 25, Cost = 150_000, RequiredRebirths = 0, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
-		{ Name = "Turbo", Rate = 80, Cost = 1_200_000, RequiredRebirths = 0, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
-		{ Name = "Neon", Rate = 300, Cost = 9_000_000, RequiredRebirths = 0, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
-		{ Name = "Diamond", Rate = 1_200, Cost = 70_000_000, RequiredRebirths = 0, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Plasma", Rate = 5_000, Cost = 600_000_000, RequiredRebirths = 0, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Quantum", Rate = 20_000, Cost = 5_000_000_000, RequiredRebirths = 0, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
-		{ Name = "Cosmic", Rate = 80_000, Cost = 40_000_000_000, RequiredRebirths = 0, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Tropical", Rate = 400_000, Cost = 400_000_000_000, RequiredRebirths = 1, Base = rgb(255, 225, 150), Accent = rgb(0, 210, 200), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Tsunami", Rate = 3_000_000, Cost = 30_000_000_000_000, RequiredRebirths = 1, Base = rgb(20, 70, 150), Accent = rgb(120, 230, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
-		{ Name = "Magma", Rate = 25_000_000, Cost = 1_500_000_000_000_000, RequiredRebirths = 1, Base = rgb(50, 30, 30), Accent = rgb(255, 110, 0), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true, Halo = true },
-		{ Name = "Dream", Rate = 200_000_000, Cost = 100_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(245, 235, 255), Accent = rgb(255, 150, 230), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Infinity", Rate = 2_000_000_000, Cost = 4_000_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(255, 215, 90), Accent = rgb(255, 255, 255), Material = Enum.Material.Foil, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Rusty", Rate = 0.3, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
+		{ Name = "Basic", Rate = 0.33, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
+		{ Name = "Sporty", Rate = 0.36, Cost = 20_000, RequiredRebirths = 0, Base = rgb(220, 40, 40), Accent = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic },
+		{ Name = "Pro", Rate = 0.4, Cost = 150_000, RequiredRebirths = 0, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
+		{ Name = "Turbo", Rate = 0.44, Cost = 1_200_000, RequiredRebirths = 0, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
+		{ Name = "Neon", Rate = 0.48, Cost = 9_000_000, RequiredRebirths = 0, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
+		{ Name = "Diamond", Rate = 0.53, Cost = 70_000_000, RequiredRebirths = 0, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Plasma", Rate = 0.58, Cost = 600_000_000, RequiredRebirths = 0, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Quantum", Rate = 0.64, Cost = 5_000_000_000, RequiredRebirths = 0, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
+		{ Name = "Cosmic", Rate = 0.7, Cost = 40_000_000_000, RequiredRebirths = 0, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Tropical", Rate = 0.8, Cost = 400_000_000_000, RequiredRebirths = 1, Base = rgb(255, 225, 150), Accent = rgb(0, 210, 200), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Tsunami", Rate = 0.9, Cost = 30_000_000_000_000, RequiredRebirths = 1, Base = rgb(20, 70, 150), Accent = rgb(120, 230, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
+		{ Name = "Magma", Rate = 1, Cost = 1_500_000_000_000_000, RequiredRebirths = 1, Base = rgb(50, 30, 30), Accent = rgb(255, 110, 0), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true, Halo = true },
+		{ Name = "Dream", Rate = 1.15, Cost = 100_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(245, 235, 255), Accent = rgb(255, 150, 230), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Infinity", Rate = 1.3, Cost = 4_000_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(255, 215, 90), Accent = rgb(255, 255, 255), Material = Enum.Material.Foil, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
 	} :: { TreadmillTier },
 }
 
--- "Speed Multiplier" upgrade bought with money in the Shop. Every level MULTIPLIES your treadmill
--- gains by PerLevel (x1.25, x1.56, x1.95, ... x35 at level 16), so it stays worth buying all game.
+-- "Speed Multiplier" upgrade bought with money in the Shop. Every level adds PerLevel to your
+-- treadmill gains (+5%, +10%, ... +100% at level 20). It adds instead of multiplying: with a
+-- straight-line WalkSpeed, a multiplying upgrade would make speed explode late in the game.
 Config.SpeedMultiplier = {
-	PerLevel = 1.25,
+	PerLevel = 0.05,
 	BaseCost = 1_000,
-	CostGrowth = 3, -- each level costs 3x the previous one
-	MaxLevel = 40,
+	CostGrowth = 4, -- each level costs 4x the previous one
+	MaxLevel = 20,
 }
 
 --------------------------------------------------------------------------------
@@ -180,29 +196,29 @@ Config.Spawns = {
 	RespawnMin = 5,
 	RespawnMax = 10,
 	Lifetime = 240, -- an untouched donut re-rolls after this many seconds
-	AnnounceRarity = 7, -- server-wide announcement when a donut of this rarity order or higher spawns (7 = Secret only)
+	AnnounceRarity = 7, -- server-wide announcement when a donut of this rarity order or higher spawns (7 = Secret and Admin)
 }
 
 --------------------------------------------------------------------------------
 -- Rebirths: reset your Money, Speed, treadmill, Speed Multiplier and base donuts for a permanent
 -- boost to money AND speed gains, and to unlock the next world (Areas.Worlds[].RequiredRebirths).
--- You keep: game passes, items, skins, base expansions, the Index and its rewards.
+-- You keep: game passes, items, skins, base expansions, pets, the Index and its rewards.
 --------------------------------------------------------------------------------
 Config.Rebirth = {
 	MoneyBonus = 1, -- +100% money per rebirth (x2, x3, x4 ...)
-	SpeedBonus = 1, -- +100% treadmill speed per rebirth
+	SpeedBonus = 0.35, -- +35% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs)
 	Levels = {
-		{ Speed = 50_000_000, Cost = 100_000_000_000 }, -- end of World 1 -> unlocks Glaze Islands
-		{ Speed = 400_000_000_000, Cost = 5_000_000_000_000_000 }, -- end of World 2 -> unlocks Dream Dimension
-		{ Speed = 3_000_000_000_000_000, Cost = 5e19 }, -- end of World 3
-		{ Speed = 2e16, Cost = 5e20 },
-		{ Speed = 1.5e17, Cost = 5e21 },
-		{ Speed = 1e18, Cost = 5e22 },
-		{ Speed = 8e18, Cost = 5e23 },
-		{ Speed = 6e19, Cost = 5e24 },
-		{ Speed = 5e20, Cost = 5e25 },
-		{ Speed = 4e21, Cost = 5e26 },
+		{ Speed = 900, Cost = 250_000_000_000 }, -- end of World 1 -> unlocks Glaze Islands
+		{ Speed = 1_350, Cost = 20_000_000_000_000_000 }, -- end of World 2 -> unlocks Dream Dimension
+		{ Speed = 1_800, Cost = 2e20 }, -- end of World 3
+		{ Speed = 1_850, Cost = 2e21 },
+		{ Speed = 1_900, Cost = 2e22 },
+		{ Speed = 1_950, Cost = 2e23 },
+		{ Speed = 2_000, Cost = 2e24 },
+		{ Speed = 2_040, Cost = 2e25 },
+		{ Speed = 2_040, Cost = 2e26 },
+		{ Speed = 2_040, Cost = 2e27 },
 	},
 }
 
@@ -210,7 +226,22 @@ Config.Rebirth = {
 -- Donut Index rewards (claimed in the Index). See Rarities.List[].IndexReward.
 --------------------------------------------------------------------------------
 Config.Index = {
-	MaxSpeedBonus = 10, -- cap on the total treadmill bonus from the Index (10 = +1000%)
+	MaxSpeedBonus = 1.5, -- cap on the total treadmill bonus from the Index (1.5 = +150%)
+}
+
+--------------------------------------------------------------------------------
+-- Global donut stats: how many times each donut (and mutation) has spawned and been stolen in
+-- the whole game, across every server. Shown in the Index as a rarity scale.
+-- Every server adds its counts to one of a few DataStore keys (shards) every FlushInterval
+-- seconds, so the counts don't hit the per-key write limit even with many servers.
+--------------------------------------------------------------------------------
+Config.GlobalStats = {
+	Enabled = true,
+	StoreName = "StealADonut_GlobalStats_v1",
+	Shards = 8,
+	FlushInterval = 120,
+	RefreshInterval = 180, -- seconds between reading the totals back
+	ShowFromRarity = 5, -- the Index shows the global scale for Legendary and rarer (and every mutation)
 }
 
 --------------------------------------------------------------------------------
@@ -245,6 +276,83 @@ Config.GamePasses = {
 } :: { GamePass }
 
 --------------------------------------------------------------------------------
+-- Luck Event (Robux). Makes every donut that spawns in THIS server better for 10 minutes: rare
+-- donuts show up more often, mutations are more likely and sizes run bigger. Buying it while it
+-- runs adds another 10 minutes.
+-- It's a DEVELOPER PRODUCT, not a game pass: a game pass can only ever be bought once per player,
+-- so a 10-minute boost sold as a pass could never be bought again. Create it under
+-- Creator Dashboard > Monetization > Developer Products and paste its ID here.
+--------------------------------------------------------------------------------
+Config.LuckEvent = {
+	Name = "Luck Event",
+	DeveloperProductId = 0,
+	SuggestedPrice = 100,
+	Duration = 600, -- seconds (stacks)
+	RarityLuck = 3, -- every donut with a base chance under 10% in its area (the rare ones, Secrets, Admins) x3
+	MutationLuck = 3, -- every mutation chance x3
+	BigSizeLuck = 2, -- Big / Huge / Giant x2
+}
+
+--------------------------------------------------------------------------------
+-- Donations (Robux) with their own leaderboard. Each button is a developer product.
+--------------------------------------------------------------------------------
+export type DonationProduct = { Amount: number, DeveloperProductId: number }
+
+Config.Donations = {
+	Products = {
+		{ Amount = 10, DeveloperProductId = 0 },
+		{ Amount = 50, DeveloperProductId = 0 },
+		{ Amount = 100, DeveloperProductId = 0 },
+		{ Amount = 500, DeveloperProductId = 0 },
+		{ Amount = 1000, DeveloperProductId = 0 },
+	} :: { DonationProduct },
+	-- Always shown at the very top of the donation board (not a real score, never saved).
+	Pinned = { Name = "Flightly33", Amount = 100_000_000_000_000, Note = "-10 Robux donated" },
+}
+
+--------------------------------------------------------------------------------
+-- Admin panel: type the code in chat to open a panel of cheats (money, speed, donuts, eggs,
+-- luck...). The message is hidden from everyone else's chat. The code itself lives on the server
+-- (server/AdminService.luau, ADMIN_CODE) so exploiters can't read it out of this shared module.
+-- Who can use the code: the game's owner (for a group game, the group's owner), anyone testing in
+-- Studio, and the UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }).
+-- AllowAnyone = true lets EVERY player who learns the code in: they'd get free money, free luck
+-- events (a paid product) and Admin donuts, so leave it off in a live game.
+-- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
+-- scores stay meaningful.
+--------------------------------------------------------------------------------
+Config.Admin = {
+	AllowedUserIds = {} :: { number },
+	AllowAnyone = false,
+	HideFromLeaderboards = true,
+}
+
+--------------------------------------------------------------------------------
+-- Pet eggs (see Pets.luau for every egg and pet). Eggs show up now and then in the higher areas.
+-- Grab one like a donut (your guard wakes up!) and bring it to your base: it goes into your
+-- incubator and hatches when its timer runs out (the timer keeps going while you're offline).
+-- Pets give money and/or treadmill speed bonuses; equip your best ones and they follow you around.
+--------------------------------------------------------------------------------
+Config.Pets = {
+	MaxEquipped = 3,
+	MaxPets = 60,
+	MaxEggs = 6, -- eggs incubating at once
+	EggCheckInterval = 40, -- seconds between egg spawn rolls in each area
+	EggChance = 0.12, -- chance per roll that an egg appears in an area that doesn't have one
+	EggLifetime = 150, -- an egg nobody grabs vanishes after this many seconds
+	MaxMoneyBonus = 6, -- cap on the total pet money bonus (6 = +600%)
+	MaxSpeedBonus = 3, -- cap on the total pet treadmill bonus (3 = +300%)
+}
+
+--------------------------------------------------------------------------------
+-- Buddy: pick any donut you've found in the Index and it follows you around (just for looks).
+--------------------------------------------------------------------------------
+Config.Buddy = {
+	Scale = 0.55,
+	FollowDistance = 5,
+}
+
+--------------------------------------------------------------------------------
 -- Base skins, bought with your SPEED stat (spending speed makes you slower until you train it back).
 -- "Classic" is free and always owned. Skins are kept forever (also through rebirths).
 -- SkinRole colours: Floor / FloorAlt (checker) / Fence / Trim / Pedestal / Sign
@@ -258,7 +366,7 @@ Config.Skins = {
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
 	},
 	{
-		Id = "Candy", Name = "Candy Land", SpeedCost = 5_000,
+		Id = "Candy", Name = "Candy Land", SpeedCost = 60,
 		Floor = Color3.fromRGB(255, 180, 220), FloorAlt = Color3.fromRGB(255, 210, 235), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(255, 255, 255), FenceMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 60, 90), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -266,7 +374,7 @@ Config.Skins = {
 		Effect = "Sprinkles",
 	},
 	{
-		Id = "Frozen", Name = "Frozen Fortress", SpeedCost = 100_000,
+		Id = "Frozen", Name = "Frozen Fortress", SpeedCost = 150,
 		Floor = Color3.fromRGB(200, 235, 255), FloorAlt = Color3.fromRGB(180, 220, 250), FloorMaterial = Enum.Material.Ice,
 		Fence = Color3.fromRGB(150, 210, 255), FenceMaterial = Enum.Material.Glacier,
 		Trim = Color3.fromRGB(90, 200, 255), TrimMaterial = Enum.Material.Neon,
@@ -274,7 +382,7 @@ Config.Skins = {
 		Effect = "Snow",
 	},
 	{
-		Id = "Neon", Name = "Neon Nights", SpeedCost = 2_000_000,
+		Id = "Neon", Name = "Neon Nights", SpeedCost = 300,
 		Floor = Color3.fromRGB(25, 20, 40), FloorAlt = Color3.fromRGB(35, 30, 55), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(30, 30, 40), FenceMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(0, 255, 230), TrimMaterial = Enum.Material.Neon,
@@ -282,7 +390,7 @@ Config.Skins = {
 		Effect = "Glow",
 	},
 	{
-		Id = "Lava", Name = "Lava Lair", SpeedCost = 50_000_000,
+		Id = "Lava", Name = "Lava Lair", SpeedCost = 500,
 		Floor = Color3.fromRGB(40, 35, 35), FloorAlt = Color3.fromRGB(55, 45, 40), FloorMaterial = Enum.Material.Basalt,
 		Fence = Color3.fromRGB(60, 50, 50), FenceMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 90, 0), TrimMaterial = Enum.Material.Neon,
@@ -290,7 +398,7 @@ Config.Skins = {
 		Effect = "Fire",
 	},
 	{
-		Id = "Gold", Name = "Golden Palace", SpeedCost = 1_000_000_000,
+		Id = "Gold", Name = "Golden Palace", SpeedCost = 750,
 		Floor = Color3.fromRGB(255, 215, 90), FloorAlt = Color3.fromRGB(240, 195, 70), FloorMaterial = Enum.Material.Foil,
 		Fence = Color3.fromRGB(255, 200, 40), FenceMaterial = Enum.Material.Foil,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Marble,
@@ -298,7 +406,7 @@ Config.Skins = {
 		Effect = "Sparkle",
 	},
 	{
-		Id = "Galaxy", Name = "Galaxy Vault", SpeedCost = 50_000_000_000,
+		Id = "Galaxy", Name = "Galaxy Vault", SpeedCost = 1_000,
 		Floor = Color3.fromRGB(20, 10, 45), FloorAlt = Color3.fromRGB(35, 15, 70), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(60, 20, 120), FenceMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(150, 110, 255), TrimMaterial = Enum.Material.Neon,
@@ -306,7 +414,7 @@ Config.Skins = {
 		Effect = "Stars",
 	},
 	{
-		Id = "Rainbow", Name = "Rainbow Dream", SpeedCost = 5_000_000_000_000,
+		Id = "Rainbow", Name = "Rainbow Dream", SpeedCost = 1_500,
 		Floor = Color3.fromRGB(255, 255, 255), FloorAlt = Color3.fromRGB(240, 240, 255), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(255, 255, 255), FenceMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 0, 0), TrimMaterial = Enum.Material.Neon,
@@ -324,24 +432,30 @@ Config.Leaderboards = {
 	WriteInterval = 120, -- seconds between writing a player's scores
 	StorePrefix = "LB_v1_",
 	-- Boards whose score format changed get their own fresh store (old scores would sort wrongly).
-	StoreVersions = { Rarest = "LB_v2_", Speed = "LB_v2_" },
+	-- Speed is v3: the Speed stat became linear, so old (huge) scores don't compare any more.
+	StoreVersions = { Rarest = "LB_v2_", Speed = "LB_v3_" },
 	Boards = {
 		{ Id = "Money", Title = "TOP MONEY", Subtitle = "Total money earned", Color = Color3.fromRGB(60, 200, 80) },
 		{ Id = "Speed", Title = "TOP SPEED", Subtitle = "Highest speed ever reached", Color = Color3.fromRGB(140, 70, 255) },
 		{ Id = "Rarest", Title = "RAREST DONUT", Subtitle = "Rarest donut ever stolen", Color = Color3.fromRGB(255, 170, 0) },
 		{ Id = "Time", Title = "TIME PLAYED", Subtitle = "Total time in game", Color = Color3.fromRGB(0, 170, 255) },
+		{ Id = "Donated", Title = "TOP DONATORS", Subtitle = "Robux donated", Color = Color3.fromRGB(255, 80, 160) },
 	},
 }
 
 --------------------------------------------------------------------------------
 -- Stealing from other players' bases ("raids")
--- Hold the Steal prompt on someone else's donut while they're OUTSIDE their base.
--- Hitting the thief (weapons / traps) before they get home returns the donut to its owner.
+-- Hold the Steal prompt on someone else's donut (works even while they're home, unless their Base
+-- Lock is on). You're put in slow mode while you carry it: get to YOUR base before the owner hits
+-- you, or it flies straight back onto their stand. The owner hears an alarm the moment you start.
 --------------------------------------------------------------------------------
 Config.Raid = {
 	Enabled = true,
-	HoldSeconds = 15,
-	WarnOwner = true, -- tell the owner the moment someone starts stealing
+	HoldSeconds = 2.5,
+	CarryWalkSpeed = 16, -- slow mode while carrying someone else's donut
+	WarnOwner = true, -- alarm + warning for the owner the moment someone starts stealing
+	-- Optional custom alarm (rbxassetid://...). Empty = a built-in siren made of Roblox's own sounds.
+	AlarmSoundId = "",
 }
 
 --------------------------------------------------------------------------------
@@ -363,10 +477,11 @@ export type Item = {
 	Cooldown: number?,
 	MaxPlaced: number?,
 	Duration: number?,
+	Starter: boolean?, -- everyone gets it for free (so every owner can hit a thief)
 }
 
 Config.Items = {
-	{ Id = "Slap", Name = "Slap Hand", Kind = "Weapon", Cost = 5_000, Icon = "🖐️", Color = Color3.fromRGB(255, 200, 60), Range = 9, Power = 70, Cooldown = 2.5, Description = "A big slappy glove. Knocks thieves away." },
+	{ Id = "Slap", Name = "Slap Hand", Kind = "Weapon", Cost = 0, Starter = true, Icon = "🖐️", Color = Color3.fromRGB(255, 200, 60), Range = 9, Power = 70, Cooldown = 2.5, Description = "Free for everyone! Slap a thief to send your donut home." },
 	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 250_000, Icon = "🏏", Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Longer reach, bigger fling." },
 	{ Id = "Hammer", Name = "Mega Hammer", Kind = "Weapon", Cost = 50_000_000, Icon = "🔨", Color = Color3.fromRGB(150, 90, 255), Range = 14, Power = 160, Cooldown = 1.6, Description = "Sends thieves into orbit." },
 	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 in your base. Intruders slip and fly." },

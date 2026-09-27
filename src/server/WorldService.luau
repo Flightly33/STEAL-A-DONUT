@@ -1,9 +1,11 @@
 --[[
 	WorldService
 	============
-	* Tracks which world each player is in (everyone is faster in later worlds).
+	* Tracks which world each player is in (everyone is faster in later worlds), and moves their base
+	  there with them (PlotService.MoveBase), so there's always a base right next to the lane.
 	* Portals: the hub portals take you to the other worlds once you have enough rebirths; the portal
-	  home in each world takes you straight back to your base, even while carrying a donut.
+	  home in each world takes you back to your base in Donut Land. No portals while you carry
+	  something: your base is already in the world you're in.
 	* Teleporter game pass: jump to any unlocked world, or to the start of any area you're fast
 	  enough for.
 ]]
@@ -49,7 +51,17 @@ function WorldService.CanEnterWorld(player: Player, worldId: number): boolean
 	return profile ~= nil and Economy.WorldUnlocked(worldId, profile.Data.Rebirths)
 end
 
+local function setWorld(player: Player, worldId: number)
+	local profile = DataService.Get(player)
+	if profile and profile.Session.World ~= worldId then
+		profile.Session.World = worldId
+		player:SetAttribute("World", worldId)
+	end
+	PlotService.MoveBase(player, worldId)
+end
+
 local function arrive(player: Player, worldId: number)
+	setWorld(player, worldId)
 	StealService.Teleport(player, Layout.WorldArrival(worldId))
 	local world = Areas.World(worldId)
 	if worldId > 1 then
@@ -66,8 +78,13 @@ local function usePortal(player: Player, trigger: BasePart)
 	if not portal then
 		return
 	end
+	if StealService.IsCarrying(player) then
+		warnOnce(player, "Bring it to your base first - your base is right here in this world!")
+		return
+	end
 	if portal:GetAttribute("Home") then
 		lastPortal[player] = now
+		setWorld(player, 1)
 		local spawnCf = PlotService.GetSpawnCFrame(player)
 		if spawnCf then
 			StealService.Teleport(player, spawnCf)
@@ -76,10 +93,6 @@ local function usePortal(player: Player, trigger: BasePart)
 	end
 	local worldId = portal:GetAttribute("TargetWorld")
 	if type(worldId) ~= "number" then
-		return
-	end
-	if StealService.IsCarrying(player) then
-		warnOnce(player, "Take your donut to your base first!")
 		return
 	end
 	if not WorldService.CanEnterWorld(player, worldId) then
@@ -151,6 +164,7 @@ function WorldService.TeleportToArea(player: Player, areaId: any)
 		return
 	end
 	if canTeleport(player) then
+		setWorld(player, area.World)
 		StealService.Teleport(player, Layout.AreaArrival(areaId))
 	end
 end
@@ -172,9 +186,8 @@ function WorldService.Init()
 				if profile and profile.Session.Ready and root then
 					local position = root.Position
 					local world = Layout.WorldAt(position)
-					if profile.Session.World ~= world then
-						profile.Session.World = world
-						player:SetAttribute("World", world)
+					if profile.Session.World ~= world or PlotService.GetBaseWorld(player) ~= world then
+						setWorld(player, world)
 					end
 					for _, trigger in triggers do
 						if insideTrigger(trigger, position) then
