@@ -1,0 +1,6 @@
+# Rojo / tooling
+sourcemap.json
+*.rbxl.lock
+*.rbxlx.lock
+roblox.toml
+.DS_Store
