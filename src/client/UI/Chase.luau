@@ -15,6 +15,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
+local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
@@ -61,15 +62,24 @@ local function clearBeam()
 	beamAttachments = {}
 end
 
--- Glowing guide line from you to your base.
+-- Glowing guide line from you to your base (or, in another world, to the portal home).
 local function showPathHome()
 	clearBeam()
 	local root = rootPart()
 	local index = State.Get("PlotIndex")
 	local map = workspace:FindFirstChild("Map")
-	local plots = map and map:FindFirstChild("Plots")
-	local plot = plots and plots:FindFirstChild("Plot" .. tostring(index))
-	local target = plot and plot:FindFirstChild("Spawn") :: BasePart?
+	local world = State.Number("World")
+	local target: BasePart? = nil
+	if world > 1 then
+		local worlds = map and map:FindFirstChild("Worlds")
+		local landing = worlds and worlds:FindFirstChild("World" .. world)
+		local portal = landing and landing:FindFirstChild("HomePortal")
+		target = portal and portal:FindFirstChild("Trigger") :: BasePart?
+	else
+		local plots = map and map:FindFirstChild("Plots")
+		local plot = plots and plots:FindFirstChild("Plot" .. tostring(index))
+		target = plot and plot:FindFirstChild("Spawn") :: BasePart?
+	end
 	if not root or not target then
 		return
 	end
@@ -105,16 +115,20 @@ local function hideBanner()
 	setEdges(false)
 end
 
-local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Model?, GuardSpeed: number?, Raid: boolean? })
+local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Model?, GuardSpeed: number?, Raid: boolean?, Mutation: string?, Size: string? })
 	local donut = Donuts.ById[info.DonutId]
 	local rarity = donut and Rarities.Get(donut.Rarity)
+	local size = Rarities.Size(info.Size)
 	banner.Visible = true
 	bannerTitle.Text = if info.Raid then "🏃 RUN HOME! THEY CAN HIT YOU TO GET IT BACK!" else `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
 	Theme.PlaySound("Steal")
 	if donut and rarity then
-		Notifications.Toast(`You grabbed {donut.Name} ({rarity.Id})!`, "rare")
+		Notifications.Toast(`You grabbed {Rarities.DisplayName(donut.Name, info.Mutation, info.Size)} ({rarity.Id})!`, "rare")
+		if size.CarrySpeed < 1 then
+			Notifications.Toast(`🐌 It's {string.lower(size.Id)}! You're {math.floor((1 - size.CarrySpeed) * 100 + 0.5)}% slower while carrying it.`, "error")
+		end
 	end
 
 	stopChaseLoop()
@@ -190,11 +204,12 @@ local function bigText(text: string, color: Color3, duration: number)
 	end)
 end
 
-local function onChaseEnded(result: { Result: string, DonutId: string?, IsNew: boolean?, Reason: string? })
+local function onChaseEnded(result: { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string? })
 	if result.Result == "Safe" then
 		stopChaseLoop()
 		setEdges(true, Color3.fromRGB(0, 170, 255))
-		bannerTitle.Text = "🛡 SAFE! Bring the donut to your base!"
+		local otherWorld = State.Number("World") > 1
+		bannerTitle.Text = if otherWorld then "🛡 SAFE! Walk into the portal home!" else "🛡 SAFE! Bring the donut to your base!"
 		bannerTitle.TextColor3 = Color3.fromRGB(110, 210, 255)
 		bannerInfo.Text = "Follow the yellow line ⬇"
 		task.delay(1.2, function()
@@ -209,8 +224,11 @@ local function onChaseEnded(result: { Result: string, DonutId: string?, IsNew: b
 		local donut = result.DonutId and Donuts.ById[result.DonutId]
 		if donut then
 			local rarity = Rarities.Get(donut.Rarity)
-			bigText(if result.IsNew then "✨ NEW DONUT! ✨" else "🍩 DONUT SECURED!", rarity.Color, 2)
-			Notifications.Banner(donut.Name, rarity.Color, 2.5, `{rarity.Id} • {Format.Money(donut.Income)}/s`)
+			local mutation = Rarities.Mutation(result.Mutation)
+			local color = if mutation.Order > 0 then mutation.Color else rarity.Color
+			bigText(if result.IsNew then "✨ NEW DONUT! ✨" else "🍩 DONUT SECURED!", color, 2)
+			local income = Economy.DonutIncome(donut.Id, 1, result.Mutation, result.Size)
+			Notifications.Banner(Rarities.DisplayName(donut.Name, result.Mutation, result.Size), color, 2.5, `{rarity.Id} • {Format.Money(income)}/s`)
 		end
 		Theme.PlaySound("Deposit")
 	elseif result.Result == "Caught" then

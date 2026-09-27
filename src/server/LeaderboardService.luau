@@ -54,7 +54,7 @@ local function scoreFor(boardId: string, data: DataService.Data): number
 	if boardId == "Money" then
 		return encodeLog(data.TotalEarned)
 	elseif boardId == "Speed" then
-		return encodeLog(data.Speed)
+		return encodeLog(math.max(data.BestSpeed, data.Speed)) -- rebirths reset Speed, so rank the best ever
 	elseif boardId == "Rarest" then
 		return data.BestDonutScore
 	elseif boardId == "Time" then
@@ -69,9 +69,10 @@ local function display(boardId: string, score: number): (string, Color3?)
 	elseif boardId == "Speed" then
 		return Format.Number(decodeLog(score)), nil
 	elseif boardId == "Rarest" then
-		local donut = Donuts.ByScore[score]
+		local donut, mutation = Donuts.FromScore(score)
 		if donut then
-			return donut.Name, Rarities.Get(donut.Rarity).Color
+			local color = if mutation ~= "None" then Rarities.Mutation(mutation).Color else Rarities.Get(donut.Rarity).Color
+			return Rarities.DisplayName(donut.Name, mutation), color
 		end
 		return "-", nil
 	elseif boardId == "Time" then
@@ -226,7 +227,8 @@ end
 function LeaderboardService.Init()
 	if DataService.DataStoresEnabled() then
 		for _, board in cfg.Boards do
-			local ok, store = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, cfg.StorePrefix .. board.Id)
+			local prefix = cfg.StoreVersions[board.Id] or cfg.StorePrefix
+			local ok, store = pcall(DataStoreService.GetOrderedDataStore, DataStoreService, prefix .. board.Id)
 			if ok then
 				stores[board.Id] = store
 			end

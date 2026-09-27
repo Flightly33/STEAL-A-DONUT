@@ -17,6 +17,7 @@ local KIND_COLORS = {
 	success = Theme.Colors.Green,
 	error = Theme.Colors.Red,
 	rare = Theme.Colors.Yellow,
+	event = Theme.Colors.Pink,
 }
 
 local toastHolder: Frame
@@ -40,6 +41,8 @@ function Notifications.Toast(text: string, kind: string?)
 	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -10), Position = UDim2.fromOffset(16, 5), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
 	if kind == "error" then
 		Theme.PlaySound("Error")
+	elseif kind == "event" then
+		Theme.PlaySound("Announce")
 	end
 
 	-- Keep at most 4 toasts
@@ -66,7 +69,7 @@ function Notifications.Toast(text: string, kind: string?)
 	end)
 end
 
--- Big banner across the top (rare spawns, area names...).
+-- Big banner across the top (Secret donuts, area names...).
 function Notifications.Banner(text: string, color: Color3, duration: number?, subtitle: string?)
 	for _, child in bannerHolder:GetChildren() do
 		if child:IsA("Frame") then

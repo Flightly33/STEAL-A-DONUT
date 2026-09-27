@@ -1,10 +1,13 @@
 --[[
 	ShopService
 	===========
-	Handles every client request that costs money or Robux, plus a few small player actions:
-	  BuySpeedMultiplier, BuyTreadmill           (in-game money)
-	  BuyPass <key>, BuySkin <id>, EquipSkin <id> (Robux game passes)
-	  SetSlowMode <bool>, TeleportHome
+	Handles every client request that costs money, Speed or Robux, plus a few small player actions:
+	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion   (in-game money)
+	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
+	  BuyPass <key>                                    (Robux game passes)
+	  Rebirth, ClaimIndex { DonutId, Kind }
+	  TeleportWorld <id>, TeleportArea <id>            (Teleporter game pass)
+	  SetSlowMode <bool>, TeleportHome, BuyItem <id>, SetMusic { Volume, On }
 
 	Game pass ownership is checked with MarketplaceService on join and cached in the player's data,
 	so a player never loses a pass they paid for if Roblox's API has a hiccup.
@@ -16,6 +19,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Donuts = require(Shared.Donuts)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
@@ -25,6 +29,7 @@ local PlotService = require(script.Parent.PlotService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local StealService = require(script.Parent.StealService)
 local ItemService = require(script.Parent.ItemService)
+local WorldService = require(script.Parent.WorldService)
 
 local ShopService = {}
 
@@ -44,9 +49,9 @@ local function findPass(key: string?, id: number?): Config.GamePass?
 	return nil
 end
 
-local function findSkin(skinId: string?, passId: number?): Config.Skin?
+local function findSkin(skinId: string?): Config.Skin?
 	for _, skin in Config.Skins do
-		if (skinId and skin.Id == skinId) or (passId and passId > 0 and skin.GamePassId == passId) then
+		if skin.Id == skinId then
 			return skin
 		end
 	end
@@ -55,20 +60,20 @@ end
 
 local function ownsSkin(profile: DataService.Profile, skinId: string): boolean
 	local skin = findSkin(skinId)
-	return skin ~= nil and (skin.Free == true or profile.Data.OwnedSkins[skinId] == true or profile.SessionSkins[skinId] == true)
+	return skin ~= nil and (skin.SpeedCost <= 0 or profile.Data.OwnedSkins[skinId] == true)
 end
 
 local function studioFree(): boolean
 	return RunService:IsStudio() and Config.Debug.StudioFreePurchases
 end
 
--- Re-apply everything that depends on owned passes.
-local function refreshPassEffects(player: Player)
+-- Re-apply everything that depends on owned passes / rebirths.
+function ShopService.RefreshMultipliers(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
 		return
 	end
-	player:SetAttribute("MoneyMultiplier", Economy.MoneyMultiplier(profile.Passes))
+	player:SetAttribute("MoneyMultiplier", DataService.MoneyMultiplier(profile))
 	player:SetAttribute("SpeedPassMultiplier", Economy.SpeedPassMultiplier(profile.Passes))
 	TreadmillService.Refresh(player)
 	PlotService.RefreshSign(player)
@@ -84,24 +89,8 @@ local function grantPass(player: Player, pass: Config.GamePass, persist: boolean
 	if persist then
 		profile.Data.CachedPasses[pass.Key] = true
 	end
-	refreshPassEffects(player)
+	ShopService.RefreshMultipliers(player)
 	notify(player, `🎉 {pass.Name} unlocked! Thank you!`, "success")
-end
-
-local function grantSkin(player: Player, skin: Config.Skin, persist: boolean)
-	local profile = DataService.Get(player)
-	if not profile then
-		return
-	end
-	if persist then
-		profile.Data.OwnedSkins[skin.Id] = true
-	else
-		profile.SessionSkins[skin.Id] = true
-	end
-	profile.Data.EquippedSkin = skin.Id
-	PlotService.ApplySkin(player)
-	DataService.PushState(player)
-	notify(player, `🎨 {skin.Name} base skin unlocked and equipped!`, "success")
 end
 
 -- Called once per player after their data loads. Yields (web requests).
@@ -121,18 +110,10 @@ function ShopService.LoadOwnership(player: Player)
 			end
 		end
 	end
-	for _, skin in Config.Skins do
-		if not skin.Free and skin.GamePassId > 0 and not profile.Data.OwnedSkins[skin.Id] then
-			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, skin.GamePassId)
-			if ok and owns then
-				profile.Data.OwnedSkins[skin.Id] = true
-			end
-		end
-	end
 	if not ownsSkin(profile, profile.Data.EquippedSkin) then
 		profile.Data.EquippedSkin = "Classic"
 	end
-	player:SetAttribute("MoneyMultiplier", Economy.MoneyMultiplier(profile.Passes))
+	player:SetAttribute("MoneyMultiplier", DataService.MoneyMultiplier(profile))
 	player:SetAttribute("SpeedPassMultiplier", Economy.SpeedPassMultiplier(profile.Passes))
 end
 
@@ -155,7 +136,7 @@ function Actions.BuySpeedMultiplier(player: Player, profile: DataService.Profile
 	profile.Data.SpeedMultLevel = level + 1
 	player:SetAttribute("SpeedMultLevel", level + 1)
 	TreadmillService.Refresh(player)
-	notify(player, `⚡ Speed multiplier is now x{Economy.SpeedMultiplier(level + 1)}!`, "success")
+	notify(player, `⚡ Speed multiplier is now x{Format.Multiplier(Economy.SpeedMultiplier(level + 1))}!`, "success")
 end
 
 function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
@@ -165,6 +146,10 @@ function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
 		return
 	end
 	local nextTier = Economy.TreadmillTier(level + 1)
+	if profile.Data.Rebirths < nextTier.RequiredRebirths then
+		notify(player, `🔒 The {nextTier.Name} Treadmill needs {nextTier.RequiredRebirths} rebirth{if nextTier.RequiredRebirths == 1 then "" else "s"}.`, "error")
+		return
+	end
 	if not DataService.TrySpend(player, nextTier.Cost) then
 		notify(player, "Not enough money! Need " .. Format.Money(nextTier.Cost), "error")
 		return
@@ -173,6 +158,10 @@ function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
 	player:SetAttribute("TreadmillLevel", level + 1)
 	TreadmillService.Build(player)
 	notify(player, `🏃 {nextTier.Name} Treadmill installed! (+{Format.Number(nextTier.Rate)} speed/s base)`, "success")
+end
+
+function Actions.BuyExpansion(player: Player, _profile: DataService.Profile)
+	PlotService.Expand(player)
 end
 
 function Actions.BuyPass(player: Player, profile: DataService.Profile, key: any)
@@ -194,8 +183,9 @@ function Actions.BuyPass(player: Player, profile: DataService.Profile, key: any)
 	end
 end
 
+-- Skins are bought with SPEED (it's spent: you'll be slower until you train it back).
 function Actions.BuySkin(player: Player, profile: DataService.Profile, skinId: any)
-	local skin = findSkin(if type(skinId) == "string" then skinId else nil, nil)
+	local skin = findSkin(if type(skinId) == "string" then skinId else nil)
 	if not skin then
 		return
 	end
@@ -203,14 +193,19 @@ function Actions.BuySkin(player: Player, profile: DataService.Profile, skinId: a
 		Actions.EquipSkin(player, profile, skin.Id)
 		return
 	end
-	if studioFree() then
-		grantSkin(player, skin, false)
-		notify(player, "(Studio test purchase - not saved)")
-	elseif skin.GamePassId <= 0 then
-		notify(player, skin.Name .. " is coming soon!", "error")
-	else
-		MarketplaceService:PromptGamePassPurchase(player, skin.GamePassId)
+	if StealService.IsCarrying(player) then
+		notify(player, "Bring your donut home first!", "error")
+		return
 	end
+	if not DataService.TrySpendSpeed(player, skin.SpeedCost) then
+		notify(player, `Not enough speed! Need ⚡{Format.Number(skin.SpeedCost)}`, "error")
+		return
+	end
+	profile.Data.OwnedSkins[skin.Id] = true
+	profile.Data.EquippedSkin = skin.Id
+	PlotService.ApplySkin(player)
+	DataService.PushState(player)
+	notify(player, `🎨 {skin.Name} base skin unlocked and equipped! (-⚡{Format.Number(skin.SpeedCost)})`, "success")
 end
 
 function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId: any)
@@ -220,6 +215,77 @@ function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId:
 	profile.Data.EquippedSkin = skinId
 	PlotService.ApplySkin(player)
 	DataService.PushState(player)
+end
+
+function Actions.Rebirth(player: Player, profile: DataService.Profile)
+	local data = profile.Data
+	local nextRebirth = Economy.NextRebirth(data.Rebirths)
+	if not nextRebirth then
+		notify(player, "You've reached the max rebirth. Legend!", "error")
+		return
+	end
+	if StealService.IsCarrying(player) then
+		notify(player, "Bring your donut home first!", "error")
+		return
+	end
+	if data.Speed < nextRebirth.Speed then
+		notify(player, `Reach ⚡{Format.Number(nextRebirth.Speed)} speed to rebirth!`, "error")
+		return
+	end
+	if not DataService.TrySpend(player, nextRebirth.Cost) then
+		notify(player, "Not enough money! Need " .. Format.Money(nextRebirth.Cost), "error")
+		return
+	end
+	-- Reset
+	data.Money = 0
+	data.Speed = 0
+	data.TreadmillLevel = 1
+	data.SpeedMultLevel = 0
+	PlotService.ClearAll(player)
+	data.Rebirths += 1
+	DataService.SyncAttributes(player)
+	TreadmillService.Build(player)
+	ShopService.RefreshMultipliers(player)
+	local spawnCf = PlotService.GetSpawnCFrame(player)
+	if spawnCf then
+		StealService.Teleport(player, spawnCf)
+	end
+	notify(player, `🔄 REBIRTH {data.Rebirths}! Money x{Format.Multiplier(Economy.RebirthMoneyMultiplier(data.Rebirths))} and speed x{Format.Multiplier(Economy.RebirthSpeedMultiplier(data.Rebirths))} forever!`, "success")
+	DataService.Save(player)
+end
+
+-- Index rewards: every donut you've found can be claimed once, as cash, or (Epic and up) as a
+-- permanent treadmill speed bonus.
+function Actions.ClaimIndex(player: Player, profile: DataService.Profile, arg: any)
+	if type(arg) ~= "table" or type(arg.DonutId) ~= "string" then
+		return
+	end
+	local donut = Donuts.ById[arg.DonutId]
+	local data = profile.Data
+	if not donut or not data.Discovered[donut.Id] or data.IndexClaims[donut.Id] then
+		return
+	end
+	local speed = Economy.IndexSpeedReward(donut.Id)
+	if arg.Kind == "Speed" and speed then
+		data.IndexClaims[donut.Id] = "Speed"
+		player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
+		TreadmillService.Refresh(player)
+		notify(player, `📖 +{speed}% treadmill speed forever from {donut.Name}!`, "success")
+	else
+		local cash = Economy.IndexCashReward(donut.Id)
+		data.IndexClaims[donut.Id] = "Cash"
+		DataService.AddMoney(player, cash)
+		notify(player, `📖 +{Format.Money(cash)} from {donut.Name}!`, "success")
+	end
+	DataService.PushState(player)
+end
+
+function Actions.TeleportWorld(player: Player, _profile: DataService.Profile, worldId: any)
+	WorldService.TeleportToWorld(player, worldId)
+end
+
+function Actions.TeleportArea(player: Player, _profile: DataService.Profile, areaId: any)
+	WorldService.TeleportToArea(player, areaId)
 end
 
 function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: any)
@@ -257,8 +323,8 @@ function Actions.TeleportHome(player: Player, profile: DataService.Profile)
 	end
 	lastTeleport[player] = now
 	local spawnCf = PlotService.GetSpawnCFrame(player)
-	if spawnCf and player.Character then
-		player.Character:PivotTo(spawnCf)
+	if spawnCf then
+		StealService.Teleport(player, spawnCf)
 	end
 end
 
@@ -300,11 +366,6 @@ function ShopService.Init()
 		local pass = findPass(nil, passId)
 		if pass then
 			grantPass(player, pass, true)
-			return
-		end
-		local skin = findSkin(nil, passId)
-		if skin then
-			grantSkin(player, skin, true)
 		end
 	end)
 end

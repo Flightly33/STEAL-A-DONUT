@@ -56,7 +56,7 @@ end
 
 local function currentRate(): number
 	local level = math.max(1, State.Number("TreadmillLevel"))
-	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")))
+	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("Rebirths"), State.Number("IndexBonus"))
 end
 
 -- Disable / enable walking input (so holding W doesn't fight the treadmill).

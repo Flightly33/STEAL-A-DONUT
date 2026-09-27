@@ -1,8 +1,9 @@
 --[[
-	Shop window with three tabs:
-	  Upgrades  - Speed Multiplier and Treadmill tiers (in-game money)
-	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money and 2x Speed (Robux)
-	  Skins     - base skins (Robux), equip the ones you own
+	Shop window with four tabs:
+	  Upgrades  - Speed Multiplier, Treadmill tiers and Base Expansions (in-game money)
+	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed and Teleporter (Robux)
+	  Items     - weapons, traps and the base lock (in-game money)
+	  Skins     - base skins (paid with your Speed stat), equip the ones you own
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -92,12 +93,21 @@ local function buildUpgrades(page: ScrollingFrame)
 		State.Action("BuyTreadmill")
 	end)
 
+	-- Base expansion
+	local expandCard = card(page, 3, Theme.Colors.Blue)
+	Theme.Label({ Text = "🏗 BASE EXPANSION", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
+	local expandInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = expandCard })
+	local expandButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = expandCard })
+	expandButton.Activated:Connect(function()
+		State.Action("BuyExpansion")
+	end)
+
 	-- Summary
-	local summary = card(page, 3, Theme.Colors.Blue)
+	local summary = card(page, 4, Theme.Colors.Blue)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
-	local tip = card(page, 4, Theme.Colors.Green)
+	local tip = card(page, 5, Theme.Colors.Green)
 	Theme.Label({
-		Text = "💡 Run on your treadmill to gain Speed. Faster = you can steal from further areas, where donuts are rarer and earn way more!",
+		Text = "💡 Run on your treadmill to gain Speed. Faster = you can steal from further areas, where donuts are rarer and earn way more! Upgrading your donuts (E on them) is cheap early on.",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
 	})
 
@@ -105,14 +115,16 @@ local function buildUpgrades(page: ScrollingFrame)
 		local money = State.Number("Money")
 		local passMult = math.max(1, State.Number("SpeedPassMultiplier"))
 
+		local rebirths = State.Number("Rebirths")
 		local multLevel = State.Number("SpeedMultLevel")
 		if multLevel >= Config.SpeedMultiplier.MaxLevel then
-			multInfo.Text = `x{Economy.SpeedMultiplier(multLevel)} (MAX)`
+			multInfo.Text = `x{Format.Multiplier(Economy.SpeedMultiplier(multLevel))} (MAX)`
 			Theme.SetButtonText(multButton, "MAXED")
 			Theme.SetButtonColor(multButton, Theme.Colors.Gray)
 		else
 			local cost = Economy.SpeedMultiplierCost(multLevel)
-			multInfo.Text = `x{Economy.SpeedMultiplier(multLevel)}  →  x{Economy.SpeedMultiplier(multLevel + 1)}\nMultiplies treadmill speed gain`
+			local percent = math.floor((Config.SpeedMultiplier.PerLevel - 1) * 100 + 0.5)
+			multInfo.Text = `x{Format.Multiplier(Economy.SpeedMultiplier(multLevel))}  →  x{Format.Multiplier(Economy.SpeedMultiplier(multLevel + 1))}\n+{percent}% treadmill speed EVERY level`
 			Theme.SetButtonText(multButton, "Buy " .. Format.Money(cost))
 			Theme.SetButtonColor(multButton, if money >= cost then Theme.Colors.Green else Theme.Colors.Gray)
 		end
@@ -126,13 +138,40 @@ local function buildUpgrades(page: ScrollingFrame)
 		else
 			local nextTier = Economy.TreadmillTier(level + 1)
 			treadInfo.Text = `{tier.Name} → {nextTier.Name} (Tier {level + 1})\n+{Format.Number(tier.Rate)}/s → +{Format.Number(nextTier.Rate)}/s base`
-			Theme.SetButtonText(treadButton, "Buy " .. Format.Money(nextTier.Cost))
-			Theme.SetButtonColor(treadButton, if money >= nextTier.Cost then Theme.Colors.Green else Theme.Colors.Gray)
+			if rebirths < nextTier.RequiredRebirths then
+				Theme.SetButtonText(treadButton, `🔒 Needs Rebirth {nextTier.RequiredRebirths}`)
+				Theme.SetButtonColor(treadButton, Theme.Colors.Gray)
+			else
+				Theme.SetButtonText(treadButton, "Buy " .. Format.Money(nextTier.Cost))
+				Theme.SetButtonColor(treadButton, if money >= nextTier.Cost then Theme.Colors.Green else Theme.Colors.Gray)
+			end
 		end
 
-		local rate = Economy.TreadmillRate(level, multLevel, passMult)
-		local walk = Economy.WalkSpeedFromStat(State.Number("Speed"))
-		summaryText.Text = `<b>YOUR STATS</b>\nTreadmill: <font color="#c9a0ff">+{Format.Number(rate)} speed/s</font>\nSpeed: <font color="#c9a0ff">{Format.Number(State.Number("Speed"))}</font> (walk speed {math.floor(walk)})\nIncome: <font color="#8dff6a">{Format.Money(State.Number("Income"))}/s</font>`
+		local expansions = State.Number("Expansions")
+		local slots = Economy.SlotCount(expansions)
+		local expandCost = Economy.ExpansionCost(expansions)
+		if expandCost then
+			expandInfo.Text = `{slots} → {slots + Config.Plots.ExpansionSlots} donut stands\nKept forever, even when you rebirth`
+			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(expandCost))
+			Theme.SetButtonColor(expandButton, if money >= expandCost then Theme.Colors.Green else Theme.Colors.Gray)
+		else
+			expandInfo.Text = `{slots} donut stands - fully expanded!`
+			Theme.SetButtonText(expandButton, "MAXED")
+			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
+		end
+
+		local indexBonus = State.Number("IndexBonus")
+		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus)
+		local walk = State.Number("WalkSpeed")
+		local extras = {}
+		if rebirths > 0 then
+			table.insert(extras, `🔄 x{Format.Multiplier(Economy.RebirthSpeedMultiplier(rebirths))}`)
+		end
+		if indexBonus > 0 then
+			table.insert(extras, `📖 +{indexBonus}%`)
+		end
+		local extraText = if #extras > 0 then " (" .. table.concat(extras, " ") .. ")" else ""
+		summaryText.Text = `<b>YOUR STATS</b>\nTreadmill: <font color="#c9a0ff">+{Format.Number(rate)} speed/s</font>{extraText}\nSpeed: <font color="#c9a0ff">{Format.Number(State.Number("Speed"))}</font> (walk speed {math.floor(walk)})\nIncome: <font color="#8dff6a">{Format.Money(State.Number("Income"))}/s</font>`
 	end)
 end
 
@@ -164,11 +203,15 @@ local function buildPasses(page: ScrollingFrame)
 	for order, pass in Config.GamePasses do
 		fetchPrice(pass.GamePassId)
 		local c = card(page, order, pass.Color)
-		local isMoney = pass.Kind == "Money"
-		Theme.Label({ Text = if isMoney then "💵" else "⚡", Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = c })
+		local icon = if pass.Kind == "Money" then "💵" elseif pass.Kind == "Speed" then "⚡" else "🌀"
+		local description = if pass.Kind == "Money"
+			then `Earn {pass.Multiplier}x money from every donut, forever`
+			elseif pass.Kind == "Speed" then "Double speed from your treadmill, forever"
+			else "Teleport to any world or area you've unlocked, any time"
+		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = c })
 		Theme.Label({ Text = string.upper(pass.Name), TextColor3 = pass.Color:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = c })
 		Theme.Label({
-			Text = if isMoney then `Earn {pass.Multiplier}x money from every donut, forever` else "Double speed from your treadmill, forever",
+			Text = description,
 			Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = c,
 		})
 		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
@@ -197,8 +240,9 @@ end
 -- Skins
 --------------------------------------------------------------------------------
 local function buildSkins(page: ScrollingFrame)
+	local note = card(page, 0, Theme.Colors.Purple)
+	Theme.Label({ Text = "🎨 Skins are bought with SPEED ⚡ (you'll be slower until you train it back). They're yours forever, even after rebirths!", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	for order, skin in Config.Skins do
-		fetchPrice(skin.GamePassId)
 		local c = card(page, order, skin.Trim)
 		-- Colour swatch preview of the skin
 		local swatch = Theme.new("Frame", { Size = UDim2.new(1, -20, 0, 64), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = skin.Floor, Parent = c }, { Theme.Corner(10), Theme.Stroke(2) })
@@ -208,14 +252,14 @@ local function buildSkins(page: ScrollingFrame)
 		Theme.Label({ Text = string.upper(skin.Name), Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(10, 80), Parent = c })
 		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 46), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
 		button.Activated:Connect(function()
-			if State.Data.OwnedSkins[skin.Id] or skin.Free then
+			if State.Data.OwnedSkins[skin.Id] or skin.SpeedCost <= 0 then
 				State.Action("EquipSkin", skin.Id)
 			else
 				State.Action("BuySkin", skin.Id)
 			end
 		end)
 		table.insert(refreshers, function()
-			local owned = skin.Free or State.Data.OwnedSkins[skin.Id]
+			local owned = skin.SpeedCost <= 0 or State.Data.OwnedSkins[skin.Id]
 			if State.Data.EquippedSkin == skin.Id then
 				Theme.SetButtonText(button, "EQUIPPED")
 				Theme.SetButtonColor(button, Theme.Colors.Gray)
@@ -223,8 +267,8 @@ local function buildSkins(page: ScrollingFrame)
 				Theme.SetButtonText(button, "EQUIP")
 				Theme.SetButtonColor(button, Theme.Colors.Blue)
 			else
-				Theme.SetButtonText(button, robuxText(skin.GamePassId, skin.SuggestedPrice))
-				Theme.SetButtonColor(button, Theme.Colors.Green)
+				Theme.SetButtonText(button, "⚡ " .. Format.Number(skin.SpeedCost))
+				Theme.SetButtonColor(button, if State.Number("Speed") >= skin.SpeedCost then Theme.Colors.Purple else Theme.Colors.Gray)
 			end
 		end)
 	end
@@ -286,7 +330,7 @@ function Shop.Init()
 	buildItems(newPage("Items", body, 2, 175))
 	buildSkins(newPage("Skins", body, 3, 180))
 
-	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income" } do
+	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "Expansions", "IndexBonus" } do
 		State.OnAttribute(name, function()
 			if modal:IsOpen() then
 				refreshAll()

@@ -1,9 +1,9 @@
 --[[
 	PlotService
 	===========
-	Player bases: plot assignment, the donuts on their pedestals (with Upgrade / Sell prompts),
-	base income, the owner sign, base skins, and the podium that shows off the player's rarest or
-	best-earning donut.
+	Player bases: plot assignment, the donuts on their stands (with Upgrade / Sell prompts),
+	base income, the owner sign, base expansions (more stands), base skins, and the podium that
+	shows off the player's rarest or best-earning donut.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -75,12 +75,18 @@ function PlotService.GetBaseIncome(player: Player): number
 	return baseIncome[player] or 0
 end
 
+-- How many stands this player has unlocked.
+function PlotService.GetSlotCount(player: Player): number
+	local profile = DataService.Get(player)
+	return if profile then Economy.SlotCount(profile.Data.Expansions) else Config.Plots.StartSlots
+end
+
 function PlotService.GetFreeSlot(player: Player): number?
 	local profile = DataService.Get(player)
 	if not profile then
 		return nil
 	end
-	for i = 1, Config.Plots.SlotsPerPlot do
+	for i = 1, PlotService.GetSlotCount(player) do
 		if not profile.Data.Slots[tostring(i)] then
 			return i
 		end
@@ -97,7 +103,7 @@ local function recalcIncome(player: Player)
 	local total = 0
 	if profile then
 		for _, slot in profile.Data.Slots do
-			total += Economy.DonutIncome(slot.Id, slot.Level)
+			total += Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
 		end
 	end
 	baseIncome[player] = total
@@ -131,7 +137,9 @@ local function refreshSign(plotIndex: number, owner: Player?)
 		nameLabel.Text = owner.DisplayName
 		nameLabel.TextColor3 = rgb(255, 255, 255)
 		local profile = DataService.Get(owner)
-		local mult = if profile then Economy.MoneyMultiplier(profile.Passes) else 1
+		local mult = if profile then DataService.MoneyMultiplier(profile) else 1
+		local rebirths = if profile then profile.Data.Rebirths else 0
+		nameLabel.Text = if rebirths > 0 then `{owner.DisplayName}  🔄{rebirths}` else owner.DisplayName
 		incomeLabel.Text = Format.Money((baseIncome[owner] or 0) * mult) .. "/s"
 	else
 		nameLabel.Text = "Empty Base"
@@ -150,24 +158,25 @@ end
 --------------------------------------------------------------------------------
 -- Podium (rarest / best earning donut)
 --------------------------------------------------------------------------------
-local function pickPodiumDonut(player: Player): (string?, number)
+local function pickPodiumDonut(player: Player): DataService.SlotData?
 	local profile = DataService.Get(player)
 	if not profile then
-		return nil, 1
+		return nil
 	end
 	local mode = profile.Data.PodiumMode
-	local bestId, bestLevel, bestKey = nil, 1, -math.huge
+	local best: DataService.SlotData?, bestKey = nil, -math.huge
 	for _, slot in profile.Data.Slots do
 		local donut = Donuts.ById[slot.Id]
 		if donut then
-			local income = Economy.DonutIncome(slot.Id, slot.Level)
-			local key = if mode == "Earner" then income else Rarities.Get(donut.Rarity).Order * 1e30 + income
+			local income = Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
+			-- Rarest: rarity, then mutation (the leaderboard score), then income
+			local key = if mode == "Earner" then income else Donuts.Score(donut, slot.Mutation) * 1e30 + income
 			if key > bestKey then
-				bestId, bestLevel, bestKey = slot.Id, slot.Level, key
+				best, bestKey = slot, key
 			end
 		end
 	end
-	return bestId, bestLevel
+	return best
 end
 
 local function buildPodiumBase(plot: Model): Model?
@@ -237,8 +246,8 @@ function PlotService.RefreshPodium(player: Player)
 	local mode = if profile then profile.Data.PodiumMode else "Rarest"
 	local title = if mode == "Earner" then `💰 {player.DisplayName}'s Top Earner` else `👑 {player.DisplayName}'s Rarest Donut`
 
-	local donutId, level = pickPodiumDonut(player)
-	local donut = donutId and Donuts.ById[donutId]
+	local slot = pickPodiumDonut(player)
+	local donut = slot and Donuts.ById[slot.Id]
 	local showcase = Instance.new("Folder")
 	showcase.Name = "Showcase"
 	showcase.Parent = podium
@@ -250,12 +259,12 @@ function PlotService.RefreshPodium(player: Player)
 	gui.MaxDistance = 120
 	gui.Parent = labelHolder
 
-	if donut then
-		local model = DonutModel.Build(donut, { Scale = Config.Plots.PodiumDonutScale })
+	if slot and donut then
+		local model = DonutModel.Build(donut, { Scale = Config.Plots.PodiumDonutScale, Mutation = slot.Mutation })
 		DonutModel.PlaceOn(model, top.CFrame * CFrame.new(0, 0.1, 0))
 		CollectionService:AddTag(model, "PodiumSpin")
 		model.Parent = showcase
-		local info = DonutModel.CreateBillboard(donut, Economy.DonutIncome(donut.Id, level), level, (model:GetAttribute("Top") :: number?) or 3)
+		local info = DonutModel.CreateBillboard(donut, Economy.DonutIncome(donut.Id, slot.Level, slot.Mutation, slot.Size), slot.Level, (model:GetAttribute("Top") :: number?) or 3, slot.Mutation, slot.Size)
 		info.Parent = model.PrimaryPart
 		gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + (model:GetAttribute("Bottom") :: number? or 3) + 7.5, 0)
 		Build.Text(gui, title, { TextColor3 = rgb(255, 225, 80), TextStrokeColor3 = rgb(80, 40, 0) })
@@ -296,14 +305,14 @@ local function updateSlotLabels(player: Player, slotIndex: number)
 	end
 	local root = model.PrimaryPart :: BasePart
 	local donut = Donuts.ById[slot.Id]
-	local income = Economy.DonutIncome(slot.Id, slot.Level)
+	local income = Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
 	model:SetAttribute("Income", income) -- used by the client's "+$" popups
 
 	local old = root:FindFirstChild("DonutInfo")
 	if old then
 		old:Destroy()
 	end
-	local info = DonutModel.CreateBillboard(donut, income, slot.Level, (model:GetAttribute("Top") :: number?) or 3)
+	local info = DonutModel.CreateBillboard(donut, income, slot.Level, (model:GetAttribute("Top") :: number?) or 3, slot.Mutation, slot.Size)
 	info.Parent = root
 
 	local upgrade = root:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
@@ -313,13 +322,14 @@ local function updateSlotLabels(player: Player, slotIndex: number)
 			upgrade.ActionText = "MAX LEVEL"
 			upgrade.Enabled = false
 		else
-			upgrade.ActionText = "Upgrade " .. Format.Money(Economy.DonutUpgradeCost(slot.Id, slot.Level))
+			upgrade.ActionText = "Upgrade " .. Format.Money(Economy.DonutUpgradeCost(slot.Id, slot.Level, slot.Mutation, slot.Size))
 		end
-		upgrade.ObjectText = `Lv. {slot.Level} → {slot.Level + 1}  (+{Format.Money(donut.Income * Config.DonutUpgrade.IncomePerLevel)}/s)`
+		local gain = Economy.DonutBaseIncome(slot.Id, slot.Mutation, slot.Size) * Config.DonutUpgrade.IncomePerLevel
+		upgrade.ObjectText = `Lv. {slot.Level} → {slot.Level + 1}  (+{Format.Money(gain)}/s)`
 	end
 	if sell then
-		sell.ActionText = "Sell " .. Format.Money(Economy.SellPrice(slot.Id, slot.Level))
-		sell.ObjectText = donut.Name
+		sell.ActionText = "Sell " .. Format.Money(Economy.SellPrice(slot.Id, slot.Level, slot.Mutation, slot.Size))
+		sell.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
 	end
 end
 
@@ -342,7 +352,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 		return
 	end
 
-	local model = DonutModel.Build(donut, { Scale = Config.Plots.DonutScale })
+	local model = DonutModel.Build(donut, { Scale = Config.Plots.DonutScale, Mutation = slot.Mutation, Size = slot.Size })
 	local surface = pedestal:GetAttribute("Surface") :: CFrame
 	DonutModel.PlaceOn(model, surface)
 	model.Name = "SlotDonut" .. slotIndex
@@ -375,7 +385,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 		local raid = Instance.new("ProximityPrompt")
 		raid.Name = "RaidPrompt"
 		raid.ActionText = "Steal"
-		raid.ObjectText = donut.Name
+		raid.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
 		raid.KeyboardKeyCode = Enum.KeyCode.E
 		raid.GamepadKeyCode = Enum.KeyCode.ButtonX
 		raid.HoldDuration = Config.Raid.HoldSeconds
@@ -412,14 +422,19 @@ local function afterSlotsChanged(player: Player)
 	PlotService.RefreshPodium(player)
 end
 
--- Put a donut on the first free pedestal. Returns the slot index, or nil when the base is full.
-function PlotService.AddDonut(player: Player, donutId: string, level: number?): number?
+-- Put a donut on the first free stand. Returns the slot index, or nil when the base is full.
+function PlotService.AddDonut(player: Player, donutId: string, level: number?, mutationId: string?, sizeId: string?): number?
 	local profile = DataService.Get(player)
 	local slotIndex = PlotService.GetFreeSlot(player)
 	if not profile or not slotIndex or not Donuts.ById[donutId] then
 		return nil
 	end
-	profile.Data.Slots[tostring(slotIndex)] = { Id = donutId, Level = level or 1 }
+	profile.Data.Slots[tostring(slotIndex)] = {
+		Id = donutId,
+		Level = level or 1,
+		Mutation = if mutationId and mutationId ~= "None" then mutationId else nil,
+		Size = if sizeId and sizeId ~= "Normal" then sizeId else nil,
+	}
 	spawnSlotModel(player, slotIndex)
 	afterSlotsChanged(player)
 	return slotIndex
@@ -467,7 +482,7 @@ function PlotService.UpgradeSlot(player: Player, slotIndex: number)
 		notify(player, "This donut is already max level!", "error")
 		return
 	end
-	local cost = Economy.DonutUpgradeCost(slot.Id, slot.Level)
+	local cost = Economy.DonutUpgradeCost(slot.Id, slot.Level, slot.Mutation, slot.Size)
 	if not DataService.TrySpend(player, cost) then
 		notify(player, "Not enough money! Need " .. Format.Money(cost), "error")
 		return
@@ -485,7 +500,7 @@ function PlotService.SellSlot(player: Player, slotIndex: number)
 	if not profile or not slot then
 		return
 	end
-	local price = Economy.SellPrice(slot.Id, slot.Level)
+	local price = Economy.SellPrice(slot.Id, slot.Level, slot.Mutation, slot.Size)
 	local donut = Donuts.ById[slot.Id]
 	profile.Data.Slots[key] = nil
 	DataService.AddMoney(player, price, false)
@@ -495,7 +510,98 @@ function PlotService.SellSlot(player: Player, slotIndex: number)
 		slotModels[player][slotIndex] = nil
 	end
 	afterSlotsChanged(player)
-	notify(player, `Sold {donut and donut.Name or "donut"} for {Format.Money(price)}`, "success")
+	notify(player, `Sold {if donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "donut"} for {Format.Money(price)}`, "success")
+end
+
+-- Remove every donut from a base (rebirth).
+function PlotService.ClearAll(player: Player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	profile.Data.Slots = {}
+	if slotModels[player] then
+		for _, model in slotModels[player] do
+			model:Destroy()
+		end
+	end
+	slotModels[player] = {}
+	afterSlotsChanged(player)
+end
+
+--------------------------------------------------------------------------------
+-- Stands you haven't unlocked yet are see-through with a lock sign on each locked row.
+--------------------------------------------------------------------------------
+local function applySlotLocks(plotIndex: number, unlocked: number)
+	local plot = MapBuilder.GetPlot(plotIndex)
+	local slots = plot:FindFirstChild("Slots")
+	if not slots then
+		return
+	end
+	for _, child in slots:GetChildren() do
+		if child.Name == "LockSign" then
+			child:Destroy()
+		end
+	end
+	local columns = #Layout.SlotColumns
+	for index = 1, Config.Plots.SlotsPerPlot do
+		local pedestal = slots:FindFirstChild("Slot" .. index)
+		if pedestal and pedestal:IsA("BasePart") then
+			local locked = index > unlocked
+			pedestal.Transparency = if locked then 0.8 else 0
+			pedestal.CanCollide = not locked
+			-- One sign per locked row, on its first stand
+			if locked and (index - 1) % columns == 0 then
+				local holder = Instance.new("Part")
+				holder.Name = "LockSign"
+				holder.Anchored = true
+				holder.CanCollide = false
+				holder.CanQuery = false
+				holder.CanTouch = false
+				holder.Transparency = 1
+				holder.Size = Vector3.one
+				local rowCenter = Layout.PlotCFrame(plotIndex) * CFrame.new(0, Layout.PlotFloorHeight + 3, Layout.SlotOffset(index).Z)
+				holder.CFrame = rowCenter
+				local gui = Instance.new("BillboardGui")
+				gui.Size = UDim2.fromScale(22, 2.2)
+				gui.LightInfluence = 0
+				gui.MaxDistance = 90
+				gui.Parent = holder
+				Build.Text(gui, "🔒 Expand your base in the Shop", { TextColor3 = rgb(255, 230, 120), Font = Enum.Font.FredokaOne })
+				holder.Parent = slots
+			end
+		end
+	end
+end
+
+function PlotService.RefreshLocks(player: Player)
+	local index = playerPlots[player]
+	if index then
+		applySlotLocks(index, PlotService.GetSlotCount(player))
+	end
+end
+
+-- Buy the next base expansion (one more row of stands).
+function PlotService.Expand(player: Player): boolean
+	local profile = DataService.Get(player)
+	if not profile then
+		return false
+	end
+	local cost = Economy.ExpansionCost(profile.Data.Expansions)
+	if not cost then
+		notify(player, "Your base is fully expanded!", "error")
+		return false
+	end
+	if not DataService.TrySpend(player, cost) then
+		notify(player, "Not enough money! Need " .. Format.Money(cost), "error")
+		return false
+	end
+	profile.Data.Expansions += 1
+	player:SetAttribute("Expansions", profile.Data.Expansions)
+	PlotService.RefreshLocks(player)
+	PlotService.ApplySkin(player)
+	notify(player, `🏗 Base expanded! You now have {PlotService.GetSlotCount(player)} donut stands.`, "success")
+	return true
 end
 
 --------------------------------------------------------------------------------
@@ -577,7 +683,7 @@ local function applySkinToPlot(plot: Model, skinId: string)
 		local slots = plot:FindFirstChild("Slots")
 		local pedestals: { Instance } = if slots then slots:GetChildren() else {}
 		for _, pedestal in pedestals do
-			if pedestal:IsA("BasePart") then
+			if pedestal:IsA("BasePart") and pedestal.Transparency < 0.5 then -- skip locked stands
 				local holder = Build.Decor({ Parent = fx, Name = "PedestalFX", Size = Vector3.one, CFrame = CFrame.new(pedestal.Position), Transparency = 1 })
 				if effect == "Glow" then
 					local light = Instance.new("PointLight")
@@ -647,6 +753,7 @@ function PlotService.Assign(player: Player): number?
 			spawnSlotModel(player, i)
 		end
 	end
+	PlotService.RefreshLocks(player)
 	recalcIncome(player)
 	PlotService.ApplySkin(player)
 	PlotService.RefreshSign(player)
@@ -676,12 +783,14 @@ function PlotService.Release(player: Player)
 		podium:Destroy()
 	end
 	applySkinToPlot(plot, "Classic")
+	applySlotLocks(index, Config.Plots.StartSlots)
 	refreshSign(index, nil)
 end
 
 function PlotService.Init()
 	for i = 1, Config.Plots.Count do
 		refreshSign(i, nil)
+		applySlotLocks(i, Config.Plots.StartSlots)
 	end
 end
 

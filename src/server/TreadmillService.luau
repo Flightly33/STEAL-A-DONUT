@@ -35,7 +35,7 @@ function TreadmillService.GetRate(player: Player): number
 		return 0
 	end
 	local data = profile.Data
-	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes))
+	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data))
 end
 
 local function updateScreen(player: Player)
@@ -142,8 +142,15 @@ function TreadmillService.Build(player: Player)
 		fire.Heat = 3
 		fire.Parent = exhaust
 	end
+	if tier.Rainbow or tier.Halo then
+		-- Glowing underglow so the top tiers look special even from far away
+		local glow = Build.Decor({ Parent = model, Name = "Underglow", Size = Vector3.new(BELT_WIDTH + 3, 0.2, BELT_LENGTH + 3), CFrame = at(0, 0.1, 0.5), Color = tier.Accent, Material = Enum.Material.Neon, Transparency = 0.3 })
+		if tier.Rainbow then
+			CollectionService:AddTag(glow, "RainbowPart")
+		end
+	end
 	if tier.Halo then
-		local center = at(0, 11, -1)
+		local center = at(0, 9.5, 0.5)
 		local ring = Instance.new("Model")
 		ring.Name = "Halo"
 		local pivot = Build.Decor({ Parent = ring, Name = "Center", Size = Vector3.one, CFrame = center, Transparency = 1 })

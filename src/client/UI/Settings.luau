@@ -1,6 +1,9 @@
 --[[
 	Settings window + background music player.
 	Music on/off and volume are saved per player. Tracks come from Config.Music.Tracks.
+
+	Songs that fail to load (a private asset, a deleted asset, or a typo in the ID) are skipped
+	automatically, and a warning with the ID is printed to the Output window so you can fix it.
 ]]
 
 local SoundService = game:GetService("SoundService")
@@ -22,6 +25,9 @@ local volume = Config.Music.DefaultVolume
 local musicOn = true
 local loaded = false -- becomes true once the saved settings arrive
 local refresh: () -> () = function() end
+local status = "" -- shown under "Now playing" when something is wrong
+local playToken = 0
+local failed: { [number]: boolean } = {}
 
 local tracks = Config.Music.Tracks
 
@@ -29,16 +35,56 @@ local function applyVolume()
 	sound.Volume = if musicOn then volume else 0
 end
 
-local function playTrack(index: number)
+local function workingTracks(): number
+	local count = 0
+	for i = 1, #tracks do
+		if not failed[i] then
+			count += 1
+		end
+	end
+	return count
+end
+
+local playTrack: (index: number) -> ()
+
+playTrack = function(index: number)
 	if #tracks == 0 then
 		return
 	end
-	trackIndex = (index - 1) % #tracks + 1
+	if workingTracks() == 0 then
+		sound:Stop()
+		status = "Couldn't load any songs - check the IDs in Config.Music.Tracks"
+		refresh()
+		return
+	end
+	-- Skip songs that already failed
+	for _ = 1, #tracks do
+		trackIndex = (index - 1) % #tracks + 1
+		if not failed[trackIndex] then
+			break
+		end
+		index += 1
+	end
+	playToken += 1
+	local token = playToken
+	local track = tracks[trackIndex]
 	sound:Stop()
-	sound.SoundId = "rbxassetid://" .. tostring(tracks[trackIndex].Id)
+	sound.SoundId = "rbxassetid://" .. tostring(track.Id)
 	sound.TimePosition = 0
 	sound:Play()
+	status = ""
 	refresh()
+	-- A song that never loads (private/deleted asset) never fires Ended: skip it after a while.
+	task.delay(10, function()
+		if token ~= playToken then
+			return
+		end
+		if not sound.IsLoaded or sound.TimeLength <= 0 then
+			failed[trackIndex] = true
+			warn(`[Music] Couldn't load "{track.Name}" (rbxassetid://{track.Id}). Audio must be public or uploaded by the game's owner. Skipping it.`)
+			playTrack(trackIndex + 1)
+		end
+	end)
 end
 
 local function save()
@@ -80,7 +126,13 @@ function Settings.Init()
 		Theme.SetButtonColor(toggle, if musicOn then Theme.Colors.Green else Theme.Colors.Gray)
 		fill.Size = UDim2.fromScale(volume, 1)
 		percent.Text = math.floor(volume * 100 + 0.5) .. "%"
-		nowPlaying.Text = if #tracks == 0 then "No songs added yet (Config.Music.Tracks)" else "Now playing: " .. tracks[trackIndex].Name
+		if #tracks == 0 then
+			nowPlaying.Text = "No songs added yet (Config.Music.Tracks)"
+		elseif status ~= "" then
+			nowPlaying.Text = status
+		else
+			nowPlaying.Text = "Now playing: " .. tracks[trackIndex].Name
+		end
 	end
 
 	toggle.Activated:Connect(function()

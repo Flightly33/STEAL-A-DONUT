@@ -5,7 +5,6 @@
 	  RainbowPart / RainbowText- rainbow parts and labels
 	  SpinSlow                 - floating crystals and halo rings
 	  TreadmillBelt            - belt slats scroll backwards
-	  Guard                    - animated "Zzz" while sleeping
 	  Area ambience            - lighting, fog and colour grading change per area
 	  Owner-only prompts       - hide Upgrade/Sell prompts on other people's donuts
 	  Popups                   - "+$" above your donuts
@@ -196,32 +195,6 @@ local function startTreadmills()
 end
 
 --------------------------------------------------------------------------------
--- Guards: animated Zzz
---------------------------------------------------------------------------------
-local function startGuards()
-	local guards = track("Guard", function(instance)
-		return if instance:IsA("Model") then instance else nil
-	end)
-	task.spawn(function()
-		local frames = { "z", "zZ", "zZz", "zZzZ" }
-		local frame = 0
-		while true do
-			task.wait(0.45)
-			frame = frame % #frames + 1
-			for model in guards do
-				if model.Parent and model:GetAttribute("Sleeping") then
-					local tag = model:FindFirstChild("GuardTag", true)
-					local status = tag and tag:FindFirstChild("Status")
-					if status and status:IsA("TextLabel") then
-						status.Text = frames[frame]
-					end
-				end
-			end
-		end
-	end)
-end
-
---------------------------------------------------------------------------------
 -- Owner-only prompts (Upgrade / Sell / Podium on other players' bases are hidden),
 -- and raid "Steal" prompts on your OWN base are hidden from you.
 --------------------------------------------------------------------------------
@@ -330,7 +303,6 @@ end
 function Effects.Init()
 	startDonutEffects()
 	startTreadmills()
-	startGuards()
 	startPromptFilter()
 	startAmbience()
 	startPopups()

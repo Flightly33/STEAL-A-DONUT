@@ -16,12 +16,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Donuts = require(Shared.Donuts)
+local Economy = require(Shared.Economy)
 local Signal = require(Shared.Signal)
 local Remotes = require(Shared.Remotes)
 
 local DataService = {}
 
-export type SlotData = { Id: string, Level: number }
+export type SlotData = { Id: string, Level: number, Mutation: string?, Size: string? }
 
 export type Data = {
 	Version: number,
@@ -32,7 +34,12 @@ export type Data = {
 	SpeedMultLevel: number,
 	Slots: { [string]: SlotData },
 	Discovered: { [string]: boolean },
+	DiscoveredMutations: { [string]: { [string]: boolean } }, -- donutId -> mutations found
+	IndexClaims: { [string]: string }, -- donutId -> "Cash" | "Speed"
 	BestDonutScore: number,
+	BestSpeed: number,
+	Rebirths: number,
+	Expansions: number,
 	PlayTime: number,
 	LastOnline: number,
 	OwnedSkins: { [string]: boolean },
@@ -50,12 +57,14 @@ export type Profile = {
 	Data: Data,
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
-	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }? },
+	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }? },
 	NoSave: boolean,
 }
 
+local DATA_VERSION = 2
+
 local TEMPLATE: Data = {
-	Version = 1,
+	Version = DATA_VERSION,
 	Money = 0,
 	TotalEarned = 0,
 	Speed = 0,
@@ -63,7 +72,12 @@ local TEMPLATE: Data = {
 	SpeedMultLevel = 0,
 	Slots = {},
 	Discovered = {},
+	DiscoveredMutations = {},
+	IndexClaims = {},
 	BestDonutScore = 0,
+	BestSpeed = 0,
+	Rebirths = 0,
+	Expansions = 0,
 	PlayTime = 0,
 	LastOnline = 0,
 	OwnedSkins = { Classic = true },
@@ -100,6 +114,39 @@ local function reconcile(data: { [string]: any }, template: { [string]: any })
 			data[key] = deepCopy(value)
 		end
 	end
+end
+
+-- Upgrade data saved by older versions of the game.
+local function migrate(data: Data, isNew: boolean)
+	if data.Version < 2 then
+		if not isNew then
+			-- Everyone used to have 12 stands: keep them (12 = 8 to start + 1 expansion).
+			data.Expansions = math.max(data.Expansions, 1)
+		end
+		-- "Rarest donut" scores used to be rarity * 1000 + index.
+		if data.BestDonutScore > 0 and data.BestDonutScore < 10_000 then
+			local donut = Donuts.FromScore(data.BestDonutScore)
+			data.BestDonutScore = if donut then donut.Score else 0
+		end
+		data.BestSpeed = math.max(data.BestSpeed, data.Speed)
+		data.Version = 2
+	end
+end
+
+-- Total money multiplier: game passes x rebirths.
+function DataService.MoneyMultiplier(profile: Profile): number
+	return Economy.MoneyMultiplier(profile.Passes) * Economy.RebirthMoneyMultiplier(profile.Data.Rebirths)
+end
+
+-- Total Index treadmill bonus in % (from rewards claimed as Speed).
+function DataService.IndexSpeedBonus(data: Data): number
+	local total = 0
+	for donutId, kind in data.IndexClaims do
+		if kind == "Speed" then
+			total += Economy.IndexSpeedReward(donutId) or 0
+		end
+	end
+	return total
 end
 
 local function keyFor(player: Player): string
@@ -154,7 +201,9 @@ function DataService.Load(player: Player): Profile?
 		end
 		return nil
 	end
+	local isNew = (data :: any).Version == nil or (data.PlayTime == 0 and data.TotalEarned == 0)
 	reconcile(data :: any, TEMPLATE :: any)
+	migrate(data, isNew)
 
 	if RunService:IsStudio() then
 		if Config.Debug.StudioStartMoney > 0 and data.Money < Config.Debug.StudioStartMoney then
@@ -170,7 +219,7 @@ function DataService.Load(player: Player): Profile?
 		Data = data,
 		Passes = {},
 		SessionSkins = {},
-		Session = { SlowMode = false, Stunned = false, Ready = false },
+		Session = { SlowMode = false, Stunned = false, Ready = false, World = 1 },
 		NoSave = noSave,
 	}
 	profiles[player] = profile
@@ -253,6 +302,10 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("SpeedMultLevel", data.SpeedMultLevel)
 	player:SetAttribute("PlayTime", data.PlayTime)
 	player:SetAttribute("SlowMode", profile.Session.SlowMode)
+	player:SetAttribute("Rebirths", data.Rebirths)
+	player:SetAttribute("Expansions", data.Expansions)
+	player:SetAttribute("BestSpeed", data.BestSpeed)
+	player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
 end
 
 function DataService.AddMoney(player: Player, amount: number, countsAsEarned: boolean?)
@@ -285,6 +338,20 @@ function DataService.AddSpeed(player: Player, amount: number)
 	end
 	profile.Data.Speed += amount
 	player:SetAttribute("Speed", profile.Data.Speed)
+	if profile.Data.Speed > profile.Data.BestSpeed then
+		profile.Data.BestSpeed = profile.Data.Speed
+		player:SetAttribute("BestSpeed", profile.Data.BestSpeed)
+	end
+end
+
+function DataService.TrySpendSpeed(player: Player, amount: number): boolean
+	local profile = profiles[player]
+	if not profile or amount ~= amount or amount < 0 or profile.Data.Speed < amount then
+		return false
+	end
+	profile.Data.Speed -= amount
+	player:SetAttribute("Speed", profile.Data.Speed)
+	return true
 end
 
 -- Sends the table-shaped state the client UI needs (owned passes, skins, discovered donuts...).
@@ -302,6 +369,8 @@ function DataService.PushState(player: Player)
 		OwnedSkins = skins,
 		EquippedSkin = profile.Data.EquippedSkin,
 		Discovered = profile.Data.Discovered,
+		DiscoveredMutations = profile.Data.DiscoveredMutations,
+		IndexClaims = profile.Data.IndexClaims,
 		PodiumMode = profile.Data.PodiumMode,
 		MusicVolume = profile.Data.MusicVolume,
 		MusicOn = profile.Data.MusicOn,

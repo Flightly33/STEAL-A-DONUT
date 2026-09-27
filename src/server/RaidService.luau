@@ -60,7 +60,7 @@ local function slotDonutName(owner: Player, slotIndex: number): string
 	local profile = DataService.Get(owner)
 	local slot = profile and profile.Data.Slots[tostring(slotIndex)]
 	local donut = slot and Donuts.ById[slot.Id]
-	return if donut then donut.Name else "donut"
+	return if slot and donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "donut"
 end
 
 local function tryRaid(owner: Player, slotIndex: number, prompt: ProximityPrompt, thief: Player)
@@ -100,11 +100,12 @@ local function tryRaid(owner: Player, slotIndex: number, prompt: ProximityPrompt
 	end
 	StealService.StartRaid(thief, owner, slot)
 	local donut = Donuts.ById[slot.Id]
-	notify(owner, `🚨 {thief.DisplayName} stole your {donut.Name}! Hit them before they get home to get it back!`, "error")
-	notify(thief, `You stole {owner.DisplayName}'s {donut.Name}! Run to your base!`, "success")
+	local name = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
+	notify(owner, `🚨 {thief.DisplayName} stole your {name}! Hit them before they get home to get it back!`, "error")
+	notify(thief, `You stole {owner.DisplayName}'s {name}! Run to your base!`, "success")
 	local rarity = Rarities.Get(donut.Rarity)
 	if rarity.Order >= Config.Spawns.AnnounceRarity then
-		Remotes.Event("AreaAnnouncement"):FireAllClients(`{thief.DisplayName} stole {owner.DisplayName}'s {string.upper(rarity.Id)} {donut.Name}!`, rarity.Color)
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`{thief.DisplayName} stole {owner.DisplayName}'s {string.upper(rarity.Id)} {name}!`, rarity.Color)
 	end
 end
 

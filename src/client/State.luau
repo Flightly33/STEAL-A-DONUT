@@ -17,6 +17,8 @@ export type Snapshot = {
 	OwnedSkins: { [string]: boolean },
 	EquippedSkin: string,
 	Discovered: { [string]: boolean },
+	DiscoveredMutations: { [string]: { [string]: boolean } }?,
+	IndexClaims: { [string]: string }?,
 	PodiumMode: string,
 	MusicVolume: number?,
 	MusicOn: boolean?,

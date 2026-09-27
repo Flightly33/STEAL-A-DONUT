@@ -38,6 +38,19 @@ function Format.Number(value: number): string
 	return if negative then "-" .. text else text
 end
 
+-- Multipliers: 1.25 -> "1.25", 35.53 -> "35.5", 2 -> "2", 12345 -> "12.3K"
+function Format.Multiplier(value: number): string
+	if value >= 1000 then
+		return Format.Number(value)
+	end
+	local text = if value < 10 then string.format("%.2f", value) elseif value < 100 then string.format("%.1f", value) else string.format("%d", math.floor(value))
+	if string.find(text, "%.") then
+		text = string.gsub(text, "0+$", "")
+		text = string.gsub(text, "%.$", "")
+	end
+	return text
+end
+
 function Format.Money(value: number): string
 	return "$" .. Format.Number(value)
 end

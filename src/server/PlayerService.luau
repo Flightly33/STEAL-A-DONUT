@@ -4,7 +4,8 @@
 	Glues everything together for each player:
 	  join  -> load data -> check game passes -> assign base -> build treadmill -> offline earnings
 	  every second -> base income is paid out, play time ticks up
-	  always -> WalkSpeed follows the Speed stat (or slow mode / stun)
+	  always -> WalkSpeed follows the Speed stat, the world you're in and the donut you carry
+	            (or slow mode / stun)
 	  leave -> drop carried donut -> write leaderboards -> save -> free the base
 ]]
 
@@ -25,10 +26,11 @@ local ShopService = require(script.Parent.ShopService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local ItemService = require(script.Parent.ItemService)
 local RaidService = require(script.Parent.RaidService)
+local WorldService = require(script.Parent.WorldService)
 
 local PlayerService = {}
 
-local leaderstats: { [Player]: { Money: StringValue, Speed: StringValue } } = {}
+local leaderstats: { [Player]: { Money: StringValue, Speed: StringValue, Rebirths: IntValue } } = {}
 local clientReady: { [Player]: boolean } = {}
 
 -- Messages that need the player's UI to be listening. Sent once both the data is loaded and
@@ -86,8 +88,11 @@ local function createLeaderstats(player: Player)
 	local speed = Instance.new("StringValue")
 	speed.Name = "⚡ Speed"
 	speed.Parent = folder
+	local rebirths = Instance.new("IntValue")
+	rebirths.Name = "🔄 Rebirths"
+	rebirths.Parent = folder
 	folder.Parent = player
-	leaderstats[player] = { Money = money, Speed = speed }
+	leaderstats[player] = { Money = money, Speed = speed, Rebirths = rebirths }
 end
 
 local function grantOfflineEarnings(player: Player)
@@ -104,7 +109,7 @@ local function grantOfflineEarnings(player: Player)
 		return
 	end
 	local seconds = math.min(away, Config.Offline.MaxHours * 3600)
-	local perSecond = PlotService.GetBaseIncome(player) * Economy.MoneyMultiplier(profile.Passes)
+	local perSecond = PlotService.GetBaseIncome(player) * DataService.MoneyMultiplier(profile)
 	local earned = perSecond * seconds * Config.Offline.Efficiency
 	if earned > 0 then
 		DataService.AddMoney(player, earned)
@@ -149,6 +154,7 @@ local function onPlayerRemoving(player: Player)
 	ShopService.OnPlayerRemoving(player)
 	ItemService.OnPlayerRemoving(player)
 	RaidService.OnPlayerRemoving(player)
+	WorldService.OnPlayerRemoving(player)
 	task.spawn(LeaderboardService.OnPlayerRemoving, player) -- reads data immediately, then yields on web calls
 	TreadmillService.Remove(player)
 	PlotService.Release(player)
@@ -157,14 +163,16 @@ local function onPlayerRemoving(player: Player)
 	DataService.Release(player) -- yields while saving
 end
 
-local function desiredWalkSpeed(profile: DataService.Profile): number
+local function desiredWalkSpeed(player: Player, profile: DataService.Profile): number
 	if profile.Session.Stunned then
 		return 0
 	end
+	local carrySize = player:GetAttribute("CarrySize")
+	local carry = Economy.CarrySpeed(if type(carrySize) == "string" then carrySize else nil)
 	if profile.Session.SlowMode then
-		return Config.Speed.SlowModeWalkSpeed
+		return Config.Speed.SlowModeWalkSpeed * carry
 	end
-	return Economy.WalkSpeedFromStat(profile.Data.Speed)
+	return Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * carry
 end
 
 function PlayerService.Init()
@@ -190,7 +198,7 @@ function PlayerService.Init()
 			last = now
 			for player, profile in DataService.GetAll() do
 				if profile.Session.Ready and player.Parent then
-					local income = PlotService.GetBaseIncome(player) * Economy.MoneyMultiplier(profile.Passes)
+					local income = PlotService.GetBaseIncome(player) * DataService.MoneyMultiplier(profile)
 					if income > 0 then
 						DataService.AddMoney(player, income * dt)
 					end
@@ -201,6 +209,7 @@ function PlayerService.Init()
 					if stats then
 						stats.Money.Value = Format.Money(profile.Data.Money)
 						stats.Speed.Value = Format.Number(profile.Data.Speed)
+						stats.Rebirths.Value = profile.Data.Rebirths
 					end
 				end
 			end
@@ -215,11 +224,11 @@ function PlayerService.Init()
 				local character = player.Character
 				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 				if humanoid and profile.Session.Ready then
-					local target = desiredWalkSpeed(profile)
+					local target = desiredWalkSpeed(player, profile)
 					if math.abs(humanoid.WalkSpeed - target) > 0.05 then
 						humanoid.WalkSpeed = target
 					end
-					player:SetAttribute("WalkSpeed", Economy.WalkSpeedFromStat(profile.Data.Speed))
+					player:SetAttribute("WalkSpeed", Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World))
 				end
 			end
 		end

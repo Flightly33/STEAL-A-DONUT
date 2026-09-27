@@ -1,6 +1,10 @@
 --[[
-	Donut Index: every donut in the game grouped by area, with 3D previews.
+	Donut Index: every donut in the game grouped by world and area, with 3D previews.
 	Donuts you haven't stolen yet show as black silhouettes named "???".
+
+	Rewards: every donut you've found can be claimed once for cash. Epic and rarer donuts let you
+	pick a permanent treadmill speed bonus instead. The dots under a donut show which mutations
+	of it you've found.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
 local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
+local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local DonutModel = require(Shared.DonutModel)
 
@@ -18,10 +23,36 @@ local State = require(script.Parent.Parent.State)
 
 local Index = {}
 
+type Card = {
+	Viewport: ViewportFrame,
+	Name: TextLabel,
+	Info: TextLabel,
+	Rarity: TextLabel,
+	Dots: { [string]: Frame },
+	Cash: TextButton,
+	Speed: TextButton?,
+	Status: TextLabel,
+}
+
 local modal: Modal.Modal
-local built = false
-local cards: { [string]: { Viewport: ViewportFrame, Name: TextLabel, Info: TextLabel, Rarity: TextLabel } } = {}
+local pages: { [number]: ScrollingFrame } = {}
+local cards: { [string]: Card } = {}
 local counter: TextLabel
+local selectWorld: (string) -> ()
+local currentWorld = 1
+
+-- Donuts found but not claimed yet (the HUD shows this as a badge on the Index button).
+function Index.UnclaimedCount(): number
+	local discovered = State.Data.Discovered or {}
+	local claims = State.Data.IndexClaims or {}
+	local count = 0
+	for id in discovered do
+		if Donuts.ById[id] and not claims[id] then
+			count += 1
+		end
+	end
+	return count
+end
 
 local function preview(parent: Instance, donut: Donuts.Donut): ViewportFrame
 	local viewport = Theme.new("ViewportFrame", {
@@ -48,16 +79,24 @@ local function preview(parent: Instance, donut: Donuts.Donut): ViewportFrame
 end
 
 local function refresh()
-	if not built then
-		return
-	end
 	local discovered = State.Data.Discovered or {}
+	local claims: { [string]: string } = State.Data.IndexClaims or {}
+	local mutations: { [string]: { [string]: boolean } } = State.Data.DiscoveredMutations or {}
 	local found = 0
+	for _ in discovered do
+		found += 1
+	end
 	for id, card in cards do
 		local donut = Donuts.ById[id]
 		local rarity = Rarities.Get(donut.Rarity)
+		local cash = Economy.IndexCashReward(id)
+		local speed = Economy.IndexSpeedReward(id)
+		card.Rarity.Text = `{rarity.Id} • {string.format("%.2g", Donuts.Chance(donut) * 100)}%`
+		for mutationId, dot in card.Dots do
+			local has = mutations[id] and mutations[id][mutationId]
+			dot.BackgroundTransparency = if has then 0 else 0.75
+		end
 		if discovered[id] then
-			found += 1
 			card.Viewport.ImageColor3 = Color3.new(1, 1, 1)
 			card.Name.Text = donut.Name
 			card.Info.Text = `{Format.Money(donut.Income)}/s`
@@ -66,45 +105,98 @@ local function refresh()
 			card.Name.Text = "???"
 			card.Info.Text = "Not found yet"
 		end
-		card.Rarity.Text = `{rarity.Id} • {string.format("%.2g", Donuts.Chance(donut) * 100)}%`
+		local claimed = claims[id]
+		local canClaim = discovered[id] and not claimed
+		card.Cash.Visible = canClaim == true
+		if card.Speed then
+			card.Speed.Visible = canClaim == true
+		end
+		card.Status.Visible = not canClaim
+		if claimed == "Speed" then
+			card.Status.Text = `✓ +{speed or 0}% speed`
+			card.Status.TextColor3 = Color3.fromRGB(200, 160, 255)
+		elseif claimed then
+			card.Status.Text = `✓ Claimed {Format.Money(cash)}`
+			card.Status.TextColor3 = Theme.Colors.Money
+		else
+			card.Status.Text = if speed then `🎁 {Format.Money(cash)} or +{speed}% speed` else `🎁 {Format.Money(cash)}`
+			card.Status.TextColor3 = Color3.fromRGB(200, 200, 210)
+		end
 	end
-	counter.Text = `Discovered {found}/{#Donuts.List}`
+	local bonus = State.Number("IndexBonus")
+	counter.Text = `Discovered {found}/{#Donuts.List}   •   📖 Speed bonus: +{bonus}%   •   🎁 {Index.UnclaimedCount()} to claim`
 end
 
-local function build()
-	built = true
+local function buildCard(grid: Instance, donut: Donuts.Donut, order: number)
+	local rarity = Rarities.Get(donut.Rarity)
+	local cardFrame = Theme.new("Frame", { BackgroundColor3 = Theme.Colors.PanelLight, LayoutOrder = order, Parent = grid }, {
+		Theme.Corner(12),
+		Theme.Stroke(3, rarity.Color),
+	})
+	local viewport = preview(cardFrame, donut)
+	local rarityLabel = Theme.Label({ Text = rarity.Id, TextColor3 = rarity.Color, Font = Theme.Font, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 104), StrokeThickness = 1.5, Parent = cardFrame })
+	local nameLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -8, 0, 28), Position = UDim2.fromOffset(4, 122), StrokeThickness = 1.5, Parent = cardFrame })
+	local info = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Theme.Colors.Money, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 150), StrokeThickness = 1.2, Parent = cardFrame })
+	-- Mutation dots
+	local dotRow = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 14), Position = UDim2.fromOffset(4, 171), Parent = cardFrame }, {
+		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local dots: { [string]: Frame } = {}
+	for _, mutation in Rarities.Mutations do
+		if mutation.Order > 0 then
+			dots[mutation.Id] = Theme.new("Frame", { Size = UDim2.fromOffset(14, 14), BackgroundColor3 = mutation.Color, BackgroundTransparency = 0.75, LayoutOrder = mutation.Order, Parent = dotRow }, {
+				Theme.Corner(7),
+				Theme.Stroke(1.5),
+			})
+		end
+	end
+	-- Reward buttons
+	local speed = Economy.IndexSpeedReward(donut.Id)
+	local cash = Theme.Button({ Text = "💵 " .. Format.Money(Economy.IndexCashReward(donut.Id)), Color = Theme.Colors.Green, Size = UDim2.new(if speed then 0.5 else 1, -8, 0, 32), Position = UDim2.new(0, 5, 1, -38), Parent = cardFrame })
+	cash.Activated:Connect(function()
+		State.Action("ClaimIndex", { DonutId = donut.Id, Kind = "Cash" })
+	end)
+	local speedButton: TextButton? = nil
+	if speed then
+		local button = Theme.Button({ Text = `⚡ +{speed}%`, Color = Theme.Colors.Purple, Size = UDim2.new(0.5, -8, 0, 32), Position = UDim2.new(0.5, 3, 1, -38), Parent = cardFrame })
+		button.Activated:Connect(function()
+			State.Action("ClaimIndex", { DonutId = donut.Id, Kind = "Speed" })
+		end)
+		speedButton = button
+	end
+	local status = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -8, 0, 26), Position = UDim2.new(0, 4, 1, -34), StrokeThickness = 1.2, Parent = cardFrame })
+	cards[donut.Id] = { Viewport = viewport, Name = nameLabel, Info = info, Rarity = rarityLabel, Dots = dots, Cash = cash, Speed = speedButton, Status = status }
+end
+
+-- Build one world's page (previews are only built the first time you look at it).
+local function buildWorld(worldId: number)
+	if pages[worldId] then
+		return
+	end
 	local scroll = Theme.new("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 40),
-		Size = UDim2.new(1, 0, 1, -40),
+		Position = UDim2.fromOffset(0, 86),
+		Size = UDim2.new(1, 0, 1, -86),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
 		ScrollBarThickness = 8,
+		Visible = false,
 		Parent = modal.Body,
 	}, {
 		Theme.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 		Theme.new("UIPadding", { PaddingRight = UDim.new(0, 12), PaddingLeft = UDim.new(0, 2), PaddingBottom = UDim.new(0, 10) }),
 	})
-
-	for areaId, area in Areas.List do
-		local section = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = areaId, Parent = scroll })
-		Theme.Label({ Text = `AREA {areaId} • {string.upper(area.Name)}`, TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 30), Parent = section })
+	pages[worldId] = scroll
+	for _, area in Areas.ByWorld[worldId] do
+		local section = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = area.Id, Parent = scroll })
+		Theme.Label({ Text = `AREA {area.Id} • {string.upper(area.Name)}`, TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 30), Parent = section })
 		local grid = Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = section }, {
-			Theme.new("UIGridLayout", { CellSize = UDim2.fromOffset(160, 176), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+			Theme.new("UIGridLayout", { CellSize = UDim2.fromOffset(170, 228), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		})
-		local areaDonuts: { Donuts.Donut } = Donuts.ByArea[areaId] or {}
+		local areaDonuts: { Donuts.Donut } = Donuts.ByArea[area.Id] or {}
 		for order, donut in areaDonuts do
-			local rarity = Rarities.Get(donut.Rarity)
-			local cardFrame = Theme.new("Frame", { BackgroundColor3 = Theme.Colors.PanelLight, LayoutOrder = order, Parent = grid }, {
-				Theme.Corner(12),
-				Theme.Stroke(3, rarity.Color),
-			})
-			local viewport = preview(cardFrame, donut)
-			local rarityLabel = Theme.Label({ Text = rarity.Id, TextColor3 = rarity.Color, Font = Theme.Font, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 104), StrokeThickness = 1.5, Parent = cardFrame })
-			local nameLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -8, 0, 30), Position = UDim2.fromOffset(4, 122), StrokeThickness = 1.5, Parent = cardFrame })
-			local info = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Theme.Colors.Money, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 153), StrokeThickness = 1.2, Parent = cardFrame })
-			cards[donut.Id] = { Viewport = viewport, Name = nameLabel, Info = info, Rarity = rarityLabel }
+			buildCard(grid, donut, order)
 		end
 	end
 end
@@ -114,15 +206,29 @@ function Index.Open()
 end
 
 function Index.Init()
-	modal = Modal.new("📖 DONUT INDEX", Theme.Colors.Blue, Vector2.new(760, 520))
-	counter = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 30), Parent = modal.Body })
-	modal.OnOpen = function()
-		if not built then
-			build() -- previews are built the first time the Index is opened
+	modal = Modal.new("📖 DONUT INDEX", Theme.Colors.Blue, Vector2.new(780, 540))
+	counter = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 50), Parent = modal.Body })
+	local tabs = {}
+	for _, world in Areas.Worlds do
+		table.insert(tabs, { Name = tostring(world.Id), Text = `{world.Icon} {world.Name}`, Color = world.Color })
+	end
+	selectWorld = Modal.Tabs(modal.Body, tabs, function(name)
+		currentWorld = tonumber(name) or 1
+		buildWorld(currentWorld)
+		for worldId, page in pages do
+			page.Visible = worldId == currentWorld
 		end
 		refresh()
+	end)
+	modal.OnOpen = function()
+		selectWorld(tostring(currentWorld))
 	end
 	State.Changed:Connect(refresh)
+	State.OnAttribute("IndexBonus", function()
+		if modal:IsOpen() then
+			refresh()
+		end
+	end)
 end
 
 return Index

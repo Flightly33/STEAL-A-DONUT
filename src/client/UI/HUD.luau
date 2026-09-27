@@ -1,9 +1,9 @@
 --[[
 	HUD: always-on screen UI.
-	  left   - Shop / Index / Top 500 buttons + Slow Mode toggle
-	  right  - Home / Passes / Skins square buttons
+	  left   - Shop / Index / Top 500 / Rebirth buttons + Slow Mode toggle
+	  right  - Home / Worlds / Passes / Skins / Settings square buttons
 	  stats  - Speed, Money, income per second
-	  area   - where you are and how your speed compares to that area's guard
+	  area   - where you are, how your speed compares to that area's guard, and any running event
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -13,6 +13,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
+local Events = require(Shared.Events)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
@@ -27,14 +28,38 @@ export type Callbacks = {
 	OpenIndex: () -> (),
 	OpenLeaderboards: () -> (),
 	OpenSettings: () -> (),
+	OpenRebirth: () -> (),
+	OpenWorlds: () -> (),
+	UnclaimedIndex: () -> number,
+	RebirthReady: () -> boolean,
 }
+
+-- Little red number bubble in a button's corner.
+local function badge(button: GuiObject): TextLabel
+	local bubble = Theme.Label({
+		Name = "Badge",
+		Text = "",
+		Font = Theme.Font,
+		BackgroundTransparency = 0,
+		BackgroundColor3 = Theme.Colors.Red,
+		Size = UDim2.fromOffset(30, 30),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(1, -4, 0, 4),
+		ZIndex = 5,
+		StrokeThickness = 1.5,
+		Visible = false,
+		Parent = button,
+	})
+	Theme.new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = bubble })
+	return bubble
+end
 
 local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local left = Theme.new("Frame", {
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.45, 0),
-		Size = UDim2.fromOffset(190, 260),
+		Size = UDim2.fromOffset(190, 330),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -45,14 +70,31 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local shop = Theme.Button({ Text = "Shop", Icon = "🛒", Color = Theme.Colors.Green, Size = UDim2.fromOffset(180, 62), LayoutOrder = 1, Parent = left })
 	local index = Theme.Button({ Text = "Index", Icon = "📖", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(180, 62), LayoutOrder = 2, Parent = left })
 	local top = Theme.Button({ Text = "Top 500", Icon = "🏆", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(180, 62), LayoutOrder = 3, Parent = left })
+	local rebirth = Theme.Button({ Text = "Rebirth", Icon = "🔄", Color = Theme.Colors.Yellow, Size = UDim2.fromOffset(180, 62), LayoutOrder = 4, Parent = left })
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
 	index.Activated:Connect(callbacks.OpenIndex)
 	top.Activated:Connect(callbacks.OpenLeaderboards)
+	rebirth.Activated:Connect(callbacks.OpenRebirth)
+
+	-- Badges: unclaimed Index rewards, rebirth ready
+	local indexBadge = badge(index)
+	local rebirthBadge = badge(rebirth)
+	local function updateBadges()
+		local unclaimed = callbacks.UnclaimedIndex()
+		indexBadge.Visible = unclaimed > 0
+		indexBadge.Text = if unclaimed > 99 then "99+" else tostring(unclaimed)
+		rebirthBadge.Visible = callbacks.RebirthReady()
+		rebirthBadge.Text = "!"
+	end
+	State.Changed:Connect(updateBadges)
+	for _, name in { "Money", "Speed", "Rebirths" } do
+		State.OnAttribute(name, updateBadges)
+	end
 
 	-- Slow Mode toggle (walk at normal speed on your base when you're very fast)
-	local row = Theme.new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(190, 34), LayoutOrder = 4, Parent = left })
+	local row = Theme.new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(190, 34), LayoutOrder = 5, Parent = left })
 	local track = Theme.new("Frame", { Size = UDim2.fromOffset(64, 30), Position = UDim2.fromOffset(2, 2), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = row }, { Theme.Corner(8), Theme.Stroke(2.5) })
 	local knob = Theme.new("Frame", { Size = UDim2.fromOffset(26, 24), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = Theme.Colors.Gray, Parent = track }, { Theme.Corner(6) })
 	Theme.Label({ Text = "Slow Mode", Font = Theme.Font, Size = UDim2.new(1, -74, 0, 26), Position = UDim2.fromOffset(74, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = row })
@@ -78,7 +120,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		Name = "RightButtons",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -12, 0.45, 0),
-		Size = UDim2.fromOffset(74, 340),
+		Size = UDim2.fromOffset(74, 430),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -95,13 +137,14 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	square("🏠", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)
-	square("🎟️", "PASSES", Theme.Colors.Orange, 2, function()
+	square("🌀", "WORLDS", Theme.Colors.Blue, 2, callbacks.OpenWorlds)
+	square("🎟️", "PASSES", Theme.Colors.Orange, 3, function()
 		callbacks.OpenShop("Passes")
 	end)
-	square("🎨", "SKINS", Theme.Colors.Purple, 3, function()
+	square("🎨", "SKINS", Theme.Colors.Purple, 4, function()
 		callbacks.OpenShop("Skins")
 	end)
-	square("⚙️", "SETTINGS", Theme.Colors.Gray, 4, callbacks.OpenSettings)
+	square("⚙️", "SETTINGS", Theme.Colors.Gray, 5, callbacks.OpenSettings)
 end
 
 local function buildStats(gui: ScreenGui)
@@ -140,13 +183,13 @@ local function buildStats(gui: ScreenGui)
 		moneyLabel.Text = Format.Money(value or 0)
 	end)
 	local function updateIncome()
-		local walk = Economy.WalkSpeedFromStat(State.Number("Speed"))
+		local walk = State.Number("WalkSpeed")
 		local mult = State.Number("MoneyMultiplier")
-		local multText = if mult > 1 then string.format("  (x%s money)", Format.Number(mult)) else ""
+		local multText = if mult > 1 then `  (x{Format.Multiplier(mult)} money)` else ""
 		incomeLabel.Text = `+{Format.Money(State.Number("Income"))}/s{multText}   🏃 {math.floor(walk)} walk speed`
 	end
 	State.OnAttribute("Income", updateIncome)
-	State.OnAttribute("Speed", updateIncome)
+	State.OnAttribute("WalkSpeed", updateIncome)
 	State.OnAttribute("MoneyMultiplier", updateIncome)
 end
 
@@ -155,7 +198,7 @@ local function buildAreaInfo(gui: ScreenGui)
 		Name = "AreaInfo",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(0, 0) else Vector2.new(1, 1),
 		Position = if Theme.IsTouch then UDim2.new(0, 12, 0, 6) else UDim2.new(1, -12, 1, -12),
-		Size = UDim2.fromOffset(330, 74),
+		Size = UDim2.fromOffset(330, 100),
 		BackgroundColor3 = Theme.Colors.Outline,
 		BackgroundTransparency = 0.45,
 		Parent = gui,
@@ -165,12 +208,20 @@ local function buildAreaInfo(gui: ScreenGui)
 	Theme.AutoScale(panel)
 	local nameLabel = Theme.Label({ Text = "", Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2.5, Parent = panel })
 	local detail = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, -20, 0, 26), Position = UDim2.fromOffset(10, 40), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = panel })
+	local eventLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 24), Position = UDim2.fromOffset(10, 70), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = panel })
+
+	local function areaFolder(areaId: number): Instance?
+		local map = workspace:FindFirstChild("Map")
+		local lane = map and map:FindFirstChild("Lane")
+		return lane and lane:FindFirstChild("Area" .. areaId)
+	end
 
 	local function refresh()
 		local areaId = AreaTracker.Current
-		local walk = Economy.WalkSpeedFromStat(State.Number("Speed"))
+		local walk = State.Number("WalkSpeed")
+		local world = Areas.World(math.max(1, State.Number("World")))
 		if areaId <= 0 then
-			nameLabel.Text = "🛡 SAFE ZONE"
+			nameLabel.Text = if world.Id > 1 then `🛡 {world.Icon} {world.Name}` else "🛡 SAFE ZONE"
 			nameLabel.TextColor3 = Color3.fromRGB(110, 200, 255)
 			detail.Text = `Your walk speed: <font color="#9dff7a">{math.floor(walk)}</font>`
 			return
@@ -182,6 +233,24 @@ local function buildAreaInfo(gui: ScreenGui)
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
 		detail.Text = `😴 {Config.Guard.Name}: <b>{guard}</b>   •   🏃 You: <font color="{color}"><b>{math.floor(walk)}</b></font>`
 	end
+
+	-- Running event in the area you're standing in (with a countdown)
+	task.spawn(function()
+		while true do
+			task.wait(0.5)
+			local areaId = AreaTracker.Current
+			local folder = if areaId > 0 then areaFolder(areaId) else nil
+			local eventId = folder and folder:GetAttribute("EventId")
+			local endsAt = folder and folder:GetAttribute("EventEndsAt")
+			local event = if type(eventId) == "string" then Events.ById[eventId] else nil
+			if event and type(endsAt) == "number" then
+				eventLabel.Text = `{event.Icon} {event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`
+				eventLabel.TextColor3 = event.Color
+			else
+				eventLabel.Text = ""
+			end
+		end
+	end)
 	AreaTracker.Changed:Connect(function(areaId: number, old: number)
 		refresh()
 		if old == -1 then
@@ -195,7 +264,10 @@ local function buildAreaInfo(gui: ScreenGui)
 			Notifications.Banner(`AREA {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{Config.Guard.Name} speed {math.floor(Economy.GuardWalkSpeed(areaId))} • {rec}`)
 		end
 	end)
-	State.OnAttribute("Speed", function()
+	State.OnAttribute("WalkSpeed", function()
+		refresh()
+	end)
+	State.OnAttribute("World", function()
 		refresh()
 	end)
 end

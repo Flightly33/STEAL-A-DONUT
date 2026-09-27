@@ -13,22 +13,27 @@ meshes, images or sounds.
 
 | Feature | Where it lives |
 |---|---|
-| One lane, 10 areas that go from plain grass → desert → candy → caves → ice → lava → neon night city → floating crystals → cosmic dimension | `src/shared/Areas.luau`, `src/server/MapBuilder.luau`, `src/server/Decor.luau` |
-| 53 brainrot donuts across 9 rarities (Common → Secret). Rarer donuts get lights, particles, light pillars, halos, wings and rainbow frosting | `src/shared/Donuts.luau`, `src/shared/Rarities.luau`, `src/shared/DonutModel.luau` |
-| A sleeping guard (default name "Homer") in every area. Steal a donut → he wakes up yelling and chases you. Each area's guard is faster | `src/server/GuardService.luau` |
-| Reach the safe zone and he gives up; walk into your base to place the donut. Get caught → you drop it and get flung home | `src/server/StealService.luau` |
-| Money per second from every donut at your base, with upgrades that cost more each level, and selling | `src/server/PlotService.luau` |
+| **3 worlds, 20 areas.** World 1 *Donut Land* (grass → desert → candy → caves → ice → lava → neon city → crystals → cosmic), World 2 *Glaze Islands* (beach → coral reef → pirate cove → jelly jungle → volcano) and World 3 *Dream Dimension* (clouds → toy factory → haunted bakery → clockwork void → donut heaven). Worlds 2 and 3 are reached through portals in the hub, need rebirths, and everyone moves faster there (x1.2 / x1.4) | `src/shared/Areas.luau`, `src/server/MapBuilder.luau`, `src/server/Decor.luau`, `src/server/WorldService.luau` |
+| **107 brainrot donuts**, 7 rarities (Common → Uncommon → Rare → Epic → Legendary → Celestial → Secret). Each area's best donut is a 1.5% spawn; Secrets are 0.02–0.1%. Rarer donuts get more effects: sparkles, lights, floating, light pillars, a glowing ring on the ground, orbiting orbs, halos, rainbow frosting, a shimmering aura | `src/shared/Donuts.luau`, `src/shared/Rarities.luau`, `src/shared/DonutModel.luau` |
+| **Mutations** rolled on every spawn: Gold x2 (3%), Diamond x3 (1.2%), Mythic x5 (0.4%), Divine x10 (0.12%), Rainbow x25 (0.03%), each with its own look | `Rarities.Mutations` |
+| **Sizes**: Small x0.6, Normal, Big x1.8, Huge x3.5, Giant x7. Bigger = more money, but you run 5% / 10% / 16% slower while carrying it | `Rarities.Sizes` |
+| **Your own Homer.** Every player has their own sleeping guard on every blanket (drawn by your client) and only ever sees their own. Steal a donut → yours wakes up yelling and chases you; reach safety and he poofs back to his blanket | `src/server/GuardService.luau`, `src/client/Guards.luau`, `src/shared/GuardModel.luau` (hats + auras per area) |
+| Reach the safe zone and he gives up; walk into your base (or the portal home in worlds 2/3) to place the donut. Get caught → you drop it and get flung home | `src/server/StealService.luau` |
+| **Area events** every ~5 minutes near where players are: Sandstorm (desert), Blizzard (ice), Eruption (lava/volcano), Blood Moon (haunted), Golden Hour, Meteor Shower, Rainbow Rush… Weather effects + boosted mutation luck, and the area's donuts re-roll when it starts | `src/shared/Events.luau`, `src/server/EventService.luau`, `src/client/Weather.luau` |
+| **Rebirths**: reset Money, Speed, treadmill, Speed Multiplier and your base donuts for x2, x3, x4… money AND speed forever, and unlock the next world. Keeps passes, items, skins, base expansions and Index rewards | `Config.Rebirth`, `ShopService` (`Rebirth` action), `src/client/UI/Rebirth.luau` |
+| **Donut Index with rewards**: claim cash for every donut you've found; Epic+ donuts let you pick a permanent treadmill speed bonus instead (+1% / +3% / +8% / +20%). Shows which mutations you've found | `src/client/UI/Index.luau`, `Rarities.List[].IndexReward` |
+| Money per second from every donut at your base; upgrades are cheap (+25% for 20 s of income, x1.3 per level) | `src/server/PlotService.luau`, `Config.DonutUpgrade` |
+| **Base expansions**: start with 8 stands at the front of your base, buy up to 24 | `Config.Plots` |
 | Offline / AFK earnings with a "Welcome back" popup (capped at 12h) | `src/server/PlayerService.luau` |
-| Speed stat + treadmill next to every base (starts at +1/s, 10 upgradeable treadmill tiers that look cooler each tier). Step on it and you're locked onto the belt running; a "+speed" popup appears somewhere on screen every second; press Space / Jump / "Get off" to step off | `src/server/TreadmillService.luau`, `src/client/Treadmill.luau` |
-| Shop (walk onto the glowing circle or press E at the stall): Speed Multiplier + Treadmill upgrades (money), 1.5x/2x/3x/4x/5x/10x Money and 2x Speed passes (Robux), 7 Robux base skins + a free one | `src/server/ShopService.luau`, `src/client/UI/Shop.luau` |
-| Four top-500 leaderboards next to the shop (Money, Speed, Rarest Donut, Time Played) — scrollable on the boards and in a Top 500 window | `src/server/LeaderboardService.luau`, `src/client/UI/Leaderboards.luau` |
-| Podium outside each base showing the owner's rarest **or** top-earning donut (press E on it to switch) | `src/server/PlotService.luau` |
-| **Base raids** (like Steal a Brainrot): hold "Steal" for 15 s on another player's donut while they're *outside* their base. The owner is warned instantly; if they (or a trap) hit the thief before they get home, the donut goes back | `src/server/RaidService.luau` |
-| **Item shop** (new stall + "Items" tab): Slap Hand / Donut Bat / Mega Hammer (fling on hit), Banana Peel / Launch Pad traps you place in your base, and a 30 s Base Lock laser | `src/server/ItemService.luau`, `Config.Items` |
-| Donut Index with 3D previews and silhouettes for undiscovered donuts | `src/client/UI/Index.luau` |
-| HUD modelled on the reference screenshots: Shop / Index buttons on the left, big outlined Speed + Money bottom-left, square buttons on the right, Slow Mode toggle | `src/client/UI/HUD.luau` |
-| Soft, easy-on-the-eyes lighting (lower sun for longer shadows, darker ambient, low bloom) that shifts per area (day → sunset → night) so later areas feel mystical | `src/server/MapBuilder.luau` (`setupLighting`), `src/shared/Areas.luau`, `src/client/Effects.luau` |
-| Saving with session locking, autosave, and safe shutdown | `src/server/DataService.luau` |
+| Speed stat + treadmill next to every base: 15 tiers (the last ones need rebirths), locked onto the belt while running, "+speed" popups | `src/server/TreadmillService.luau`, `src/client/Treadmill.luau` |
+| Shop: Speed Multiplier (x1.25 per level, multiplies), Treadmill, Base Expansion (money); 1.5x–10x Money, 2x Speed and **Teleporter** passes (Robux); base skins (paid with **Speed**) | `src/server/ShopService.luau`, `src/client/UI/Shop.luau` |
+| **Teleporter pass**: jump to any unlocked world or the start of any area you're fast enough for | `src/client/UI/Worlds.luau`, `WorldService` |
+| Four top-500 leaderboards next to the shop (Money earned, best Speed, Rarest donut incl. mutation, Time Played) | `src/server/LeaderboardService.luau`, `src/client/UI/Leaderboards.luau` |
+| Podium outside each base showing the owner's rarest **or** top-earning donut | `src/server/PlotService.luau` |
+| **Base raids** (like Steal a Brainrot): hold "Steal" for 15 s on another player's donut while they're outside their base | `src/server/RaidService.luau` |
+| **Item shop**: Slap Hand, Donut Bat, Mega Hammer, Banana Peel, Launch Pad, Base Lock, each with its own model and sound effects | `src/server/ItemService.luau`, `Config.Items` |
+| Soundtrack player with volume/on-off in Settings; songs that fail to load are skipped and reported in Output | `src/client/UI/Settings.luau`, `Config.Music` |
+| Saving with session locking, autosave, safe shutdown and automatic upgrade of old saves | `src/server/DataService.luau` |
 
 ---
 
@@ -52,13 +57,19 @@ then press **Play**. The whole map is already in the file, so you can see and ed
    work while you test). Without it the game still runs, it just doesn't save and shows a warning.
 2. **Game Settings → Places → Max Players = 8.** There are 8 bases (`Config.Plots.Count`).
 3. **Create the Game Passes** on the Creator Dashboard (Monetization → Passes):
-   7 passes (1.5x, 2x, 3x, 4x, 5x, 10x Money, 2x Speed) + 7 base skins (Candy, Frozen, Neon, Lava, Gold,
-   Galaxy, Rainbow). Paste each ID into `GamePassId` in `src/shared/Config.luau`.
-   Suggested prices are in `SuggestedPrice` (they're only shown until a real ID is set — after that the
-   real price is read from Roblox). Any pass left at `GamePassId = 0` shows "coming soon" in live games.
-4. In Studio, clicking a pass/skin grants it for that test session for free
+   8 passes (1.5x, 2x, 3x, 4x, 5x, 10x Money, 2x Speed, Teleporter). Paste each ID into `GamePassId` in
+   `src/shared/Config.luau`. Suggested prices are in `SuggestedPrice` (they're only shown until a real ID
+   is set — after that the real price is read from Roblox). Any pass left at `GamePassId = 0` shows
+   "coming soon" in live games. (Base skins are no longer passes: they're bought with Speed.)
+4. In Studio, clicking a pass grants it for that test session for free
    (`Config.Debug.StudioFreePurchases`) — this never happens in a live server and is never saved.
+   **This is why testing in Studio feels much faster than a real player's game**: with every money pass
+   you earn 20.5x. Turn it off (or don't click the passes) when you judge the pacing.
 5. Want to test late-game areas? Set `Config.Debug.StudioStartMoney` / `StudioStartSpeed` (Studio only).
+6. **Music:** Roblox can't play YouTube links. Upload audio you own (Creator Dashboard → Development
+   Items → Audio) or pick licensed tracks from the Creator Store, then add `{ Name = ..., Id = ... }`
+   entries to `Config.Music.Tracks`. Audio must be public or owned by the game's owner, otherwise it
+   won't play (the Output window tells you which ID failed).
 
 ---
 
@@ -66,6 +77,12 @@ then press **Play**. The whole map is already in the file, so you can see and ed
 
 These are all one-line changes in `src/shared/Config.luau` if you disagree.
 
+* **Skins are bought with Speed, as you asked — but that gives up Robux income.** Skins were the
+  cheapest way for a player to spend Robux. If you want both, a skin could cost Speed *or* Robux.
+* **Only Secret donuts get the big server-wide banner.** Area events and your own rebirths show a small
+  toast instead (events only to players who can reach that world).
+* **Rebirths reset your base donuts**, like Steal a Brainrot. The multiplier is big (x2, x3, x4…) so
+  the replay of World 1 goes a lot faster each time.
 * **The guard's name is a config value (`Config.Guard.Name`).** Heads-up: Homer Simpson is Disney/Fox IP.
   Roblox takes games down when a rights holder files a DMCA claim, and a game that grows popular is
   exactly the one that gets noticed. The in-game model is a generic blocky bald guy in a white shirt and
@@ -85,32 +102,57 @@ These are all one-line changes in `src/shared/Config.luau` if you disagree.
 
 ## Balance
 
-Speed turns into Roblox WalkSpeed on a log curve: every 10x more Speed ≈ +10 WalkSpeed
-(so numbers can climb into the billions without the game becoming unplayable).
+Speed turns into Roblox WalkSpeed on a log curve: every 10x more Speed ≈ +10 WalkSpeed (so numbers can
+climb into the quadrillions without the game becoming unplayable). On top of that, everyone is x1.2
+faster in World 2 and x1.4 faster in World 3, so the later worlds actually *feel* faster.
 
-| Area | Recommended Speed | Guard WalkSpeed | Top donut |
+| Area | Recommended Speed | Homer WalkSpeed | Best donut (not counting Secrets) |
 |---|---|---|---|
 | 1 Glazed Meadow | any | 19 | $15/s (Rare) |
-| 2 Sprinkle Park | 25 | 26 | $90/s (Epic) |
-| 3 Sugar Dunes | 200 | 35 | $540/s (Legendary) |
-| 4 Frosting Falls | 1.5K | 43 | $3.2K/s (Mythic) |
-| 5 Chocolate Caverns | 12K | 52 | $19.5K/s (Mythic) |
-| 6 Glacier Glaze | 100K | 61 | $117K/s (Divine) |
-| 7 Molten Bakery | 800K | 70 | $700K/s (Divine) |
-| 8 Neon Donut City | 7M | 80 | $4.2M/s (Divine) |
-| 9 Crystal Cosmos | 60M | 89 | $100M/s (Secret, 0.3%) |
-| 10 Celestial Donut Dimension | 500M | 98 | $1.5B/s (Secret, 0.15%) |
+| 2 Sprinkle Park | 30 | 27 | $90/s (Rare) |
+| 3 Sugar Dunes | 180 | 34 | $540/s (Epic) |
+| 4 Frosting Falls | 1.1K | 42 | $3.2K/s (Epic) |
+| 5 Chocolate Caverns | 6.5K | 50 | $19.5K/s (Legendary) |
+| 6 Glacier Glaze | 40K | 57 | $117K/s (Legendary) |
+| 7 Molten Bakery | 240K | 65 | $700K/s (Legendary) |
+| 8 Neon Donut City | 1.4M | 73 | $4.2M/s (Legendary) |
+| 9 Crystal Cosmos | 8.5M | 81 | $25M/s (Celestial) |
+| 10 Celestial Donut Dimension | 50M | 88 | $150M/s (Celestial) |
+| 11 Glaze Beach | 300M | 115 | $900M/s (Legendary) |
+| 12 Coral Crullers | 1.8B | 125 | $5.4B/s (Legendary) |
+| 13 Pirate Cove | 11B | 134 | $33B/s (Legendary) |
+| 14 Jelly Jungle | 65B | 143 | $196B/s (Celestial) |
+| 15 Volcano Isle | 400B | 153 | $1.2T/s (Celestial) |
+| 16 Cloud Bakery | 2.4T | 192 | $7T/s (Legendary) |
+| 17 Toy Factory | 14T | 203 | $42T/s (Celestial) |
+| 18 Haunted Donuttery | 85T | 214 | $254T/s (Celestial) |
+| 19 Clockwork Void | 500T | 224 | $1.5Qa/s (Celestial) |
+| 20 Donut Heaven | 3Qa | 235 | $9.1Qa/s (Celestial) |
 
-Checked with a chase simulation that includes ~120 ms of network lag: at the recommended speed you
-escape even from the donut right next to the guard; about 2 WalkSpeed below it the risky donuts get you
-caught; about 8 below, nothing in that area is safe. Area 1 works at the starting speed.
+Checked with a chase simulation (with ~120 ms of network lag): at the recommended speed you escape
+even from the donut right next to Homer; a couple of WalkSpeed below it the risky donuts get you
+caught. Worlds 2 and 3 start with a long bridge so their first areas are just as far from safety as
+if the lane kept going — without it, a player who just rebirthed (Speed 0) could steal World 2 donuts
+next to the safe zone and skip the whole game.
 
-A pacing simulation (a bot that steals, upgrades and trains efficiently) reaches Area 2 in ~5 minutes
-and Area 10 in ~70 minutes. Expect real players to take 2–4x longer. Tune with the treadmill tier
-costs, `Config.SpeedMultiplier`, and donut incomes.
+Pacing, from a simulated bot that steals, upgrades and trains efficiently and buys **no** passes:
 
-The guard's speed is derived from each area's `RecommendedSpeed` (+`GuardSpeedBonus`), so if you
-rebalance speeds the signs and the guards stay in sync automatically.
+| Milestone | Bot time |
+|---|---|
+| Area 2 / Area 5 | 4 min / 24 min |
+| Area 10 (end of World 1) | ~85 min |
+| Rebirth 1 → World 2 | ~1.5 h |
+| End of World 2, Rebirth 2 → World 3 | ~4 h |
+| Area 20, Rebirth 3 | ~8.5 h |
+| Rebirths 4–10 | many more hours (speed requirements x7–8 each) |
+
+Real players usually take 2–3x longer than the bot. Before this update the same bot reached the end in
+about 70 minutes, and in Studio with every money pass (free test purchases) it's ~20x faster than that.
+Tune with `Config.Treadmill`, `Config.SpeedMultiplier`, `Config.Rebirth`, `Config.Plots.ExpansionCosts`
+and donut incomes.
+
+The guard's speed is derived from each area's `RecommendedSpeed` (+`GuardSpeedBonus`, and the world's
+speed bonus), so if you rebalance speeds the signs and the guards stay in sync automatically.
 
 ---
 
@@ -122,7 +164,11 @@ uses it as-is instead of building a new one.
 
 Keep the names that the scripts look up: `Plots/PlotN` (with `Slots/SlotN`, `Spawn`, `SignAnchor`,
 `TreadmillAnchor`, `PodiumAnchor`), `Lane/AreaN` (with `Spawns/DonutSpawn`, `GuardHome`),
-`Hub/ShopStall/PromptPart` + `Glow`, and `Hub/Leaderboards/Board_X/Screen`.
+`Hub/ShopStall/PromptPart` + `Glow`, `Hub/Leaderboards/Board_X/Screen`, the portals (`Hub/Portals`,
+`Worlds/WorldN/HomePortal`, each with a `Trigger` part) and `Worlds/WorldN/Arrival`.
+
+If you had edited an older copy of the map: it's upgraded automatically when the game starts (missing
+areas, worlds and portals are added, and the donut stands are rebuilt at the front of each base).
 
 Want a fresh copy of the generated map (e.g. after changing `Config.Map` or area themes)? Delete
 `Workspace.Map`, then in **View → Command Bar** run
@@ -133,9 +179,12 @@ Want a fresh copy of the generated map (e.g. after changing `Config.Map` or area
 * **New donut:** copy a line in `src/shared/Donuts.luau`, give it a unique `Id`. The Index, spawns,
   leaderboards and podium pick it up automatically. Accessories available in `Parts`:
   `Legs, Arms, Bat, Tutu, Mustache, TopHat, Sunglasses, Visor, Camel, SharkFin, Pharaoh, CoffeeCup,
-  MonkeyEars, Horns, PlaneWings, Crown, Halo, Wings, Flames, IceSpikes, Beak, Antenna, Cape, Orbit`.
-* **New area:** add an entry to `src/shared/Areas.luau` (theme = one of the existing decor themes or a
-  new function in `Decor.luau`), and give it donuts.
+  MonkeyEars, Horns, PlaneWings, Crown, Halo, Wings, Flames, IceSpikes, Beak, Antenna, Cape, Orbit,
+  Leaf, Snorkel, Tentacles, Fangs, PirateHat, EyePatch, Propeller, WitchHat, Gears, Bow`.
+  Add new donuts at the end of the list (the list position is part of the saved "rarest donut" score).
+* **New event:** add an entry to `src/shared/Events.luau` with the area themes it can happen in.
+* **New area:** add an entry to `src/shared/Areas.luau` with its `World` and `Index` (theme = one of the
+  existing decor themes or a new function in `Decor.luau`), and give it donuts.
 * **New skin:** add to `Config.Skins`.
 
 ---
@@ -155,9 +204,9 @@ StealADonut.rbxlx      ready-to-open build
 
 * Every script passes strict Luau type-checking against the Roblox API, and the game was run end-to-end
   in a Roblox API emulator (join → steal → chase → deposit → income → treadmill → shop → caught →
-  leaderboards → save/rejoin). An emulator can't show visuals or real physics, so things like the
+  leaderboards → index rewards → expansion → rebirth → portal to World 2 → steal there → portal home →
+  teleporter → events → save/rejoin). An emulator can't show visuals or real physics, so things like the
   guard's lying-down height or UI spacing on a specific phone still need an eye in Studio.
 * Anti-cheat is basic (server-side reach checks, a speed check while carrying a donut, rate-limited
   remotes). Speed exploiters can still move faster when *not* carrying a donut.
-* Common retention features not included yet: rebirths, daily rewards, friend boosts, stealing from
-  other players' bases.
+* Common retention features not included yet: daily rewards, friend boosts, a trading system.
