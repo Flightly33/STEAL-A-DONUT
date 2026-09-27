@@ -47,7 +47,7 @@ export type Profile = {
 	Data: Data,
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
-	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean },
+	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }? },
 	NoSave: boolean,
 }
 

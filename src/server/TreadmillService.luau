@@ -1,8 +1,9 @@
 --[[
 	TreadmillService
 	================
-	Every base has a treadmill next to it. The belt is a conveyor that pushes you off the back, so you
-	have to keep running to stay on it. While the owner is on the belt they gain Speed every tick.
+	Every base has a treadmill next to it. When the owner steps on the belt, the client locks them onto
+	it and plays a running animation (see client/Treadmill.luau). While the owner is on the belt they
+	gain Speed every tick (checked here, on the server).
 
 	Upgrading the treadmill (Shop) rebuilds it as a cooler model with a faster gain rate.
 ]]
@@ -12,7 +13,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
@@ -91,7 +91,6 @@ function TreadmillService.Build(player: Player)
 	-- Frame + belt
 	Build.Part({ Parent = model, Name = "Base", Size = Vector3.new(BELT_WIDTH + 2, 1.2, BELT_LENGTH + 2), CFrame = at(0, 0.6, 0.5), Color = tier.Base, Material = tier.Material })
 	local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(BELT_WIDTH, 0.3, BELT_LENGTH), CFrame = at(0, 1.35, 0.5), Color = rgb(30, 30, 35), Material = Enum.Material.Rubber })
-	belt.AssemblyLinearVelocity = -cf.LookVector * Config.Treadmill.BeltSpeed -- conveyor pushes you backwards
 	CollectionService:AddTag(belt, "TreadmillBelt")
 	for i = 0, 5 do
 		local slat = Build.Decor({ Parent = model, Name = "Slat", Size = Vector3.new(BELT_WIDTH - 0.2, 0.06, 0.35), CFrame = at(0, 1.53, 0.5 - BELT_LENGTH / 2 + i * (BELT_LENGTH / 6)), Color = rgb(90, 90, 100), Material = Enum.Material.SmoothPlastic })
@@ -112,12 +111,12 @@ function TreadmillService.Build(player: Player)
 		end
 	end
 
-	-- Console at the front (with an invisible wall so you can't run off the front)
+	-- Console at the front
 	Build.Part({ Parent = model, Name = "ConsolePost", Size = Vector3.new(1.4, 4.5, 0.9), CFrame = at(0, 3.4, -6.4), Color = tier.Base, Material = tier.Material })
-	Build.Part({ Parent = model, Name = "FrontStop", Size = Vector3.new(BELT_WIDTH, 7, 0.6), CFrame = at(0, 4.5, -6.2), Transparency = 1 })
 	local screen = Build.Part({ Parent = model, Name = "Screen", Size = Vector3.new(5.4, 2.8, 0.4), CFrame = at(0, 6.2, -6.5) * CFrame.Angles(math.rad(-25), 0, 0), Color = rgb(15, 15, 20), Material = Enum.Material.SmoothPlastic })
 	local screenGui = Instance.new("SurfaceGui")
 	screenGui.Face = Enum.NormalId.Back -- faces the runner
+	screenGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	screenGui.PixelsPerStud = 40
 	screenGui.LightInfluence = 0
 	screenGui.Parent = screen
@@ -164,7 +163,7 @@ function TreadmillService.Build(player: Player)
 	label.MaxDistance = 90
 	label.LightInfluence = 0
 	label.Parent = belt
-	Build.Text(label, "🏃 RUN HERE FOR SPEED!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
+	Build.Text(label, "🏃 STEP ON TO RUN!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
 	Build.Text(label, `Tier {level}/{Economy.MaxTreadmillLevel()} • upgrade in Shop`, { Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.55), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne })
 
 	model.PrimaryPart = belt

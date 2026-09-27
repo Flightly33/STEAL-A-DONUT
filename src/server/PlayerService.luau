@@ -27,6 +27,25 @@ local LeaderboardService = require(script.Parent.LeaderboardService)
 local PlayerService = {}
 
 local leaderstats: { [Player]: { Money: StringValue, Speed: StringValue } } = {}
+local clientReady: { [Player]: boolean } = {}
+
+-- Messages that need the player's UI to be listening. Sent once both the data is loaded and
+-- the client has said it's ready (whichever happens last).
+local function sendWelcome(player: Player)
+	local profile = DataService.Get(player)
+	if not profile or not profile.Session.Ready or not clientReady[player] then
+		return
+	end
+	DataService.PushState(player)
+	local pending = profile.Session.PendingOffline
+	if pending then
+		profile.Session.PendingOffline = nil
+		Remotes.Event("OfflineEarnings"):FireClient(player, pending.Amount, pending.Seconds, pending.Capped)
+	end
+	if not DataService.DataStoresEnabled() then
+		Remotes.Event("Notify"):FireClient(player, "⚠ Saving is OFF (enable Studio Access to API Services to test saving)", "error")
+	end
+end
 
 local function setCollisionGroup(character: Model)
 	local function apply(part: Instance)
@@ -86,7 +105,7 @@ local function grantOfflineEarnings(player: Player)
 	local earned = perSecond * seconds * Config.Offline.Efficiency
 	if earned > 0 then
 		DataService.AddMoney(player, earned)
-		Remotes.Event("OfflineEarnings"):FireClient(player, earned, seconds, away > seconds)
+		profile.Session.PendingOffline = { Amount = earned, Seconds = seconds, Capped = away > seconds }
 	end
 end
 
@@ -119,10 +138,7 @@ local function onPlayerAdded(player: Player)
 	if player.Character then
 		onCharacterAdded(player, player.Character)
 	end
-
-	if not DataService.DataStoresEnabled() then
-		Remotes.Event("Notify"):FireClient(player, "⚠ Saving is OFF (enable Studio Access to API Services to test saving)", "error")
-	end
+	sendWelcome(player)
 end
 
 local function onPlayerRemoving(player: Player)
@@ -132,6 +148,7 @@ local function onPlayerRemoving(player: Player)
 	TreadmillService.Remove(player)
 	PlotService.Release(player)
 	leaderstats[player] = nil
+	clientReady[player] = nil
 	DataService.Release(player) -- yields while saving
 end
 
@@ -146,6 +163,12 @@ local function desiredWalkSpeed(profile: DataService.Profile): number
 end
 
 function PlayerService.Init()
+	Remotes.Event("ClientReady").OnServerEvent:Connect(function(player: Player)
+		if not clientReady[player] then
+			clientReady[player] = true
+			sendWelcome(player)
+		end
+	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in Players:GetPlayers() do

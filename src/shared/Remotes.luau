@@ -12,12 +12,18 @@
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, slow mode, teleport home...
+		ClientReady()                      UI is built; server then sends welcome-back popup etc.
 		GetLeaderboard(boardId) -> data    (RemoteFunction)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action" }
+-- NOTE: the folder must NOT sit next to this ModuleScript under the same name ("Remotes"),
+-- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
+local FOLDER_NAME = "GameRemotes"
+
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady" }
 local FUNCTIONS = { "GetLeaderboard" }
 
 local Remotes = {}
@@ -25,7 +31,7 @@ local Remotes = {}
 local folder: Folder
 if RunService:IsServer() then
 	folder = Instance.new("Folder")
-	folder.Name = "Remotes"
+	folder.Name = FOLDER_NAME
 	for _, name in EVENTS do
 		local remote = Instance.new("RemoteEvent")
 		remote.Name = name
@@ -36,9 +42,9 @@ if RunService:IsServer() then
 		remote.Name = name
 		remote.Parent = folder
 	end
-	folder.Parent = script.Parent
+	folder.Parent = ReplicatedStorage
 else
-	folder = script.Parent:WaitForChild("Remotes") :: Folder
+	folder = ReplicatedStorage:WaitForChild(FOLDER_NAME) :: Folder
 end
 
 function Remotes.Event(name: string): RemoteEvent

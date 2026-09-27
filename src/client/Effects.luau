@@ -8,7 +8,7 @@
 	  Guard                    - animated "Zzz" while sleeping
 	  Area ambience            - lighting, fog and colour grading change per area
 	  Owner-only prompts       - hide Upgrade/Sell prompts on other people's donuts
-	  Popups                   - "+speed" while on the treadmill, "+$" above your donuts
+	  Popups                   - "+$" above your donuts
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -21,7 +21,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
-local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.UI.Theme)
@@ -301,19 +300,7 @@ local function popup(adornee: BasePart, text: string, color: Color3, offset: Vec
 end
 
 local function startPopups()
-	-- "+X ⚡" while running on the treadmill
-	task.spawn(function()
-		while true do
-			task.wait(0.5)
-			local character = player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if root and State.Get("OnTreadmill") then
-				local level = math.max(1, State.Number("TreadmillLevel"))
-				local rate = Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")))
-				popup(root, "+" .. Format.Number(rate * 0.5) .. " ⚡", Color3.fromRGB(190, 140, 255), Vector3.new(math.random(-20, 20) / 10, 3, 0))
-			end
-		end
-	end)
+	-- (Treadmill "+speed" popups live in client/Treadmill.luau.)
 	-- "+$X" above your own donuts every few seconds
 	task.spawn(function()
 		local interval = 3

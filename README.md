@@ -19,13 +19,13 @@ meshes, images or sounds.
 | Reach the safe zone and he gives up; walk into your base to place the donut. Get caught → you drop it and get flung home | `src/server/StealService.luau` |
 | Money per second from every donut at your base, with upgrades that cost more each level, and selling | `src/server/PlotService.luau` |
 | Offline / AFK earnings with a "Welcome back" popup (capped at 12h) | `src/server/PlayerService.luau` |
-| Speed stat + treadmill next to every base (starts at +1/s, 10 upgradeable treadmill tiers that look cooler each tier) | `src/server/TreadmillService.luau` |
-| Shop: Speed Multiplier + Treadmill upgrades (money), 1.5x/2x/3x/4x/5x/10x Money and 2x Speed passes (Robux), 7 Robux base skins + a free one | `src/server/ShopService.luau`, `src/client/UI/Shop.luau` |
+| Speed stat + treadmill next to every base (starts at +1/s, 10 upgradeable treadmill tiers that look cooler each tier). Step on it and you're locked onto the belt running; a "+speed" popup appears somewhere on screen every second; press Space / Jump / "Get off" to step off | `src/server/TreadmillService.luau`, `src/client/Treadmill.luau` |
+| Shop (walk onto the glowing circle or press E at the stall): Speed Multiplier + Treadmill upgrades (money), 1.5x/2x/3x/4x/5x/10x Money and 2x Speed passes (Robux), 7 Robux base skins + a free one | `src/server/ShopService.luau`, `src/client/UI/Shop.luau` |
 | Four top-500 leaderboards next to the shop (Money, Speed, Rarest Donut, Time Played) — scrollable on the boards and in a Top 500 window | `src/server/LeaderboardService.luau`, `src/client/UI/Leaderboards.luau` |
 | Podium outside each base showing the owner's rarest **or** top-earning donut (press E on it to switch) | `src/server/PlotService.luau` |
 | Donut Index with 3D previews and silhouettes for undiscovered donuts | `src/client/UI/Index.luau` |
 | HUD modelled on the reference screenshots: Shop / Index buttons on the left, big outlined Speed + Money bottom-left, square buttons on the right, Slow Mode toggle | `src/client/UI/HUD.luau` |
-| Lighting/fog/colour grading shifts per area (day → sunset → night) so later areas feel mystical | `src/client/Effects.luau` |
+| Soft, easy-on-the-eyes lighting (lower sun for longer shadows, darker ambient, low bloom) that shifts per area (day → sunset → night) so later areas feel mystical | `src/server/MapBuilder.luau` (`setupLighting`), `src/shared/Areas.luau`, `src/client/Effects.luau` |
 | Saving with session locking, autosave, and safe shutdown | `src/server/DataService.luau` |
 
 ---
@@ -151,10 +151,10 @@ StealADonut.rbxlx      ready-to-open build
 
 ## Known limitations / next steps
 
-* This was written and checked outside Roblox: every script passes strict Luau type-checking against the
-  Roblox API, and the balance math was simulated, but **it has not been playtested in Studio yet**.
-  Expect the first playtest to surface small things (e.g. a guard's lying-down height, UI spacing on a
-  specific phone). Those are quick fixes.
+* Every script passes strict Luau type-checking against the Roblox API, and the game was run end-to-end
+  in a Roblox API emulator (join → steal → chase → deposit → income → treadmill → shop → caught →
+  leaderboards → save/rejoin). An emulator can't show visuals or real physics, so things like the
+  guard's lying-down height or UI spacing on a specific phone still need an eye in Studio.
 * Anti-cheat is basic (server-side reach checks, a speed check while carrying a donut, rate-limited
   remotes). Speed exploiters can still move faster when *not* carrying a donut.
 * Common retention features not included yet: rebirths, daily rewards, friend boosts, stealing from

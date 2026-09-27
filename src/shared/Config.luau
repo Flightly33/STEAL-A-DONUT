@@ -123,7 +123,7 @@ Config.Speed = {
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 Config.Treadmill = {
-	BeltSpeed = 13, -- conveyor speed (studs/s) that pushes you off the back if you stop running
+	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
 	Tiers = {
 		{ Name = "Rusty", Rate = 1, Cost = 0, Base = Color3.fromRGB(120, 110, 100), Accent = Color3.fromRGB(150, 80, 50), Material = Enum.Material.CorrodedMetal },
 		{ Name = "Basic", Rate = 4, Cost = 1_500, Base = Color3.fromRGB(230, 230, 230), Accent = Color3.fromRGB(40, 40, 40), Material = Enum.Material.SmoothPlastic },
@@ -197,8 +197,8 @@ Config.GamePasses = {
 Config.Skins = {
 	{
 		Id = "Classic", Name = "Classic Farm", GamePassId = 0, SuggestedPrice = 0, Free = true,
-		Floor = Color3.fromRGB(120, 200, 70), FloorAlt = Color3.fromRGB(105, 185, 60), FloorMaterial = Enum.Material.Plastic,
-		Fence = Color3.fromRGB(150, 90, 50), FenceMaterial = Enum.Material.WoodPlanks,
+		Floor = Color3.fromRGB(100, 170, 62), FloorAlt = Color3.fromRGB(88, 156, 54), FloorMaterial = Enum.Material.Plastic,
+		Fence = Color3.fromRGB(140, 86, 48), FenceMaterial = Enum.Material.WoodPlanks,
 		Trim = Color3.fromRGB(110, 65, 35), TrimMaterial = Enum.Material.Wood,
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
 	},

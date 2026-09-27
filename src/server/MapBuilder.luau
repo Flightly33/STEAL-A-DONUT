@@ -32,8 +32,8 @@ local MapBuilder = {}
 
 local rgb = Color3.fromRGB
 local map = Config.Map
-local HUB_GREEN = { rgb(120, 205, 70), rgb(105, 190, 60) }
-local WALL_BROWN = { rgb(205, 135, 75), rgb(190, 120, 65) }
+local HUB_GREEN = { rgb(96, 172, 58), rgb(84, 158, 50) }
+local WALL_BROWN = { rgb(176, 116, 66), rgb(160, 104, 58) }
 
 local mapFolder: Folder? = nil
 
@@ -45,16 +45,17 @@ local function buildEntranceGate(parent: Instance)
 	gate.Name = "EntranceGate"
 	local half = map.LaneHalfWidth
 	for _, side in { -1, 1 } do
-		Build.Part({ Parent = gate, Name = "GatePillar", Size = Vector3.new(8, 44, 8), Position = Vector3.new(side * (half + 7), 22, map.SafeZoneZ + 2), Color = rgb(255, 150, 200), Material = Enum.Material.SmoothPlastic })
+		Build.Part({ Parent = gate, Name = "GatePillar", Size = Vector3.new(8, 44, 8), Position = Vector3.new(side * (half + 7), 22, map.SafeZoneZ + 2), Color = rgb(215, 120, 170), Material = Enum.Material.Plastic })
 	end
 	local beam = Build.Part({
 		Parent = gate, Name = "GateBeam",
 		Size = Vector3.new(half * 2 + 22, 8, 8),
 		CFrame = CFrame.lookAt(Vector3.new(0, 48, map.SafeZoneZ + 2), Vector3.new(0, 48, map.SafeZoneZ - 10)),
-		Color = rgb(255, 120, 190), Material = Enum.Material.SmoothPlastic,
+		Color = rgb(200, 95, 155), Material = Enum.Material.Plastic,
 	})
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 12
 	gui.LightInfluence = 0
 	gui.Parent = beam
@@ -69,6 +70,7 @@ local function buildSafeZoneLine(parent: Instance)
 	local label = Build.Part({ Parent = parent, Name = "SafeZoneLabel", Size = Vector3.new(44, 0.1, 8), Position = Vector3.new(0, 0.06, map.SafeZoneZ - 6), Transparency = 1, CanCollide = false })
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Top
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 10
 	gui.LightInfluence = 0
 	gui.Parent = label
@@ -169,7 +171,7 @@ local function buildHub(parent: Folder)
 		{ Vector3.new(hw + t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
 		{ Vector3.new(0, h + 1, z0 - depth - t / 2), Vector3.new(hw * 2 + t * 2, 2, t + 1) },
 	} do
-		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(90, 200, 60), Material = Enum.Material.Grass })
+		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(78, 165, 52), Material = Enum.Material.Grass })
 	end
 
 	buildSafeZoneLine(hub)
@@ -209,6 +211,7 @@ local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	})
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 14
 	gui.LightInfluence = 0
 	gui.Parent = beam
@@ -462,20 +465,35 @@ local function setupLighting()
 		instance.Parent = Lighting
 		return instance
 	end
+	-- Easy on the eyes: lower sun for longer shadows, darker ambient so shadows actually read,
+	-- slightly reduced exposure, gentle colour grading and very little bloom.
+	Lighting.GlobalShadows = true
+	Lighting.ClockTime = 15.3
+	Lighting.Brightness = 1.8
+	Lighting.ExposureCompensation = -0.15
+	Lighting.ShadowSoftness = 0.2
+	Lighting.EnvironmentDiffuseScale = 0.5
+	Lighting.EnvironmentSpecularScale = 0.4
+	Lighting.OutdoorAmbient = rgb(95, 97, 108)
+	Lighting.Ambient = rgb(78, 80, 92)
 	local atmosphere = ensure("Atmosphere", "Atmosphere") :: Atmosphere
-	atmosphere.Density = 0.25
+	atmosphere.Density = 0.32
+	atmosphere.Haze = 1
+	atmosphere.Glare = 0
 	atmosphere.Color = rgb(199, 214, 234)
 	atmosphere.Decay = rgb(106, 112, 125)
 	local tint = ensure("ColorCorrectionEffect", "AreaTint") :: ColorCorrectionEffect
-	tint.Saturation = 0.1
-	tint.Contrast = 0.05
+	tint.Brightness = -0.03
+	tint.Saturation = -0.08
+	tint.Contrast = 0.12
+	tint.TintColor = rgb(255, 248, 238)
 	local bloom = ensure("BloomEffect", "Bloom") :: BloomEffect
-	bloom.Intensity = 0.4
-	bloom.Size = 24
-	bloom.Threshold = 1.5
-	ensure("SunRaysEffect", "SunRays")
-	Lighting.OutdoorAmbient = rgb(140, 140, 150)
-	Lighting.Ambient = rgb(120, 120, 130)
+	bloom.Intensity = 0.12
+	bloom.Size = 18
+	bloom.Threshold = 2.2
+	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
+	sunRays.Intensity = 0.03
+	sunRays.Spread = 0.6
 end
 
 --------------------------------------------------------------------------------

@@ -43,16 +43,18 @@ export type Area = {
 
 local Areas = {}
 
+-- Softer daylight: lower sun (longer shadows), darker ambient (shadows actually show),
+-- slightly desaturated and a touch warm, very little bloom.
 local DAY = {
-	ClockTime = 14,
-	Tint = Color3.fromRGB(255, 255, 255),
-	Saturation = 0.1,
-	Contrast = 0.05,
-	Ambient = Color3.fromRGB(120, 120, 130),
+	ClockTime = 15.3,
+	Tint = Color3.fromRGB(255, 248, 238),
+	Saturation = -0.08,
+	Contrast = 0.12,
+	Ambient = Color3.fromRGB(78, 80, 92),
 	AtmosphereColor = Color3.fromRGB(199, 214, 234),
-	AtmosphereDensity = 0.25,
-	Haze = 0,
-	Bloom = 0.4,
+	AtmosphereDensity = 0.32,
+	Haze = 1,
+	Bloom = 0.12,
 }
 
 local function ambience(overrides: { [string]: any }): Ambience
@@ -69,38 +71,38 @@ Areas.List = {
 	{
 		Id = 1, Name = "Glazed Meadow", Theme = "Meadow",
 		RecommendedSpeed = 0, GuardSpeedBonus = 3, WakeDelay = 1.6,
-		Floor = { Color3.fromRGB(120, 205, 70), Color3.fromRGB(105, 190, 60) }, FloorMaterial = Enum.Material.Plastic,
-		Wall = { Color3.fromRGB(205, 135, 75), Color3.fromRGB(190, 120, 65) }, WallMaterial = Enum.Material.Plastic,
-		Trim = Color3.fromRGB(90, 200, 60), TrimMaterial = Enum.Material.Grass,
+		Floor = { Color3.fromRGB(96, 172, 58), Color3.fromRGB(84, 158, 50) }, FloorMaterial = Enum.Material.Plastic,
+		Wall = { Color3.fromRGB(176, 116, 66), Color3.fromRGB(160, 104, 58) }, WallMaterial = Enum.Material.Plastic,
+		Trim = Color3.fromRGB(78, 165, 52), TrimMaterial = Enum.Material.Grass,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(245, 245, 245), Pants = Color3.fromRGB(70, 110, 200), Title = "Sleepy" },
 		Ambience = ambience({}),
 	},
 	{
 		Id = 2, Name = "Sprinkle Park", Theme = "Park",
 		RecommendedSpeed = 25, GuardSpeedBonus = 3, WakeDelay = 1.5,
-		Floor = { Color3.fromRGB(140, 220, 90), Color3.fromRGB(125, 205, 80) }, FloorMaterial = Enum.Material.Plastic,
-		Wall = { Color3.fromRGB(215, 145, 85), Color3.fromRGB(198, 128, 72) }, WallMaterial = Enum.Material.Plastic,
-		Trim = Color3.fromRGB(255, 120, 200), TrimMaterial = Enum.Material.SmoothPlastic,
+		Floor = { Color3.fromRGB(108, 184, 70), Color3.fromRGB(96, 170, 62) }, FloorMaterial = Enum.Material.Plastic,
+		Wall = { Color3.fromRGB(184, 124, 74), Color3.fromRGB(168, 110, 64) }, WallMaterial = Enum.Material.Plastic,
+		Trim = Color3.fromRGB(230, 110, 180), TrimMaterial = Enum.Material.SmoothPlastic,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(255, 170, 210), Pants = Color3.fromRGB(70, 110, 200), Title = "Sprinkle" },
-		Ambience = ambience({ Saturation = 0.2 }),
+		Ambience = ambience({ Saturation = 0 }),
 	},
 	{
 		Id = 3, Name = "Sugar Dunes", Theme = "Desert",
 		RecommendedSpeed = 200, GuardSpeedBonus = 3, WakeDelay = 1.4,
-		Floor = { Color3.fromRGB(240, 215, 150), Color3.fromRGB(228, 200, 135) }, FloorMaterial = Enum.Material.Sand,
+		Floor = { Color3.fromRGB(214, 190, 134), Color3.fromRGB(200, 176, 120) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(215, 170, 100), Color3.fromRGB(200, 155, 90) }, WallMaterial = Enum.Material.Sandstone,
 		Trim = Color3.fromRGB(255, 240, 200), TrimMaterial = Enum.Material.Sandstone,
 		Guard = { Skin = Color3.fromRGB(255, 200, 40), Shirt = Color3.fromRGB(240, 220, 170), Pants = Color3.fromRGB(150, 110, 60), Title = "Desert" },
-		Ambience = ambience({ Tint = Color3.fromRGB(255, 244, 225), Saturation = 0.15, AtmosphereColor = Color3.fromRGB(240, 220, 180), Haze = 1 }),
+		Ambience = ambience({ Tint = Color3.fromRGB(255, 242, 222), Saturation = -0.05, AtmosphereColor = Color3.fromRGB(240, 220, 180), Haze = 1.5 }),
 	},
 	{
 		Id = 4, Name = "Frosting Falls", Theme = "Frosting",
 		RecommendedSpeed = 1_500, GuardSpeedBonus = 3, WakeDelay = 1.3,
-		Floor = { Color3.fromRGB(255, 175, 215), Color3.fromRGB(255, 195, 225) }, FloorMaterial = Enum.Material.SmoothPlastic,
+		Floor = { Color3.fromRGB(226, 156, 192), Color3.fromRGB(234, 172, 204) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(150, 95, 60), Color3.fromRGB(135, 85, 55) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.SmoothPlastic,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(255, 120, 180), Pants = Color3.fromRGB(255, 255, 255), Title = "Frosted" },
-		Ambience = ambience({ Tint = Color3.fromRGB(255, 235, 245), Saturation = 0.3, AtmosphereColor = Color3.fromRGB(255, 210, 235) }),
+		Ambience = ambience({ Tint = Color3.fromRGB(255, 238, 246), Saturation = 0, AtmosphereColor = Color3.fromRGB(255, 210, 235) }),
 	},
 	{
 		Id = 5, Name = "Chocolate Caverns", Theme = "Chocolate",
@@ -114,11 +116,11 @@ Areas.List = {
 	{
 		Id = 6, Name = "Glacier Glaze", Theme = "Ice",
 		RecommendedSpeed = 100_000, GuardSpeedBonus = 3, WakeDelay = 1.1,
-		Floor = { Color3.fromRGB(215, 240, 255), Color3.fromRGB(195, 228, 250) }, FloorMaterial = Enum.Material.Ice,
+		Floor = { Color3.fromRGB(176, 206, 226), Color3.fromRGB(160, 192, 216) }, FloorMaterial = Enum.Material.Ice,
 		Wall = { Color3.fromRGB(150, 205, 240), Color3.fromRGB(130, 190, 230) }, WallMaterial = Enum.Material.Glacier,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Snow,
 		Guard = { Skin = Color3.fromRGB(200, 230, 255), Shirt = Color3.fromRGB(60, 140, 220), Pants = Color3.fromRGB(230, 245, 255), Aura = "Snow", Title = "Frozen" },
-		Ambience = ambience({ ClockTime = 15.5, Tint = Color3.fromRGB(225, 240, 255), Saturation = 0.1, Ambient = Color3.fromRGB(140, 170, 200), AtmosphereColor = Color3.fromRGB(200, 230, 255), AtmosphereDensity = 0.4, Haze = 1.5 }),
+		Ambience = ambience({ ClockTime = 15.5, Tint = Color3.fromRGB(225, 240, 255), Saturation = -0.1, Ambient = Color3.fromRGB(95, 115, 138), AtmosphereColor = Color3.fromRGB(200, 230, 255), AtmosphereDensity = 0.4, Haze = 1.5 }),
 	},
 	{
 		Id = 7, Name = "Molten Bakery", Theme = "Lava",
@@ -127,7 +129,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(50, 40, 40), Color3.fromRGB(38, 30, 30) }, WallMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 100, 0), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(255, 120, 30), Shirt = Color3.fromRGB(40, 30, 30), Pants = Color3.fromRGB(120, 20, 10), Aura = "Fire", Title = "Lava" },
-		Ambience = ambience({ ClockTime = 18.3, Tint = Color3.fromRGB(255, 200, 170), Saturation = 0.25, Contrast = 0.15, Ambient = Color3.fromRGB(140, 60, 30), AtmosphereColor = Color3.fromRGB(255, 120, 60), AtmosphereDensity = 0.45, Haze = 2.5, Bloom = 0.8 }),
+		Ambience = ambience({ ClockTime = 18.3, Tint = Color3.fromRGB(255, 200, 170), Saturation = 0.05, Contrast = 0.15, Ambient = Color3.fromRGB(105, 52, 30), AtmosphereColor = Color3.fromRGB(255, 120, 60), AtmosphereDensity = 0.45, Haze = 2.5, Bloom = 0.35 }),
 	},
 	{
 		Id = 8, Name = "Neon Donut City", Theme = "Neon",
@@ -136,7 +138,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(20, 18, 30), Color3.fromRGB(28, 24, 40) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(0, 255, 220), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 200), Shirt = Color3.fromRGB(255, 0, 200), Pants = Color3.fromRGB(20, 20, 40), Aura = "Neon", Title = "Neon" },
-		Ambience = ambience({ ClockTime = 0.5, Tint = Color3.fromRGB(220, 210, 255), Saturation = 0.35, Contrast = 0.2, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 50, 160), AtmosphereDensity = 0.35, Haze = 1, Bloom = 1.2 }),
+		Ambience = ambience({ ClockTime = 0.5, Tint = Color3.fromRGB(220, 210, 255), Saturation = 0.15, Contrast = 0.2, Ambient = Color3.fromRGB(70, 55, 120), AtmosphereColor = Color3.fromRGB(80, 50, 160), AtmosphereDensity = 0.35, Haze = 1, Bloom = 0.5 }),
 	},
 	{
 		Id = 9, Name = "Crystal Cosmos", Theme = "Crystal",
@@ -145,7 +147,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(60, 30, 110), Color3.fromRGB(75, 40, 135) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(200, 150, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(200, 160, 255), Shirt = Color3.fromRGB(90, 40, 180), Pants = Color3.fromRGB(40, 20, 90), Aura = "Sparkles", Title = "Crystal" },
-		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(225, 200, 255), Saturation = 0.4, Contrast = 0.2, Ambient = Color3.fromRGB(110, 70, 170), AtmosphereColor = Color3.fromRGB(140, 90, 220), AtmosphereDensity = 0.4, Haze = 2, Bloom = 1.4 }),
+		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(225, 200, 255), Saturation = 0.2, Contrast = 0.2, Ambient = Color3.fromRGB(88, 60, 138), AtmosphereColor = Color3.fromRGB(140, 90, 220), AtmosphereDensity = 0.4, Haze = 2, Bloom = 0.6 }),
 	},
 	{
 		Id = 10, Name = "Celestial Donut Dimension", Theme = "Celestial",
@@ -154,7 +156,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(10, 5, 25), Color3.fromRGB(20, 10, 40) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(255, 240, 150), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(120, 80, 255), Aura = "Cosmic", Title = "Cosmic" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 255), Saturation = 0.5, Contrast = 0.25, Ambient = Color3.fromRGB(150, 90, 200), AtmosphereColor = Color3.fromRGB(200, 120, 255), AtmosphereDensity = 0.3, Haze = 3, Bloom = 1.8 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(110, 70, 150), AtmosphereColor = Color3.fromRGB(200, 120, 255), AtmosphereDensity = 0.3, Haze = 3, Bloom = 0.75 }),
 	},
 } :: { Area }
 

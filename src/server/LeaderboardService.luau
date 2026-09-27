@@ -8,7 +8,8 @@
 	  (fetching 500 entries costs 5 requests).
 	* Money/Speed can exceed what an OrderedDataStore can hold (64-bit integers), so they are stored
 	  as log10(value) * 1e9 and decoded for display.
-	* If DataStores are unavailable (Studio without API access), boards show the players in this server.
+	* Players in this server are merged in live, so boards show fresh numbers immediately (the global
+	  data only refreshes every few minutes). Without DataStores (Studio) this is all you'll see.
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -27,7 +28,7 @@ local DataService = require(script.Parent.DataService)
 
 local LeaderboardService = {}
 
-export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3? }
+export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number }
 type Board = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local LOG_SCALE = 1e9
@@ -143,20 +144,35 @@ end
 --------------------------------------------------------------------------------
 -- Reading
 --------------------------------------------------------------------------------
-local function liveServerBoard(boardId: string): Board
-	local rows = {}
+-- Global board (if fetched) + everyone in this server with their current score.
+local function withLivePlayers(boardId: string, board: Board?): Board
+	local byUser: { [number]: { UserId: number, Name: string, Score: number } } = {}
+	if board then
+		for _, entry in board.Entries do
+			byUser[entry.UserId] = { UserId = entry.UserId, Name = entry.Name, Score = entry.Score }
+		end
+	end
 	for player, profile in DataService.GetAll() do
-		table.insert(rows, { UserId = player.UserId, Name = player.DisplayName, Score = scoreFor(boardId, profile.Data) })
+		local score = scoreFor(boardId, profile.Data)
+		local existing = byUser[player.UserId]
+		if score > 0 and (not existing or score > existing.Score) then
+			byUser[player.UserId] = { UserId = player.UserId, Name = player.DisplayName, Score = score }
+		end
+	end
+	local rows = {}
+	for _, row in byUser do
+		table.insert(rows, row)
 	end
 	table.sort(rows, function(a, b)
 		return a.Score > b.Score
 	end)
 	local entries = {}
-	for rank, row in rows do
+	for rank = 1, math.min(#rows, cfg.Size) do
+		local row = rows[rank]
 		local text, color = display(boardId, row.Score)
-		table.insert(entries, { Rank = rank, UserId = row.UserId, Name = row.Name, Display = text, Color = color })
+		table.insert(entries, { Rank = rank, UserId = row.UserId, Name = row.Name, Display = text, Color = color, Score = row.Score })
 	end
-	return { Entries = entries, UpdatedAt = os.time(), Live = true }
+	return { Entries = entries, UpdatedAt = if board then board.UpdatedAt else os.time(), Live = board == nil }
 end
 
 local function waitForBudget()
@@ -168,7 +184,6 @@ end
 local function refreshBoard(boardId: string)
 	local store = stores[boardId]
 	if not store then
-		cache[boardId] = liveServerBoard(boardId)
 		Remotes.Event("LeaderboardUpdated"):FireAllClients(boardId)
 		return
 	end
@@ -189,9 +204,6 @@ local function refreshBoard(boardId: string)
 	end)
 	if not ok then
 		warn(`[Leaderboards] Refresh failed ({boardId}): {err}`)
-		if not cache[boardId] then
-			cache[boardId] = liveServerBoard(boardId)
-		end
 		return
 	end
 
@@ -205,7 +217,7 @@ local function refreshBoard(boardId: string)
 	for i = 1, math.min(#rows, cfg.Size) do
 		local userId = tonumber(rows[i].key) or 0
 		local text, color = display(boardId, rows[i].value)
-		table.insert(entries, { Rank = i, UserId = userId, Name = nameCache[userId] or "?", Display = text, Color = color })
+		table.insert(entries, { Rank = i, UserId = userId, Name = nameCache[userId] or "?", Display = text, Color = color, Score = rows[i].value })
 	end
 	cache[boardId] = { Entries = entries, UpdatedAt = os.time(), Live = false }
 	Remotes.Event("LeaderboardUpdated"):FireAllClients(boardId)
@@ -225,12 +237,7 @@ function LeaderboardService.Init()
 		if type(boardId) ~= "string" then
 			return nil
 		end
-		local board = cache[boardId]
-		if not board or board.Live then
-			-- Nothing fetched yet (or no DataStores): show this server's players.
-			board = liveServerBoard(boardId)
-		end
-		return board
+		return withLivePlayers(boardId, cache[boardId])
 	end
 
 	-- Periodic score writes

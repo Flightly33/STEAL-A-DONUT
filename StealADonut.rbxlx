@@ -2,8 +2,11 @@
   <Item class="Lighting" referent="0">
     <Properties>
       <string name="Name">Lighting</string>
-      <float name="Brightness">2.2</float>
-      <float name="ClockTime">14</float>
+      <float name="Brightness">1.8</float>
+      <float name="ClockTime">15.3</float>
+      <float name="EnvironmentDiffuseScale">0.5</float>
+      <float name="EnvironmentSpecularScale">0.4</float>
+      <float name="ExposureCompensation">-0.15</float>
       <bool name="GlobalShadows">true</bool>
       <token name="Technology">4</token>
     </Properties>
@@ -64,16 +67,18 @@ export type Area = {
 
 local Areas = {}
 
+-- Softer daylight: lower sun (longer shadows), darker ambient (shadows actually show),
+-- slightly desaturated and a touch warm, very little bloom.
 local DAY = {
-	ClockTime = 14,
-	Tint = Color3.fromRGB(255, 255, 255),
-	Saturation = 0.1,
-	Contrast = 0.05,
-	Ambient = Color3.fromRGB(120, 120, 130),
+	ClockTime = 15.3,
+	Tint = Color3.fromRGB(255, 248, 238),
+	Saturation = -0.08,
+	Contrast = 0.12,
+	Ambient = Color3.fromRGB(78, 80, 92),
 	AtmosphereColor = Color3.fromRGB(199, 214, 234),
-	AtmosphereDensity = 0.25,
-	Haze = 0,
-	Bloom = 0.4,
+	AtmosphereDensity = 0.32,
+	Haze = 1,
+	Bloom = 0.12,
 }
 
 local function ambience(overrides: { [string]: any }): Ambience
@@ -90,38 +95,38 @@ Areas.List = {
 	{
 		Id = 1, Name = "Glazed Meadow", Theme = "Meadow",
 		RecommendedSpeed = 0, GuardSpeedBonus = 3, WakeDelay = 1.6,
-		Floor = { Color3.fromRGB(120, 205, 70), Color3.fromRGB(105, 190, 60) }, FloorMaterial = Enum.Material.Plastic,
-		Wall = { Color3.fromRGB(205, 135, 75), Color3.fromRGB(190, 120, 65) }, WallMaterial = Enum.Material.Plastic,
-		Trim = Color3.fromRGB(90, 200, 60), TrimMaterial = Enum.Material.Grass,
+		Floor = { Color3.fromRGB(96, 172, 58), Color3.fromRGB(84, 158, 50) }, FloorMaterial = Enum.Material.Plastic,
+		Wall = { Color3.fromRGB(176, 116, 66), Color3.fromRGB(160, 104, 58) }, WallMaterial = Enum.Material.Plastic,
+		Trim = Color3.fromRGB(78, 165, 52), TrimMaterial = Enum.Material.Grass,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(245, 245, 245), Pants = Color3.fromRGB(70, 110, 200), Title = "Sleepy" },
 		Ambience = ambience({}),
 	},
 	{
 		Id = 2, Name = "Sprinkle Park", Theme = "Park",
 		RecommendedSpeed = 25, GuardSpeedBonus = 3, WakeDelay = 1.5,
-		Floor = { Color3.fromRGB(140, 220, 90), Color3.fromRGB(125, 205, 80) }, FloorMaterial = Enum.Material.Plastic,
-		Wall = { Color3.fromRGB(215, 145, 85), Color3.fromRGB(198, 128, 72) }, WallMaterial = Enum.Material.Plastic,
-		Trim = Color3.fromRGB(255, 120, 200), TrimMaterial = Enum.Material.SmoothPlastic,
+		Floor = { Color3.fromRGB(108, 184, 70), Color3.fromRGB(96, 170, 62) }, FloorMaterial = Enum.Material.Plastic,
+		Wall = { Color3.fromRGB(184, 124, 74), Color3.fromRGB(168, 110, 64) }, WallMaterial = Enum.Material.Plastic,
+		Trim = Color3.fromRGB(230, 110, 180), TrimMaterial = Enum.Material.SmoothPlastic,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(255, 170, 210), Pants = Color3.fromRGB(70, 110, 200), Title = "Sprinkle" },
-		Ambience = ambience({ Saturation = 0.2 }),
+		Ambience = ambience({ Saturation = 0 }),
 	},
 	{
 		Id = 3, Name = "Sugar Dunes", Theme = "Desert",
 		RecommendedSpeed = 200, GuardSpeedBonus = 3, WakeDelay = 1.4,
-		Floor = { Color3.fromRGB(240, 215, 150), Color3.fromRGB(228, 200, 135) }, FloorMaterial = Enum.Material.Sand,
+		Floor = { Color3.fromRGB(214, 190, 134), Color3.fromRGB(200, 176, 120) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(215, 170, 100), Color3.fromRGB(200, 155, 90) }, WallMaterial = Enum.Material.Sandstone,
 		Trim = Color3.fromRGB(255, 240, 200), TrimMaterial = Enum.Material.Sandstone,
 		Guard = { Skin = Color3.fromRGB(255, 200, 40), Shirt = Color3.fromRGB(240, 220, 170), Pants = Color3.fromRGB(150, 110, 60), Title = "Desert" },
-		Ambience = ambience({ Tint = Color3.fromRGB(255, 244, 225), Saturation = 0.15, AtmosphereColor = Color3.fromRGB(240, 220, 180), Haze = 1 }),
+		Ambience = ambience({ Tint = Color3.fromRGB(255, 242, 222), Saturation = -0.05, AtmosphereColor = Color3.fromRGB(240, 220, 180), Haze = 1.5 }),
 	},
 	{
 		Id = 4, Name = "Frosting Falls", Theme = "Frosting",
 		RecommendedSpeed = 1_500, GuardSpeedBonus = 3, WakeDelay = 1.3,
-		Floor = { Color3.fromRGB(255, 175, 215), Color3.fromRGB(255, 195, 225) }, FloorMaterial = Enum.Material.SmoothPlastic,
+		Floor = { Color3.fromRGB(226, 156, 192), Color3.fromRGB(234, 172, 204) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(150, 95, 60), Color3.fromRGB(135, 85, 55) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.SmoothPlastic,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(255, 120, 180), Pants = Color3.fromRGB(255, 255, 255), Title = "Frosted" },
-		Ambience = ambience({ Tint = Color3.fromRGB(255, 235, 245), Saturation = 0.3, AtmosphereColor = Color3.fromRGB(255, 210, 235) }),
+		Ambience = ambience({ Tint = Color3.fromRGB(255, 238, 246), Saturation = 0, AtmosphereColor = Color3.fromRGB(255, 210, 235) }),
 	},
 	{
 		Id = 5, Name = "Chocolate Caverns", Theme = "Chocolate",
@@ -135,11 +140,11 @@ Areas.List = {
 	{
 		Id = 6, Name = "Glacier Glaze", Theme = "Ice",
 		RecommendedSpeed = 100_000, GuardSpeedBonus = 3, WakeDelay = 1.1,
-		Floor = { Color3.fromRGB(215, 240, 255), Color3.fromRGB(195, 228, 250) }, FloorMaterial = Enum.Material.Ice,
+		Floor = { Color3.fromRGB(176, 206, 226), Color3.fromRGB(160, 192, 216) }, FloorMaterial = Enum.Material.Ice,
 		Wall = { Color3.fromRGB(150, 205, 240), Color3.fromRGB(130, 190, 230) }, WallMaterial = Enum.Material.Glacier,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Snow,
 		Guard = { Skin = Color3.fromRGB(200, 230, 255), Shirt = Color3.fromRGB(60, 140, 220), Pants = Color3.fromRGB(230, 245, 255), Aura = "Snow", Title = "Frozen" },
-		Ambience = ambience({ ClockTime = 15.5, Tint = Color3.fromRGB(225, 240, 255), Saturation = 0.1, Ambient = Color3.fromRGB(140, 170, 200), AtmosphereColor = Color3.fromRGB(200, 230, 255), AtmosphereDensity = 0.4, Haze = 1.5 }),
+		Ambience = ambience({ ClockTime = 15.5, Tint = Color3.fromRGB(225, 240, 255), Saturation = -0.1, Ambient = Color3.fromRGB(95, 115, 138), AtmosphereColor = Color3.fromRGB(200, 230, 255), AtmosphereDensity = 0.4, Haze = 1.5 }),
 	},
 	{
 		Id = 7, Name = "Molten Bakery", Theme = "Lava",
@@ -148,7 +153,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(50, 40, 40), Color3.fromRGB(38, 30, 30) }, WallMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 100, 0), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(255, 120, 30), Shirt = Color3.fromRGB(40, 30, 30), Pants = Color3.fromRGB(120, 20, 10), Aura = "Fire", Title = "Lava" },
-		Ambience = ambience({ ClockTime = 18.3, Tint = Color3.fromRGB(255, 200, 170), Saturation = 0.25, Contrast = 0.15, Ambient = Color3.fromRGB(140, 60, 30), AtmosphereColor = Color3.fromRGB(255, 120, 60), AtmosphereDensity = 0.45, Haze = 2.5, Bloom = 0.8 }),
+		Ambience = ambience({ ClockTime = 18.3, Tint = Color3.fromRGB(255, 200, 170), Saturation = 0.05, Contrast = 0.15, Ambient = Color3.fromRGB(105, 52, 30), AtmosphereColor = Color3.fromRGB(255, 120, 60), AtmosphereDensity = 0.45, Haze = 2.5, Bloom = 0.35 }),
 	},
 	{
 		Id = 8, Name = "Neon Donut City", Theme = "Neon",
@@ -157,7 +162,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(20, 18, 30), Color3.fromRGB(28, 24, 40) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(0, 255, 220), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 200), Shirt = Color3.fromRGB(255, 0, 200), Pants = Color3.fromRGB(20, 20, 40), Aura = "Neon", Title = "Neon" },
-		Ambience = ambience({ ClockTime = 0.5, Tint = Color3.fromRGB(220, 210, 255), Saturation = 0.35, Contrast = 0.2, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 50, 160), AtmosphereDensity = 0.35, Haze = 1, Bloom = 1.2 }),
+		Ambience = ambience({ ClockTime = 0.5, Tint = Color3.fromRGB(220, 210, 255), Saturation = 0.15, Contrast = 0.2, Ambient = Color3.fromRGB(70, 55, 120), AtmosphereColor = Color3.fromRGB(80, 50, 160), AtmosphereDensity = 0.35, Haze = 1, Bloom = 0.5 }),
 	},
 	{
 		Id = 9, Name = "Crystal Cosmos", Theme = "Crystal",
@@ -166,7 +171,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(60, 30, 110), Color3.fromRGB(75, 40, 135) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(200, 150, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(200, 160, 255), Shirt = Color3.fromRGB(90, 40, 180), Pants = Color3.fromRGB(40, 20, 90), Aura = "Sparkles", Title = "Crystal" },
-		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(225, 200, 255), Saturation = 0.4, Contrast = 0.2, Ambient = Color3.fromRGB(110, 70, 170), AtmosphereColor = Color3.fromRGB(140, 90, 220), AtmosphereDensity = 0.4, Haze = 2, Bloom = 1.4 }),
+		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(225, 200, 255), Saturation = 0.2, Contrast = 0.2, Ambient = Color3.fromRGB(88, 60, 138), AtmosphereColor = Color3.fromRGB(140, 90, 220), AtmosphereDensity = 0.4, Haze = 2, Bloom = 0.6 }),
 	},
 	{
 		Id = 10, Name = "Celestial Donut Dimension", Theme = "Celestial",
@@ -175,7 +180,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(10, 5, 25), Color3.fromRGB(20, 10, 40) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(255, 240, 150), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(120, 80, 255), Aura = "Cosmic", Title = "Cosmic" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 255), Saturation = 0.5, Contrast = 0.25, Ambient = Color3.fromRGB(150, 90, 200), AtmosphereColor = Color3.fromRGB(200, 120, 255), AtmosphereDensity = 0.3, Haze = 3, Bloom = 1.8 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(110, 70, 150), AtmosphereColor = Color3.fromRGB(200, 120, 255), AtmosphereDensity = 0.3, Haze = 3, Bloom = 0.75 }),
 	},
 } :: { Area }
 
@@ -315,7 +320,7 @@ Config.Speed = {
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 Config.Treadmill = {
-	BeltSpeed = 13, -- conveyor speed (studs/s) that pushes you off the back if you stop running
+	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
 	Tiers = {
 		{ Name = "Rusty", Rate = 1, Cost = 0, Base = Color3.fromRGB(120, 110, 100), Accent = Color3.fromRGB(150, 80, 50), Material = Enum.Material.CorrodedMetal },
 		{ Name = "Basic", Rate = 4, Cost = 1_500, Base = Color3.fromRGB(230, 230, 230), Accent = Color3.fromRGB(40, 40, 40), Material = Enum.Material.SmoothPlastic },
@@ -389,8 +394,8 @@ Config.GamePasses = {
 Config.Skins = {
 	{
 		Id = "Classic", Name = "Classic Farm", GamePassId = 0, SuggestedPrice = 0, Free = true,
-		Floor = Color3.fromRGB(120, 200, 70), FloorAlt = Color3.fromRGB(105, 185, 60), FloorMaterial = Enum.Material.Plastic,
-		Fence = Color3.fromRGB(150, 90, 50), FenceMaterial = Enum.Material.WoodPlanks,
+		Floor = Color3.fromRGB(100, 170, 62), FloorAlt = Color3.fromRGB(88, 156, 54), FloorMaterial = Enum.Material.Plastic,
+		Fence = Color3.fromRGB(140, 86, 48), FenceMaterial = Enum.Material.WoodPlanks,
 		Trim = Color3.fromRGB(110, 65, 35), TrimMaterial = Enum.Material.Wood,
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
 	},
@@ -1501,12 +1506,18 @@ return Rarities
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, slow mode, teleport home...
+		ClientReady()                      UI is built; server then sends welcome-back popup etc.
 		GetLeaderboard(boardId) -> data    (RemoteFunction)
 ]]
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action" }
+-- NOTE: the folder must NOT sit next to this ModuleScript under the same name ("Remotes"),
+-- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
+local FOLDER_NAME = "GameRemotes"
+
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady" }
 local FUNCTIONS = { "GetLeaderboard" }
 
 local Remotes = {}
@@ -1514,7 +1525,7 @@ local Remotes = {}
 local folder: Folder
 if RunService:IsServer() then
 	folder = Instance.new("Folder")
-	folder.Name = "Remotes"
+	folder.Name = FOLDER_NAME
 	for _, name in EVENTS do
 		local remote = Instance.new("RemoteEvent")
 		remote.Name = name
@@ -1525,9 +1536,9 @@ if RunService:IsServer() then
 		remote.Name = name
 		remote.Parent = folder
 	end
-	folder.Parent = script.Parent
+	folder.Parent = ReplicatedStorage
 else
-	folder = script.Parent:WaitForChild("Remotes") :: Folder
+	folder = ReplicatedStorage:WaitForChild(FOLDER_NAME) :: Folder
 end
 
 function Remotes.Event(name: string): RemoteEvent
@@ -1843,7 +1854,7 @@ export type Profile = {
 	Data: Data,
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
-	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean },
+	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }? },
 	NoSave: boolean,
 }
 
@@ -3298,7 +3309,8 @@ return GuardService
 	  (fetching 500 entries costs 5 requests).
 	* Money/Speed can exceed what an OrderedDataStore can hold (64-bit integers), so they are stored
 	  as log10(value) * 1e9 and decoded for display.
-	* If DataStores are unavailable (Studio without API access), boards show the players in this server.
+	* Players in this server are merged in live, so boards show fresh numbers immediately (the global
+	  data only refreshes every few minutes). Without DataStores (Studio) this is all you'll see.
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
@@ -3317,7 +3329,7 @@ local DataService = require(script.Parent.DataService)
 
 local LeaderboardService = {}
 
-export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3? }
+export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number }
 type Board = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local LOG_SCALE = 1e9
@@ -3433,20 +3445,35 @@ end
 --------------------------------------------------------------------------------
 -- Reading
 --------------------------------------------------------------------------------
-local function liveServerBoard(boardId: string): Board
-	local rows = {}
+-- Global board (if fetched) + everyone in this server with their current score.
+local function withLivePlayers(boardId: string, board: Board?): Board
+	local byUser: { [number]: { UserId: number, Name: string, Score: number } } = {}
+	if board then
+		for _, entry in board.Entries do
+			byUser[entry.UserId] = { UserId = entry.UserId, Name = entry.Name, Score = entry.Score }
+		end
+	end
 	for player, profile in DataService.GetAll() do
-		table.insert(rows, { UserId = player.UserId, Name = player.DisplayName, Score = scoreFor(boardId, profile.Data) })
+		local score = scoreFor(boardId, profile.Data)
+		local existing = byUser[player.UserId]
+		if score > 0 and (not existing or score > existing.Score) then
+			byUser[player.UserId] = { UserId = player.UserId, Name = player.DisplayName, Score = score }
+		end
+	end
+	local rows = {}
+	for _, row in byUser do
+		table.insert(rows, row)
 	end
 	table.sort(rows, function(a, b)
 		return a.Score > b.Score
 	end)
 	local entries = {}
-	for rank, row in rows do
+	for rank = 1, math.min(#rows, cfg.Size) do
+		local row = rows[rank]
 		local text, color = display(boardId, row.Score)
-		table.insert(entries, { Rank = rank, UserId = row.UserId, Name = row.Name, Display = text, Color = color })
+		table.insert(entries, { Rank = rank, UserId = row.UserId, Name = row.Name, Display = text, Color = color, Score = row.Score })
 	end
-	return { Entries = entries, UpdatedAt = os.time(), Live = true }
+	return { Entries = entries, UpdatedAt = if board then board.UpdatedAt else os.time(), Live = board == nil }
 end
 
 local function waitForBudget()
@@ -3458,7 +3485,6 @@ end
 local function refreshBoard(boardId: string)
 	local store = stores[boardId]
 	if not store then
-		cache[boardId] = liveServerBoard(boardId)
 		Remotes.Event("LeaderboardUpdated"):FireAllClients(boardId)
 		return
 	end
@@ -3479,9 +3505,6 @@ local function refreshBoard(boardId: string)
 	end)
 	if not ok then
 		warn(`[Leaderboards] Refresh failed ({boardId}): {err}`)
-		if not cache[boardId] then
-			cache[boardId] = liveServerBoard(boardId)
-		end
 		return
 	end
 
@@ -3495,7 +3518,7 @@ local function refreshBoard(boardId: string)
 	for i = 1, math.min(#rows, cfg.Size) do
 		local userId = tonumber(rows[i].key) or 0
 		local text, color = display(boardId, rows[i].value)
-		table.insert(entries, { Rank = i, UserId = userId, Name = nameCache[userId] or "?", Display = text, Color = color })
+		table.insert(entries, { Rank = i, UserId = userId, Name = nameCache[userId] or "?", Display = text, Color = color, Score = rows[i].value })
 	end
 	cache[boardId] = { Entries = entries, UpdatedAt = os.time(), Live = false }
 	Remotes.Event("LeaderboardUpdated"):FireAllClients(boardId)
@@ -3515,12 +3538,7 @@ function LeaderboardService.Init()
 		if type(boardId) ~= "string" then
 			return nil
 		end
-		local board = cache[boardId]
-		if not board or board.Live then
-			-- Nothing fetched yet (or no DataStores): show this server's players.
-			board = liveServerBoard(boardId)
-		end
-		return board
+		return withLivePlayers(boardId, cache[boardId])
 	end
 
 	-- Periodic score writes
@@ -3591,8 +3609,8 @@ local MapBuilder = {}
 
 local rgb = Color3.fromRGB
 local map = Config.Map
-local HUB_GREEN = { rgb(120, 205, 70), rgb(105, 190, 60) }
-local WALL_BROWN = { rgb(205, 135, 75), rgb(190, 120, 65) }
+local HUB_GREEN = { rgb(96, 172, 58), rgb(84, 158, 50) }
+local WALL_BROWN = { rgb(176, 116, 66), rgb(160, 104, 58) }
 
 local mapFolder: Folder? = nil
 
@@ -3604,16 +3622,17 @@ local function buildEntranceGate(parent: Instance)
 	gate.Name = "EntranceGate"
 	local half = map.LaneHalfWidth
 	for _, side in { -1, 1 } do
-		Build.Part({ Parent = gate, Name = "GatePillar", Size = Vector3.new(8, 44, 8), Position = Vector3.new(side * (half + 7), 22, map.SafeZoneZ + 2), Color = rgb(255, 150, 200), Material = Enum.Material.SmoothPlastic })
+		Build.Part({ Parent = gate, Name = "GatePillar", Size = Vector3.new(8, 44, 8), Position = Vector3.new(side * (half + 7), 22, map.SafeZoneZ + 2), Color = rgb(215, 120, 170), Material = Enum.Material.Plastic })
 	end
 	local beam = Build.Part({
 		Parent = gate, Name = "GateBeam",
 		Size = Vector3.new(half * 2 + 22, 8, 8),
 		CFrame = CFrame.lookAt(Vector3.new(0, 48, map.SafeZoneZ + 2), Vector3.new(0, 48, map.SafeZoneZ - 10)),
-		Color = rgb(255, 120, 190), Material = Enum.Material.SmoothPlastic,
+		Color = rgb(200, 95, 155), Material = Enum.Material.Plastic,
 	})
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 12
 	gui.LightInfluence = 0
 	gui.Parent = beam
@@ -3628,6 +3647,7 @@ local function buildSafeZoneLine(parent: Instance)
 	local label = Build.Part({ Parent = parent, Name = "SafeZoneLabel", Size = Vector3.new(44, 0.1, 8), Position = Vector3.new(0, 0.06, map.SafeZoneZ - 6), Transparency = 1, CanCollide = false })
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Top
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 10
 	gui.LightInfluence = 0
 	gui.Parent = label
@@ -3728,7 +3748,7 @@ local function buildHub(parent: Folder)
 		{ Vector3.new(hw + t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
 		{ Vector3.new(0, h + 1, z0 - depth - t / 2), Vector3.new(hw * 2 + t * 2, 2, t + 1) },
 	} do
-		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(90, 200, 60), Material = Enum.Material.Grass })
+		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(78, 165, 52), Material = Enum.Material.Grass })
 	end
 
 	buildSafeZoneLine(hub)
@@ -3768,6 +3788,7 @@ local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	})
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	gui.PixelsPerStud = 14
 	gui.LightInfluence = 0
 	gui.Parent = beam
@@ -4021,20 +4042,35 @@ local function setupLighting()
 		instance.Parent = Lighting
 		return instance
 	end
+	-- Easy on the eyes: lower sun for longer shadows, darker ambient so shadows actually read,
+	-- slightly reduced exposure, gentle colour grading and very little bloom.
+	Lighting.GlobalShadows = true
+	Lighting.ClockTime = 15.3
+	Lighting.Brightness = 1.8
+	Lighting.ExposureCompensation = -0.15
+	Lighting.ShadowSoftness = 0.2
+	Lighting.EnvironmentDiffuseScale = 0.5
+	Lighting.EnvironmentSpecularScale = 0.4
+	Lighting.OutdoorAmbient = rgb(95, 97, 108)
+	Lighting.Ambient = rgb(78, 80, 92)
 	local atmosphere = ensure("Atmosphere", "Atmosphere") :: Atmosphere
-	atmosphere.Density = 0.25
+	atmosphere.Density = 0.32
+	atmosphere.Haze = 1
+	atmosphere.Glare = 0
 	atmosphere.Color = rgb(199, 214, 234)
 	atmosphere.Decay = rgb(106, 112, 125)
 	local tint = ensure("ColorCorrectionEffect", "AreaTint") :: ColorCorrectionEffect
-	tint.Saturation = 0.1
-	tint.Contrast = 0.05
+	tint.Brightness = -0.03
+	tint.Saturation = -0.08
+	tint.Contrast = 0.12
+	tint.TintColor = rgb(255, 248, 238)
 	local bloom = ensure("BloomEffect", "Bloom") :: BloomEffect
-	bloom.Intensity = 0.4
-	bloom.Size = 24
-	bloom.Threshold = 1.5
-	ensure("SunRaysEffect", "SunRays")
-	Lighting.OutdoorAmbient = rgb(140, 140, 150)
-	Lighting.Ambient = rgb(120, 120, 130)
+	bloom.Intensity = 0.12
+	bloom.Size = 18
+	bloom.Threshold = 2.2
+	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
+	sunRays.Intensity = 0.03
+	sunRays.Spread = 0.6
 end
 
 --------------------------------------------------------------------------------
@@ -4110,6 +4146,25 @@ local LeaderboardService = require(script.Parent.LeaderboardService)
 local PlayerService = {}
 
 local leaderstats: { [Player]: { Money: StringValue, Speed: StringValue } } = {}
+local clientReady: { [Player]: boolean } = {}
+
+-- Messages that need the player's UI to be listening. Sent once both the data is loaded and
+-- the client has said it's ready (whichever happens last).
+local function sendWelcome(player: Player)
+	local profile = DataService.Get(player)
+	if not profile or not profile.Session.Ready or not clientReady[player] then
+		return
+	end
+	DataService.PushState(player)
+	local pending = profile.Session.PendingOffline
+	if pending then
+		profile.Session.PendingOffline = nil
+		Remotes.Event("OfflineEarnings"):FireClient(player, pending.Amount, pending.Seconds, pending.Capped)
+	end
+	if not DataService.DataStoresEnabled() then
+		Remotes.Event("Notify"):FireClient(player, "⚠ Saving is OFF (enable Studio Access to API Services to test saving)", "error")
+	end
+end
 
 local function setCollisionGroup(character: Model)
 	local function apply(part: Instance)
@@ -4169,7 +4224,7 @@ local function grantOfflineEarnings(player: Player)
 	local earned = perSecond * seconds * Config.Offline.Efficiency
 	if earned > 0 then
 		DataService.AddMoney(player, earned)
-		Remotes.Event("OfflineEarnings"):FireClient(player, earned, seconds, away > seconds)
+		profile.Session.PendingOffline = { Amount = earned, Seconds = seconds, Capped = away > seconds }
 	end
 end
 
@@ -4202,10 +4257,7 @@ local function onPlayerAdded(player: Player)
 	if player.Character then
 		onCharacterAdded(player, player.Character)
 	end
-
-	if not DataService.DataStoresEnabled() then
-		Remotes.Event("Notify"):FireClient(player, "⚠ Saving is OFF (enable Studio Access to API Services to test saving)", "error")
-	end
+	sendWelcome(player)
 end
 
 local function onPlayerRemoving(player: Player)
@@ -4215,6 +4267,7 @@ local function onPlayerRemoving(player: Player)
 	TreadmillService.Remove(player)
 	PlotService.Release(player)
 	leaderstats[player] = nil
+	clientReady[player] = nil
 	DataService.Release(player) -- yields while saving
 end
 
@@ -4229,6 +4282,12 @@ local function desiredWalkSpeed(profile: DataService.Profile): number
 end
 
 function PlayerService.Init()
+	Remotes.Event("ClientReady").OnServerEvent:Connect(function(player: Player)
+		if not clientReady[player] then
+			clientReady[player] = true
+			sendWelcome(player)
+		end
+	end)
 	Players.PlayerAdded:Connect(onPlayerAdded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)
 	for _, player in Players:GetPlayers() do
@@ -5511,8 +5570,9 @@ return StealService
           <string name="Source"><![CDATA[--[[
 	TreadmillService
 	================
-	Every base has a treadmill next to it. The belt is a conveyor that pushes you off the back, so you
-	have to keep running to stay on it. While the owner is on the belt they gain Speed every tick.
+	Every base has a treadmill next to it. When the owner steps on the belt, the client locks them onto
+	it and plays a running animation (see client/Treadmill.luau). While the owner is on the belt they
+	gain Speed every tick (checked here, on the server).
 
 	Upgrading the treadmill (Shop) rebuilds it as a cooler model with a faster gain rate.
 ]]
@@ -5522,7 +5582,6 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
@@ -5601,7 +5660,6 @@ function TreadmillService.Build(player: Player)
 	-- Frame + belt
 	Build.Part({ Parent = model, Name = "Base", Size = Vector3.new(BELT_WIDTH + 2, 1.2, BELT_LENGTH + 2), CFrame = at(0, 0.6, 0.5), Color = tier.Base, Material = tier.Material })
 	local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(BELT_WIDTH, 0.3, BELT_LENGTH), CFrame = at(0, 1.35, 0.5), Color = rgb(30, 30, 35), Material = Enum.Material.Rubber })
-	belt.AssemblyLinearVelocity = -cf.LookVector * Config.Treadmill.BeltSpeed -- conveyor pushes you backwards
 	CollectionService:AddTag(belt, "TreadmillBelt")
 	for i = 0, 5 do
 		local slat = Build.Decor({ Parent = model, Name = "Slat", Size = Vector3.new(BELT_WIDTH - 0.2, 0.06, 0.35), CFrame = at(0, 1.53, 0.5 - BELT_LENGTH / 2 + i * (BELT_LENGTH / 6)), Color = rgb(90, 90, 100), Material = Enum.Material.SmoothPlastic })
@@ -5622,12 +5680,12 @@ function TreadmillService.Build(player: Player)
 		end
 	end
 
-	-- Console at the front (with an invisible wall so you can't run off the front)
+	-- Console at the front
 	Build.Part({ Parent = model, Name = "ConsolePost", Size = Vector3.new(1.4, 4.5, 0.9), CFrame = at(0, 3.4, -6.4), Color = tier.Base, Material = tier.Material })
-	Build.Part({ Parent = model, Name = "FrontStop", Size = Vector3.new(BELT_WIDTH, 7, 0.6), CFrame = at(0, 4.5, -6.2), Transparency = 1 })
 	local screen = Build.Part({ Parent = model, Name = "Screen", Size = Vector3.new(5.4, 2.8, 0.4), CFrame = at(0, 6.2, -6.5) * CFrame.Angles(math.rad(-25), 0, 0), Color = rgb(15, 15, 20), Material = Enum.Material.SmoothPlastic })
 	local screenGui = Instance.new("SurfaceGui")
 	screenGui.Face = Enum.NormalId.Back -- faces the runner
+	screenGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 	screenGui.PixelsPerStud = 40
 	screenGui.LightInfluence = 0
 	screenGui.Parent = screen
@@ -5674,7 +5732,7 @@ function TreadmillService.Build(player: Player)
 	label.MaxDistance = 90
 	label.LightInfluence = 0
 	label.Parent = belt
-	Build.Text(label, "🏃 RUN HERE FOR SPEED!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
+	Build.Text(label, "🏃 STEP ON TO RUN!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
 	Build.Text(label, `Tier {level}/{Economy.MaxTreadmillLevel()} • upgrade in Shop`, { Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.55), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne })
 
 	model.PrimaryPart = belt
@@ -5764,6 +5822,7 @@ local Index = require(UI.Index)
 local Leaderboards = require(UI.Leaderboards)
 local Chase = require(UI.Chase)
 local Effects = require(script.Effects)
+local Treadmill = require(script.Treadmill)
 
 Notifications.Init()
 Shop.Init()
@@ -5776,6 +5835,10 @@ HUD.Init({
 	OpenLeaderboards = Leaderboards.Open,
 })
 Effects.Init()
+Treadmill.Init()
+
+-- Tell the server the UI is listening (it then sends the welcome-back popup, etc.)
+require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes")).Event("ClientReady"):FireServer()
 ]]></string>
         </Properties>
         <Item class="ModuleScript" referent="31">
@@ -5836,7 +5899,7 @@ return AreaTracker
 	  Guard                    - animated "Zzz" while sleeping
 	  Area ambience            - lighting, fog and colour grading change per area
 	  Owner-only prompts       - hide Upgrade/Sell prompts on other people's donuts
-	  Popups                   - "+speed" while on the treadmill, "+$" above your donuts
+	  Popups                   - "+$" above your donuts
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -5849,7 +5912,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
-local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.UI.Theme)
@@ -6129,19 +6191,7 @@ local function popup(adornee: BasePart, text: string, color: Color3, offset: Vec
 end
 
 local function startPopups()
-	-- "+X ⚡" while running on the treadmill
-	task.spawn(function()
-		while true do
-			task.wait(0.5)
-			local character = player.Character
-			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if root and State.Get("OnTreadmill") then
-				local level = math.max(1, State.Number("TreadmillLevel"))
-				local rate = Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")))
-				popup(root, "+" .. Format.Number(rate * 0.5) .. " ⚡", Color3.fromRGB(190, 140, 255), Vector3.new(math.random(-20, 20) / 10, 3, 0))
-			end
-		end
-	end)
+	-- (Treadmill "+speed" popups live in client/Treadmill.luau.)
 	-- "+$X" above your own donuts every few seconds
 	task.spawn(function()
 		local interval = 3
@@ -6249,11 +6299,287 @@ return State
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="34">
+        <Item class="ModuleScript" referent="34">
+          <Properties>
+            <string name="Name">Treadmill</string>
+            <string name="Source"><![CDATA[--[[
+	Treadmill (client): step onto your own treadmill and you're locked onto the belt, running in
+	place automatically. Press Space / Jump (or the "Get off" button) to step off.
+	While running, a "+speed" popup appears at a random spot on the screen every second.
+
+	The server decides how much speed you actually get (TreadmillService); this only handles the
+	feel: pinning you to the belt, the run animation and the popups.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Economy = require(Shared.Economy)
+local Format = require(Shared.Format)
+
+local Theme = require(script.Parent.UI.Theme)
+local State = require(script.Parent.State)
+
+local Treadmill = {}
+
+local player = Players.LocalPlayer :: Player
+
+local BELT_HALF_WIDTH = 3.3
+local BELT_HALF_LENGTH = 6.8
+local R6_RUN = "rbxassetid://180426354"
+local R15_RUN = "rbxassetid://913376220"
+
+local running = false
+local pinned: CFrame? = nil
+local track: AnimationTrack? = nil
+local cooldownUntil = 0
+local hint: Frame
+local popupLayer: Frame
+local rateLabel: TextLabel
+
+local function getCharacter(): (Model?, BasePart?, Humanoid?)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return character, root, humanoid
+end
+
+local function getBelt(): BasePart?
+	local index = State.Get("PlotIndex")
+	local map = workspace:FindFirstChild("Map")
+	local plots = map and map:FindFirstChild("Plots")
+	local plot = plots and plots:FindFirstChild("Plot" .. tostring(index))
+	local treadmill = plot and plot:FindFirstChild("Treadmill")
+	local belt = treadmill and treadmill:FindFirstChild("Belt")
+	return if belt and belt:IsA("BasePart") then belt else nil
+end
+
+local function currentRate(): number
+	local level = math.max(1, State.Number("TreadmillLevel"))
+	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")))
+end
+
+-- Disable / enable walking input (so holding W doesn't fight the treadmill).
+-- The controls object is looked up once in the background so this never yields.
+local controls: any = nil
+local function setControls(enabled: boolean)
+	if not controls then
+		return
+	end
+	pcall(function()
+		if enabled then
+			controls:Enable()
+		else
+			controls:Disable()
+		end
+	end)
+end
+
+local function runAnimationId(character: Model, humanoid: Humanoid): string
+	local animate = character:FindFirstChild("Animate")
+	local runFolder = animate and animate:FindFirstChild("run")
+	local anim = runFolder and runFolder:FindFirstChildOfClass("Animation")
+	if anim and anim.AnimationId ~= "" then
+		return anim.AnimationId
+	end
+	return if humanoid.RigType == Enum.HumanoidRigType.R15 then R15_RUN else R6_RUN
+end
+
+local function start(belt: BasePart, character: Model, root: BasePart, humanoid: Humanoid)
+	running = true
+	-- Stand in the middle of the belt, facing the console.
+	local hip = if humanoid.RigType == Enum.HumanoidRigType.R15 then humanoid.HipHeight + root.Size.Y / 2 else 3
+	local top = belt.Position.Y + belt.Size.Y / 2 + hip
+	local center = Vector3.new(belt.Position.X, top, belt.Position.Z)
+	pinned = CFrame.lookAt(center, center + belt.CFrame.LookVector * Vector3.new(1, 0, 1))
+	humanoid.AutoRotate = false
+	setControls(false)
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		local animation = Instance.new("Animation")
+		animation.AnimationId = runAnimationId(character, humanoid)
+		local ok, loaded = pcall(animator.LoadAnimation, animator, animation)
+		if ok and loaded then
+			loaded.Priority = Enum.AnimationPriority.Action
+			loaded.Looped = true
+			loaded:Play(0.2)
+			loaded:AdjustSpeed(1.4)
+			track = loaded
+		end
+	end
+	rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
+	hint.Visible = true
+end
+
+local function stop(stepOff: boolean)
+	if not running then
+		return
+	end
+	-- Everything here is instant (no yields) so the belt can't re-grab you mid-step.
+	running = false
+	cooldownUntil = os.clock() + 1
+	local _, root, humanoid = getCharacter()
+	if stepOff and root and pinned then
+		-- Hop off the back so you don't instantly step back on.
+		root.CFrame = pinned * CFrame.new(0, 0, BELT_HALF_LENGTH + 3)
+	end
+	pinned = nil
+	hint.Visible = false
+	if humanoid then
+		humanoid.AutoRotate = true
+	end
+	if track then
+		track:Stop(0.2)
+		track = nil
+	end
+	setControls(true)
+end
+
+local function isOnBelt(belt: BasePart, position: Vector3): boolean
+	local localPos = belt.CFrame:PointToObjectSpace(position)
+	return math.abs(localPos.X) < BELT_HALF_WIDTH and math.abs(localPos.Z) < BELT_HALF_LENGTH and localPos.Y > 0 and localPos.Y < 8
+end
+
+local function popup()
+	local amount = currentRate()
+	local label = Theme.Label({
+		Text = "+" .. Format.Number(amount) .. " ⚡",
+		TextColor3 = Color3.fromRGB(200, 150, 255),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(math.random(10, 90) / 100, math.random(18, 78) / 100),
+		Size = UDim2.fromOffset(190, 54),
+		Rotation = math.random(-12, 12),
+		StrokeThickness = 3,
+		Parent = popupLayer,
+	})
+	local scale = Theme.new("UIScale", { Scale = 0.2, Parent = label })
+	TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = Theme.CurrentScale() }):Play()
+	TweenService:Create(label, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = label.Position - UDim2.fromOffset(0, 60) }):Play()
+	task.delay(0.6, function()
+		TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+		local stroke = label:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+		end
+		task.wait(0.45)
+		label:Destroy()
+	end)
+end
+
+function Treadmill.IsRunning(): boolean
+	return running
+end
+
+function Treadmill.Init()
+	task.spawn(function()
+		pcall(function()
+			local playerModule = require((player :: any).PlayerScripts:WaitForChild("PlayerModule", 10)) :: any
+			controls = playerModule:GetControls()
+		end)
+	end)
+	local gui = Theme.ScreenGui("Treadmill", 4)
+	popupLayer = Theme.new("Frame", { Name = "Popups", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = gui })
+
+	hint = Theme.new("Frame", {
+		Name = "RunningHint",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, if Theme.IsTouch then -150 else -24),
+		Size = UDim2.fromOffset(420, 110),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = gui,
+	})
+	Theme.AutoScale(hint)
+	rateLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(210, 170, 255), Size = UDim2.new(1, 0, 0, 44), StrokeThickness = 3, Parent = hint })
+	local getOff = Theme.Button({
+		Text = if Theme.IsTouch then "GET OFF" else "GET OFF (Space)",
+		Color = Theme.Colors.Red,
+		Size = UDim2.fromOffset(260, 56),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 50),
+		Parent = hint,
+	})
+	getOff.Activated:Connect(function()
+		stop(true)
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if running and not processed and (input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA) then
+			stop(true)
+		end
+	end)
+	UserInputService.JumpRequest:Connect(function()
+		if running then
+			stop(true)
+		end
+	end)
+
+	-- Keep the character pinned to the belt (before physics and before rendering).
+	local function pin()
+		if not running or not pinned then
+			return
+		end
+		local _, root = getCharacter()
+		if root then
+			root.CFrame = pinned
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end
+	RunService.Stepped:Connect(pin)
+	RunService.RenderStepped:Connect(pin)
+
+	-- Detect stepping on / leaving the treadmill
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			local character, root, humanoid = getCharacter()
+			local belt = getBelt()
+			if running then
+				if not character or not root or not humanoid or humanoid.Health <= 0 or not belt or player:GetAttribute("CarryingDonut") then
+					stop(false)
+				end
+			elseif character and root and humanoid and belt and os.clock() > cooldownUntil and humanoid.Health > 0 then
+				if isOnBelt(belt, root.Position) and not player:GetAttribute("CarryingDonut") then
+					start(belt, character, root, humanoid)
+				end
+			end
+		end
+	end)
+
+	-- One popup per second while running
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if running then
+				popup()
+				rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
+			end
+		end
+	end)
+
+	player.CharacterAdded:Connect(function()
+		running = false
+		pinned = nil
+		track = nil
+		hint.Visible = false
+		setControls(true)
+	end)
+end
+
+return Treadmill
+]]></string>
+          </Properties>
+        </Item>
+        <Item class="Folder" referent="35">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="35">
+          <Item class="ModuleScript" referent="36">
             <Properties>
               <string name="Name">Chase</string>
               <string name="Source"><![CDATA[--[[
@@ -6544,7 +6870,7 @@ return Chase
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="36">
+          <Item class="ModuleScript" referent="37">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[--[[
@@ -6795,7 +7121,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="37">
+          <Item class="ModuleScript" referent="38">
             <Properties>
               <string name="Name">Index</string>
               <string name="Source"><![CDATA[--[[
@@ -6929,7 +7255,7 @@ return Index
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="38">
+          <Item class="ModuleScript" referent="39">
             <Properties>
               <string name="Name">Leaderboards</string>
               <string name="Source"><![CDATA[--[[
@@ -6952,7 +7278,7 @@ local Leaderboards = {}
 
 local player = Players.LocalPlayer :: Player
 
-type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3? }
+type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number? }
 type BoardData = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local boardConfigs: { [string]: { Id: string, Title: string, Subtitle: string, Color: Color3 } } = {}
@@ -7068,7 +7394,7 @@ local function buildWorldBoard(screen: BasePart, boardId: string)
 		elseif me then
 			footer.Text = `You are #{me.Rank}! • scroll for more`
 		else
-			footer.Text = if board.Live then "Showing this server (global loading...)" else "Scroll to see the top " .. Config.Leaderboards.Size
+			footer.Text = if board.Live then "Showing this server (global board loading...)" else "Scroll to see the top " .. Config.Leaderboards.Size
 		end
 	end)
 end
@@ -7163,7 +7489,7 @@ return Leaderboards
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="39">
+          <Item class="ModuleScript" referent="40">
             <Properties>
               <string name="Name">Modal</string>
               <string name="Source"><![CDATA[--[[
@@ -7310,7 +7636,7 @@ return Modal
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="40">
+          <Item class="ModuleScript" referent="41">
             <Properties>
               <string name="Name">Notifications</string>
               <string name="Source"><![CDATA[--[[
@@ -7449,7 +7775,7 @@ return Notifications
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="41">
+          <Item class="ModuleScript" referent="42">
             <Properties>
               <string name="Name">Shop</string>
               <string name="Source"><![CDATA[--[[
@@ -7460,6 +7786,7 @@ return Notifications
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -7713,10 +8040,35 @@ function Shop.Init()
 	end
 	State.Changed:Connect(refreshAll)
 
-	-- The shop stall in the hub opens this window
+	-- The shop stall in the hub: walk onto the glowing circle (or press E at the counter) to open it.
 	task.spawn(function()
 		local map = workspace:WaitForChild("Map")
-		local prompt = map:WaitForChild("Hub"):WaitForChild("ShopStall"):WaitForChild("PromptPart")
+		local stall = map:WaitForChild("Hub"):WaitForChild("ShopStall")
+		local prompt = stall:WaitForChild("PromptPart")
+		local glow = stall:WaitForChild("Glow") :: BasePart
+		local player = Players.LocalPlayer :: Player
+		local inside = false
+		local autoOpened = false
+		task.spawn(function()
+			while true do
+				task.wait(0.15)
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				local nowInside = false
+				if root then
+					local offset = root.Position - glow.Position
+					nowInside = Vector2.new(offset.X, offset.Z).Magnitude < glow.Size.Y / 2 and math.abs(offset.Y) < 8
+				end
+				if nowInside and not inside then
+					Shop.Open("Upgrades")
+					autoOpened = true
+				elseif not nowInside and inside and autoOpened then
+					modal:Close()
+					autoOpened = false
+				end
+				inside = nowInside
+			end
+		end)
 		local proximity = Theme.new("ProximityPrompt", {
 			ActionText = "Open Shop",
 			ObjectText = "Shop",
@@ -7735,7 +8087,7 @@ return Shop
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="42">
+          <Item class="ModuleScript" referent="43">
             <Properties>
               <string name="Name">Theme</string>
               <string name="Source"><![CDATA[--[[
@@ -8008,7 +8360,7 @@ return Theme
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="43">
+          <Item class="ModuleScript" referent="44">
             <Properties>
               <string name="Name">VirtualList</string>
               <string name="Source"><![CDATA[--[[
@@ -8091,7 +8443,7 @@ return VirtualList
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="44">
+  <Item class="Workspace" referent="45">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

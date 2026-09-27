@@ -27,9 +27,12 @@
     "Lighting": {
       "$properties": {
         "Technology": "Future",
-        "ClockTime": 14,
-        "Brightness": 2.2,
-        "GlobalShadows": true
+        "ClockTime": 15.3,
+        "Brightness": 1.8,
+        "GlobalShadows": true,
+        "ExposureCompensation": -0.15,
+        "EnvironmentDiffuseScale": 0.5,
+        "EnvironmentSpecularScale": 0.4
       }
     },
     "SoundService": {

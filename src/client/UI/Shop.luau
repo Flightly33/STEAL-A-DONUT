@@ -6,6 +6,7 @@
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -259,10 +260,35 @@ function Shop.Init()
 	end
 	State.Changed:Connect(refreshAll)
 
-	-- The shop stall in the hub opens this window
+	-- The shop stall in the hub: walk onto the glowing circle (or press E at the counter) to open it.
 	task.spawn(function()
 		local map = workspace:WaitForChild("Map")
-		local prompt = map:WaitForChild("Hub"):WaitForChild("ShopStall"):WaitForChild("PromptPart")
+		local stall = map:WaitForChild("Hub"):WaitForChild("ShopStall")
+		local prompt = stall:WaitForChild("PromptPart")
+		local glow = stall:WaitForChild("Glow") :: BasePart
+		local player = Players.LocalPlayer :: Player
+		local inside = false
+		local autoOpened = false
+		task.spawn(function()
+			while true do
+				task.wait(0.15)
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				local nowInside = false
+				if root then
+					local offset = root.Position - glow.Position
+					nowInside = Vector2.new(offset.X, offset.Z).Magnitude < glow.Size.Y / 2 and math.abs(offset.Y) < 8
+				end
+				if nowInside and not inside then
+					Shop.Open("Upgrades")
+					autoOpened = true
+				elseif not nowInside and inside and autoOpened then
+					modal:Close()
+					autoOpened = false
+				end
+				inside = nowInside
+			end
+		end)
 		local proximity = Theme.new("ProximityPrompt", {
 			ActionText = "Open Shop",
 			ObjectText = "Shop",

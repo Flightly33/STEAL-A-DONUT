@@ -1,0 +1,270 @@
+--[[
+	Treadmill (client): step onto your own treadmill and you're locked onto the belt, running in
+	place automatically. Press Space / Jump (or the "Get off" button) to step off.
+	While running, a "+speed" popup appears at a random spot on the screen every second.
+
+	The server decides how much speed you actually get (TreadmillService); this only handles the
+	feel: pinning you to the belt, the run animation and the popups.
+]]
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Economy = require(Shared.Economy)
+local Format = require(Shared.Format)
+
+local Theme = require(script.Parent.UI.Theme)
+local State = require(script.Parent.State)
+
+local Treadmill = {}
+
+local player = Players.LocalPlayer :: Player
+
+local BELT_HALF_WIDTH = 3.3
+local BELT_HALF_LENGTH = 6.8
+local R6_RUN = "rbxassetid://180426354"
+local R15_RUN = "rbxassetid://913376220"
+
+local running = false
+local pinned: CFrame? = nil
+local track: AnimationTrack? = nil
+local cooldownUntil = 0
+local hint: Frame
+local popupLayer: Frame
+local rateLabel: TextLabel
+
+local function getCharacter(): (Model?, BasePart?, Humanoid?)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return character, root, humanoid
+end
+
+local function getBelt(): BasePart?
+	local index = State.Get("PlotIndex")
+	local map = workspace:FindFirstChild("Map")
+	local plots = map and map:FindFirstChild("Plots")
+	local plot = plots and plots:FindFirstChild("Plot" .. tostring(index))
+	local treadmill = plot and plot:FindFirstChild("Treadmill")
+	local belt = treadmill and treadmill:FindFirstChild("Belt")
+	return if belt and belt:IsA("BasePart") then belt else nil
+end
+
+local function currentRate(): number
+	local level = math.max(1, State.Number("TreadmillLevel"))
+	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")))
+end
+
+-- Disable / enable walking input (so holding W doesn't fight the treadmill).
+-- The controls object is looked up once in the background so this never yields.
+local controls: any = nil
+local function setControls(enabled: boolean)
+	if not controls then
+		return
+	end
+	pcall(function()
+		if enabled then
+			controls:Enable()
+		else
+			controls:Disable()
+		end
+	end)
+end
+
+local function runAnimationId(character: Model, humanoid: Humanoid): string
+	local animate = character:FindFirstChild("Animate")
+	local runFolder = animate and animate:FindFirstChild("run")
+	local anim = runFolder and runFolder:FindFirstChildOfClass("Animation")
+	if anim and anim.AnimationId ~= "" then
+		return anim.AnimationId
+	end
+	return if humanoid.RigType == Enum.HumanoidRigType.R15 then R15_RUN else R6_RUN
+end
+
+local function start(belt: BasePart, character: Model, root: BasePart, humanoid: Humanoid)
+	running = true
+	-- Stand in the middle of the belt, facing the console.
+	local hip = if humanoid.RigType == Enum.HumanoidRigType.R15 then humanoid.HipHeight + root.Size.Y / 2 else 3
+	local top = belt.Position.Y + belt.Size.Y / 2 + hip
+	local center = Vector3.new(belt.Position.X, top, belt.Position.Z)
+	pinned = CFrame.lookAt(center, center + belt.CFrame.LookVector * Vector3.new(1, 0, 1))
+	humanoid.AutoRotate = false
+	setControls(false)
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if animator then
+		local animation = Instance.new("Animation")
+		animation.AnimationId = runAnimationId(character, humanoid)
+		local ok, loaded = pcall(animator.LoadAnimation, animator, animation)
+		if ok and loaded then
+			loaded.Priority = Enum.AnimationPriority.Action
+			loaded.Looped = true
+			loaded:Play(0.2)
+			loaded:AdjustSpeed(1.4)
+			track = loaded
+		end
+	end
+	rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
+	hint.Visible = true
+end
+
+local function stop(stepOff: boolean)
+	if not running then
+		return
+	end
+	-- Everything here is instant (no yields) so the belt can't re-grab you mid-step.
+	running = false
+	cooldownUntil = os.clock() + 1
+	local _, root, humanoid = getCharacter()
+	if stepOff and root and pinned then
+		-- Hop off the back so you don't instantly step back on.
+		root.CFrame = pinned * CFrame.new(0, 0, BELT_HALF_LENGTH + 3)
+	end
+	pinned = nil
+	hint.Visible = false
+	if humanoid then
+		humanoid.AutoRotate = true
+	end
+	if track then
+		track:Stop(0.2)
+		track = nil
+	end
+	setControls(true)
+end
+
+local function isOnBelt(belt: BasePart, position: Vector3): boolean
+	local localPos = belt.CFrame:PointToObjectSpace(position)
+	return math.abs(localPos.X) < BELT_HALF_WIDTH and math.abs(localPos.Z) < BELT_HALF_LENGTH and localPos.Y > 0 and localPos.Y < 8
+end
+
+local function popup()
+	local amount = currentRate()
+	local label = Theme.Label({
+		Text = "+" .. Format.Number(amount) .. " ⚡",
+		TextColor3 = Color3.fromRGB(200, 150, 255),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(math.random(10, 90) / 100, math.random(18, 78) / 100),
+		Size = UDim2.fromOffset(190, 54),
+		Rotation = math.random(-12, 12),
+		StrokeThickness = 3,
+		Parent = popupLayer,
+	})
+	local scale = Theme.new("UIScale", { Scale = 0.2, Parent = label })
+	TweenService:Create(scale, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = Theme.CurrentScale() }):Play()
+	TweenService:Create(label, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Position = label.Position - UDim2.fromOffset(0, 60) }):Play()
+	task.delay(0.6, function()
+		TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
+		local stroke = label:FindFirstChildOfClass("UIStroke")
+		if stroke then
+			TweenService:Create(stroke, TweenInfo.new(0.4), { Transparency = 1 }):Play()
+		end
+		task.wait(0.45)
+		label:Destroy()
+	end)
+end
+
+function Treadmill.IsRunning(): boolean
+	return running
+end
+
+function Treadmill.Init()
+	task.spawn(function()
+		pcall(function()
+			local playerModule = require((player :: any).PlayerScripts:WaitForChild("PlayerModule", 10)) :: any
+			controls = playerModule:GetControls()
+		end)
+	end)
+	local gui = Theme.ScreenGui("Treadmill", 4)
+	popupLayer = Theme.new("Frame", { Name = "Popups", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = gui })
+
+	hint = Theme.new("Frame", {
+		Name = "RunningHint",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.new(0.5, 0, 1, if Theme.IsTouch then -150 else -24),
+		Size = UDim2.fromOffset(420, 110),
+		BackgroundTransparency = 1,
+		Visible = false,
+		Parent = gui,
+	})
+	Theme.AutoScale(hint)
+	rateLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(210, 170, 255), Size = UDim2.new(1, 0, 0, 44), StrokeThickness = 3, Parent = hint })
+	local getOff = Theme.Button({
+		Text = if Theme.IsTouch then "GET OFF" else "GET OFF (Space)",
+		Color = Theme.Colors.Red,
+		Size = UDim2.fromOffset(260, 56),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 50),
+		Parent = hint,
+	})
+	getOff.Activated:Connect(function()
+		stop(true)
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, processed)
+		if running and not processed and (input.KeyCode == Enum.KeyCode.Space or input.KeyCode == Enum.KeyCode.ButtonA) then
+			stop(true)
+		end
+	end)
+	UserInputService.JumpRequest:Connect(function()
+		if running then
+			stop(true)
+		end
+	end)
+
+	-- Keep the character pinned to the belt (before physics and before rendering).
+	local function pin()
+		if not running or not pinned then
+			return
+		end
+		local _, root = getCharacter()
+		if root then
+			root.CFrame = pinned
+			root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end
+	RunService.Stepped:Connect(pin)
+	RunService.RenderStepped:Connect(pin)
+
+	-- Detect stepping on / leaving the treadmill
+	task.spawn(function()
+		while true do
+			task.wait(0.1)
+			local character, root, humanoid = getCharacter()
+			local belt = getBelt()
+			if running then
+				if not character or not root or not humanoid or humanoid.Health <= 0 or not belt or player:GetAttribute("CarryingDonut") then
+					stop(false)
+				end
+			elseif character and root and humanoid and belt and os.clock() > cooldownUntil and humanoid.Health > 0 then
+				if isOnBelt(belt, root.Position) and not player:GetAttribute("CarryingDonut") then
+					start(belt, character, root, humanoid)
+				end
+			end
+		end
+	end)
+
+	-- One popup per second while running
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if running then
+				popup()
+				rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
+			end
+		end
+	end)
+
+	player.CharacterAdded:Connect(function()
+		running = false
+		pinned = nil
+		track = nil
+		hint.Visible = false
+		setControls(true)
+	end)
+end
+
+return Treadmill

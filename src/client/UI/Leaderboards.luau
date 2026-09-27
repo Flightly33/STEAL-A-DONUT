@@ -18,7 +18,7 @@ local Leaderboards = {}
 
 local player = Players.LocalPlayer :: Player
 
-type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3? }
+type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number? }
 type BoardData = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local boardConfigs: { [string]: { Id: string, Title: string, Subtitle: string, Color: Color3 } } = {}
@@ -134,7 +134,7 @@ local function buildWorldBoard(screen: BasePart, boardId: string)
 		elseif me then
 			footer.Text = `You are #{me.Rank}! • scroll for more`
 		else
-			footer.Text = if board.Live then "Showing this server (global loading...)" else "Scroll to see the top " .. Config.Leaderboards.Size
+			footer.Text = if board.Live then "Showing this server (global board loading...)" else "Scroll to see the top " .. Config.Leaderboards.Size
 		end
 	end)
 end
