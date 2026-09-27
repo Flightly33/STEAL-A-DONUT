@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="62%">
+      <stop offset="0" stop-color="#b98bff"/><stop offset=".6" stop-color="#7a35f0"/><stop offset="1" stop-color="#3d1296"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff27a"/><stop offset="1" stop-color="#ffb300"/>
+    </linearGradient>
+    <linearGradient id="shoe" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5ad1ff"/><stop offset="1" stop-color="#1d7fe0"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fffbd0"/><stop offset="1" stop-color="#ffd000"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- sunburst -->
+  <g fill="#fff" opacity=".10">
+    <path d="M256 256 L200 0 H312Z"/><path d="M256 256 L512 200 V312Z"/><path d="M256 256 L312 512 H200Z"/><path d="M256 256 L0 312 V200Z"/>
+    <path d="M256 256 L420 20 L500 100Z"/><path d="M256 256 L500 420 L420 500Z"/><path d="M256 256 L92 500 L12 420Z"/><path d="M256 256 L12 92 L92 12Z"/>
+  </g>
+  <!-- speed lines -->
+  <g stroke="#fff" stroke-width="12" stroke-linecap="round" opacity=".8">
+    <line x1="70" y1="238" x2="140" y2="238"/><line x1="56" y1="282" x2="126" y2="282"/><line x1="78" y1="326" x2="138" y2="326"/>
+  </g>
+  <!-- winged sneaker (side view, toe to the right) -->
+  <g stroke="#1a1a1a" stroke-width="10" stroke-linejoin="round" stroke-linecap="round">
+    <!-- wing on the heel -->
+    <path d="M178 262 q-58 -10 -78 -62 q30 12 50 6 q-34 -20 -36 -58 q28 22 54 22 q-18 -24 -10 -52 q30 40 62 84 z" fill="#fff"/>
+    <!-- upper -->
+    <path d="M164 332 V262 q0 -22 22 -24 l40 -4 q10 30 44 30 h12 q64 2 96 44 q12 14 12 24 z" fill="url(#shoe)"/>
+    <!-- collar -->
+    <path d="M186 238 q8 -14 40 -4" fill="none"/>
+    <!-- sole -->
+    <path d="M152 332 H398 q12 0 12 12 v4 q0 14 -14 14 H166 q-14 0 -14 -14 z" fill="#fff"/>
+  </g>
+  <!-- laces -->
+  <g stroke="#1a1a1a" stroke-width="7" stroke-linecap="round">
+    <line x1="262" y1="266" x2="252" y2="284"/><line x1="284" y1="266" x2="274" y2="286"/><line x1="306" y1="270" x2="296" y2="290"/>
+  </g>
+  <!-- stripe -->
+  <path d="M196 312 q70 -6 140 -30" fill="none" stroke="#fff" stroke-width="11" stroke-linecap="round"/>
+  <!-- small lightning bolt -->
+  <path d="M372 172 L338 234 H362 L346 290 L394 216 H368 L388 172Z" fill="url(#bolt)" stroke="#1a1a1a" stroke-width="8" stroke-linejoin="round"/>
+  <!-- 2X badge -->
+  <g font-family="Impact, 'Arial Black', 'DejaVu Sans', sans-serif" font-weight="900" text-anchor="middle" paint-order="stroke" stroke="#1a1a1a" stroke-linejoin="round">
+    <text x="256" y="124" font-size="112" fill="url(#gold)" stroke-width="20" transform="rotate(-6 256 124)">2X</text>
+    <text x="256" y="446" font-size="76" fill="#fff" stroke-width="16" transform="rotate(-4 256 446)">SPEED</text>
+  </g>
+</svg>
