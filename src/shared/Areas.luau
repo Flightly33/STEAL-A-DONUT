@@ -43,18 +43,18 @@ export type Area = {
 
 local Areas = {}
 
--- Softer daylight: lower sun (longer shadows), darker ambient (shadows actually show),
--- slightly desaturated and a touch warm, very little bloom.
+-- Bright, clean "Steal an Egg" style daylight: high sun, clear sky, no fog, vivid colours,
+-- soft light shadows.
 local DAY = {
-	ClockTime = 15.3,
-	Tint = Color3.fromRGB(255, 248, 238),
-	Saturation = -0.08,
-	Contrast = 0.12,
-	Ambient = Color3.fromRGB(78, 80, 92),
+	ClockTime = 13.5,
+	Tint = Color3.fromRGB(255, 255, 255),
+	Saturation = 0.12,
+	Contrast = 0.04,
+	Ambient = Color3.fromRGB(150, 150, 160),
 	AtmosphereColor = Color3.fromRGB(199, 214, 234),
-	AtmosphereDensity = 0.32,
-	Haze = 1,
-	Bloom = 0.12,
+	AtmosphereDensity = 0.05,
+	Haze = 0,
+	Bloom = 0.1,
 }
 
 local function ambience(overrides: { [string]: any }): Ambience
@@ -71,9 +71,9 @@ Areas.List = {
 	{
 		Id = 1, Name = "Glazed Meadow", Theme = "Meadow",
 		RecommendedSpeed = 0, GuardSpeedBonus = 3, WakeDelay = 1.6,
-		Floor = { Color3.fromRGB(96, 172, 58), Color3.fromRGB(84, 158, 50) }, FloorMaterial = Enum.Material.Plastic,
-		Wall = { Color3.fromRGB(176, 116, 66), Color3.fromRGB(160, 104, 58) }, WallMaterial = Enum.Material.Plastic,
-		Trim = Color3.fromRGB(78, 165, 52), TrimMaterial = Enum.Material.Grass,
+		Floor = { Color3.fromRGB(120, 210, 56), Color3.fromRGB(106, 196, 48) }, FloorMaterial = Enum.Material.Plastic,
+		Wall = { Color3.fromRGB(206, 136, 78), Color3.fromRGB(192, 124, 68) }, WallMaterial = Enum.Material.Plastic,
+		Trim = Color3.fromRGB(100, 200, 60), TrimMaterial = Enum.Material.Grass,
 		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(245, 245, 245), Pants = Color3.fromRGB(70, 110, 200), Title = "Sleepy" },
 		Ambience = ambience({}),
 	},

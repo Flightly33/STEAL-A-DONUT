@@ -32,8 +32,8 @@ local MapBuilder = {}
 
 local rgb = Color3.fromRGB
 local map = Config.Map
-local HUB_GREEN = { rgb(96, 172, 58), rgb(84, 158, 50) }
-local WALL_BROWN = { rgb(176, 116, 66), rgb(160, 104, 58) }
+local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
+local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
 
@@ -171,7 +171,7 @@ local function buildHub(parent: Folder)
 		{ Vector3.new(hw + t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
 		{ Vector3.new(0, h + 1, z0 - depth - t / 2), Vector3.new(hw * 2 + t * 2, 2, t + 1) },
 	} do
-		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(78, 165, 52), Material = Enum.Material.Grass })
+		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(100, 200, 60), Material = Enum.Material.Grass })
 	end
 
 	buildSafeZoneLine(hub)
@@ -465,35 +465,34 @@ local function setupLighting()
 		instance.Parent = Lighting
 		return instance
 	end
-	-- Easy on the eyes: lower sun for longer shadows, darker ambient so shadows actually read,
-	-- slightly reduced exposure, gentle colour grading and very little bloom.
+	-- Bright, clean daylight like the reference: high sun, clear sky, no fog, vivid colours.
 	Lighting.GlobalShadows = true
-	Lighting.ClockTime = 15.3
-	Lighting.Brightness = 1.8
-	Lighting.ExposureCompensation = -0.15
-	Lighting.ShadowSoftness = 0.2
-	Lighting.EnvironmentDiffuseScale = 0.5
-	Lighting.EnvironmentSpecularScale = 0.4
-	Lighting.OutdoorAmbient = rgb(95, 97, 108)
-	Lighting.Ambient = rgb(78, 80, 92)
+	Lighting.ClockTime = 13.5
+	Lighting.Brightness = 2.5
+	Lighting.ExposureCompensation = 0
+	Lighting.ShadowSoftness = 0.5
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 0.5
+	Lighting.OutdoorAmbient = rgb(170, 170, 180)
+	Lighting.Ambient = rgb(150, 150, 160)
 	local atmosphere = ensure("Atmosphere", "Atmosphere") :: Atmosphere
-	atmosphere.Density = 0.32
-	atmosphere.Haze = 1
+	atmosphere.Density = 0.05
+	atmosphere.Haze = 0
 	atmosphere.Glare = 0
 	atmosphere.Color = rgb(199, 214, 234)
 	atmosphere.Decay = rgb(106, 112, 125)
 	local tint = ensure("ColorCorrectionEffect", "AreaTint") :: ColorCorrectionEffect
-	tint.Brightness = -0.03
-	tint.Saturation = -0.08
-	tint.Contrast = 0.12
-	tint.TintColor = rgb(255, 248, 238)
+	tint.Brightness = 0.02
+	tint.Saturation = 0.12
+	tint.Contrast = 0.04
+	tint.TintColor = rgb(255, 255, 255)
 	local bloom = ensure("BloomEffect", "Bloom") :: BloomEffect
-	bloom.Intensity = 0.12
+	bloom.Intensity = 0.1
 	bloom.Size = 18
 	bloom.Threshold = 2.2
 	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
-	sunRays.Intensity = 0.03
-	sunRays.Spread = 0.6
+	sunRays.Intensity = 0.02
+	sunRays.Spread = 0.5
 end
 
 --------------------------------------------------------------------------------

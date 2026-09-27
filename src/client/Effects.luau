@@ -261,7 +261,7 @@ local function startAmbience()
 		if clock < 6 and Lighting.ClockTime > 6 then
 			clock += 24
 		end
-		TweenService:Create(Lighting, info, { ClockTime = clock, Ambient = amb.Ambient, OutdoorAmbient = amb.Ambient:Lerp(Color3.new(1, 1, 1), 0.15) }):Play()
+		TweenService:Create(Lighting, info, { ClockTime = clock, Ambient = amb.Ambient, OutdoorAmbient = amb.Ambient:Lerp(Color3.new(1, 1, 1), 0.2) }):Play()
 		if tint then
 			TweenService:Create(tint, info, { TintColor = amb.Tint, Saturation = amb.Saturation, Contrast = amb.Contrast }):Play()
 		end

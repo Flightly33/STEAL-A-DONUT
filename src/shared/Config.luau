@@ -197,7 +197,7 @@ Config.GamePasses = {
 Config.Skins = {
 	{
 		Id = "Classic", Name = "Classic Farm", GamePassId = 0, SuggestedPrice = 0, Free = true,
-		Floor = Color3.fromRGB(100, 170, 62), FloorAlt = Color3.fromRGB(88, 156, 54), FloorMaterial = Enum.Material.Plastic,
+		Floor = Color3.fromRGB(120, 205, 60), FloorAlt = Color3.fromRGB(106, 190, 50), FloorMaterial = Enum.Material.Plastic,
 		Fence = Color3.fromRGB(140, 86, 48), FenceMaterial = Enum.Material.WoodPlanks,
 		Trim = Color3.fromRGB(110, 65, 35), TrimMaterial = Enum.Material.Wood,
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
