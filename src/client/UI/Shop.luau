@@ -25,6 +25,7 @@ local pages: { [string]: ScrollingFrame } = {}
 local selectTab: (string) -> ()
 local refreshers: { () -> () } = {}
 local robuxPrices: { [number]: number } = {}
+local buildItems: (ScrollingFrame) -> ()
 
 local function refreshAll()
 	for _, refresh in refreshers do
@@ -229,6 +230,38 @@ local function buildSkins(page: ScrollingFrame)
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Items (weapons, traps, base lock)
+--------------------------------------------------------------------------------
+local KIND_LABEL = { Weapon = "⚔️ WEAPON", Trap = "🪤 TRAP", Lock = "🛡 DEFENSE" }
+
+function buildItems(page: ScrollingFrame)
+	for order, item in Config.Items do
+		local c = card(page, order, item.Color)
+		Theme.Label({ Text = item.Icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = c })
+		Theme.Label({ Text = string.upper(item.Name), TextColor3 = item.Color:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 30), Position = UDim2.fromOffset(74, 8), Parent = c })
+		Theme.Label({ Text = KIND_LABEL[item.Kind] or item.Kind, Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 200, 210), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 18), Position = UDim2.fromOffset(74, 38), StrokeThickness = 1, Parent = c })
+		Theme.Label({ Text = item.Description, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 36), Position = UDim2.fromOffset(10, 68), StrokeThickness = 1.2, Parent = c })
+		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
+		button.Activated:Connect(function()
+			local owned = State.Data.Items and State.Data.Items[item.Id]
+			if not owned then
+				State.Action("BuyItem", item.Id)
+			end
+		end)
+		table.insert(refreshers, function()
+			local owned = State.Data.Items and State.Data.Items[item.Id]
+			if owned then
+				Theme.SetButtonText(button, "OWNED ✓ (in hotbar)")
+				Theme.SetButtonColor(button, Theme.Colors.Gray)
+			else
+				Theme.SetButtonText(button, "Buy " .. Format.Money(item.Cost))
+				Theme.SetButtonColor(button, if State.Number("Money") >= item.Cost then Theme.Colors.Green else Theme.Colors.Gray)
+			end
+		end)
+	end
+end
+
 function Shop.Open(tab: string?)
 	modal:Open()
 	selectTab(tab or "Upgrades")
@@ -240,7 +273,8 @@ function Shop.Init()
 	selectTab = Modal.Tabs(body, {
 		{ Name = "Upgrades", Text = "⚡ Upgrades", Color = Theme.Colors.Purple },
 		{ Name = "Passes", Text = "🎟️ Passes", Color = Theme.Colors.Orange },
-		{ Name = "Skins", Text = "🎨 Base Skins", Color = Theme.Colors.Pink },
+		{ Name = "Items", Text = "⚔️ Items", Color = Theme.Colors.Red },
+		{ Name = "Skins", Text = "🎨 Skins", Color = Theme.Colors.Pink },
 	}, function(name)
 		for pageName, page in pages do
 			page.Visible = pageName == name
@@ -249,6 +283,7 @@ function Shop.Init()
 	end)
 	buildUpgrades(newPage("Upgrades", body, 2, 190))
 	buildPasses(newPage("Passes", body, 2, 160))
+	buildItems(newPage("Items", body, 2, 175))
 	buildSkins(newPage("Skins", body, 3, 180))
 
 	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income" } do
@@ -260,46 +295,56 @@ function Shop.Init()
 	end
 	State.Changed:Connect(refreshAll)
 
-	-- The shop stall in the hub: walk onto the glowing circle (or press E at the counter) to open it.
+	-- Shop stalls in the hub: walk onto a glowing circle (or press E at the counter) to open that
+	-- stall's tab. Walking off closes it again.
 	task.spawn(function()
-		local map = workspace:WaitForChild("Map")
-		local stall = map:WaitForChild("Hub"):WaitForChild("ShopStall")
-		local prompt = stall:WaitForChild("PromptPart")
-		local glow = stall:WaitForChild("Glow") :: BasePart
+		local hub = workspace:WaitForChild("Map"):WaitForChild("Hub")
 		local player = Players.LocalPlayer :: Player
-		local inside = false
+		local stalls: { { Glow: BasePart, Tab: string, Inside: boolean } } = {}
 		local autoOpened = false
-		task.spawn(function()
-			while true do
-				task.wait(0.15)
-				local character = player.Character
-				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-				local nowInside = false
+		local function addStall(stall: Instance)
+			local tab = stall:GetAttribute("ShopTab")
+			if type(tab) ~= "string" then
+				return
+			end
+			local glow = stall:WaitForChild("Glow") :: BasePart
+			local promptPart = stall:WaitForChild("PromptPart")
+			table.insert(stalls, { Glow = glow, Tab = tab, Inside = false })
+			local proximity = Theme.new("ProximityPrompt", {
+				ActionText = "Open",
+				ObjectText = stall.Name,
+				HoldDuration = 0,
+				MaxActivationDistance = 12,
+				RequiresLineOfSight = false,
+				Parent = promptPart,
+			})
+			proximity.Triggered:Connect(function()
+				Shop.Open(tab)
+			end)
+		end
+		for _, child in hub:GetChildren() do
+			task.spawn(addStall, child)
+		end
+		while true do
+			task.wait(0.15)
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			for _, stall in stalls do
+				local inside = false
 				if root then
-					local offset = root.Position - glow.Position
-					nowInside = Vector2.new(offset.X, offset.Z).Magnitude < glow.Size.Y / 2 and math.abs(offset.Y) < 8
+					local offset = root.Position - stall.Glow.Position
+					inside = Vector2.new(offset.X, offset.Z).Magnitude < stall.Glow.Size.Y / 2 and math.abs(offset.Y) < 8
 				end
-				if nowInside and not inside then
-					Shop.Open("Upgrades")
+				if inside and not stall.Inside then
+					Shop.Open(stall.Tab)
 					autoOpened = true
-				elseif not nowInside and inside and autoOpened then
+				elseif not inside and stall.Inside and autoOpened then
 					modal:Close()
 					autoOpened = false
 				end
-				inside = nowInside
+				stall.Inside = inside
 			end
-		end)
-		local proximity = Theme.new("ProximityPrompt", {
-			ActionText = "Open Shop",
-			ObjectText = "Shop",
-			HoldDuration = 0,
-			MaxActivationDistance = 12,
-			RequiresLineOfSight = false,
-			Parent = prompt,
-		})
-		proximity.Triggered:Connect(function()
-			Shop.Open("Upgrades")
-		end)
+		end
 	end)
 end
 

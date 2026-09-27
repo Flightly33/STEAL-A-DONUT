@@ -23,6 +23,8 @@ local TreadmillService = require(script.Parent.TreadmillService)
 local StealService = require(script.Parent.StealService)
 local ShopService = require(script.Parent.ShopService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
+local ItemService = require(script.Parent.ItemService)
+local RaidService = require(script.Parent.RaidService)
 
 local PlayerService = {}
 
@@ -62,6 +64,7 @@ end
 local function onCharacterAdded(player: Player, character: Model)
 	setCollisionGroup(character)
 	StealService.OnCharacterAdded(player, character)
+	task.defer(ItemService.GiveTools, player) -- the backpack is recreated on every spawn
 	-- Spawn inside your own base
 	task.defer(function()
 		local spawnCf = PlotService.GetSpawnCFrame(player)
@@ -144,6 +147,8 @@ end
 local function onPlayerRemoving(player: Player)
 	StealService.OnPlayerRemoving(player)
 	ShopService.OnPlayerRemoving(player)
+	ItemService.OnPlayerRemoving(player)
+	RaidService.OnPlayerRemoving(player)
 	task.spawn(LeaderboardService.OnPlayerRemoving, player) -- reads data immediately, then yields on web calls
 	TreadmillService.Remove(player)
 	PlotService.Release(player)

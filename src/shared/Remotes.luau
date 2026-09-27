@@ -9,6 +9,7 @@
 		OfflineEarnings(amount, seconds)
 		LeaderboardUpdated(boardId)
 		AreaAnnouncement(text, color)      big server-wide banner (rare spawns / rare steals)
+		Flung(velocity)                    you got hit by a weapon/trap: client launches itself
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, slow mode, teleport home...
@@ -23,7 +24,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung" }
 local FUNCTIONS = { "GetLeaderboard" }
 
 local Remotes = {}

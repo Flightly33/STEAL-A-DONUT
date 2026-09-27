@@ -24,6 +24,7 @@ local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local StealService = require(script.Parent.StealService)
+local ItemService = require(script.Parent.ItemService)
 
 local ShopService = {}
 
@@ -219,6 +220,10 @@ function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId:
 	profile.Data.EquippedSkin = skinId
 	PlotService.ApplySkin(player)
 	DataService.PushState(player)
+end
+
+function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: any)
+	ItemService.Buy(player, itemId)
 end
 
 function Actions.SetMusic(player: Player, profile: DataService.Profile, settings: any)

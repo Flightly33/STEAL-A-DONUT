@@ -105,11 +105,11 @@ local function hideBanner()
 	setEdges(false)
 end
 
-local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Model?, GuardSpeed: number })
+local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Model?, GuardSpeed: number?, Raid: boolean? })
 	local donut = Donuts.ById[info.DonutId]
 	local rarity = donut and Rarities.Get(donut.Rarity)
 	banner.Visible = true
-	bannerTitle.Text = `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
+	bannerTitle.Text = if info.Raid then "🏃 RUN HOME! THEY CAN HIT YOU TO GET IT BACK!" else `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
 	Theme.PlaySound("Steal")
@@ -118,6 +118,9 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 	end
 
 	stopChaseLoop()
+	if info.Raid then
+		showPathHome()
+	end
 	local pulse = 0
 	chaseConnection = RunService.RenderStepped:Connect(function(dt)
 		pulse += dt
@@ -125,8 +128,15 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 		if not root then
 			return
 		end
-		local toSafe = math.max(0, root.Position.Z - Config.Map.SafeZoneZ)
-		local text = `🛡 Safe zone: {math.floor(toSafe)} studs`
+		local text
+		if info.Raid then
+			local beamTarget = beamAttachments[2]
+			local home = beamTarget and beamTarget.WorldPosition
+			text = if home then `🏠 Your base: {math.floor((home - root.Position).Magnitude)} studs` else "🏠 Get to your base!"
+		else
+			local toSafe = math.max(0, root.Position.Z - Config.Map.SafeZoneZ)
+			text = `🛡 Safe zone: {math.floor(toSafe)} studs`
+		end
 		local guard = info.Guard
 		local guardRoot = guard and guard.Parent and guard.PrimaryPart
 		if guardRoot then
@@ -144,7 +154,7 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 	end)
 end
 
-local function flingSelf()
+local function flingSelf(velocity: Vector3?)
 	local character = player.Character
 	local root = rootPart()
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -152,7 +162,7 @@ local function flingSelf()
 		return
 	end
 	humanoid:ChangeState(Enum.HumanoidStateType.FallingDown)
-	root.AssemblyLinearVelocity = Vector3.new(math.random(-20, 20), 55, -35)
+	root.AssemblyLinearVelocity = velocity or Vector3.new(math.random(-20, 20), 55, -35)
 	root.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
 	task.delay(1.2, function()
 		if humanoid.Parent then
@@ -278,6 +288,10 @@ function Chase.Init()
 	bannerInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 56), StrokeThickness = 2, Parent = banner })
 
 	Remotes.Event("ChaseStarted").OnClientEvent:Connect(onChaseStarted)
+	Remotes.Event("Flung").OnClientEvent:Connect(function(velocity: Vector3)
+		flingSelf(velocity)
+		Theme.PlaySound("Caught")
+	end)
 	Remotes.Event("ChaseEnded").OnClientEvent:Connect(onChaseEnded)
 	player.CharacterAdded:Connect(function()
 		hideBanner()

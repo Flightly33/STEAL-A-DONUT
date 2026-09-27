@@ -222,7 +222,8 @@ local function startGuards()
 end
 
 --------------------------------------------------------------------------------
--- Owner-only prompts (Upgrade / Sell / Podium on other players' bases are hidden)
+-- Owner-only prompts (Upgrade / Sell / Podium on other players' bases are hidden),
+-- and raid "Steal" prompts on your OWN base are hidden from you.
 --------------------------------------------------------------------------------
 local function startPromptFilter()
 	local function filter(prompt: Instance)
@@ -231,7 +232,8 @@ local function startPromptFilter()
 		end
 		local function apply()
 			local owner = prompt:GetAttribute("OwnerUserId")
-			if owner ~= nil and owner ~= player.UserId and prompt.Enabled then
+			local hideFor = prompt:GetAttribute("HideForUserId")
+			if prompt.Enabled and ((owner ~= nil and owner ~= player.UserId) or hideFor == player.UserId) then
 				prompt.Enabled = false
 			end
 		end

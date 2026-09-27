@@ -23,6 +23,8 @@ meshes, images or sounds.
 | Shop (walk onto the glowing circle or press E at the stall): Speed Multiplier + Treadmill upgrades (money), 1.5x/2x/3x/4x/5x/10x Money and 2x Speed passes (Robux), 7 Robux base skins + a free one | `src/server/ShopService.luau`, `src/client/UI/Shop.luau` |
 | Four top-500 leaderboards next to the shop (Money, Speed, Rarest Donut, Time Played) — scrollable on the boards and in a Top 500 window | `src/server/LeaderboardService.luau`, `src/client/UI/Leaderboards.luau` |
 | Podium outside each base showing the owner's rarest **or** top-earning donut (press E on it to switch) | `src/server/PlotService.luau` |
+| **Base raids** (like Steal a Brainrot): hold "Steal" for 15 s on another player's donut while they're *outside* their base. The owner is warned instantly; if they (or a trap) hit the thief before they get home, the donut goes back | `src/server/RaidService.luau` |
+| **Item shop** (new stall + "Items" tab): Slap Hand / Donut Bat / Mega Hammer (fling on hit), Banana Peel / Launch Pad traps you place in your base, and a 30 s Base Lock laser | `src/server/ItemService.luau`, `Config.Items` |
 | Donut Index with 3D previews and silhouettes for undiscovered donuts | `src/client/UI/Index.luau` |
 | HUD modelled on the reference screenshots: Shop / Index buttons on the left, big outlined Speed + Money bottom-left, square buttons on the right, Slow Mode toggle | `src/client/UI/HUD.luau` |
 | Soft, easy-on-the-eyes lighting (lower sun for longer shadows, darker ambient, low bloom) that shifts per area (day → sunset → night) so later areas feel mystical | `src/server/MapBuilder.luau` (`setupLighting`), `src/shared/Areas.luau`, `src/client/Effects.luau` |

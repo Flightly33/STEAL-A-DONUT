@@ -81,10 +81,11 @@ local function buildSafeZoneLine(parent: Instance)
 	bottom.TextStrokeColor3 = rgb(20, 40, 90)
 end
 
-local function buildShop(parent: Instance)
+local function buildStall(parent: Instance, name: string, x: number, title: string, stripe: Color3, tab: string, keeperIndex: number)
 	local shop = Instance.new("Model")
-	shop.Name = "ShopStall"
-	local origin = CFrame.lookAt(Vector3.new(-88, 0, -232), Vector3.new(-88, 0, -200))
+	shop.Name = name
+	shop:SetAttribute("ShopTab", tab)
+	local origin = CFrame.lookAt(Vector3.new(x, 0, -232), Vector3.new(x, 0, -200))
 	local function at(x: number, y: number, z: number): CFrame
 		return origin * CFrame.new(x, y, z)
 	end
@@ -97,10 +98,10 @@ local function buildShop(parent: Instance)
 	end
 	-- Striped awning (like the reference stalls)
 	for i = 0, 8 do
-		Build.Part({ Parent = shop, Name = "Awning", Size = Vector3.new(2.2, 0.5, 10), CFrame = at(-8.8 + i * 2.2, 12.3, -0.5) * CFrame.Angles(math.rad(-12), 0, 0), Color = if i % 2 == 0 then rgb(255, 230, 40) else rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic })
+		Build.Part({ Parent = shop, Name = "Awning", Size = Vector3.new(2.2, 0.5, 10), CFrame = at(-8.8 + i * 2.2, 12.3, -0.5) * CFrame.Angles(math.rad(-12), 0, 0), Color = if i % 2 == 0 then stripe else rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic })
 	end
 	-- Glowing circle to stand in
-	Build.Part({ Parent = shop, Name = "Glow", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 14, 14), CFrame = at(0, 0.08, -9) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 230, 40), Material = Enum.Material.Neon, Transparency = 0.45, CanCollide = false })
+	Build.Part({ Parent = shop, Name = "Glow", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 14, 14), CFrame = at(0, 0.08, -9) * CFrame.Angles(0, 0, math.pi / 2), Color = stripe, Material = Enum.Material.Neon, Transparency = 0.45, CanCollide = false })
 	-- The prompt anchor
 	local prompt = Build.Part({ Parent = shop, Name = "PromptPart", Size = Vector3.new(4, 4, 1), CFrame = at(0, 3, -5), Transparency = 1, CanCollide = false })
 	-- Sign
@@ -111,9 +112,9 @@ local function buildShop(parent: Instance)
 	sign.LightInfluence = 0
 	sign.MaxDistance = 250
 	sign.Parent = counter
-	Build.Text(sign, "🛒 SHOP", { TextColor3 = rgb(255, 230, 40), TextStrokeColor3 = rgb(90, 50, 0) })
+	Build.Text(sign, title, { TextColor3 = stripe, TextStrokeColor3 = rgb(40, 20, 0) })
 	-- A donut shopkeeper on the counter
-	local keeper = DonutModel.Build(Donuts.List[1], { Scale = 0.9, NoEffects = true })
+	local keeper = DonutModel.Build(Donuts.List[keeperIndex], { Scale = 0.9, NoEffects = true })
 	DonutModel.PlaceOn(keeper, at(0, 4, -2) * CFrame.Angles(0, math.pi, 0))
 	keeper.Parent = shop
 	shop.PrimaryPart = counter
@@ -176,7 +177,8 @@ local function buildHub(parent: Folder)
 
 	buildSafeZoneLine(hub)
 	buildEntranceGate(hub)
-	buildShop(hub)
+	buildStall(hub, "ShopStall", -88, "🛒 SHOP", rgb(255, 230, 40), "Upgrades", 1)
+	buildStall(hub, "ItemShopStall", 86, "⚔️ ITEM SHOP", rgb(255, 70, 70), "Items", 3)
 	buildLeaderboards(hub)
 
 	local spawn = Instance.new("SpawnLocation")
@@ -510,6 +512,17 @@ function MapBuilder.Build(): Folder
 				if primary and primary:IsA("BasePart") then
 					model.PrimaryPart = primary
 				end
+			end
+		end
+		-- Older saved maps: add things introduced later.
+		local hub = existing:FindFirstChild("Hub")
+		if hub then
+			local shop = hub:FindFirstChild("ShopStall")
+			if shop and shop:GetAttribute("ShopTab") == nil then
+				shop:SetAttribute("ShopTab", "Upgrades")
+			end
+			if not hub:FindFirstChild("ItemShopStall") then
+				buildStall(hub, "ItemShopStall", 86, "⚔️ ITEM SHOP", rgb(255, 70, 70), "Items", 3)
 			end
 		end
 		mapFolder = existing

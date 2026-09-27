@@ -277,6 +277,47 @@ Config.Leaderboards = {
 }
 
 --------------------------------------------------------------------------------
+-- Stealing from other players' bases ("raids")
+-- Hold the Steal prompt on someone else's donut while they're OUTSIDE their base.
+-- Hitting the thief (weapons / traps) before they get home returns the donut to its owner.
+--------------------------------------------------------------------------------
+Config.Raid = {
+	Enabled = true,
+	HoldSeconds = 15,
+	WarnOwner = true, -- tell the owner the moment someone starts stealing
+}
+
+--------------------------------------------------------------------------------
+-- Item shop (bought with money, kept forever). Items appear in your backpack (hotbar).
+--   Weapon: click to swing; flings the players in front of you (and makes thieves drop donuts)
+--   Trap:   click inside your base to place it at your feet; flings intruders who touch it
+--   Lock:   click to seal your base entrance with a laser for Duration seconds (no raids)
+--------------------------------------------------------------------------------
+export type Item = {
+	Id: string,
+	Name: string,
+	Kind: string,
+	Cost: number,
+	Description: string,
+	Icon: string,
+	Color: Color3,
+	Range: number?,
+	Power: number?,
+	Cooldown: number?,
+	MaxPlaced: number?,
+	Duration: number?,
+}
+
+Config.Items = {
+	{ Id = "Slap", Name = "Slap Hand", Kind = "Weapon", Cost = 5_000, Icon = "🖐️", Color = Color3.fromRGB(255, 200, 60), Range = 9, Power = 70, Cooldown = 2.5, Description = "A big slappy glove. Knocks thieves away." },
+	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 250_000, Icon = "🏏", Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Longer reach, bigger fling." },
+	{ Id = "Hammer", Name = "Mega Hammer", Kind = "Weapon", Cost = 50_000_000, Icon = "🔨", Color = Color3.fromRGB(150, 90, 255), Range = 14, Power = 160, Cooldown = 1.6, Description = "Sends thieves into orbit." },
+	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 in your base. Intruders slip and fly." },
+	{ Id = "Spring", Name = "Launch Pad", Kind = "Trap", Cost = 2_000_000, Icon = "🚀", Color = Color3.fromRGB(80, 200, 255), Power = 150, MaxPlaced = 2, Description = "Place up to 2. Launches intruders sky-high." },
+	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Laser door for 30s: blocks raids, flings intruders." },
+} :: { Item }
+
+--------------------------------------------------------------------------------
 -- Background music (soundtrack). Plays tracks in order, looping the playlist.
 -- Roblox can't play YouTube links: each song must be a Roblox audio asset. Get IDs by
 -- uploading audio you own (Creator Dashboard > Development Items > Audio) or from licensed

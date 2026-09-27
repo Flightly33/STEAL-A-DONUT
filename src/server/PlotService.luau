@@ -25,6 +25,9 @@ local DataService = require(script.Parent.DataService)
 
 local PlotService = {}
 
+-- Set by RaidService: called for every new raid prompt (owner, slotIndex, prompt).
+PlotService.RaidHandler = nil :: ((Player, number, ProximityPrompt) -> ())?
+
 local rgb = Color3.fromRGB
 
 local plotOwners: { [number]: Player } = {}
@@ -366,6 +369,27 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	sell:SetAttribute("OwnerUserId", player.UserId)
 	sell.Parent = root
 
+	-- Raid prompt: other players hold this for Config.Raid.HoldSeconds while the owner is away.
+	-- RaidService turns it on/off and handles the steal; the owner never sees it.
+	if Config.Raid.Enabled then
+		local raid = Instance.new("ProximityPrompt")
+		raid.Name = "RaidPrompt"
+		raid.ActionText = "Steal"
+		raid.ObjectText = donut.Name
+		raid.KeyboardKeyCode = Enum.KeyCode.E
+		raid.GamepadKeyCode = Enum.KeyCode.ButtonX
+		raid.HoldDuration = Config.Raid.HoldSeconds
+		raid.MaxActivationDistance = 10
+		raid.RequiresLineOfSight = false
+		raid.Enabled = false
+		raid:SetAttribute("HideForUserId", player.UserId)
+		raid:SetAttribute("SlotIndex", slotIndex)
+		raid.Parent = root
+		if PlotService.RaidHandler then
+			PlotService.RaidHandler(player, slotIndex, raid)
+		end
+	end
+
 	upgrade.Triggered:Connect(function(who)
 		if who == player then
 			PlotService.UpgradeSlot(player, slotIndex)
@@ -389,16 +413,48 @@ local function afterSlotsChanged(player: Player)
 end
 
 -- Put a donut on the first free pedestal. Returns the slot index, or nil when the base is full.
-function PlotService.AddDonut(player: Player, donutId: string): number?
+function PlotService.AddDonut(player: Player, donutId: string, level: number?): number?
 	local profile = DataService.Get(player)
 	local slotIndex = PlotService.GetFreeSlot(player)
 	if not profile or not slotIndex or not Donuts.ById[donutId] then
 		return nil
 	end
-	profile.Data.Slots[tostring(slotIndex)] = { Id = donutId, Level = 1 }
+	profile.Data.Slots[tostring(slotIndex)] = { Id = donutId, Level = level or 1 }
 	spawnSlotModel(player, slotIndex)
 	afterSlotsChanged(player)
 	return slotIndex
+end
+
+-- Remove a donut from a base without paying for it (it was stolen). Returns its data.
+function PlotService.TakeSlot(player: Player, slotIndex: number): DataService.SlotData?
+	local profile = DataService.Get(player)
+	local key = tostring(slotIndex)
+	local slot = profile and profile.Data.Slots[key]
+	if not profile or not slot then
+		return nil
+	end
+	profile.Data.Slots[key] = nil
+	local model = slotModels[player] and slotModels[player][slotIndex]
+	if model then
+		model:Destroy()
+		slotModels[player][slotIndex] = nil
+	end
+	afterSlotsChanged(player)
+	return slot
+end
+
+-- All raid prompts on a player's base (so RaidService can switch them on and off).
+function PlotService.GetRaidPrompts(player: Player): { ProximityPrompt }
+	local prompts = {}
+	local models: { [number]: Model } = slotModels[player] or {}
+	for _, model in models do
+		local root = model.PrimaryPart
+		local prompt = root and root:FindFirstChild("RaidPrompt")
+		if prompt and prompt:IsA("ProximityPrompt") then
+			table.insert(prompts, prompt)
+		end
+	end
+	return prompts
 end
 
 function PlotService.UpgradeSlot(player: Player, slotIndex: number)

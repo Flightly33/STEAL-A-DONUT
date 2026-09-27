@@ -20,6 +20,7 @@ export type Snapshot = {
 	PodiumMode: string,
 	MusicVolume: number?,
 	MusicOn: boolean?,
+	Items: { [string]: boolean }?,
 	PlotIndex: number?,
 	SlowMode: boolean,
 }

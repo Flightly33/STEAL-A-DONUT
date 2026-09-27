@@ -7,6 +7,9 @@
 	  2. Cross the safe-zone line -> the guard gives up.
 	  3. Walk into your own base -> the donut is placed on a free pedestal and starts earning money.
 	  If the guard catches you first, you drop the donut and get sent back to your base.
+
+	Raids (see RaidService): a donut stolen from another player's base is carried the same way, keeps
+	its level, and goes back to its owner if the thief is hit/flung or dies before reaching home.
 ]]
 
 local RunService = game:GetService("RunService")
@@ -30,7 +33,10 @@ local GuardService = require(script.Parent.GuardService)
 local StealService = {}
 
 type Carry = {
+	Kind: string, -- "Lane" | "Raid"
 	DonutId: string,
+	Level: number,
+	Victim: Player?, -- raids: who it was stolen from
 	AreaId: number,
 	Visual: Model?,
 	Secured: boolean,
@@ -73,6 +79,23 @@ function StealService.Drop(player: Player, reason: string?)
 	if player.Parent then
 		Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Lost", Reason = reason })
 	end
+	-- A raided donut goes back to its owner if they're still here and have room.
+	local victim = carry.Victim
+	if carry.Kind == "Raid" and victim and victim.Parent then
+		local donut = Donuts.ById[carry.DonutId]
+		if PlotService.AddDonut(victim, carry.DonutId, carry.Level) then
+			notify(victim, `🛡 You got your {donut.Name} back!`, "success")
+		else
+			notify(victim, `Your {donut.Name} was dropped but your base is full, so it's gone.`, "error")
+		end
+	end
+end
+
+-- Weapons and traps call this: anyone carrying a donut drops it.
+function StealService.Knock(player: Player)
+	if carriers[player] then
+		StealService.Drop(player, "You got hit!")
+	end
 end
 
 local function attachVisual(player: Player, donutId: string): Model?
@@ -94,6 +117,27 @@ local function attachVisual(player: Player, donutId: string): Model?
 	model.Name = "CarriedDonut"
 	model.Parent = character
 	return model
+end
+
+-- Start carrying a donut stolen from `victim`'s base (RaidService already removed it there).
+function StealService.StartRaid(thief: Player, victim: Player, slot: DataService.SlotData)
+	local root = thief.Character and thief.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return
+	end
+	carriers[thief] = {
+		Kind = "Raid",
+		DonutId = slot.Id,
+		Level = slot.Level,
+		Victim = victim,
+		AreaId = 0,
+		Visual = attachVisual(thief, slot.Id),
+		Secured = true, -- no guard: the only danger is getting hit
+		LastPos = root.Position,
+		LastTime = os.clock(),
+	}
+	thief:SetAttribute("CarryingDonut", slot.Id)
+	Remotes.Event("ChaseStarted"):FireClient(thief, { DonutId = slot.Id, AreaId = 0, Raid = true })
 end
 
 local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
@@ -130,7 +174,10 @@ local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
 	end
 	local donut = Donuts.ById[donutId]
 	carriers[player] = {
+		Kind = "Lane",
 		DonutId = donutId,
+		Level = 1,
+		Victim = nil,
 		AreaId = record.AreaId,
 		Visual = attachVisual(player, donutId),
 		Secured = false,
@@ -159,7 +206,7 @@ local function deposit(player: Player)
 	if not carry or not profile then
 		return
 	end
-	local slot = PlotService.AddDonut(player, carry.DonutId)
+	local slot = PlotService.AddDonut(player, carry.DonutId, carry.Level)
 	if not slot then
 		notify(player, "Your base is full! Sell a donut (hold F on it) to make room.", "error")
 		return -- keep carrying until there's room
@@ -174,7 +221,11 @@ local function deposit(player: Player)
 		profile.Data.BestDonutScore = donut.Score
 	end
 	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Deposited", DonutId = donut.Id, IsNew = isNew })
-	notify(player, `{donut.Name} is earning {Format.Money(donut.Income)}/s at your base!`, "success")
+	notify(player, `{donut.Name} is earning {Format.Money(Economy.DonutIncome(donut.Id, carry.Level))}/s at your base!`, "success")
+	local victim = carry.Victim
+	if carry.Kind == "Raid" and victim and victim.Parent then
+		notify(victim, `😱 {player.DisplayName} got away with your {donut.Name}!`, "error")
+	end
 	if isNew then
 		DataService.PushState(player)
 	end

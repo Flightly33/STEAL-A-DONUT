@@ -41,6 +41,7 @@ export type Data = {
 	PodiumMode: string,
 	MusicVolume: number,
 	MusicOn: boolean,
+	Items: { [string]: boolean },
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -71,6 +72,7 @@ local TEMPLATE: Data = {
 	PodiumMode = "Rarest",
 	MusicVolume = Config.Music.DefaultVolume,
 	MusicOn = true,
+	Items = {},
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -303,6 +305,7 @@ function DataService.PushState(player: Player)
 		PodiumMode = profile.Data.PodiumMode,
 		MusicVolume = profile.Data.MusicVolume,
 		MusicOn = profile.Data.MusicOn,
+		Items = profile.Data.Items,
 		PlotIndex = player:GetAttribute("PlotIndex"),
 		SlowMode = profile.Session.SlowMode,
 	})
