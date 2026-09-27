@@ -503,6 +503,16 @@ function MapBuilder.Build(): Folder
 	setupLighting()
 	local existing = workspace:FindFirstChild("Map")
 	if existing and existing:IsA("Folder") then
+		-- A baked map (saved in the place file) can't store model references, so reconnect them.
+		for _, model in existing:GetDescendants() do
+			local primaryName = model:GetAttribute("PrimaryPartName")
+			if model:IsA("Model") and not model.PrimaryPart and type(primaryName) == "string" then
+				local primary = model:FindFirstChild(primaryName)
+				if primary and primary:IsA("BasePart") then
+					model.PrimaryPart = primary
+				end
+			end
+		end
 		mapFolder = existing
 		return existing
 	end
@@ -511,6 +521,12 @@ function MapBuilder.Build(): Folder
 	buildHub(folder)
 	buildPlots(folder)
 	buildLane(folder)
+	-- Remember each model's main part by name, so a baked copy of the map can reconnect it.
+	for _, model in folder:GetDescendants() do
+		if model:IsA("Model") and model.PrimaryPart then
+			model:SetAttribute("PrimaryPartName", model.PrimaryPart.Name)
+		end
+	end
 	folder.Parent = workspace
 	mapFolder = folder
 	return folder

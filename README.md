@@ -33,7 +33,7 @@ meshes, images or sounds.
 ## Getting it into Roblox Studio
 
 **Option A — just open it.** Double-click `StealADonut.rbxlx` (in this repo) to open it in Roblox Studio,
-then press **Play**. The map builds itself when the server starts (takes a couple of seconds).
+then press **Play**. The whole map is already in the file, so you can see and edit it before playing.
 
 **Option B — Rojo (recommended if you'll keep editing code).**
 1. Install [Rojo](https://rojo.space) (VS Code extension or CLI) and the Rojo Studio plugin.
@@ -112,19 +112,19 @@ rebalance speeds the signs and the guards stay in sync automatically.
 
 ---
 
-## Editing the map by hand ("baking")
+## Editing the map by hand
 
-The map is generated at runtime, so in edit mode you'll see an empty baseplate. To edit it visually:
-1. In Studio (not playing), open **View → Command Bar** and run
-   `require(game.ServerScriptService.Server.MapBuilder).Build()`
-2. A `Map` folder appears in Workspace. Restyle, move or replace anything and save the place.
-3. When the game runs and `Workspace.Map` already exists, it's used as-is.
+The map is saved in the place file (`map/Map.model.json` in this repo), so it's visible in Studio's
+edit mode. Move, restyle or replace anything and save. At runtime, if `Workspace.Map` exists the game
+uses it as-is instead of building a new one.
 
 Keep the names that the scripts look up: `Plots/PlotN` (with `Slots/SlotN`, `Spawn`, `SignAnchor`,
 `TreadmillAnchor`, `PodiumAnchor`), `Lane/AreaN` (with `Spawns/DonutSpawn`, `GuardHome`),
-`Hub/ShopStall/PromptPart` and `Hub/Leaderboards/Board_X/Screen`.
+`Hub/ShopStall/PromptPart` + `Glow`, and `Hub/Leaderboards/Board_X/Screen`.
 
----
+Want a fresh copy of the generated map (e.g. after changing `Config.Map` or area themes)? Delete
+`Workspace.Map`, then in **View → Command Bar** run
+`require(game.ServerScriptService.Server.MapBuilder).Build()` and save.
 
 ## Adding content
 
