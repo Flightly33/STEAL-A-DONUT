@@ -18,6 +18,7 @@ local Treadmill = require(script.Treadmill)
 local Guards = require(script.Guards)
 local Weather = require(script.Weather)
 local DonutIdle = require(script.DonutIdle)
+local DonutFX = require(script.DonutFX)
 
 Notifications.Init()
 Shop.Init()
@@ -38,6 +39,7 @@ HUD.Init({
 	RebirthReady = Rebirth.IsReady,
 })
 Effects.Init()
+DonutFX.Init() -- right after Effects, so it sees every donut in its resting spot
 Treadmill.Init()
 Guards.Init()
 Weather.Init()

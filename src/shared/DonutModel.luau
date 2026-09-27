@@ -9,6 +9,9 @@
 	halos, rainbow frosting, a shimmering aura for Secrets). Mutations recolour the donut and add
 	their own effects (Gold shines, Diamond is glassy, Mythic grows horns, Divine gets wings and a
 	halo, Rainbow cycles colours). Sizes scale the whole donut.
+	On top of that, Legendary+ donuts and mutated ones get a mystical theme (FXThemes.luau): sun rays,
+	particle vortexes, hellfire, god rays... plus lightning, magic circles and comets animated by
+	each client (client/DonutFX.luau).
 
 	The model is a single rigid assembly: the invisible "Root" part is anchored and every other part is
 	welded to it, so moving Root moves the whole donut (cheap to animate on the client).
@@ -24,6 +27,7 @@ local CollectionService = game:GetService("CollectionService")
 local Rarities = require(script.Parent.Rarities)
 local Format = require(script.Parent.Format)
 local Donuts = require(script.Parent.Donuts)
+local FXThemes = require(script.Parent.FXThemes)
 
 type Donut = Donuts.Donut
 
@@ -350,7 +354,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	function accessories.Horns()
-		local color = if mutation.Horns then rgb(60, 10, 20) else rgb(240, 230, 200)
+		local color = if mutation.Horns then rgb(255, 30, 50) else rgb(240, 230, 200)
 		local material = if mutation.Horns then Enum.Material.Neon else Enum.Material.SmoothPlastic
 		for _, side in { -1, 1 } do
 			block(Vector3.new(0.35, 0.7, 0.35), color, at(side * 0.95, TOP + 0.2, -0.05) * CFrame.Angles(0, 0, side * math.rad(-25)), material)
@@ -550,6 +554,168 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	model:SetAttribute("Top", top)
 	model:SetAttribute("Bottom", -bottom)
 
+	-- Mystical theme parts ----------------------------------------------------
+	local TAU = math.pi * 2
+	local RAINBOW_SEQUENCE = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, rgb(255, 60, 60)),
+		ColorSequenceKeypoint.new(0.2, rgb(255, 200, 40)),
+		ColorSequenceKeypoint.new(0.4, rgb(60, 230, 90)),
+		ColorSequenceKeypoint.new(0.6, rgb(60, 170, 255)),
+		ColorSequenceKeypoint.new(0.8, rgb(170, 80, 255)),
+		ColorSequenceKeypoint.new(1, rgb(255, 80, 200)),
+	})
+
+	-- Invisible welded part to hang effects on.
+	local function holder(name: string, sizeV: Vector3, cf: CFrame): BasePart
+		local p = Instance.new("Part")
+		p.Size = sizeV
+		p.Name = name
+		local part = add(p, cf, WHITE)
+		part.Transparency = 1
+		return part
+	end
+
+	-- Light rays fanning out behind the donut; the client spins them (FXSpin = radians/second).
+	local function burst(count: number, length: number, colors: { Color3 }, spin: number)
+		local rays = holder("Burst", Vector3.one * 0.2, at(0, 0, 0.9))
+		rays:SetAttribute("FXSpin", spin)
+		local center = Instance.new("Attachment")
+		center.Parent = rays
+		for i = 1, count do
+			local angle = i / count * TAU
+			local reach = length * (if i % 2 == 0 then 1 else 0.62) * s
+			local tip = Instance.new("Attachment")
+			tip.Position = Vector3.new(math.cos(angle) * reach, math.sin(angle) * reach, 0)
+			tip.Parent = rays
+			local beam = Instance.new("Beam")
+			beam.Attachment0 = center
+			beam.Attachment1 = tip
+			beam.FaceCamera = true
+			beam.Segments = 1
+			beam.Width0 = 0.75 * s
+			beam.Width1 = 0.05 * s
+			beam.LightEmission = 1
+			beam.Brightness = 2
+			beam.Color = ColorSequence.new(colors[(i - 1) % #colors + 1])
+			beam.Transparency = NumberSequence.new(0.2, 1)
+			beam.Parent = rays
+		end
+	end
+
+	-- A sphere of particles around the donut, rushing in towards it or bursting out of it.
+	local function shell(radius: number, inward: boolean, color: ColorSequence, rate: number, size: number, speed: number): ParticleEmitter
+		local sphere = holder(if inward then "Vortex" else "Glitter", Vector3.one * radius * 2 * s, CFrame.identity)
+		local e = emitter(sphere, color, rate, size * s, speed * s, radius / speed)
+		e.Shape = Enum.ParticleEmitterShape.Sphere
+		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+		e.ShapeInOut = if inward then Enum.ParticleEmitterShapeInOut.Inward else Enum.ParticleEmitterShapeInOut.Outward
+		e.SpreadAngle = Vector2.new(4, 4)
+		e.Speed = NumberRange.new(speed * s)
+		e.Lifetime = NumberRange.new(radius / speed * 0.95)
+		e.Brightness = 3
+		e.LockedToPart = true
+		e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0), NumberSequenceKeypoint.new(1, 0.3) })
+		return e
+	end
+
+	-- Stars that pop in and out around the donut.
+	local function twinkles(radius: number, color: ColorSequence, rate: number, size: number)
+		local space = holder("Twinkles", Vector3.one * radius * 2 * s, CFrame.identity)
+		local e = emitter(space, color, rate, size * s, 0.01, 1.2)
+		e.Shape = Enum.ParticleEmitterShape.Sphere
+		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		e.Speed = NumberRange.new(0)
+		e.Brightness = 4
+		e.LockedToPart = true
+		e.Rotation = NumberRange.new(0, 360)
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, size * s), NumberSequenceKeypoint.new(1, 0) })
+		e.Transparency = NumberSequence.new(0)
+	end
+
+	local themeParts: { [string]: (FXThemes.Theme) -> () } = {}
+
+	function themeParts.Radiance(theme: FXThemes.Theme)
+		burst(8, 4.2, theme.Colors, 0.35)
+	end
+
+	function themeParts.Starlight(_theme: FXThemes.Theme)
+		twinkles(3.6, ColorSequence.new(rgb(255, 170, 240), rgb(150, 230, 255)), 14, 0.45)
+	end
+
+	function themeParts.Void(_theme: FXThemes.Theme)
+		-- Rainbow particles pouring into the donut like a black hole, a prismatic star of rays,
+		-- and stars popping all around it
+		shell(3.4, true, RAINBOW_SEQUENCE, 45, 0.3, 6)
+		burst(12, 5.2, { rgb(255, 90, 90), rgb(255, 220, 60), rgb(80, 255, 140), rgb(80, 180, 255), rgb(200, 100, 255), rgb(255, 255, 255) }, -0.5)
+		twinkles(4.2, ColorSequence.new(rgb(255, 255, 255), rgb(200, 150, 255)), 18, 0.5)
+	end
+
+	function themeParts.Treasure(_theme: FXThemes.Theme)
+		twinkles(2.6, ColorSequence.new(rgb(255, 230, 90), rgb(255, 255, 220)), 7, 0.55)
+	end
+
+	function themeParts.Glitter(_theme: FXThemes.Theme)
+		shell(1.9, false, ColorSequence.new(rgb(200, 250, 255), rgb(120, 220, 255)), 22, 0.18, 2.5)
+	end
+
+	function themeParts.Hellfire(_theme: FXThemes.Theme)
+		local fire = Instance.new("Fire")
+		fire.Color = rgb(255, 40, 10)
+		fire.SecondaryColor = rgb(60, 0, 0)
+		fire.Size = 3.5 * s
+		fire.Heat = 7
+		fire.Parent = root
+		local smoke = Instance.new("Smoke")
+		smoke.Color = rgb(50, 0, 10)
+		smoke.Opacity = 0.12
+		smoke.RiseVelocity = 3
+		smoke.Size = 2.5 * s
+		smoke.Parent = root
+		-- Embers drifting up
+		local embers = emitter(root, ColorSequence.new(rgb(255, 210, 70), rgb(255, 30, 0)), 20, 0.2 * s, 3 * s, 2.4)
+		embers.EmissionDirection = Enum.NormalId.Top
+		embers.SpreadAngle = Vector2.new(35, 35)
+		embers.Acceleration = Vector3.new(0, 3, 0)
+		embers.Brightness = 4
+		-- Dark red souls swirling in
+		shell(3, true, ColorSequence.new(rgb(255, 60, 40), rgb(90, 0, 10)), 16, 0.4, 3)
+	end
+
+	function themeParts.Holy(_theme: FXThemes.Theme)
+		-- God rays shining down from the sky, and flecks of light drifting down
+		local sky = holder("HolySky", Vector3.new(4 * s, 0.2, 4 * s), at(0, 16, 0))
+		local target = Instance.new("Attachment")
+		target.Parent = root
+		for i = 1, 5 do
+			local angle = i / 5 * TAU
+			local top = Instance.new("Attachment")
+			top.Position = Vector3.new(math.cos(angle) * 2.4 * s, 0, math.sin(angle) * 2.4 * s)
+			top.Parent = sky
+			local ray = Instance.new("Beam")
+			ray.Attachment0 = top
+			ray.Attachment1 = target
+			ray.FaceCamera = true
+			ray.Segments = 1
+			ray.Width0 = 2.6 * s
+			ray.Width1 = 0.7 * s
+			ray.LightEmission = 1
+			ray.Brightness = 1.5
+			ray.Color = ColorSequence.new(rgb(255, 245, 200), rgb(255, 215, 110))
+			ray.Transparency = NumberSequence.new(0.92, 0.55)
+			ray.Parent = sky
+		end
+		local motes = emitter(sky, ColorSequence.new(rgb(255, 250, 220), rgb(255, 210, 90)), 14, 0.28 * s, 5 * s, 3)
+		motes.EmissionDirection = Enum.NormalId.Bottom
+		motes.Shape = Enum.ParticleEmitterShape.Box
+		motes.SpreadAngle = Vector2.new(8, 8)
+		motes.Brightness = 3
+	end
+
+	function themeParts.Prism(_theme: FXThemes.Theme)
+		burst(10, 4.6, { rgb(255, 70, 70), rgb(255, 170, 40), rgb(255, 240, 60), rgb(80, 240, 110), rgb(70, 170, 255), rgb(190, 90, 255) }, 0.6)
+		shell(2.8, false, RAINBOW_SEQUENCE, 18, 0.22, 3)
+	end
+
 	-- Effects: rarity and mutation effects stack
 	if not opts.NoEffects then
 		local lightRange = math.max(rarity.Light or 0, mutation.Light or 0)
@@ -605,6 +771,19 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 		if rarity.Rainbow or mutation.Rainbow then
 			CollectionService:AddTag(model, "DonutRainbow")
+		end
+
+		-- Mystical themes (the moving parts - lightning, magic circles, comets - are client-side)
+		local themes = FXThemes.For(rarity.Id, mutation.Id)
+		if #themes > 0 then
+			CollectionService:AddTag(model, "DonutFX")
+			model:SetAttribute("FXScale", s)
+			for _, theme in themes do
+				local build = themeParts[theme.Id]
+				if build then
+					build(theme)
+				end
+			end
 		end
 	end
 
