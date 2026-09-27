@@ -112,7 +112,7 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 	bannerTitle.Text = `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
-	Theme.PlaySound("Ping", 0.5)
+	Theme.PlaySound("Steal")
 	if donut and rarity then
 		Notifications.Toast(`You grabbed {donut.Name} ({rarity.Id})!`, "rare")
 	end
@@ -134,7 +134,7 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 			text ..= `   •   😡 {Config.Guard.Name}: {math.floor(gap)} studs behind`
 		end
 		bannerInfo.Text = text
-		local alpha = 0.55 + math.sin(pulse * 8) * 0.2
+		local alpha = 0.6 + math.sin(pulse * 5) * 0.1 -- gentle pulse, same strength as the blue glow
 		for _, edge in edges do
 			local gradient = edge:FindFirstChildOfClass("UIGradient")
 			if gradient then
@@ -202,13 +202,13 @@ local function onChaseEnded(result: { Result: string, DonutId: string?, IsNew: b
 			bigText(if result.IsNew then "✨ NEW DONUT! ✨" else "🍩 DONUT SECURED!", rarity.Color, 2)
 			Notifications.Banner(donut.Name, rarity.Color, 2.5, `{rarity.Id} • {Format.Money(donut.Income)}/s`)
 		end
-		Theme.PlaySound("Ping", 0.7)
+		Theme.PlaySound("Deposit")
 	elseif result.Result == "Caught" then
 		hideBanner()
 		clearBeam()
 		setEdges(true, Color3.fromRGB(255, 0, 0))
 		bigText(`CAUGHT BY {string.upper(Config.Guard.Name)}!`, Color3.fromRGB(255, 70, 70), 1.8)
-		Theme.PlaySound("Caught", 0.7)
+		Theme.PlaySound("Caught")
 		flingSelf()
 		task.delay(1.5, function()
 			setEdges(false)
@@ -228,7 +228,7 @@ local function buildOfflinePopup()
 	local collect = Theme.Button({ Text = "COLLECT!", Icon = "💰", Color = Theme.Colors.Green, Size = UDim2.fromOffset(240, 62), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Parent = modal.Body })
 	collect.Activated:Connect(function()
 		modal:Close()
-		Theme.PlaySound("Ping", 0.6)
+		Theme.PlaySound("Collect")
 	end)
 	Remotes.Event("OfflineEarnings").OnClientEvent:Connect(function(amount: number, seconds: number, capped: boolean?)
 		local capText = if capped then `\n<font size="18">(offline earnings are capped at {Config.Offline.MaxHours}h)</font>` else ""
@@ -240,7 +240,11 @@ end
 function Chase.Init()
 	gui = Theme.ScreenGui("Chase", 5)
 
-	-- Red/blue glow around the screen edges
+	-- Red/blue glow around the screen edges. Its own ScreenGui that ignores the top bar and the
+	-- phone notch/safe area, so the glow reaches every edge of the screen.
+	local edgeGui = Theme.ScreenGui("ChaseGlow", 3)
+	edgeGui.IgnoreGuiInset = true
+	edgeGui.ScreenInsets = Enum.ScreenInsets.None
 	local edgeDefs = {
 		{ Size = UDim2.new(1, 0, 0.18, 0), Position = UDim2.fromScale(0, 0), Rotation = 90 },
 		{ Size = UDim2.new(1, 0, 0.18, 0), Position = UDim2.fromScale(0, 0.82), Rotation = -90 },
@@ -254,7 +258,7 @@ function Chase.Init()
 			BackgroundColor3 = Color3.fromRGB(255, 0, 0),
 			BorderSizePixel = 0,
 			Visible = false,
-			Parent = gui,
+			Parent = edgeGui,
 		}, {
 			Theme.new("UIGradient", { Rotation = def.Rotation, Transparency = NumberSequence.new(0.5, 1) }),
 		})

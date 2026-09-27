@@ -33,21 +33,29 @@ Theme.Colors = {
 
 Theme.IsTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Built-in engine sounds (no uploads needed). Swap for your own asset ids any time.
+-- Sound effects: quiet and soft by default. Id = any sound (paste "rbxassetid://123" from the
+-- Creator Store to use your own), Volume 0-1, Pitch 1 = normal (lower = deeper/softer).
+-- Set Id = "" to turn a sound off.
+local PING = "rbxasset://sounds/electronicpingshort.wav"
 Theme.Sounds = {
-	Click = "rbxasset://sounds/button.wav",
-	Ping = "rbxasset://sounds/electronicpingshort.wav",
-	Caught = "rbxasset://sounds/uuhhh.mp3",
+	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.12, Pitch = 1.15 },
+	Steal = { Id = PING, Volume = 0.18, Pitch = 1.25 },
+	Deposit = { Id = PING, Volume = 0.22, Pitch = 0.85 },
+	Collect = { Id = PING, Volume = 0.2, Pitch = 1 },
+	Announce = { Id = PING, Volume = 0.12, Pitch = 0.7 },
+	Caught = { Id = PING, Volume = 0.2, Pitch = 0.5 }, -- low "bwomp" instead of the old harsh yell
+	Error = { Id = "", Volume = 0, Pitch = 1 },
 }
 
-function Theme.PlaySound(name: string, volume: number?)
-	local id = Theme.Sounds[name]
-	if not id or id == "" then
+function Theme.PlaySound(name: string, _volume: number?)
+	local def = Theme.Sounds[name]
+	if not def or def.Id == "" then
 		return
 	end
 	local sound = Instance.new("Sound")
-	sound.SoundId = id
-	sound.Volume = volume or 0.5
+	sound.SoundId = def.Id
+	sound.Volume = def.Volume
+	sound.PlaybackSpeed = def.Pitch
 	SoundService:PlayLocalSound(sound)
 	task.delay(3, function()
 		sound:Destroy()
@@ -196,7 +204,7 @@ function Theme.Button(props: {
 	})
 	button.MouseButton1Down:Connect(function()
 		Theme.Bounce(button)
-		Theme.PlaySound("Click", 0.3)
+		Theme.PlaySound("Click")
 	end)
 	button.Parent = props.Parent
 	return button

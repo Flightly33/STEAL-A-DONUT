@@ -6712,7 +6712,7 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 	bannerTitle.Text = `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
-	Theme.PlaySound("Ping", 0.5)
+	Theme.PlaySound("Steal")
 	if donut and rarity then
 		Notifications.Toast(`You grabbed {donut.Name} ({rarity.Id})!`, "rare")
 	end
@@ -6734,7 +6734,7 @@ local function onChaseStarted(info: { DonutId: string, AreaId: number, Guard: Mo
 			text ..= `   •   😡 {Config.Guard.Name}: {math.floor(gap)} studs behind`
 		end
 		bannerInfo.Text = text
-		local alpha = 0.55 + math.sin(pulse * 8) * 0.2
+		local alpha = 0.6 + math.sin(pulse * 5) * 0.1 -- gentle pulse, same strength as the blue glow
 		for _, edge in edges do
 			local gradient = edge:FindFirstChildOfClass("UIGradient")
 			if gradient then
@@ -6802,13 +6802,13 @@ local function onChaseEnded(result: { Result: string, DonutId: string?, IsNew: b
 			bigText(if result.IsNew then "✨ NEW DONUT! ✨" else "🍩 DONUT SECURED!", rarity.Color, 2)
 			Notifications.Banner(donut.Name, rarity.Color, 2.5, `{rarity.Id} • {Format.Money(donut.Income)}/s`)
 		end
-		Theme.PlaySound("Ping", 0.7)
+		Theme.PlaySound("Deposit")
 	elseif result.Result == "Caught" then
 		hideBanner()
 		clearBeam()
 		setEdges(true, Color3.fromRGB(255, 0, 0))
 		bigText(`CAUGHT BY {string.upper(Config.Guard.Name)}!`, Color3.fromRGB(255, 70, 70), 1.8)
-		Theme.PlaySound("Caught", 0.7)
+		Theme.PlaySound("Caught")
 		flingSelf()
 		task.delay(1.5, function()
 			setEdges(false)
@@ -6828,7 +6828,7 @@ local function buildOfflinePopup()
 	local collect = Theme.Button({ Text = "COLLECT!", Icon = "💰", Color = Theme.Colors.Green, Size = UDim2.fromOffset(240, 62), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Parent = modal.Body })
 	collect.Activated:Connect(function()
 		modal:Close()
-		Theme.PlaySound("Ping", 0.6)
+		Theme.PlaySound("Collect")
 	end)
 	Remotes.Event("OfflineEarnings").OnClientEvent:Connect(function(amount: number, seconds: number, capped: boolean?)
 		local capText = if capped then `\n<font size="18">(offline earnings are capped at {Config.Offline.MaxHours}h)</font>` else ""
@@ -6840,7 +6840,11 @@ end
 function Chase.Init()
 	gui = Theme.ScreenGui("Chase", 5)
 
-	-- Red/blue glow around the screen edges
+	-- Red/blue glow around the screen edges. Its own ScreenGui that ignores the top bar and the
+	-- phone notch/safe area, so the glow reaches every edge of the screen.
+	local edgeGui = Theme.ScreenGui("ChaseGlow", 3)
+	edgeGui.IgnoreGuiInset = true
+	edgeGui.ScreenInsets = Enum.ScreenInsets.None
 	local edgeDefs = {
 		{ Size = UDim2.new(1, 0, 0.18, 0), Position = UDim2.fromScale(0, 0), Rotation = 90 },
 		{ Size = UDim2.new(1, 0, 0.18, 0), Position = UDim2.fromScale(0, 0.82), Rotation = -90 },
@@ -6854,7 +6858,7 @@ function Chase.Init()
 			BackgroundColor3 = Color3.fromRGB(255, 0, 0),
 			BorderSizePixel = 0,
 			Visible = false,
-			Parent = gui,
+			Parent = edgeGui,
 		}, {
 			Theme.new("UIGradient", { Rotation = def.Rotation, Transparency = NumberSequence.new(0.5, 1) }),
 		})
@@ -6956,7 +6960,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		local enabled = not (State.Get("SlowMode") == true)
 		render(enabled)
 		State.Action("SetSlowMode", enabled)
-		Theme.PlaySound("Click", 0.3)
+		Theme.PlaySound("Click")
 	end)
 	State.OnAttribute("SlowMode", function(value)
 		render(value == true)
@@ -7696,7 +7700,7 @@ function Notifications.Toast(text: string, kind: string?)
 	Theme.new("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0, Parent = toast }, { Theme.Corner(10) })
 	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -10), Position = UDim2.fromOffset(16, 5), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
 	if kind == "error" then
-		Theme.PlaySound("Click", 0.2)
+		Theme.PlaySound("Error")
 	end
 
 	-- Keep at most 4 toasts
@@ -7783,7 +7787,7 @@ function Notifications.Init()
 	end)
 	Remotes.Event("AreaAnnouncement").OnClientEvent:Connect(function(text: string, color: Color3)
 		Notifications.Banner(text, color, 5)
-		Theme.PlaySound("Ping", 0.4)
+		Theme.PlaySound("Announce")
 	end)
 end
 
@@ -8141,21 +8145,29 @@ Theme.Colors = {
 
 Theme.IsTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Built-in engine sounds (no uploads needed). Swap for your own asset ids any time.
+-- Sound effects: quiet and soft by default. Id = any sound (paste "rbxassetid://123" from the
+-- Creator Store to use your own), Volume 0-1, Pitch 1 = normal (lower = deeper/softer).
+-- Set Id = "" to turn a sound off.
+local PING = "rbxasset://sounds/electronicpingshort.wav"
 Theme.Sounds = {
-	Click = "rbxasset://sounds/button.wav",
-	Ping = "rbxasset://sounds/electronicpingshort.wav",
-	Caught = "rbxasset://sounds/uuhhh.mp3",
+	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.12, Pitch = 1.15 },
+	Steal = { Id = PING, Volume = 0.18, Pitch = 1.25 },
+	Deposit = { Id = PING, Volume = 0.22, Pitch = 0.85 },
+	Collect = { Id = PING, Volume = 0.2, Pitch = 1 },
+	Announce = { Id = PING, Volume = 0.12, Pitch = 0.7 },
+	Caught = { Id = PING, Volume = 0.2, Pitch = 0.5 }, -- low "bwomp" instead of the old harsh yell
+	Error = { Id = "", Volume = 0, Pitch = 1 },
 }
 
-function Theme.PlaySound(name: string, volume: number?)
-	local id = Theme.Sounds[name]
-	if not id or id == "" then
+function Theme.PlaySound(name: string, _volume: number?)
+	local def = Theme.Sounds[name]
+	if not def or def.Id == "" then
 		return
 	end
 	local sound = Instance.new("Sound")
-	sound.SoundId = id
-	sound.Volume = volume or 0.5
+	sound.SoundId = def.Id
+	sound.Volume = def.Volume
+	sound.PlaybackSpeed = def.Pitch
 	SoundService:PlayLocalSound(sound)
 	task.delay(3, function()
 		sound:Destroy()
@@ -8304,7 +8316,7 @@ function Theme.Button(props: {
 	})
 	button.MouseButton1Down:Connect(function()
 		Theme.Bounce(button)
-		Theme.PlaySound("Click", 0.3)
+		Theme.PlaySound("Click")
 	end)
 	button.Parent = props.Parent
 	return button

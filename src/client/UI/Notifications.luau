@@ -39,7 +39,7 @@ function Notifications.Toast(text: string, kind: string?)
 	Theme.new("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0, Parent = toast }, { Theme.Corner(10) })
 	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -10), Position = UDim2.fromOffset(16, 5), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
 	if kind == "error" then
-		Theme.PlaySound("Click", 0.2)
+		Theme.PlaySound("Error")
 	end
 
 	-- Keep at most 4 toasts
@@ -126,7 +126,7 @@ function Notifications.Init()
 	end)
 	Remotes.Event("AreaAnnouncement").OnClientEvent:Connect(function(text: string, color: Color3)
 		Notifications.Banner(text, color, 5)
-		Theme.PlaySound("Ping", 0.4)
+		Theme.PlaySound("Announce")
 	end)
 end
 
