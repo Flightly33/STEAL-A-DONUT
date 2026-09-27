@@ -277,6 +277,19 @@ Config.Leaderboards = {
 }
 
 --------------------------------------------------------------------------------
+-- Background music (soundtrack). Plays tracks in order, looping the playlist.
+-- Roblox can't play YouTube links: each song must be a Roblox audio asset. Get IDs by
+-- uploading audio you own (Creator Dashboard > Development Items > Audio) or from licensed
+-- music in the Creator Store (Toolbox > Audio). Paste the number from "rbxassetid://NUMBER".
+--------------------------------------------------------------------------------
+Config.Music = {
+	DefaultVolume = 0.5, -- 0 to 1 (players change it in Settings)
+	Tracks = {
+		-- { Name = "Donut Theme", Id = 1234567890 },
+	} :: { { Name: string, Id: number } },
+}
+
+--------------------------------------------------------------------------------
 -- Saving
 --------------------------------------------------------------------------------
 Config.Data = {

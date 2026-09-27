@@ -18,6 +18,8 @@ export type Snapshot = {
 	EquippedSkin: string,
 	Discovered: { [string]: boolean },
 	PodiumMode: string,
+	MusicVolume: number?,
+	MusicOn: boolean?,
 	PlotIndex: number?,
 	SlowMode: boolean,
 }

@@ -12,16 +12,19 @@ local Leaderboards = require(UI.Leaderboards)
 local Chase = require(UI.Chase)
 local Effects = require(script.Effects)
 local Treadmill = require(script.Treadmill)
+local Settings = require(UI.Settings)
 
 Notifications.Init()
 Shop.Init()
 Index.Init()
 Leaderboards.Init()
 Chase.Init()
+Settings.Init()
 HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,
 	OpenLeaderboards = Leaderboards.Open,
+	OpenSettings = Settings.Open,
 })
 Effects.Init()
 Treadmill.Init()

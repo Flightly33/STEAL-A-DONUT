@@ -39,6 +39,8 @@ export type Data = {
 	EquippedSkin: string,
 	CachedPasses: { [string]: boolean },
 	PodiumMode: string,
+	MusicVolume: number,
+	MusicOn: boolean,
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -67,6 +69,8 @@ local TEMPLATE: Data = {
 	EquippedSkin = "Classic",
 	CachedPasses = {},
 	PodiumMode = "Rarest",
+	MusicVolume = Config.Music.DefaultVolume,
+	MusicOn = true,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -297,6 +301,8 @@ function DataService.PushState(player: Player)
 		EquippedSkin = profile.Data.EquippedSkin,
 		Discovered = profile.Data.Discovered,
 		PodiumMode = profile.Data.PodiumMode,
+		MusicVolume = profile.Data.MusicVolume,
+		MusicOn = profile.Data.MusicOn,
 		PlotIndex = player:GetAttribute("PlotIndex"),
 		SlowMode = profile.Session.SlowMode,
 	})

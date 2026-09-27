@@ -26,6 +26,7 @@ export type Callbacks = {
 	OpenShop: (tab: string?) -> (),
 	OpenIndex: () -> (),
 	OpenLeaderboards: () -> (),
+	OpenSettings: () -> (),
 }
 
 local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
@@ -77,7 +78,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		Name = "RightButtons",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -12, 0.45, 0),
-		Size = UDim2.fromOffset(74, 250),
+		Size = UDim2.fromOffset(74, 340),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -100,6 +101,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	square("🎨", "SKINS", Theme.Colors.Purple, 3, function()
 		callbacks.OpenShop("Skins")
 	end)
+	square("⚙️", "SETTINGS", Theme.Colors.Gray, 4, callbacks.OpenSettings)
 end
 
 local function buildStats(gui: ScreenGui)

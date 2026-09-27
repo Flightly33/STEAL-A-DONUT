@@ -221,6 +221,18 @@ function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId:
 	DataService.PushState(player)
 end
 
+function Actions.SetMusic(player: Player, profile: DataService.Profile, settings: any)
+	if type(settings) ~= "table" then
+		return
+	end
+	if type(settings.Volume) == "number" and settings.Volume == settings.Volume then
+		profile.Data.MusicVolume = math.clamp(settings.Volume, 0, 1)
+	end
+	if type(settings.On) == "boolean" then
+		profile.Data.MusicOn = settings.On
+	end
+end
+
 function Actions.SetSlowMode(player: Player, profile: DataService.Profile, enabled: any)
 	profile.Session.SlowMode = enabled == true
 	player:SetAttribute("SlowMode", profile.Session.SlowMode)
