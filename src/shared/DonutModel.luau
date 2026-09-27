@@ -12,6 +12,9 @@
 
 	The model is a single rigid assembly: the invisible "Root" part is anchored and every other part is
 	welded to it, so moving Root moves the whole donut (cheap to animate on the client).
+	Moving parts (legs, arms, wings, propellers, orbiting orbs, tentacles, capes) are marked with a
+	"Limb" attribute and the point they swing around ("Pivot", in the donut's own space), and each eye
+	has a hidden eyelid ("Lid"), so the client can play idle animations (see client/DonutIdle.luau).
 
 	Used by the server (lane spawns, bases, podiums, carried donuts) and the client (Index previews).
 ]]
@@ -176,6 +179,14 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		return add(p, cf, color, material)
 	end
 
+	-- Mark a part as an animatable limb that swings around `pivot` (unscaled donut coordinates).
+	local function limb(part: BasePart, kind: string, side: number, px: number, py: number, pz: number): BasePart
+		part:SetAttribute("Limb", kind)
+		part:SetAttribute("Side", side)
+		part:SetAttribute("Pivot", Vector3.new(px, py, pz) * s)
+		return part
+	end
+
 	local R = RING_RADIUS
 	local TOP = R + BALL / 2 -- top of the ring
 	local shine = if rarity.Shine or special then 0.15 else 0.04
@@ -236,6 +247,13 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			if not eyesCovered then
 				ball(0.34, BLACK, at(side * 0.47, TOP - 0.7, -1.2), nil, "Pupil")
 				ball(0.11, WHITE, at(side * 0.42, TOP - 0.6, -1.36), Enum.Material.Neon, "Glint")
+				-- Eyelid + lashes: invisible until the client makes the donut blink
+				local lid = ellipsoid(Vector3.new(0.72, 0.72, 0.46), frostingColor:Lerp(doughColor, 0.5), at(side * 0.49, TOP - 0.68, -1.2), nil, "Lid")
+				lid.Transparency = 1
+				lid:SetAttribute("Blink", true)
+				local lash = block(Vector3.new(0.5, 0.07, 0.06), BLACK, at(side * 0.49, TOP - 0.72, -1.45), nil, "Lash")
+				lash.Transparency = 1
+				lash:SetAttribute("Blink", true)
 			end
 		end
 		ellipsoid(Vector3.new(0.36, 0.2, 0.1), rgb(255, 130, 160), at(side * 0.86, TOP - 1.08, -0.86), nil, "Cheek").Transparency = 0.25
@@ -249,17 +267,20 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Legs()
 		for _, side in { -1, 1 } do
-			cylinder(1.3, 0.38, doughColor, at(side * 0.55, -TOP - 0.45, 0))
-			block(Vector3.new(0.55, 0.32, 0.8), WHITE, at(side * 0.55, -TOP - 1.12, -0.15), nil, "Shoe")
-			block(Vector3.new(0.57, 0.1, 0.82), rgb(230, 40, 40), at(side * 0.55, -TOP - 1.0, -0.15), nil, "ShoeStripe")
+			local hipX, hipY = side * 0.55, -TOP + 0.2
+			limb(cylinder(1.3, 0.38, doughColor, at(side * 0.55, -TOP - 0.45, 0)), "Leg", side, hipX, hipY, 0)
+			limb(block(Vector3.new(0.55, 0.32, 0.8), WHITE, at(side * 0.55, -TOP - 1.12, -0.15), nil, "Shoe"), "Leg", side, hipX, hipY, 0)
+			limb(block(Vector3.new(0.57, 0.1, 0.82), rgb(230, 40, 40), at(side * 0.55, -TOP - 1.0, -0.15), nil, "ShoeStripe"), "Leg", side, hipX, hipY, 0)
 		end
 	end
 
 	function accessories.Arms()
 		for _, side in { -1, 1 } do
 			local cf = at(side * (R + 1.05), 0.2, -0.1) * CFrame.Angles(0, 0, side * math.rad(-35))
-			cylinder(1.1, 0.3, doughColor, cf)
-			ball(0.45, WHITE, at(side * (R + 1.4), 0.7, -0.1), nil, "Glove")
+			-- The shoulder is the arm's inner end, where it meets the ring
+			local shoulderX, shoulderY = side * (R + 0.74), -0.25
+			limb(cylinder(1.1, 0.3, doughColor, cf), "Arm", side, shoulderX, shoulderY, -0.1)
+			limb(ball(0.45, WHITE, at(side * (R + 1.4), 0.7, -0.1), nil, "Glove"), "Arm", side, shoulderX, shoulderY, -0.1)
 		end
 	end
 
@@ -370,13 +391,14 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		local color = if mutation.Wings then rgb(255, 250, 225) elseif glowing then rarity.Color:Lerp(WHITE, 0.6) else WHITE
 		for _, side in { -1, 1 } do
 			for f = 0, 2 do
-				ellipsoid(
+				local wing = ellipsoid(
 					Vector3.new(2.4 - f * 0.4, 0.8, 0.18),
 					color,
 					at(side * (R + 1.0 + f * 0.15), 0.9 - f * 0.55, 0.6) * CFrame.Angles(0, side * math.rad(-20), side * math.rad(25 - f * 12)),
 					material,
 					"Wing"
 				)
+				limb(wing, "Wing", side, side * (R - 0.1), 0.4, 0.6)
 			end
 		end
 	end
@@ -409,14 +431,16 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	function accessories.Cape()
-		block(Vector3.new(2.8, 3.2, 0.1), rgb(200, 30, 40), at(0, -0.4, 1.0) * CFrame.Angles(math.rad(-8), 0, 0), Enum.Material.Fabric, "Cape")
+		local cape = block(Vector3.new(2.8, 3.2, 0.1), rgb(200, 30, 40), at(0, -0.4, 1.0) * CFrame.Angles(math.rad(-8), 0, 0), Enum.Material.Fabric, "Cape")
+		limb(cape, "Cape", 0, 0, 1.2, 0.8)
 	end
 
 	function accessories.Orbit()
 		local colors = { rgb(255, 200, 80), rgb(120, 200, 255), rgb(255, 120, 255) }
 		for i = 1, 3 do
 			local angle = i / 3 * math.pi * 2
-			ball(0.5, colors[i], at(math.cos(angle) * (R + 1.7), math.sin(angle * 2) * 0.6, math.sin(angle) * (R + 1.7)), Enum.Material.Neon, "Orbit")
+			local orb = ball(0.5, colors[i], at(math.cos(angle) * (R + 1.7), math.sin(angle * 2) * 0.6, math.sin(angle) * (R + 1.7)), Enum.Material.Neon, "Orbit")
+			limb(orb, "Orbit", 0, 0, 0, 0)
 		end
 	end
 
@@ -438,7 +462,8 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		for n = 0, 5 do
 			local x = -1.25 + n * 0.5
 			for k = 0, 2 do
-				ball(0.42 - k * 0.08, doughColor:Lerp(WHITE, 0.15), at(x + math.sin(n + k) * 0.12, -TOP - 0.1 - k * 0.38, 0), nil, "Tentacle")
+				local piece = ball(0.42 - k * 0.08, doughColor:Lerp(WHITE, 0.15), at(x + math.sin(n + k) * 0.12, -TOP - 0.1 - k * 0.38, 0), nil, "Tentacle")
+				limb(piece, "Tentacle", if n % 2 == 0 then 1 else -1, x, -TOP + 0.1, 0)
 			end
 		end
 	end
@@ -463,7 +488,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	function accessories.Propeller()
 		ellipsoid(Vector3.new(1.6, 0.6, 1.4), rgb(255, 60, 60), at(0, TOP + 0.2, 0), nil, "Cap")
 		block(Vector3.new(0.1, 0.5, 0.1), rgb(255, 230, 60), at(0, TOP + 0.65, 0))
-		block(Vector3.new(2, 0.06, 0.3), rgb(60, 140, 255), at(0, TOP + 0.9, 0), nil, "Propeller")
+		limb(block(Vector3.new(2, 0.06, 0.3), rgb(60, 140, 255), at(0, TOP + 0.9, 0), nil, "Propeller"), "Spin", 0, 0, TOP + 0.9, 0)
 	end
 
 	function accessories.WitchHat()

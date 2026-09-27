@@ -1,6 +1,6 @@
 --[[
 	Effects: purely cosmetic, client-side animation so the server never has to replicate it.
-	  DonutFloat / PodiumSpin  - rare donuts bob and spin
+	  DonutFloat / PodiumSpin  - rare donuts bob and spin (base donuts are animated by DonutIdle)
 	  DonutRainbow             - frosting cycles through the rainbow (Celestial, Secret)
 	  RainbowPart / RainbowText- rainbow parts and labels
 	  SpinSlow                 - floating crystals and halo rings
@@ -64,7 +64,7 @@ type Floater = { Root: BasePart, Base: CFrame, Phase: number, Spin: number, Bob:
 
 local function makeFloater(spin: number, bob: number): (Instance) -> Floater?
 	return function(instance: Instance): Floater?
-		if not instance:IsA("Model") then
+		if not instance:IsA("Model") or CollectionService:HasTag(instance, "BaseDonut") then
 			return nil
 		end
 		local root = instance.PrimaryPart or instance:WaitForChild("Root", 5)

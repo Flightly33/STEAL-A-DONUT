@@ -411,6 +411,9 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 		end
 	end)
 
+	-- Base donuts play idle animations on every client (client/DonutIdle.luau)
+	model:SetAttribute("IdleSeed", slotIndex)
+	CollectionService:AddTag(model, "BaseDonut")
 	model.Parent = plot
 	slotModels[player][slotIndex] = model
 	updateSlotLabels(player, slotIndex)
