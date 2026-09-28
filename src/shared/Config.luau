@@ -516,7 +516,8 @@ Config.Raid = {
 -- Item shop (bought with money, kept forever). Items appear in your backpack (hotbar).
 --   Weapon: click to swing; flings the players in front of you (and makes thieves drop donuts)
 --   Trap:   click inside your base to place it at your feet; flings intruders who touch it
---   Lock:   click to seal your base entrance with a laser for Duration seconds (no raids)
+--   Lock:   click to wrap your whole base in a force field for Duration seconds (all four sides, far
+--           too tall to jump; no raids, and anyone who gets inside is put back out)
 --------------------------------------------------------------------------------
 export type Item = {
 	Id: string,
@@ -540,7 +541,7 @@ Config.Items = {
 	{ Id = "Hammer", Name = "Mega Hammer", Kind = "Weapon", Cost = 50_000_000, Icon = "🔨", Color = Color3.fromRGB(150, 90, 255), Range = 14, Power = 160, Cooldown = 1.6, Description = "Sends thieves into orbit." },
 	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 in your base. Intruders slip and fly." },
 	{ Id = "Spring", Name = "Launch Pad", Kind = "Trap", Cost = 2_000_000, Icon = "🚀", Color = Color3.fromRGB(80, 200, 255), Power = 150, MaxPlaced = 2, Description = "Place up to 2. Launches intruders sky-high." },
-	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Laser door for 30s: blocks raids, flings intruders." },
+	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Force field around your WHOLE base for 30s: too tall to jump, blocks raids, kicks intruders out." },
 } :: { Item }
 
 --------------------------------------------------------------------------------

@@ -79,7 +79,8 @@ end
 local lastFlung: { [Player]: number } = {}
 local lastUse: { [Player]: { [string]: number } } = {}
 local placedTraps: { [Player]: { [string]: { BasePart } } } = {}
-local lockParts: { [Player]: BasePart } = {}
+local lockParts: { [Player]: Instance } = {}
+local LOCK_HEIGHT = 80 -- studs: nobody jumps over that
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -258,22 +259,51 @@ local function useLock(player: Player, item: Config.Item)
 	end
 	lastUse[player][item.Id] = os.clock()
 
-	-- Laser across the base entrance (the gap in the front fence)
+	-- A force field on ALL four sides of the base, far too tall to jump over. It pushes other players
+	-- away, and anyone who still gets inside (hopping the walls, lag) is put outside the entrance.
 	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
-	local laser = Build.Part({
-		Parent = plot, Name = "LockLaser",
-		Size = Vector3.new(18, 8, 0.6),
-		CFrame = cf * CFrame.new(0, Layout.PlotFloorHeight + 4, -Layout.PlotDepth / 2),
-		Color = rgb(255, 40, 40), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false,
-	})
-	lockParts[player] = laser
+	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, LOCK_HEIGHT
+	local field = Instance.new("Model")
+	field.Name = "LockLaser"
+	type Side = { Offset: CFrame, Size: Vector3 }
+	local sides: { Side } = {
+		{ Offset = CFrame.new(0, h / 2, -d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- front (entrance)
+		{ Offset = CFrame.new(0, h / 2, d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- back
+		{ Offset = CFrame.new(-w / 2, h / 2, 0), Size = Vector3.new(0.6, h, d + 2) }, -- left
+		{ Offset = CFrame.new(w / 2, h / 2, 0), Size = Vector3.new(0.6, h, d + 2) }, -- right
+	}
+	for _, side in sides do
+		local wall = Build.Part({
+			Parent = field, Name = "LockWall",
+			Size = side.Size,
+			CFrame = cf * side.Offset,
+			Color = rgb(255, 40, 40), Material = Enum.Material.ForceField, Transparency = 0.2, CanCollide = false,
+		})
+		wall.Touched:Connect(function(hit: BasePart)
+			local victim = playerFromPart(hit)
+			if victim and victim ~= player then
+				ItemService.Fling(victim, cf.Position, 90)
+			end
+		end)
+	end
+	field.Parent = plot
+	local laser = field:FindFirstChild("LockWall") :: BasePart
+	lockParts[player] = field
 	plot:SetAttribute("Locked", true)
 	ItemService.PlaySound(laser, "Lock")
-	laser.Touched:Connect(function(hit: BasePart)
-		local victim = playerFromPart(hit)
-		if victim and victim ~= player then
-			-- push them out of the base (the plot's LookVector points out through the entrance)
-			ItemService.Fling(victim, laser.Position + cf.LookVector * -6, 90)
+	task.spawn(function()
+		while lockParts[player] == field and field.Parent do
+			for _, other in Players:GetPlayers() do
+				local root = if other ~= player then rootOf(other) else nil
+				if root and Layout.IsInPlot(plotIndex, root.Position, PlotService.GetBaseWorld(player)) then
+					local character = other.Character
+					if character then
+						character:PivotTo(cf * CFrame.new(0, 4, -d / 2 - 12) * CFrame.Angles(0, math.pi, 0))
+						notify(other, "🔒 That base is locked!", "error")
+					end
+				end
+			end
+			task.wait(0.2)
 		end
 	end)
 	notify(player, `🔒 Base locked for {duration}s!`, "success")

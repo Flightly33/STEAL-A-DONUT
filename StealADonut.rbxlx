@@ -966,7 +966,8 @@ Config.Raid = {
 -- Item shop (bought with money, kept forever). Items appear in your backpack (hotbar).
 --   Weapon: click to swing; flings the players in front of you (and makes thieves drop donuts)
 --   Trap:   click inside your base to place it at your feet; flings intruders who touch it
---   Lock:   click to seal your base entrance with a laser for Duration seconds (no raids)
+--   Lock:   click to wrap your whole base in a force field for Duration seconds (all four sides, far
+--           too tall to jump; no raids, and anyone who gets inside is put back out)
 --------------------------------------------------------------------------------
 export type Item = {
 	Id: string,
@@ -990,7 +991,7 @@ Config.Items = {
 	{ Id = "Hammer", Name = "Mega Hammer", Kind = "Weapon", Cost = 50_000_000, Icon = "🔨", Color = Color3.fromRGB(150, 90, 255), Range = 14, Power = 160, Cooldown = 1.6, Description = "Sends thieves into orbit." },
 	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 in your base. Intruders slip and fly." },
 	{ Id = "Spring", Name = "Launch Pad", Kind = "Trap", Cost = 2_000_000, Icon = "🚀", Color = Color3.fromRGB(80, 200, 255), Power = 150, MaxPlaced = 2, Description = "Place up to 2. Launches intruders sky-high." },
-	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Laser door for 30s: blocks raids, flings intruders." },
+	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Force field around your WHOLE base for 30s: too tall to jump, blocks raids, kicks intruders out." },
 } :: { Item }
 
 --------------------------------------------------------------------------------
@@ -8690,7 +8691,8 @@ end
 local lastFlung: { [Player]: number } = {}
 local lastUse: { [Player]: { [string]: number } } = {}
 local placedTraps: { [Player]: { [string]: { BasePart } } } = {}
-local lockParts: { [Player]: BasePart } = {}
+local lockParts: { [Player]: Instance } = {}
+local LOCK_HEIGHT = 80 -- studs: nobody jumps over that
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -8869,22 +8871,51 @@ local function useLock(player: Player, item: Config.Item)
 	end
 	lastUse[player][item.Id] = os.clock()
 
-	-- Laser across the base entrance (the gap in the front fence)
+	-- A force field on ALL four sides of the base, far too tall to jump over. It pushes other players
+	-- away, and anyone who still gets inside (hopping the walls, lag) is put outside the entrance.
 	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
-	local laser = Build.Part({
-		Parent = plot, Name = "LockLaser",
-		Size = Vector3.new(18, 8, 0.6),
-		CFrame = cf * CFrame.new(0, Layout.PlotFloorHeight + 4, -Layout.PlotDepth / 2),
-		Color = rgb(255, 40, 40), Material = Enum.Material.Neon, Transparency = 0.35, CanCollide = false,
-	})
-	lockParts[player] = laser
+	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, LOCK_HEIGHT
+	local field = Instance.new("Model")
+	field.Name = "LockLaser"
+	type Side = { Offset: CFrame, Size: Vector3 }
+	local sides: { Side } = {
+		{ Offset = CFrame.new(0, h / 2, -d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- front (entrance)
+		{ Offset = CFrame.new(0, h / 2, d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- back
+		{ Offset = CFrame.new(-w / 2, h / 2, 0), Size = Vector3.new(0.6, h, d + 2) }, -- left
+		{ Offset = CFrame.new(w / 2, h / 2, 0), Size = Vector3.new(0.6, h, d + 2) }, -- right
+	}
+	for _, side in sides do
+		local wall = Build.Part({
+			Parent = field, Name = "LockWall",
+			Size = side.Size,
+			CFrame = cf * side.Offset,
+			Color = rgb(255, 40, 40), Material = Enum.Material.ForceField, Transparency = 0.2, CanCollide = false,
+		})
+		wall.Touched:Connect(function(hit: BasePart)
+			local victim = playerFromPart(hit)
+			if victim and victim ~= player then
+				ItemService.Fling(victim, cf.Position, 90)
+			end
+		end)
+	end
+	field.Parent = plot
+	local laser = field:FindFirstChild("LockWall") :: BasePart
+	lockParts[player] = field
 	plot:SetAttribute("Locked", true)
 	ItemService.PlaySound(laser, "Lock")
-	laser.Touched:Connect(function(hit: BasePart)
-		local victim = playerFromPart(hit)
-		if victim and victim ~= player then
-			-- push them out of the base (the plot's LookVector points out through the entrance)
-			ItemService.Fling(victim, laser.Position + cf.LookVector * -6, 90)
+	task.spawn(function()
+		while lockParts[player] == field and field.Parent do
+			for _, other in Players:GetPlayers() do
+				local root = if other ~= player then rootOf(other) else nil
+				if root and Layout.IsInPlot(plotIndex, root.Position, PlotService.GetBaseWorld(player)) then
+					local character = other.Character
+					if character then
+						character:PivotTo(cf * CFrame.new(0, 4, -d / 2 - 12) * CFrame.Angles(0, math.pi, 0))
+						notify(other, "🔒 That base is locked!", "error")
+					end
+				end
+			end
+			task.wait(0.2)
 		end
 	end)
 	notify(player, `🔒 Base locked for {duration}s!`, "success")
@@ -10044,6 +10075,36 @@ local function buildSlots(plot: Model, plotIndex: number, worldId: number)
 	end
 end
 
+-- Walls between neighbouring bases (the plot's left and right sides): solid, but low enough
+-- (PLOT_WALL_HEIGHT) to hop over, so thieves can jump in from the side.
+local PLOT_WALL_HEIGHT = 6
+local function addPlotWalls(plot: Instance, cf: CFrame)
+	if plot:FindFirstChild("SideWalls") then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "SideWalls"
+	local w, d = Layout.PlotWidth, Layout.PlotDepth
+	local classic = Config.Skins[1]
+	for _, side in { -1, 1 } do
+		local wall = Build.Part({
+			Parent = folder, Name = "Wall",
+			Size = Vector3.new(1.4, PLOT_WALL_HEIGHT, d + 1.4),
+			CFrame = cf * CFrame.new(side * (w / 2 + 0.9), PLOT_WALL_HEIGHT / 2, 0),
+			Color = classic.Fence, Material = classic.FenceMaterial,
+		})
+		wall:SetAttribute("SkinRole", "Fence")
+		local cap = Build.Part({
+			Parent = folder, Name = "WallCap",
+			Size = Vector3.new(2, 0.4, d + 2),
+			CFrame = cf * CFrame.new(side * (w / 2 + 0.9), PLOT_WALL_HEIGHT + 0.2, 0),
+			Color = classic.Trim, Material = classic.TrimMaterial,
+		})
+		cap:SetAttribute("SkinRole", "Trim")
+	end
+	folder.Parent = plot
+end
+
 function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	local cf = Layout.PlotCFrame(plotIndex, worldId)
 	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
@@ -10109,6 +10170,7 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	fenceLine(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd)) -- right
 	fenceLine(Vector3.new(-hw, 0, -hd), Vector3.new(-gap, 0, -hd)) -- front left
 	fenceLine(Vector3.new(gap, 0, -hd), Vector3.new(hw, 0, -hd)) -- front right
+	addPlotWalls(plot, cf)
 
 	buildSlots(plot, plotIndex, worldId)
 
@@ -10271,6 +10333,14 @@ function MapBuilder.Build(): Folder
 						Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = Layout.PlotCFrame(plotIndex, 1) * CFrame.new(0, 0, -Layout.PlotDepth / 2 - 22), Transparency = 1, CanCollide = false, CanQuery = false })
 					end
 				end
+			end
+		end
+		-- Walls between neighbouring bases (added later): World 1's plots are kept from the saved map.
+		local savedPlots = existing:FindFirstChild("Plots")
+		for plotIndex = 1, Config.Plots.Count do
+			local plot = savedPlots and savedPlots:FindFirstChild("Plot" .. plotIndex)
+			if plot then
+				addPlotWalls(plot, Layout.PlotCFrame(plotIndex, 1))
 			end
 		end
 		existing:SetAttribute("MapVersion", MAP_VERSION)

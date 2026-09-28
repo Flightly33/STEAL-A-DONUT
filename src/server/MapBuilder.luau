@@ -648,6 +648,36 @@ local function buildSlots(plot: Model, plotIndex: number, worldId: number)
 	end
 end
 
+-- Walls between neighbouring bases (the plot's left and right sides): solid, but low enough
+-- (PLOT_WALL_HEIGHT) to hop over, so thieves can jump in from the side.
+local PLOT_WALL_HEIGHT = 6
+local function addPlotWalls(plot: Instance, cf: CFrame)
+	if plot:FindFirstChild("SideWalls") then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "SideWalls"
+	local w, d = Layout.PlotWidth, Layout.PlotDepth
+	local classic = Config.Skins[1]
+	for _, side in { -1, 1 } do
+		local wall = Build.Part({
+			Parent = folder, Name = "Wall",
+			Size = Vector3.new(1.4, PLOT_WALL_HEIGHT, d + 1.4),
+			CFrame = cf * CFrame.new(side * (w / 2 + 0.9), PLOT_WALL_HEIGHT / 2, 0),
+			Color = classic.Fence, Material = classic.FenceMaterial,
+		})
+		wall:SetAttribute("SkinRole", "Fence")
+		local cap = Build.Part({
+			Parent = folder, Name = "WallCap",
+			Size = Vector3.new(2, 0.4, d + 2),
+			CFrame = cf * CFrame.new(side * (w / 2 + 0.9), PLOT_WALL_HEIGHT + 0.2, 0),
+			Color = classic.Trim, Material = classic.TrimMaterial,
+		})
+		cap:SetAttribute("SkinRole", "Trim")
+	end
+	folder.Parent = plot
+end
+
 function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	local cf = Layout.PlotCFrame(plotIndex, worldId)
 	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
@@ -713,6 +743,7 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	fenceLine(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd)) -- right
 	fenceLine(Vector3.new(-hw, 0, -hd), Vector3.new(-gap, 0, -hd)) -- front left
 	fenceLine(Vector3.new(gap, 0, -hd), Vector3.new(hw, 0, -hd)) -- front right
+	addPlotWalls(plot, cf)
 
 	buildSlots(plot, plotIndex, worldId)
 
@@ -875,6 +906,14 @@ function MapBuilder.Build(): Folder
 						Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = Layout.PlotCFrame(plotIndex, 1) * CFrame.new(0, 0, -Layout.PlotDepth / 2 - 22), Transparency = 1, CanCollide = false, CanQuery = false })
 					end
 				end
+			end
+		end
+		-- Walls between neighbouring bases (added later): World 1's plots are kept from the saved map.
+		local savedPlots = existing:FindFirstChild("Plots")
+		for plotIndex = 1, Config.Plots.Count do
+			local plot = savedPlots and savedPlots:FindFirstChild("Plot" .. plotIndex)
+			if plot then
+				addPlotWalls(plot, Layout.PlotCFrame(plotIndex, 1))
 			end
 		end
 		existing:SetAttribute("MapVersion", MAP_VERSION)
