@@ -211,7 +211,9 @@ local function refreshHeader()
 	end
 	local money, speed = Economy.PetBonuses(equippedIds)
 	if currentTab == "Eggs" then
-		header.Text = `🥚 Incubator {#(State.Data.Eggs or {})}/{Config.Pets.MaxEggs}   •   Eggs hatch on a timer, even while you're offline`
+		local capacity = Config.Pets.MaxEggs + Config.Pets.IncubatorSize.PerLevel * State.Number("IncubatorSize")
+		local hatchSpeed = 1 + Config.Pets.IncubatorSpeed.PerLevel * State.Number("IncubatorSpeed")
+		header.Text = `🥚 Incubator {#(State.Data.Eggs or {})}/{capacity}  •  ⚡ x{Format.Multiplier(hatchSpeed)} speed  •  upgrade it in the Shop`
 	else
 		header.Text = `🐾 {#pets}/{Config.Pets.MaxPets} pets   •   Equipped {#equippedIds}/{Config.Pets.MaxEquipped}: +{math.floor(money * 100 + 0.5)}% money, +{math.floor(speed * 100 + 0.5)}% speed`
 	end

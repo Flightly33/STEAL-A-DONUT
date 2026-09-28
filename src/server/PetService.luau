@@ -11,6 +11,8 @@
 	    Hatch it from the Pets window: it becomes a random pet from that egg's pool.
 	  * Equip up to Config.Pets.MaxEquipped pets for money / treadmill speed bonuses. Equipped pets
 	    follow you around (drawn by every client from the player's "Pets" attribute).
+	  * Incubator upgrades (bought in the Shop): faster hatching and room for more eggs.
+	  * Server events: Egg Shower (every area keeps getting eggs) and 2x Incubator Speed.
 ]]
 
 local HttpService = game:GetService("HttpService")
@@ -25,6 +27,7 @@ local PetModel = require(Shared.PetModel)
 local Layout = require(Shared.Layout)
 local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
+local Economy = require(Shared.Economy)
 
 local Build = require(script.Parent.Build)
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -50,6 +53,8 @@ local rng = Random.new()
 local spots: { [number]: EggSpot } = {} -- one egg at a time per area
 local lastFullWarning: { [Player]: number } = {}
 local eggLuck = 1
+local eggShower = false -- Egg Shower event
+local hatchBoost = 1 -- 2x Incubator Speed event
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -58,6 +63,21 @@ end
 -- Set by LuckService while a Luck Event runs.
 function PetService.SetEggLuck(luck: number)
 	eggLuck = luck
+end
+
+-- Set by EventService: eggs keep dropping in every area while an Egg Shower runs.
+function PetService.SetEggShower(on: boolean)
+	eggShower = on
+end
+
+-- Set by EventService: every incubator runs `mult` x as fast (1 = normal).
+function PetService.SetHatchBoost(mult: number)
+	hatchBoost = mult
+end
+
+-- How many eggs a player's incubator holds, and how fast it hatches (upgrades).
+function PetService.Capacity(profile: DataService.Profile): number
+	return Economy.IncubatorCapacity(profile.Data.IncubatorSize)
 end
 
 --------------------------------------------------------------------------------
@@ -130,7 +150,8 @@ local function rebuildIncubator(player: Player, plot: Model?)
 	sign.MaxDistance = 110
 	sign.Parent = signHolder
 	local count = #profile.Data.Eggs
-	local label = if count > cfg.MaxEggs then `🥚 INCUBATOR ({count} eggs)` else `🥚 INCUBATOR {count}/{cfg.MaxEggs}`
+	local capacity = PetService.Capacity(profile)
+	local label = if count > capacity then `🥚 INCUBATOR ({count} eggs)` else `🥚 INCUBATOR {count}/{capacity}`
 	Build.Text(sign, label, { TextColor3 = Color3.fromRGB(255, 225, 140), TextStrokeColor3 = Color3.fromRGB(60, 30, 0) })
 
 	for i, eggData in profile.Data.Eggs do
@@ -167,10 +188,11 @@ function PetService.AddEgg(player: Player, eggId: string, force: boolean?): bool
 	if not profile or not egg then
 		return false
 	end
-	if #profile.Data.Eggs >= cfg.MaxEggs and not force then
+	if #profile.Data.Eggs >= PetService.Capacity(profile) and not force then
 		return false
 	end
-	table.insert(profile.Data.Eggs, { Uid = HttpService:GenerateGUID(false), Id = egg.Id, HatchAt = os.time() + egg.HatchSeconds })
+	local seconds = egg.HatchSeconds / Economy.IncubatorSpeed(profile.Data.IncubatorSpeed)
+	table.insert(profile.Data.Eggs, { Uid = HttpService:GenerateGUID(false), Id = egg.Id, HatchAt = os.time() + seconds })
 	rebuildIncubator(player)
 	DataService.PushState(player)
 	return true
@@ -312,8 +334,8 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 		return
 	end
 	local profile = DataService.Get(player)
-	if profile and #profile.Data.Eggs >= cfg.MaxEggs then
-		notify(player, `Your incubator is full ({cfg.MaxEggs} eggs)! Hatch some eggs first.`, "error")
+	if profile and #profile.Data.Eggs >= PetService.Capacity(profile) then
+		notify(player, `Your incubator is full ({PetService.Capacity(profile)} eggs)! Hatch some eggs first, or upgrade it in the Shop.`, "error")
 		return
 	end
 	local egg = Pets.EggById[spot.EggId]
@@ -349,7 +371,9 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 			local now = os.clock()
 			if not lastFullWarning[carrier] or now - lastFullWarning[carrier] > 4 then
 				lastFullWarning[carrier] = now
-				notify(carrier, `Your incubator is full ({cfg.MaxEggs} eggs)! Hatch some eggs first.`, "error")
+				local carrierProfile = DataService.Get(carrier)
+				local capacity = if carrierProfile then PetService.Capacity(carrierProfile) else cfg.MaxEggs
+				notify(carrier, `Your incubator is full ({capacity} eggs)! Hatch some eggs first, or upgrade it in the Shop.`, "error")
 			end
 			return false
 		end,
@@ -460,6 +484,48 @@ function PetService.RandomLanePosition(areaId: number): Vector3?
 end
 
 --------------------------------------------------------------------------------
+-- Incubator upgrades
+--------------------------------------------------------------------------------
+-- kind: "Speed" (hatch faster) or "Size" (more eggs at once). Paid with money.
+function PetService.BuyUpgrade(player: Player, kind: any)
+	local profile = DataService.Get(player)
+	if not profile or (kind ~= "Speed" and kind ~= "Size") then
+		return
+	end
+	local data = profile.Data
+	local level = if kind == "Speed" then data.IncubatorSpeed else data.IncubatorSize
+	local cost = Economy.IncubatorUpgradeCost(kind, level)
+	if not cost then
+		notify(player, "That incubator upgrade is maxed!", "error")
+		return
+	end
+	if not DataService.TrySpend(player, cost) then
+		notify(player, "Not enough money! Need " .. Format.Money(cost), "error")
+		return
+	end
+	if kind == "Speed" then
+		-- Eggs already incubating speed up too
+		local old, new = Economy.IncubatorSpeed(level), Economy.IncubatorSpeed(level + 1)
+		local now = os.time()
+		for _, eggData in data.Eggs do
+			local left = eggData.HatchAt - now
+			if left > 0 then
+				eggData.HatchAt = now + left * old / new
+			end
+		end
+		data.IncubatorSpeed = level + 1
+		player:SetAttribute("IncubatorSpeed", data.IncubatorSpeed)
+		notify(player, `⚡ Incubator speed x{Format.Multiplier(new)}! Eggs hatch faster.`, "success")
+	else
+		data.IncubatorSize = level + 1
+		player:SetAttribute("IncubatorSize", data.IncubatorSize)
+		notify(player, `🥚 Your incubator now holds {PetService.Capacity(profile)} eggs!`, "success")
+	end
+	rebuildIncubator(player)
+	DataService.PushState(player)
+end
+
+--------------------------------------------------------------------------------
 -- Admin helpers
 --------------------------------------------------------------------------------
 function PetService.GiveEgg(player: Player, eggId: string)
@@ -502,6 +568,66 @@ function PetService.Init()
 			spots[area.Id] = { AreaId = area.Id, Model = nil, EggId = nil, Position = Vector3.zero, SpawnedAt = 0, Taken = false, Container = folder }
 		end
 	end
+
+	-- Egg Shower: every area that can have eggs keeps getting one
+	task.spawn(function()
+		while true do
+			task.wait(3)
+			if eggShower then
+				for areaId, spot in spots do
+					if not spot.Taken and not spot.Model then
+						local egg = Pets.RollEgg(areaId, rng)
+						local position = randomPosition(areaId)
+						if egg and position then
+							spot.Position = position
+							spawnEgg(spot, egg.Id, false)
+						end
+					end
+				end
+			end
+		end
+	end)
+
+	-- 2x Incubator Speed: eggs of everyone in the server count down faster
+	task.spawn(function()
+		local last = os.clock()
+		local pushed = 0
+		while true do
+			task.wait(1)
+			local now = os.clock()
+			local dt = now - last
+			last = now
+			if hatchBoost > 1 then
+				pushed += dt
+				for player, profile in DataService.GetAll() do
+					if profile.Session.Ready and #profile.Data.Eggs > 0 then
+						for _, eggData in profile.Data.Eggs do
+							eggData.HatchAt -= dt * (hatchBoost - 1)
+						end
+						-- Move the countdowns above the eggs in the incubator along
+						local plot = PlotService.GetPlotModel(player)
+						local incubator = plot and plot:FindFirstChild("Incubator")
+						if incubator then
+							for _, model in incubator:GetChildren() do
+								local uid = model:GetAttribute("Uid")
+								for _, eggData in profile.Data.Eggs do
+									if eggData.Uid == uid then
+										model:SetAttribute("HatchAt", eggData.HatchAt)
+									end
+								end
+							end
+						end
+						if pushed >= 5 then
+							DataService.PushState(player)
+						end
+					end
+				end
+				if pushed >= 5 then
+					pushed = 0
+				end
+			end
+		end
+	end)
 
 	task.spawn(function()
 		while true do

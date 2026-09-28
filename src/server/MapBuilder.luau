@@ -32,6 +32,7 @@ local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 
 local Build = require(script.Parent.Build)
+local WorldDecor = require(script.Parent.WorldDecor)
 local Decor = require(script.Parent.Decor)
 
 local MapBuilder = {}
@@ -42,7 +43,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 3
+local MAP_VERSION = 4
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -131,26 +132,41 @@ local function buildBridge(parent: Instance, world: Areas.World)
 	local x0, z0, half = world.OffsetX, map.SafeZoneZ, map.LaneHalfWidth
 	local first = Areas.ByWorld[world.Id][1]
 	local dream = world.Id == 3
-	local floorColors = if dream then { rgb(250, 245, 255), rgb(255, 225, 245) } else { rgb(214, 176, 120), rgb(200, 162, 108) }
+	local cyber = world.Id == 4
+	local floorColors = if dream then { rgb(250, 245, 255), rgb(255, 225, 245) } elseif cyber then { rgb(28, 28, 40), rgb(36, 36, 52) } else { rgb(214, 176, 120), rgb(200, 162, 108) }
+	local floorMaterial = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.WoodPlanks
 	local segment = 80
 	local i = 0
 	for z = z0, z0 + length - segment, segment do
 		i += 1
-		Build.Part({ Parent = bridge, Name = "BridgeFloor", Size = Vector3.new(half * 2, 1, segment), Position = Vector3.new(x0, -0.5, z + segment / 2), Color = floorColors[i % 2 + 1], Material = if dream then Enum.Material.SmoothPlastic else Enum.Material.WoodPlanks })
+		Build.Part({ Parent = bridge, Name = "BridgeFloor", Size = Vector3.new(half * 2, 1, segment), Position = Vector3.new(x0, -0.5, z + segment / 2), Color = floorColors[i % 2 + 1], Material = floorMaterial })
+	end
+	if cyber then
+		-- Neon lines along the bridge
+		for _, x in { -half + 3, half - 3 } do
+			Build.Decor({ Parent = bridge, Name = "NeonLine", Size = Vector3.new(0.8, 0.05, length), Position = Vector3.new(x0 + x, 0.03, z0 + length / 2), Color = if x < 0 then rgb(255, 40, 200) else rgb(0, 230, 255), Material = Enum.Material.Neon })
+		end
 	end
 	local t, h = 4, 14
 	for _, side in { -1, 1 } do
 		Build.Part({ Parent = bridge, Name = "BridgeWall", Size = Vector3.new(t, h, length), Position = Vector3.new(x0 + side * (half + t / 2), h / 2, z0 + length / 2), Color = first.Wall[1], Material = first.WallMaterial })
 		Build.Part({ Parent = bridge, Name = "BridgeRail", Size = Vector3.new(t + 1, 1.5, length), Position = Vector3.new(x0 + side * (half + t / 2), h + 0.75, z0 + length / 2), Color = first.Trim, Material = first.TrimMaterial })
-		-- Water (islands) or clouds (dream) far below the bridge
-		Build.Decor({ Parent = bridge, Name = if dream then "CloudSea" else "Sea", Size = Vector3.new(400, 1, length), Position = Vector3.new(x0 + side * (half + t + 200), -18, z0 + length / 2), Color = if dream then rgb(255, 240, 250) else rgb(60, 170, 230), Material = if dream then Enum.Material.SmoothPlastic else Enum.Material.Glass, Transparency = if dream then 0 else 0.15 })
+		-- Water (islands), clouds (dream) or the glowing city floor (cyber) far below the bridge
+		Build.Decor({ Parent = bridge, Name = if dream then "CloudSea" elseif cyber then "CityFloor" else "Sea", Size = Vector3.new(400, 1, length), Position = Vector3.new(x0 + side * (half + t + 200), -18, z0 + length / 2), Color = if dream then rgb(255, 240, 250) elseif cyber then rgb(20, 16, 40) else rgb(60, 170, 230), Material = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.Glass, Transparency = if dream or cyber then 0 else 0.15 })
 	end
 	-- Props along the edges
 	local rng = Random.new(world.Id * 31)
 	for z = z0 + 40, z0 + length - 20, 80 do
 		for _, side in { -1, 1 } do
 			local pos = Vector3.new(x0 + side * (half - 6), 0, z + rng:NextNumber(-10, 10))
-			if dream then
+			if cyber then
+				Build.Pillar(bridge, pos, 10, 0.6, rgb(50, 50, 60), Enum.Material.Metal)
+				local lampBall = Build.Ball(bridge, pos + Vector3.new(0, 10.6, 0), 1.6, if side < 0 then rgb(255, 40, 200) else rgb(0, 230, 255), Enum.Material.Neon)
+				local light = Instance.new("PointLight")
+				light.Color = lampBall.Color
+				light.Range = 18
+				light.Parent = lampBall
+			elseif dream then
 				for n = 1, 4 do
 					Build.Ball(bridge, pos + Vector3.new(rng:NextNumber(-3, 3), 2 + rng:NextNumber(0, 2), rng:NextNumber(-3, 3)), rng:NextNumber(3, 5), if n % 2 == 0 then rgb(255, 210, 240) else rgb(255, 255, 255))
 				end
@@ -221,6 +237,7 @@ local function buildWorldLanding(parent: Instance, world: Areas.World)
 	Build.Text(gui, `{world.Icon} WORLD {world.Id}: {string.upper(world.Name)} {world.Icon}`, { TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(20, 20, 40) })
 	buildPortal(folder, "HomePortal", Layout.PortalCFrame(world.Id, true), rgb(120, 230, 90), "🏠 BACK TO DONUT LAND", "Your base comes with you!", 1, true)
 	buildBridge(folder, world)
+	WorldDecor.Build(folder, world)
 	local marker = Build.Part({ Parent = folder, Name = "Arrival", Size = Vector3.new(4, 1, 4), CFrame = Layout.WorldArrival(world.Id), Transparency = 1, CanCollide = false, CanQuery = false })
 	folder.PrimaryPart = marker
 	local plots = Instance.new("Folder")
@@ -786,6 +803,21 @@ function MapBuilder.Build(): Folder
 		end
 		-- Older saved maps: add things introduced later.
 		local hub = existing:FindFirstChild("Hub")
+		local version = (existing:GetAttribute("MapVersion") or 1) :: number
+		if version < 4 then
+			-- Version 4: two more areas in every world and World 4 (Cyber City), so area numbers changed.
+			-- Rebuild the lanes, the world hubs and the hub's portals from scratch (below).
+			for _, name in { "Lane", "Worlds" } do
+				local old = existing:FindFirstChild(name)
+				if old then
+					old:Destroy()
+				end
+			end
+			local portals = hub and hub:FindFirstChild("Portals")
+			if portals then
+				portals:Destroy()
+			end
+		end
 		if hub then
 			local shop = hub:FindFirstChild("ShopStall")
 			if shop and shop:GetAttribute("ShopTab") == nil then
@@ -799,7 +831,6 @@ function MapBuilder.Build(): Folder
 			end
 			refreshPortalSigns(hub)
 		end
-		local version = (existing:GetAttribute("MapVersion") or 1) :: number
 		if version < 2 then
 			-- Version 2: donut stands moved to the front of each base (and more of them).
 			local plots = existing:FindFirstChild("Plots")

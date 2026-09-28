@@ -115,7 +115,14 @@ function Layout.PortalCFrame(worldId: number, home: boolean?): CFrame
 		return CFrame.lookAt(position, position + Vector3.new(0, 0, 1))
 	end
 	local side = if Layout.WorldOffset(worldId) >= 0 then 1 else -1
-	local position = Vector3.new(side * 96, 0, map.SafeZoneZ - 112)
+	-- Worlds on the same side of the hub stand one behind the other
+	local before = 0
+	for _, world in Areas.Worlds do
+		if world.Id > 1 and world.Id < worldId and (if world.OffsetX >= 0 then 1 else -1) == side then
+			before += 1
+		end
+	end
+	local position = Vector3.new(side * 96, 0, map.SafeZoneZ - 112 - before * 62)
 	return CFrame.lookAt(position, position + Vector3.new(-side, 0, 0))
 end
 

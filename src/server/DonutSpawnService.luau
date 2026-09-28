@@ -56,6 +56,12 @@ function DonutSpawnService.SetServerLuck(luck: ServerLuck?)
 	serverLuck = luck
 end
 
+-- Set by EventService while a server event runs: extra rare-donut luck everywhere (1 = none).
+local eventRarity = 1
+function DonutSpawnService.SetEventRarity(luck: number?)
+	eventRarity = luck or 1
+end
+
 -- Set by EventService while an event runs: areaId -> { Luck, Boost }
 local areaLuck: { [number]: { Luck: number, Boost: string? } } = {}
 
@@ -75,7 +81,8 @@ end
 type Forced = { DonutId: string, Mutation: string, Size: string }
 
 -- Put a donut on a spawn point: a fresh random one, or `forced` (a stolen donut coming back).
-local function spawnDonut(record: SpawnRecord, announce: boolean, forced: Forced?)
+-- `rareOnly`: a rare donut of the area (Rare Donut Rain event).
+local function spawnDonut(record: SpawnRecord, announce: boolean, forced: Forced?, rareOnly: boolean?)
 	if record.Model then
 		record.Model:Destroy()
 		record.Model = nil
@@ -88,7 +95,8 @@ local function spawnDonut(record: SpawnRecord, announce: boolean, forced: Forced
 		mutation = Rarities.Mutation(forced.Mutation)
 		size = Rarities.Size(forced.Size)
 	else
-		donut = Donuts.Roll(record.AreaId, rng, if global then global.Rarity else nil)
+		local rarityLuck = (if global then global.Rarity else 1) * eventRarity
+		donut = if rareOnly then Donuts.RollRare(record.AreaId, rng) else Donuts.Roll(record.AreaId, rng, if rarityLuck ~= 1 then rarityLuck else nil)
 		local mutationLuck = (if luck then luck.Luck else 1) * (if global then global.Mutation else 1)
 		mutation = Rarities.RollMutation(rng, mutationLuck, if luck then luck.Boost else nil)
 		size = Rarities.RollSize(rng, if global then global.Size else nil)
@@ -191,6 +199,29 @@ function DonutSpawnService.ForceSpawn(record: SpawnRecord, donutId: string, muta
 	end
 	spawnDonut(record, false, { DonutId = donutId, Mutation = mutationId, Size = sizeId })
 	record.Planted = true
+end
+
+-- Rare Donut Rain: a rare donut crashes onto a random free spot of the area (with a boom).
+-- Returns the spot's record, or nil if the area has no free spot.
+function DonutSpawnService.DropRare(areaId: number): SpawnRecord?
+	local free = {}
+	for _, record in records do
+		if record.AreaId == areaId and not record.Taken then
+			table.insert(free, record)
+		end
+	end
+	if #free == 0 then
+		return nil
+	end
+	local record = free[rng:NextInteger(1, #free)]
+	spawnDonut(record, true, nil, true)
+	local boom = Instance.new("Explosion")
+	boom.BlastPressure = 0
+	boom.BlastRadius = 0
+	boom.DestroyJointRadiusPercent = 0
+	boom.Position = record.Point.Position
+	boom.Parent = workspace
+	return record
 end
 
 -- Re-roll every untaken donut in an area (an event just started there).

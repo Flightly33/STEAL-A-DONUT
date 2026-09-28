@@ -2,8 +2,8 @@
 	Areas, from the safe zone outwards. Early areas are plain and bright; later areas get darker,
 	more magical, and are guarded by faster guards.
 
-	Worlds: World 1 is the main lane next to the hub. Worlds 2 and 3 are separate lanes reached through
-	portals in the hub (unlocked by rebirths). Each world has its own safe zone with a portal home.
+	Worlds: World 1 is the main lane next to the hub. Worlds 2, 3 and 4 are separate lanes reached
+	through portals in the hub (unlocked by rebirths). Each world has its own safe zone with a portal home.
 	In later worlds everyone moves faster (World.WalkMultiplier), so speed keeps climbing.
 	Their first area sits at the end of a long bridge (World.BridgeLength) so an escape there is as long
 	as it would be if the lane just kept going - otherwise a slow player could steal right next to
@@ -19,7 +19,7 @@
 	areas and up to ~80 Speed more in World 3. It follows any guard change you make.
 
 	The base goes up by 90 per area (= +9 WalkSpeed, see Config.Speed); GuardSpeedBonus is 5 / 7 / 9
-	WalkSpeed in worlds 1 / 2 / 3.
+	WalkSpeed in worlds 1 / 2 / 3 / 4 (11).
 
 	Ambience is applied on the client when you walk into the area.
 ]]
@@ -93,6 +93,7 @@ end
 Areas.Hub = DAY
 
 Areas.List = {
+	---------------------------------------------------------------- World 1: Donut Land
 	{
 		Id = 1, Name = "Glazed Meadow", Theme = "Meadow",
 		RecommendedSpeed = 0, GuardSpeedBonus = 5, WakeDelay = 1.6, World = 1, Index = 1,
@@ -183,10 +184,28 @@ Areas.List = {
 		Guard = { Skin = Color3.fromRGB(255, 240, 150), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(120, 80, 255), Aura = "Cosmic", Title = "Cosmic", Hat = "Halo" },
 		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(110, 70, 150), AtmosphereColor = Color3.fromRGB(200, 120, 255), AtmosphereDensity = 0.3, Haze = 3, Bloom = 0.75 }),
 	},
+	{
+		Id = 11, Name = "Candy Cane Canyon", Theme = "Candy",
+		RecommendedSpeed = 900, GuardSpeedBonus = 5, WakeDelay = 0.84, World = 1, Index = 11,
+		Floor = { Color3.fromRGB(250, 236, 240), Color3.fromRGB(240, 222, 230) }, FloorMaterial = Enum.Material.SmoothPlastic,
+		Wall = { Color3.fromRGB(230, 60, 70), Color3.fromRGB(245, 245, 245) }, WallMaterial = Enum.Material.SmoothPlastic,
+		Trim = Color3.fromRGB(255, 90, 120), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(230, 40, 50), Pants = Color3.fromRGB(255, 255, 255), Title = "Candy", Hat = "Party" },
+		Ambience = ambience({ ClockTime = 14, Tint = Color3.fromRGB(255, 240, 245), Saturation = 0.25, AtmosphereColor = Color3.fromRGB(255, 215, 230) }),
+	},
+	{
+		Id = 12, Name = "Rainbow Sprinkle Summit", Theme = "Rainbow",
+		RecommendedSpeed = 990, GuardSpeedBonus = 5, WakeDelay = 0.83, World = 1, Index = 12,
+		Floor = { Color3.fromRGB(245, 250, 255), Color3.fromRGB(230, 240, 255) }, FloorMaterial = Enum.Material.Snow,
+		Wall = { Color3.fromRGB(170, 200, 255), Color3.fromRGB(150, 185, 250) }, WallMaterial = Enum.Material.SmoothPlastic,
+		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(255, 230, 120), Shirt = Color3.fromRGB(120, 200, 255), Pants = Color3.fromRGB(255, 120, 200), Aura = "Sparkles", Title = "Rainbow", Hat = "Beanie" },
+		Ambience = ambience({ ClockTime = 15, Tint = Color3.fromRGB(245, 245, 255), Saturation = 0.3, Ambient = Color3.fromRGB(150, 150, 180), AtmosphereColor = Color3.fromRGB(220, 230, 255), AtmosphereDensity = 0.25, Haze = 1, Bloom = 0.4 }),
+	},
 	---------------------------------------------------------------- World 2: Glaze Islands
 	{
-		Id = 11, Name = "Glaze Beach", Theme = "Beach",
-		RecommendedSpeed = 900, GuardSpeedBonus = 7, WakeDelay = 0.85, World = 2, Index = 1,
+		Id = 13, Name = "Glaze Beach", Theme = "Beach",
+		RecommendedSpeed = 1_080, GuardSpeedBonus = 7, WakeDelay = 0.85, World = 2, Index = 1,
 		Floor = { Color3.fromRGB(236, 212, 158), Color3.fromRGB(224, 198, 144) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(170, 120, 72), Color3.fromRGB(156, 108, 64) }, WallMaterial = Enum.Material.WoodPlanks,
 		Trim = Color3.fromRGB(80, 200, 255), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -194,8 +213,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 14, Saturation = 0.2, AtmosphereColor = Color3.fromRGB(190, 225, 255) }),
 	},
 	{
-		Id = 12, Name = "Coral Crullers", Theme = "Coral",
-		RecommendedSpeed = 990, GuardSpeedBonus = 7, WakeDelay = 0.82, World = 2, Index = 2,
+		Id = 14, Name = "Coral Crullers", Theme = "Coral",
+		RecommendedSpeed = 1_170, GuardSpeedBonus = 7, WakeDelay = 0.82, World = 2, Index = 2,
 		Floor = { Color3.fromRGB(70, 130, 170), Color3.fromRGB(60, 116, 156) }, FloorMaterial = Enum.Material.Sand,
 		Wall = { Color3.fromRGB(35, 85, 130), Color3.fromRGB(28, 72, 115) }, WallMaterial = Enum.Material.Slate,
 		Trim = Color3.fromRGB(255, 120, 150), TrimMaterial = Enum.Material.Neon,
@@ -203,8 +222,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 14, Tint = Color3.fromRGB(190, 225, 255), Saturation = 0.1, Ambient = Color3.fromRGB(90, 130, 170), AtmosphereColor = Color3.fromRGB(50, 120, 190), AtmosphereDensity = 0.45, Haze = 1.5, Bloom = 0.3 }),
 	},
 	{
-		Id = 13, Name = "Pirate Cove", Theme = "Pirate",
-		RecommendedSpeed = 1_080, GuardSpeedBonus = 7, WakeDelay = 0.8, World = 2, Index = 3,
+		Id = 15, Name = "Pirate Cove", Theme = "Pirate",
+		RecommendedSpeed = 1_260, GuardSpeedBonus = 7, WakeDelay = 0.8, World = 2, Index = 3,
 		Floor = { Color3.fromRGB(135, 95, 58), Color3.fromRGB(120, 82, 50) }, FloorMaterial = Enum.Material.WoodPlanks,
 		Wall = { Color3.fromRGB(70, 58, 46), Color3.fromRGB(58, 48, 38) }, WallMaterial = Enum.Material.Wood,
 		Trim = Color3.fromRGB(230, 185, 60), TrimMaterial = Enum.Material.Foil,
@@ -212,8 +231,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 17.6, Tint = Color3.fromRGB(255, 225, 195), Saturation = 0.1, Ambient = Color3.fromRGB(130, 100, 80), AtmosphereColor = Color3.fromRGB(255, 190, 140), AtmosphereDensity = 0.3, Haze = 1.2, Bloom = 0.25 }),
 	},
 	{
-		Id = 14, Name = "Jelly Jungle", Theme = "Jungle",
-		RecommendedSpeed = 1_170, GuardSpeedBonus = 7, WakeDelay = 0.78, World = 2, Index = 4,
+		Id = 16, Name = "Jelly Jungle", Theme = "Jungle",
+		RecommendedSpeed = 1_350, GuardSpeedBonus = 7, WakeDelay = 0.78, World = 2, Index = 4,
 		Floor = { Color3.fromRGB(78, 150, 55), Color3.fromRGB(66, 134, 46) }, FloorMaterial = Enum.Material.Grass,
 		Wall = { Color3.fromRGB(52, 105, 42), Color3.fromRGB(44, 92, 36) }, WallMaterial = Enum.Material.Grass,
 		Trim = Color3.fromRGB(255, 80, 170), TrimMaterial = Enum.Material.Neon,
@@ -221,18 +240,36 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 15.5, Tint = Color3.fromRGB(225, 255, 220), Saturation = 0.2, Ambient = Color3.fromRGB(90, 130, 80), AtmosphereColor = Color3.fromRGB(150, 210, 140), AtmosphereDensity = 0.35, Haze = 1.5, Bloom = 0.2 }),
 	},
 	{
-		Id = 15, Name = "Volcano Isle", Theme = "Volcano",
-		RecommendedSpeed = 1_260, GuardSpeedBonus = 7, WakeDelay = 0.75, World = 2, Index = 5,
+		Id = 17, Name = "Volcano Isle", Theme = "Volcano",
+		RecommendedSpeed = 1_440, GuardSpeedBonus = 7, WakeDelay = 0.75, World = 2, Index = 5,
 		Floor = { Color3.fromRGB(72, 56, 50), Color3.fromRGB(86, 66, 56) }, FloorMaterial = Enum.Material.Basalt,
 		Wall = { Color3.fromRGB(58, 40, 36), Color3.fromRGB(46, 32, 30) }, WallMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 120, 20), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(255, 140, 40), Shirt = Color3.fromRGB(60, 40, 35), Pants = Color3.fromRGB(140, 30, 10), Aura = "Fire", Title = "Magma", Hat = "Helmet" },
 		Ambience = ambience({ ClockTime = 18.6, Tint = Color3.fromRGB(255, 205, 175), Saturation = 0.1, Contrast = 0.15, Ambient = Color3.fromRGB(110, 55, 32), AtmosphereColor = Color3.fromRGB(255, 120, 60), AtmosphereDensity = 0.45, Haze = 2.5, Bloom = 0.35 }),
 	},
+	{
+		Id = 18, Name = "Mango Lagoon", Theme = "Lagoon",
+		RecommendedSpeed = 1_530, GuardSpeedBonus = 7, WakeDelay = 0.74, World = 2, Index = 6,
+		Floor = { Color3.fromRGB(240, 215, 150), Color3.fromRGB(228, 200, 136) }, FloorMaterial = Enum.Material.Sand,
+		Wall = { Color3.fromRGB(60, 170, 140), Color3.fromRGB(50, 150, 125) }, WallMaterial = Enum.Material.Grass,
+		Trim = Color3.fromRGB(255, 170, 40), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(255, 150, 40), Pants = Color3.fromRGB(40, 170, 150), Title = "Lagoon", Hat = "Sunhat" },
+		Ambience = ambience({ ClockTime = 16.5, Tint = Color3.fromRGB(255, 240, 215), Saturation = 0.3, AtmosphereColor = Color3.fromRGB(255, 210, 160), AtmosphereDensity = 0.2, Haze = 1, Bloom = 0.25 }),
+	},
+	{
+		Id = 19, Name = "Tsunami Temple", Theme = "Temple",
+		RecommendedSpeed = 1_620, GuardSpeedBonus = 7, WakeDelay = 0.73, World = 2, Index = 7,
+		Floor = { Color3.fromRGB(150, 160, 140), Color3.fromRGB(135, 145, 125) }, FloorMaterial = Enum.Material.Cobblestone,
+		Wall = { Color3.fromRGB(110, 120, 100), Color3.fromRGB(95, 105, 88) }, WallMaterial = Enum.Material.Rock,
+		Trim = Color3.fromRGB(60, 220, 255), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(255, 217, 15), Shirt = Color3.fromRGB(40, 120, 170), Pants = Color3.fromRGB(230, 200, 120), Aura = "Bubbles", Title = "Temple", Hat = "Crown" },
+		Ambience = ambience({ ClockTime = 17, Tint = Color3.fromRGB(215, 240, 255), Saturation = 0.15, Contrast = 0.1, Ambient = Color3.fromRGB(90, 120, 130), AtmosphereColor = Color3.fromRGB(110, 180, 210), AtmosphereDensity = 0.4, Haze = 2, Bloom = 0.3 }),
+	},
 	---------------------------------------------------------------- World 3: Dream Dimension
 	{
-		Id = 16, Name = "Cloud Bakery", Theme = "Clouds",
-		RecommendedSpeed = 1_350, GuardSpeedBonus = 9, WakeDelay = 0.75, World = 3, Index = 1,
+		Id = 20, Name = "Cloud Bakery", Theme = "Clouds",
+		RecommendedSpeed = 1_710, GuardSpeedBonus = 9, WakeDelay = 0.75, World = 3, Index = 1,
 		Floor = { Color3.fromRGB(246, 246, 255), Color3.fromRGB(232, 236, 250) }, FloorMaterial = Enum.Material.SmoothPlastic,
 		Wall = { Color3.fromRGB(205, 222, 255), Color3.fromRGB(190, 210, 250) }, WallMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 190, 225), TrimMaterial = Enum.Material.Neon,
@@ -240,8 +277,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 12, Tint = Color3.fromRGB(255, 240, 250), Saturation = 0.1, AtmosphereColor = Color3.fromRGB(255, 230, 245), AtmosphereDensity = 0.2, Haze = 1 }),
 	},
 	{
-		Id = 17, Name = "Toy Factory", Theme = "Toys",
-		RecommendedSpeed = 1_440, GuardSpeedBonus = 9, WakeDelay = 0.72, World = 3, Index = 2,
+		Id = 21, Name = "Toy Factory", Theme = "Toys",
+		RecommendedSpeed = 1_800, GuardSpeedBonus = 9, WakeDelay = 0.72, World = 3, Index = 2,
 		Floor = { Color3.fromRGB(255, 205, 70), Color3.fromRGB(80, 165, 255) }, FloorMaterial = Enum.Material.Plastic,
 		Wall = { Color3.fromRGB(240, 80, 80), Color3.fromRGB(80, 200, 110) }, WallMaterial = Enum.Material.Plastic,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -249,8 +286,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 13, Saturation = 0.25 }),
 	},
 	{
-		Id = 18, Name = "Haunted Donuttery", Theme = "Haunted",
-		RecommendedSpeed = 1_530, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 3,
+		Id = 22, Name = "Haunted Donuttery", Theme = "Haunted",
+		RecommendedSpeed = 1_890, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 3,
 		Floor = { Color3.fromRGB(62, 52, 72), Color3.fromRGB(52, 44, 62) }, FloorMaterial = Enum.Material.Slate,
 		Wall = { Color3.fromRGB(42, 36, 52), Color3.fromRGB(34, 30, 44) }, WallMaterial = Enum.Material.Brick,
 		Trim = Color3.fromRGB(140, 255, 120), TrimMaterial = Enum.Material.Neon,
@@ -258,8 +295,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 22, Tint = Color3.fromRGB(215, 255, 215), Saturation = 0, Contrast = 0.2, Ambient = Color3.fromRGB(70, 90, 80), AtmosphereColor = Color3.fromRGB(90, 140, 100), AtmosphereDensity = 0.5, Haze = 2.5, Bloom = 0.4 }),
 	},
 	{
-		Id = 19, Name = "Clockwork Void", Theme = "Clockwork",
-		RecommendedSpeed = 1_620, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 4,
+		Id = 23, Name = "Clockwork Void", Theme = "Clockwork",
+		RecommendedSpeed = 1_980, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 4,
 		Floor = { Color3.fromRGB(72, 62, 92), Color3.fromRGB(86, 74, 108) }, FloorMaterial = Enum.Material.DiamondPlate,
 		Wall = { Color3.fromRGB(42, 36, 62), Color3.fromRGB(34, 30, 52) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 190, 60), TrimMaterial = Enum.Material.Neon,
@@ -267,20 +304,103 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 19.4, Tint = Color3.fromRGB(235, 220, 255), Saturation = 0.1, Contrast = 0.2, Ambient = Color3.fromRGB(90, 70, 130), AtmosphereColor = Color3.fromRGB(140, 100, 200), AtmosphereDensity = 0.35, Haze = 1.5, Bloom = 0.5 }),
 	},
 	{
-		Id = 20, Name = "Donut Heaven", Theme = "Heaven",
-		RecommendedSpeed = 1_710, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 5,
+		Id = 24, Name = "Donut Heaven", Theme = "Heaven",
+		RecommendedSpeed = 2_070, GuardSpeedBonus = 9, WakeDelay = 0.7, World = 3, Index = 5,
 		Floor = { Color3.fromRGB(255, 242, 205), Color3.fromRGB(255, 230, 175) }, FloorMaterial = Enum.Material.Marble,
 		Wall = { Color3.fromRGB(255, 250, 238), Color3.fromRGB(245, 238, 220) }, WallMaterial = Enum.Material.Marble,
 		Trim = Color3.fromRGB(255, 215, 90), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(255, 230, 140), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(255, 215, 90), Aura = "Cosmic", Title = "Golden", Hat = "Halo" },
 		Ambience = ambience({ ClockTime = 12, Tint = Color3.fromRGB(255, 245, 220), Saturation = 0.1, AtmosphereColor = Color3.fromRGB(255, 235, 190), AtmosphereDensity = 0.25, Haze = 1.5, Bloom = 0.6 }),
 	},
+	{
+		Id = 25, Name = "Starfall Garden", Theme = "Starfall",
+		RecommendedSpeed = 2_160, GuardSpeedBonus = 9, WakeDelay = 0.68, World = 3, Index = 6,
+		Floor = { Color3.fromRGB(40, 30, 80), Color3.fromRGB(52, 40, 100) }, FloorMaterial = Enum.Material.Grass,
+		Wall = { Color3.fromRGB(30, 24, 64), Color3.fromRGB(40, 32, 80) }, WallMaterial = Enum.Material.SmoothPlastic,
+		Trim = Color3.fromRGB(255, 235, 140), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(255, 240, 180), Shirt = Color3.fromRGB(80, 60, 170), Pants = Color3.fromRGB(40, 30, 90), Aura = "Cosmic", Title = "Starry", Hat = "Witch" },
+		Ambience = ambience({ ClockTime = 0.5, Tint = Color3.fromRGB(230, 220, 255), Saturation = 0.25, Contrast = 0.2, Ambient = Color3.fromRGB(100, 90, 160), AtmosphereColor = Color3.fromRGB(120, 100, 220), AtmosphereDensity = 0.3, Haze = 1.5, Bloom = 0.7 }),
+	},
+	{
+		Id = 26, Name = "Aurora Palace", Theme = "Aurora",
+		RecommendedSpeed = 2_250, GuardSpeedBonus = 9, WakeDelay = 0.66, World = 3, Index = 7,
+		Floor = { Color3.fromRGB(215, 240, 255), Color3.fromRGB(200, 230, 250) }, FloorMaterial = Enum.Material.Glass,
+		Wall = { Color3.fromRGB(170, 215, 255), Color3.fromRGB(150, 200, 245) }, WallMaterial = Enum.Material.Glass,
+		Trim = Color3.fromRGB(120, 255, 200), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(220, 240, 255), Shirt = Color3.fromRGB(120, 255, 210), Pants = Color3.fromRGB(150, 120, 255), Aura = "Snow", Title = "Aurora", Hat = "Crown" },
+		Ambience = ambience({ ClockTime = 22.5, Tint = Color3.fromRGB(220, 255, 245), Saturation = 0.3, Contrast = 0.2, Ambient = Color3.fromRGB(90, 140, 150), AtmosphereColor = Color3.fromRGB(100, 220, 200), AtmosphereDensity = 0.3, Haze = 1.5, Bloom = 0.8 }),
+	},
+	---------------------------------------------------------------- World 4: Cyber City
+	{
+		Id = 27, Name = "Neon Streets", Theme = "CyberStreets",
+		RecommendedSpeed = 2_340, GuardSpeedBonus = 11, WakeDelay = 0.66, World = 4, Index = 1,
+		Floor = { Color3.fromRGB(30, 30, 42), Color3.fromRGB(38, 38, 52) }, FloorMaterial = Enum.Material.Asphalt,
+		Wall = { Color3.fromRGB(24, 22, 40), Color3.fromRGB(32, 30, 52) }, WallMaterial = Enum.Material.Metal,
+		Trim = Color3.fromRGB(255, 40, 200), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 40, 200), Pants = Color3.fromRGB(30, 30, 50), Aura = "Neon", Title = "Street", Hat = "Visor" },
+		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(235, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(200, 60, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
+	{
+		Id = 28, Name = "Hologram Mall", Theme = "Hologram",
+		RecommendedSpeed = 2_430, GuardSpeedBonus = 11, WakeDelay = 0.65, World = 4, Index = 2,
+		Floor = { Color3.fromRGB(210, 220, 235), Color3.fromRGB(190, 200, 220) }, FloorMaterial = Enum.Material.Marble,
+		Wall = { Color3.fromRGB(60, 70, 100), Color3.fromRGB(70, 80, 115) }, WallMaterial = Enum.Material.Glass,
+		Trim = Color3.fromRGB(0, 230, 255), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(0, 200, 255), Pants = Color3.fromRGB(240, 240, 255), Aura = "Neon", Title = "Holo", Hat = "Goggles" },
+		Ambience = ambience({ ClockTime = 20.5, Tint = Color3.fromRGB(215, 240, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 200, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
+	{
+		Id = 29, Name = "Robot Factory", Theme = "RobotFactory",
+		RecommendedSpeed = 2_520, GuardSpeedBonus = 11, WakeDelay = 0.64, World = 4, Index = 3,
+		Floor = { Color3.fromRGB(90, 95, 105), Color3.fromRGB(78, 82, 92) }, FloorMaterial = Enum.Material.DiamondPlate,
+		Wall = { Color3.fromRGB(60, 62, 70), Color3.fromRGB(50, 52, 60) }, WallMaterial = Enum.Material.Metal,
+		Trim = Color3.fromRGB(255, 190, 0), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 190, 0), Pants = Color3.fromRGB(60, 60, 70), Aura = "Fire", Title = "Robo", Hat = "Helmet" },
+		Ambience = ambience({ ClockTime = 19, Tint = Color3.fromRGB(255, 235, 210), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 170, 60), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
+	{
+		Id = 30, Name = "Data Highway", Theme = "DataHighway",
+		RecommendedSpeed = 2_610, GuardSpeedBonus = 11, WakeDelay = 0.63, World = 4, Index = 4,
+		Floor = { Color3.fromRGB(15, 25, 35), Color3.fromRGB(20, 35, 50) }, FloorMaterial = Enum.Material.Glass,
+		Wall = { Color3.fromRGB(10, 20, 30), Color3.fromRGB(15, 28, 42) }, WallMaterial = Enum.Material.Glass,
+		Trim = Color3.fromRGB(40, 255, 120), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(40, 255, 120), Pants = Color3.fromRGB(10, 30, 20), Aura = "Neon", Title = "Data", Hat = "Visor" },
+		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(210, 255, 225), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(40, 255, 140), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
+	{
+		Id = 31, Name = "Firewall Fortress", Theme = "Firewall",
+		RecommendedSpeed = 2_700, GuardSpeedBonus = 11, WakeDelay = 0.62, World = 4, Index = 5,
+		Floor = { Color3.fromRGB(50, 20, 20), Color3.fromRGB(64, 26, 24) }, FloorMaterial = Enum.Material.Metal,
+		Wall = { Color3.fromRGB(40, 15, 15), Color3.fromRGB(55, 20, 20) }, WallMaterial = Enum.Material.Metal,
+		Trim = Color3.fromRGB(255, 50, 30), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 60, 40), Pants = Color3.fromRGB(40, 10, 10), Aura = "Fire", Title = "Firewall", Hat = "Helmet" },
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 205), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 60, 40), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
+	{
+		Id = 32, Name = "Glitch Zone", Theme = "Glitch",
+		RecommendedSpeed = 2_790, GuardSpeedBonus = 11, WakeDelay = 0.61, World = 4, Index = 6,
+		Floor = { Color3.fromRGB(20, 20, 20), Color3.fromRGB(245, 245, 245) }, FloorMaterial = Enum.Material.SmoothPlastic,
+		Wall = { Color3.fromRGB(255, 0, 200), Color3.fromRGB(0, 255, 220) }, WallMaterial = Enum.Material.Neon,
+		Trim = Color3.fromRGB(255, 255, 0), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(0, 0, 0), Pants = Color3.fromRGB(255, 0, 200), Aura = "Cosmic", Title = "Glitched", Hat = "Gears" },
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(240, 220, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 0, 200), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
+	{
+		Id = 33, Name = "The Mainframe", Theme = "Mainframe",
+		RecommendedSpeed = 2_880, GuardSpeedBonus = 11, WakeDelay = 0.6, World = 4, Index = 7,
+		Floor = { Color3.fromRGB(10, 12, 30), Color3.fromRGB(18, 22, 50) }, FloorMaterial = Enum.Material.Glass,
+		Wall = { Color3.fromRGB(8, 10, 25), Color3.fromRGB(14, 18, 40) }, WallMaterial = Enum.Material.Glass,
+		Trim = Color3.fromRGB(80, 160, 255), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(40, 90, 255), Aura = "Cosmic", Title = "Mainframe", Hat = "Halo" },
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(215, 230, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 140, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+	},
 } :: { Area }
 
 Areas.Worlds = {
 	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, RequiredRebirths = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
-	{ Id = 2, Name = "Glaze Islands", OffsetX = 2600, BridgeLength = 1600, RequiredRebirths = 1, WalkMultiplier = 1.2, Color = Color3.fromRGB(80, 200, 255), Icon = "🏝️" },
-	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 2400, RequiredRebirths = 2, WalkMultiplier = 1.3, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
+	{ Id = 2, Name = "Glaze Islands", OffsetX = 2600, BridgeLength = 1920, RequiredRebirths = 1, WalkMultiplier = 1.2, Color = Color3.fromRGB(80, 200, 255), Icon = "🏝️" },
+	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 3040, RequiredRebirths = 2, WalkMultiplier = 1.3, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
+	{ Id = 4, Name = "Cyber City", OffsetX = 5200, BridgeLength = 4160, RequiredRebirths = 3, WalkMultiplier = 1.45, Color = Color3.fromRGB(255, 40, 200), Icon = "🌆" },
 } :: { World }
 
 Areas.ByWorld = {} :: { [number]: { Area } }

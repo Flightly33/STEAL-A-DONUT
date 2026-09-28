@@ -57,6 +57,9 @@ export type Carry = {
 	OnLost: ((Player) -> ())?,
 }
 
+-- A single jump longer than this (studs) while carrying something is treated as a teleport hack.
+local TELEPORT_DISTANCE = 400
+
 local carriers: { [Player]: Carry } = {}
 local lastFullWarning: { [Player]: number } = {}
 
@@ -407,16 +410,18 @@ local function updateCarriers()
 		end
 		local pos = root.Position
 
-		-- Basic anti-teleport: you can't move much faster than your WalkSpeed while carrying.
-		-- (Only measured when the position actually changes, so laggy players aren't punished.)
+		-- Teleport-hack guard only. Running fast never drops anything (there used to be a speed check
+		-- here, but network lag made fast players drop their donut). Only a jump of hundreds of studs
+		-- in one step - which nobody can run - sends it back. Game teleports (lift pads, portals)
+		-- go through StealService.Teleport, which moves LastPos along, so they never trigger this.
 		local flat = Vector2.new(pos.X - carry.LastPos.X, pos.Z - carry.LastPos.Z).Magnitude
 		if flat > 0.01 then
 			local profile = DataService.Get(player)
 			local walkSpeed = if profile then Economy.PlayerWalkSpeed(profile.Data.Speed, Layout.WorldAt(pos)) * DataService.WalkBoost(profile.Data) else 16
-			local allowed = (walkSpeed * 1.6 + 25) * (now - carry.LastTime) + 6
-			if flat > allowed then
-				notify(player, "You moved too fast and dropped it!", "error")
-				StealService.Drop(player, "Moved too fast")
+			local elapsed = math.max(now - carry.LastTime, 0.1)
+			if flat > TELEPORT_DISTANCE and flat > walkSpeed * elapsed * 4 then
+				notify(player, "Teleporting isn't allowed while carrying something!", "error")
+				StealService.Drop(player, "Teleported")
 				continue
 			end
 			carry.LastPos = pos

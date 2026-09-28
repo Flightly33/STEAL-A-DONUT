@@ -126,77 +126,164 @@ Donuts.List = {
 	D("maximus", "Donutus Maximus Supremus", "Secret", 10, 1_500_000_000, 0.008, rgb(255, 215, 0), rgb(255, 255, 255), RAINBOW, { "Wings", "Halo", "Orbit", "Crown", "Cape" }),
 
 	---------------------------------------------------------------- World 2: Glaze Islands
-	-- 11. Glaze Beach
-	D("coconutto", "Coconutto Donutto", "Uncommon", 11, 60_000_000, 50, rgb(130, 85, 50), rgb(250, 248, 240), { rgb(130, 85, 50) }, { "Legs", "Leaf" }),
-	D("surferino", "Surferino Glazerino", "Rare", 11, 110_000_000, 28, DOUGH, rgb(80, 200, 255), WHITE, { "Legs", "Arms", "Sunglasses" }),
-	D("flamingo", "Flamingo Frostingo", "Rare", 11, 210_000_000, 14, DOUGH, rgb(255, 120, 170), WHITE, { "Legs", "Beak", "Bow" }),
-	D("tralalerobeach", "Tralalero Beachalero", "Epic", 11, 420_000_000, 4, DOUGH, rgb(60, 160, 255), OCEAN, { "Legs", "SharkFin", "Sunglasses" }),
-	D("crabbo", "Crabbo Crullero", "Legendary", 11, 900_000_000, 1, rgb(220, 80, 55), rgb(255, 110, 80), WHITE, { "Legs", "Arms", "Antenna", "Fangs" }),
-	-- 12. Coral Crullers
-	D("bubblino", "Bubblino Glazino", "Rare", 12, 360_000_000, 50, DOUGH, rgb(170, 230, 255), WHITE, { "Legs", "Snorkel" }),
-	D("jellyfishino", "Jellyfishino Donutino", "Rare", 12, 650_000_000, 28, rgb(230, 170, 255), rgb(255, 150, 230), WHITE, { "Tentacles" }),
-	D("octopussi", "Octopussi Sprinklussi", "Epic", 12, 1_270_000_000, 14, rgb(200, 80, 160), rgb(230, 100, 200), { rgb(255, 230, 250) }, { "Tentacles", "Sunglasses" }),
-	D("sharkshark", "Shark Shark Glazark", "Epic", 12, 2_540_000_000, 4, rgb(120, 140, 170), rgb(90, 110, 140), WHITE, { "Legs", "SharkFin", "Fangs" }),
-	D("pufferino", "Pufferino Donuferino", "Legendary", 12, 5_400_000_000, 1, DOUGH, rgb(255, 220, 90), { rgb(120, 90, 40) }, { "Legs", "IceSpikes", "Snorkel" }),
-	-- 13. Pirate Cove
-	D("pirato", "Pirato Donutto", "Rare", 13, 2_200_000_000, 50, DOUGH, rgb(240, 200, 130), nil, { "Legs", "PirateHat" }),
-	D("barnacle", "Barnacle Bombardino", "Epic", 13, 3_900_000_000, 28, rgb(110, 120, 100), rgb(90, 110, 90), { rgb(200, 200, 180) }, { "PlaneWings", "EyePatch" }),
-	D("parrotino", "Parrotino Glazarrot", "Epic", 13, 7_600_000_000, 14, DOUGH, rgb(60, 200, 90), RAINBOW, { "Legs", "Beak", "Wings" }),
-	D("crullbeard", "Captain Crullbeard", "Legendary", 13, 15_000_000_000, 4, DOUGH, rgb(120, 60, 40), GOLD, { "Legs", "Arms", "PirateHat", "EyePatch", "Mustache" }),
-	D("treasurino", "Treasurino Goldonut", "Legendary", 13, 33_000_000_000, 1, rgb(230, 180, 50), rgb(255, 215, 60), GOLD, { "Legs", "Crown", "Cape" }),
-	-- 14. Jelly Jungle
-	D("bananini", "Bananini Jellini", "Rare", 14, 13_000_000_000, 50, DOUGH, rgb(255, 230, 80), BLACK, { "Legs", "Leaf" }),
-	D("toucanino", "Toucanino Sprinklino", "Epic", 14, 23_500_000_000, 28, rgb(30, 30, 30), rgb(255, 160, 30), RAINBOW, { "Legs", "Beak" }),
-	D("chimpanzilla", "Chimpanzilla Glazilla", "Legendary", 14, 46_000_000_000, 14, DOUGH, rgb(120, 75, 40), GOLD, { "Legs", "Arms", "MonkeyEars", "Crown" }),
-	D("tigrino", "Tigrino Tigrella", "Legendary", 14, 91_000_000_000, 4, DOUGH, rgb(255, 150, 40), BLACK, { "Legs", "Fangs", "MonkeyEars" }),
-	D("junglejelly", "Jungle Jelly Kingo", "Celestial", 14, 196_000_000_000, 1, rgb(80, 160, 60), rgb(255, 60, 160), RAINBOW, { "Legs", "Crown", "Leaf", "Cape" }),
-	-- 15. Volcano Isle
-	D("lavalino", "Lavalino Lavalone", "Epic", 15, 78_000_000_000, 50, rgb(60, 40, 35), rgb(255, 110, 30), EMBERS, { "Legs", "Flames" }),
-	D("obsidiano", "Obsidiano Donudiano", "Epic", 15, 141_000_000_000, 28, rgb(25, 20, 30), rgb(50, 40, 60), { rgb(255, 100, 0) }, { "Legs", "Horns" }),
-	D("tikitiki", "Tiki Tiki Glazoki", "Legendary", 15, 274_000_000_000, 14, rgb(140, 90, 50), rgb(200, 140, 80), EMBERS, { "Legs", "Arms", "Leaf", "Mustache" }),
-	D("magmazilla", "Magmazilla Crullazilla", "Celestial", 15, 549_000_000_000, 4, rgb(50, 30, 30), rgb(255, 60, 0), EMBERS, { "Legs", "Horns", "Wings", "Flames", "Fangs" }),
-	D("volcanito", "Volcanito Supremito", "Celestial", 15, 1_180_000_000_000, 1, rgb(60, 40, 35), rgb(255, 140, 0), GOLD, { "Crown", "Flames", "Cape", "Wings" }),
-	D("eruptus", "Eruptus Maximus", "Secret", 15, 5_000_000_000_000, 0.025, rgb(20, 10, 10), rgb(255, 80, 0), EMBERS, { "Crown", "Wings", "Flames", "Halo", "Orbit" }),
+	-- 13. Glaze Beach
+	D("coconutto", "Coconutto Donutto", "Uncommon", 13, 2_160_000_000, 50, rgb(130, 85, 50), rgb(250, 248, 240), { rgb(130, 85, 50) }, { "Legs", "Leaf" }),
+	D("surferino", "Surferino Glazerino", "Rare", 13, 3_960_000_000, 28, DOUGH, rgb(80, 200, 255), WHITE, { "Legs", "Arms", "Sunglasses" }),
+	D("flamingo", "Flamingo Frostingo", "Rare", 13, 7_560_000_000, 14, DOUGH, rgb(255, 120, 170), WHITE, { "Legs", "Beak", "Bow" }),
+	D("tralalerobeach", "Tralalero Beachalero", "Epic", 13, 15_120_000_000, 4, DOUGH, rgb(60, 160, 255), OCEAN, { "Legs", "SharkFin", "Sunglasses" }),
+	D("crabbo", "Crabbo Crullero", "Legendary", 13, 32_400_000_000, 1, rgb(220, 80, 55), rgb(255, 110, 80), WHITE, { "Legs", "Arms", "Antenna", "Fangs" }),
+	-- 14. Coral Crullers
+	D("bubblino", "Bubblino Glazino", "Rare", 14, 12_960_000_000, 50, DOUGH, rgb(170, 230, 255), WHITE, { "Legs", "Snorkel" }),
+	D("jellyfishino", "Jellyfishino Donutino", "Rare", 14, 23_400_000_000, 28, rgb(230, 170, 255), rgb(255, 150, 230), WHITE, { "Tentacles" }),
+	D("octopussi", "Octopussi Sprinklussi", "Epic", 14, 45_720_000_000, 14, rgb(200, 80, 160), rgb(230, 100, 200), { rgb(255, 230, 250) }, { "Tentacles", "Sunglasses" }),
+	D("sharkshark", "Shark Shark Glazark", "Epic", 14, 91_440_000_000, 4, rgb(120, 140, 170), rgb(90, 110, 140), WHITE, { "Legs", "SharkFin", "Fangs" }),
+	D("pufferino", "Pufferino Donuferino", "Legendary", 14, 194_400_000_000, 1, DOUGH, rgb(255, 220, 90), { rgb(120, 90, 40) }, { "Legs", "IceSpikes", "Snorkel" }),
+	-- 15. Pirate Cove
+	D("pirato", "Pirato Donutto", "Rare", 15, 79_200_000_000, 50, DOUGH, rgb(240, 200, 130), nil, { "Legs", "PirateHat" }),
+	D("barnacle", "Barnacle Bombardino", "Epic", 15, 140_400_000_000, 28, rgb(110, 120, 100), rgb(90, 110, 90), { rgb(200, 200, 180) }, { "PlaneWings", "EyePatch" }),
+	D("parrotino", "Parrotino Glazarrot", "Epic", 15, 273_600_000_000, 14, DOUGH, rgb(60, 200, 90), RAINBOW, { "Legs", "Beak", "Wings" }),
+	D("crullbeard", "Captain Crullbeard", "Legendary", 15, 540_000_000_000, 4, DOUGH, rgb(120, 60, 40), GOLD, { "Legs", "Arms", "PirateHat", "EyePatch", "Mustache" }),
+	D("treasurino", "Treasurino Goldonut", "Legendary", 15, 1_188_000_000_000, 1, rgb(230, 180, 50), rgb(255, 215, 60), GOLD, { "Legs", "Crown", "Cape" }),
+	-- 16. Jelly Jungle
+	D("bananini", "Bananini Jellini", "Rare", 16, 468_000_000_000, 50, DOUGH, rgb(255, 230, 80), BLACK, { "Legs", "Leaf" }),
+	D("toucanino", "Toucanino Sprinklino", "Epic", 16, 846_000_000_000, 28, rgb(30, 30, 30), rgb(255, 160, 30), RAINBOW, { "Legs", "Beak" }),
+	D("chimpanzilla", "Chimpanzilla Glazilla", "Legendary", 16, 1_656_000_000_000, 14, DOUGH, rgb(120, 75, 40), GOLD, { "Legs", "Arms", "MonkeyEars", "Crown" }),
+	D("tigrino", "Tigrino Tigrella", "Legendary", 16, 3_276_000_000_000, 4, DOUGH, rgb(255, 150, 40), BLACK, { "Legs", "Fangs", "MonkeyEars" }),
+	D("junglejelly", "Jungle Jelly Kingo", "Celestial", 16, 7_056_000_000_000, 1, rgb(80, 160, 60), rgb(255, 60, 160), RAINBOW, { "Legs", "Crown", "Leaf", "Cape" }),
+	-- 17. Volcano Isle
+	D("lavalino", "Lavalino Lavalone", "Epic", 17, 2_808_000_000_000, 50, rgb(60, 40, 35), rgb(255, 110, 30), EMBERS, { "Legs", "Flames" }),
+	D("obsidiano", "Obsidiano Donudiano", "Epic", 17, 5_076_000_000_000, 28, rgb(25, 20, 30), rgb(50, 40, 60), { rgb(255, 100, 0) }, { "Legs", "Horns" }),
+	D("tikitiki", "Tiki Tiki Glazoki", "Legendary", 17, 9_864_000_000_000, 14, rgb(140, 90, 50), rgb(200, 140, 80), EMBERS, { "Legs", "Arms", "Leaf", "Mustache" }),
+	D("magmazilla", "Magmazilla Crullazilla", "Celestial", 17, 19_764_000_000_000, 4, rgb(50, 30, 30), rgb(255, 60, 0), EMBERS, { "Legs", "Horns", "Wings", "Flames", "Fangs" }),
+	D("volcanito", "Volcanito Supremito", "Celestial", 17, 42_480_000_000_000, 1, rgb(60, 40, 35), rgb(255, 140, 0), GOLD, { "Crown", "Flames", "Cape", "Wings" }),
+	D("eruptus", "Eruptus Maximus", "Secret", 17, 180_000_000_000_000, 0.025, rgb(20, 10, 10), rgb(255, 80, 0), EMBERS, { "Crown", "Wings", "Flames", "Halo", "Orbit" }),
 
 	---------------------------------------------------------------- World 3: Dream Dimension
-	-- 16. Cloud Bakery
-	D("cloudino", "Cloudino Puffino", "Rare", 16, 470_000_000_000, 50, rgb(245, 245, 255), rgb(255, 255, 255), { rgb(180, 210, 255) }, { "Legs", "Wings" }),
-	D("angelino", "Angelino Glazelino", "Epic", 16, 850_000_000_000, 28, DOUGH, rgb(255, 250, 230), GOLD, { "Legs", "Wings", "Halo" }),
-	D("cumulus", "Cumulus Crullus", "Epic", 16, 1_650_000_000_000, 14, rgb(230, 235, 255), rgb(200, 220, 255), WHITE, { "Legs", "Arms", "Propeller" }),
-	D("rainbowtto", "Rainbowtto Sprinklotto", "Legendary", 16, 3_300_000_000_000, 4, DOUGH, rgb(255, 255, 255), RAINBOW, { "Legs", "Wings", "Bow" }),
-	D("zeusino", "Zeusino Donuteus", "Legendary", 16, 7_000_000_000_000, 1, rgb(230, 230, 240), rgb(120, 170, 255), GOLD, { "Legs", "Arms", "Crown", "Mustache", "Cape" }),
-	-- 17. Toy Factory
-	D("robotino", "Robotino Glazobot", "Epic", 17, 2_800_000_000_000, 50, rgb(150, 150, 165), rgb(80, 160, 255), NEON, { "Legs", "Antenna", "Gears" }),
-	D("teddy", "Teddy Donutteddy", "Epic", 17, 5_100_000_000_000, 28, rgb(170, 110, 60), rgb(200, 140, 90), nil, { "Legs", "Arms", "MonkeyEars", "Bow" }),
-	D("yoyo", "Yo-Yo Glazoyo", "Legendary", 17, 9_900_000_000_000, 14, DOUGH, rgb(255, 60, 60), WHITE, { "Legs", "Arms", "Propeller" }),
-	D("jackinthedonut", "Jack in the Donut", "Legendary", 17, 19_700_000_000_000, 4, DOUGH, rgb(255, 220, 40), RAINBOW, { "Legs", "TopHat", "Mustache" }),
-	D("toysoldier", "Toy Soldier Crullero", "Celestial", 17, 42_000_000_000_000, 1, DOUGH, rgb(220, 30, 40), GOLD, { "Legs", "Arms", "TopHat", "Mustache", "Cape" }),
-	-- 18. Haunted Donuttery
-	D("ghostino", "Ghostino Boolino", "Epic", 18, 17_000_000_000_000, 50, rgb(235, 240, 245), rgb(255, 255, 255), nil, { "Arms", "Fangs" }),
-	D("pumpkino", "Pumpkino Spicino", "Legendary", 18, 30_000_000_000_000, 28, rgb(230, 120, 30), rgb(255, 150, 40), { rgb(60, 40, 20) }, { "Legs", "Leaf", "WitchHat" }),
-	D("vampirino", "Vampirino Glazula", "Legendary", 18, 59_000_000_000_000, 14, rgb(60, 20, 30), rgb(150, 10, 30), BLACK, { "Legs", "Fangs", "Cape" }),
-	D("skeletonno", "Skeletonno Crunchino", "Celestial", 18, 118_000_000_000_000, 4, rgb(240, 240, 230), rgb(30, 30, 35), WHITE, { "Legs", "Arms", "TopHat" }),
-	D("witchy", "Witchy Glazitchy", "Celestial", 18, 254_000_000_000_000, 1, rgb(80, 40, 110), rgb(120, 220, 90), SPOOKY, { "Legs", "WitchHat", "Cape", "Orbit" }),
-	D("booboo", "Boo Boo Donutboo", "Secret", 18, 1_000_000_000_000_000, 0.025, rgb(20, 20, 30), rgb(200, 255, 200), SPOOKY, { "WitchHat", "Wings", "Halo", "Orbit", "Fangs" }),
-	-- 19. Clockwork Void
-	D("ticktock", "Tick Tock Glazock", "Epic", 19, 100_000_000_000_000, 50, rgb(200, 160, 80), rgb(255, 230, 150), { rgb(80, 60, 30) }, { "Legs", "Gears" }),
-	D("cogwheelo", "Cogwheelo Donutelo", "Legendary", 19, 183_000_000_000_000, 28, rgb(120, 120, 130), rgb(200, 170, 90), GOLD, { "Legs", "Arms", "Gears" }),
-	D("steampunko", "Steamo Punko", "Legendary", 19, 355_000_000_000_000, 14, rgb(110, 70, 40), rgb(180, 120, 60), GOLD, { "Legs", "TopHat", "Visor", "Gears" }),
-	D("chrono", "Chrono Crullero", "Celestial", 19, 711_000_000_000_000, 4, rgb(40, 30, 60), rgb(255, 200, 90), STARS, { "Legs", "Gears", "Orbit", "Crown" }),
-	D("voidino", "Voidino Nullino", "Celestial", 19, 1_500_000_000_000_000, 1, rgb(10, 5, 20), rgb(90, 40, 160), STARS, { "Wings", "Halo", "Orbit" }),
-	-- 20. Donut Heaven
-	D("harpino", "Harpino Glazelino", "Legendary", 20, 610_000_000_000_000, 50, DOUGH, rgb(255, 245, 210), GOLD, { "Legs", "Wings", "Halo" }),
-	D("goldino", "Goldino Donutino", "Legendary", 20, 1_100_000_000_000_000, 28, rgb(255, 200, 60), rgb(255, 225, 110), WHITE, { "Legs", "Crown" }),
-	D("seraphino", "Seraphino Sprinklino", "Celestial", 20, 2_100_000_000_000_000, 14, rgb(255, 240, 220), rgb(255, 255, 255), GOLD, { "Wings", "Halo", "Orbit" }),
-	D("archangelo", "Archangelo Crullero", "Celestial", 20, 4_300_000_000_000_000, 4, DOUGH, rgb(255, 230, 160), STARS, { "Legs", "Arms", "Wings", "Halo", "Cape" }),
-	D("heavenlyglaze", "Heavenly Glaze Supremo", "Celestial", 20, 9_100_000_000_000_000, 1, rgb(255, 250, 240), rgb(255, 255, 255), RAINBOW, { "Wings", "Halo", "Crown", "Orbit" }),
-	D("omnidonut", "Omnidonut Infinitus", "Secret", 20, 40_000_000_000_000_000, 0.015, rgb(10, 10, 20), rgb(255, 255, 255), RAINBOW, { "Wings", "Halo", "Crown", "Orbit", "Cape" }),
-	D("finaldonut", "The Final Donut", "Secret", 20, 120_000_000_000_000_000, 0.006, rgb(255, 215, 0), rgb(255, 250, 230), STARS, { "Wings", "Halo", "Crown", "Orbit", "Cape", "Flames" }),
+	-- 20. Cloud Bakery
+	D("cloudino", "Cloudino Puffino", "Rare", 20, 609_120_000_000_000, 50, rgb(245, 245, 255), rgb(255, 255, 255), { rgb(180, 210, 255) }, { "Legs", "Wings" }),
+	D("angelino", "Angelino Glazelino", "Epic", 20, 1_101_600_000_000_000, 28, DOUGH, rgb(255, 250, 230), GOLD, { "Legs", "Wings", "Halo" }),
+	D("cumulus", "Cumulus Crullus", "Epic", 20, 2_138_400_000_000_000, 14, rgb(230, 235, 255), rgb(200, 220, 255), WHITE, { "Legs", "Arms", "Propeller" }),
+	D("rainbowtto", "Rainbowtto Sprinklotto", "Legendary", 20, 4_276_800_000_000_000, 4, DOUGH, rgb(255, 255, 255), RAINBOW, { "Legs", "Wings", "Bow" }),
+	D("zeusino", "Zeusino Donuteus", "Legendary", 20, 9.072e15, 1, rgb(230, 230, 240), rgb(120, 170, 255), GOLD, { "Legs", "Arms", "Crown", "Mustache", "Cape" }),
+	-- 21. Toy Factory
+	D("robotino", "Robotino Glazobot", "Epic", 21, 3_628_800_000_000_000, 50, rgb(150, 150, 165), rgb(80, 160, 255), NEON, { "Legs", "Antenna", "Gears" }),
+	D("teddy", "Teddy Donutteddy", "Epic", 21, 6_609_600_000_000_000, 28, rgb(170, 110, 60), rgb(200, 140, 90), nil, { "Legs", "Arms", "MonkeyEars", "Bow" }),
+	D("yoyo", "Yo-Yo Glazoyo", "Legendary", 21, 1.28304e16, 14, DOUGH, rgb(255, 60, 60), WHITE, { "Legs", "Arms", "Propeller" }),
+	D("jackinthedonut", "Jack in the Donut", "Legendary", 21, 2.55312e16, 4, DOUGH, rgb(255, 220, 40), RAINBOW, { "Legs", "TopHat", "Mustache" }),
+	D("toysoldier", "Toy Soldier Crullero", "Celestial", 21, 5.4432e16, 1, DOUGH, rgb(220, 30, 40), GOLD, { "Legs", "Arms", "TopHat", "Mustache", "Cape" }),
+	-- 22. Haunted Donuttery
+	D("ghostino", "Ghostino Boolino", "Epic", 22, 2.2032e16, 50, rgb(235, 240, 245), rgb(255, 255, 255), nil, { "Arms", "Fangs" }),
+	D("pumpkino", "Pumpkino Spicino", "Legendary", 22, 3.888e16, 28, rgb(230, 120, 30), rgb(255, 150, 40), { rgb(60, 40, 20) }, { "Legs", "Leaf", "WitchHat" }),
+	D("vampirino", "Vampirino Glazula", "Legendary", 22, 7.6464e16, 14, rgb(60, 20, 30), rgb(150, 10, 30), BLACK, { "Legs", "Fangs", "Cape" }),
+	D("skeletonno", "Skeletonno Crunchino", "Celestial", 22, 1.52928e17, 4, rgb(240, 240, 230), rgb(30, 30, 35), WHITE, { "Legs", "Arms", "TopHat" }),
+	D("witchy", "Witchy Glazitchy", "Celestial", 22, 3.29184e17, 1, rgb(80, 40, 110), rgb(120, 220, 90), SPOOKY, { "Legs", "WitchHat", "Cape", "Orbit" }),
+	D("booboo", "Boo Boo Donutboo", "Secret", 22, 1.296e18, 0.025, rgb(20, 20, 30), rgb(200, 255, 200), SPOOKY, { "WitchHat", "Wings", "Halo", "Orbit", "Fangs" }),
+	-- 23. Clockwork Void
+	D("ticktock", "Tick Tock Glazock", "Epic", 23, 1.296e17, 50, rgb(200, 160, 80), rgb(255, 230, 150), { rgb(80, 60, 30) }, { "Legs", "Gears" }),
+	D("cogwheelo", "Cogwheelo Donutelo", "Legendary", 23, 2.37168e17, 28, rgb(120, 120, 130), rgb(200, 170, 90), GOLD, { "Legs", "Arms", "Gears" }),
+	D("steampunko", "Steamo Punko", "Legendary", 23, 4.6008e17, 14, rgb(110, 70, 40), rgb(180, 120, 60), GOLD, { "Legs", "TopHat", "Visor", "Gears" }),
+	D("chrono", "Chrono Crullero", "Celestial", 23, 9.21456e17, 4, rgb(40, 30, 60), rgb(255, 200, 90), STARS, { "Legs", "Gears", "Orbit", "Crown" }),
+	D("voidino", "Voidino Nullino", "Celestial", 23, 1.944e18, 1, rgb(10, 5, 20), rgb(90, 40, 160), STARS, { "Wings", "Halo", "Orbit" }),
+	-- 24. Donut Heaven
+	D("harpino", "Harpino Glazelino", "Legendary", 24, 7.9056e17, 50, DOUGH, rgb(255, 245, 210), GOLD, { "Legs", "Wings", "Halo" }),
+	D("goldino", "Goldino Donutino", "Legendary", 24, 1.4256e18, 28, rgb(255, 200, 60), rgb(255, 225, 110), WHITE, { "Legs", "Crown" }),
+	D("seraphino", "Seraphino Sprinklino", "Celestial", 24, 2.7216e18, 14, rgb(255, 240, 220), rgb(255, 255, 255), GOLD, { "Wings", "Halo", "Orbit" }),
+	D("archangelo", "Archangelo Crullero", "Celestial", 24, 5.5728e18, 4, DOUGH, rgb(255, 230, 160), STARS, { "Legs", "Arms", "Wings", "Halo", "Cape" }),
+	D("heavenlyglaze", "Heavenly Glaze Supremo", "Celestial", 24, 1.17936e19, 1, rgb(255, 250, 240), rgb(255, 255, 255), RAINBOW, { "Wings", "Halo", "Crown", "Orbit" }),
+	D("omnidonut", "Omnidonut Infinitus", "Secret", 24, 5.184e19, 0.015, rgb(10, 10, 20), rgb(255, 255, 255), RAINBOW, { "Wings", "Halo", "Crown", "Orbit", "Cape" }),
+	D("finaldonut", "The Final Donut", "Secret", 24, 1.5552e20, 0.006, rgb(255, 215, 0), rgb(255, 250, 230), STARS, { "Wings", "Halo", "Crown", "Orbit", "Cape", "Flames" }),
 
 	---------------------------------------------------------------- ADMIN (rarer than Secret)
-	D("adminglazino", "Adminio Glazinio", "Admin", 10, 15_000_000_000, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Wings", "Orbit" }),
-	D("banhammer", "Banhammer Donutto", "Admin", 15, 50_000_000_000_000, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Horns", "Orbit" }),
-	D("sudosupremo", "Sudo Supremo Sprinklo", "Admin", 20, 1_200_000_000_000_000_000, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Wings", "Halo", "Orbit", "Flames" }),
+	D("adminglazino", "Adminio Glazinio", "Admin", 12, 540_000_000_000, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Wings", "Orbit" }),
+	D("banhammer", "Banhammer Donutto", "Admin", 19, 1.53e17, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Horns", "Orbit" }),
+	D("sudosupremo", "Sudo Supremo Sprinklo", "Admin", 26, 4.25e22, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Wings", "Halo", "Orbit", "Flames" }),
+	---------------------------------------------------------------- New areas (added later: kept at the end, see the note at the top)
+	-- 11. Candy Cane Canyon
+	D("candycanino", "Candycanino Stripolino", "Uncommon", 11, 60_000_000, 50, DOUGH, rgb(255, 255, 255), { rgb(230, 40, 50) }, { "Legs", "Arms" }),
+	D("lollipoppo", "Lollipoppo Swirlino", "Rare", 11, 108_000_000, 28, DOUGH, rgb(255, 110, 190), RAINBOW, { "Legs", "Bow" }),
+	D("gumdroppa", "Gumdroppa Bouncera", "Rare", 11, 210_000_000, 14, DOUGH, rgb(90, 210, 120), { rgb(255, 60, 60), rgb(255, 220, 60) }, { "Legs", "Propeller" }),
+	D("peppermintus", "Peppermintus Maximus", "Epic", 11, 420_000_000, 4, rgb(245, 245, 245), rgb(230, 40, 50), WHITE, { "Legs", "Arms", "Cape" }),
+	D("caramelloso", "Caramelloso Canyonero", "Legendary", 11, 900_000_000, 1, rgb(200, 130, 60), rgb(255, 190, 90), GOLD, { "Legs", "Arms", "TopHat", "Mustache" }),
+	-- 12. Rainbow Sprinkle Summit
+	D("summitino", "Summitino Sprinklino", "Rare", 12, 360_000_000, 50, DOUGH, rgb(240, 245, 255), RAINBOW, { "Legs", "Visor" }),
+	D("arcobalenino", "Arcobalenino Glazino", "Rare", 12, 648_000_000, 28, DOUGH, rgb(255, 150, 220), RAINBOW, { "Legs", "Arms", "Bow" }),
+	D("yetisprinkle", "Yeti Sprinkle Yeti", "Epic", 12, 1_260_000_000, 14, rgb(240, 240, 255), rgb(170, 210, 255), WHITE, { "Legs", "Arms", "IceSpikes" }),
+	D("cloudcruller", "Cloudy Crullerino", "Epic", 12, 2_520_000_000, 4, rgb(250, 250, 255), rgb(200, 230, 255), RAINBOW, { "Wings", "Halo" }),
+	D("rainbowrex", "Rainbow Rexorino", "Legendary", 12, 5_400_000_000, 1, DOUGH, rgb(120, 200, 255), RAINBOW, { "Legs", "Arms", "Horns", "Wings" }),
+	-- 18. Mango Lagoon
+	D("mangolino", "Mangolino Lagunino", "Epic", 18, 17_000_000_000_000, 50, DOUGH, rgb(255, 170, 40), { rgb(255, 230, 90) }, { "Legs", "Leaf" }),
+	D("flamingonut", "Flamingonut Pinkerino", "Legendary", 18, 30_600_000_000_000, 28, DOUGH, rgb(255, 120, 170), WHITE, { "Legs", "Beak", "Sunglasses" }),
+	D("cocobombo", "Cocobombo Splashino", "Legendary", 18, 59_400_000_000_000, 14, rgb(130, 85, 50), rgb(250, 248, 240), OCEAN, { "Legs", "Arms", "Snorkel" }),
+	D("tikiglaze", "Tiki Glaze Tikolo", "Celestial", 18, 119_000_000_000_000, 4, rgb(150, 100, 55), rgb(255, 190, 60), GOLD, { "Legs", "Arms", "Leaf", "Fangs" }),
+	D("lagunamax", "Laguna Maxima Donutta", "Celestial", 18, 255_000_000_000_000, 1, DOUGH, rgb(40, 200, 180), OCEAN, { "Wings", "Halo", "Leaf" }),
+	-- 19. Tsunami Temple
+	D("templino", "Templino Stonerino", "Epic", 19, 102_000_000_000_000, 50, rgb(150, 150, 140), rgb(120, 200, 120), WHITE, { "Legs", "Arms" }),
+	D("wavino", "Wavino Surfarino", "Legendary", 19, 184_000_000_000_000, 28, DOUGH, rgb(40, 160, 255), OCEAN, { "Legs", "Arms", "SharkFin" }),
+	D("idolonut", "Golden Idolonut", "Legendary", 19, 356_000_000_000_000, 14, rgb(255, 200, 60), rgb(255, 230, 120), GOLD, { "Legs", "Crown", "Pharaoh" }),
+	D("tsunamo", "Tsunamo Crashino", "Celestial", 19, 714_000_000_000_000, 4, rgb(20, 60, 120), rgb(60, 220, 255), OCEAN, { "Legs", "Tentacles", "Snorkel" }),
+	D("templeking", "Temple Kingo Glazo", "Celestial", 19, 1_530_000_000_000_000, 1, rgb(80, 60, 40), rgb(255, 215, 60), GOLD, { "Legs", "Arms", "Crown", "Cape" }),
+	-- 25. Starfall Garden
+	D("starbloom", "Starbloom Petalino", "Legendary", 25, 4.72e18, 50, rgb(40, 30, 80), rgb(255, 200, 240), STARS, { "Legs", "Leaf" }),
+	D("moonpetal", "Moonpetal Dreamino", "Legendary", 25, 8.49e18, 28, rgb(60, 50, 120), rgb(220, 220, 255), STARS, { "Legs", "Halo" }),
+	D("cometfairy", "Comet Fairy Glazetta", "Celestial", 25, 1.65e19, 14, rgb(40, 30, 90), rgb(255, 240, 160), STARS, { "Wings", "Tutu", "Orbit" }),
+	D("nebulily", "Nebulily Floretta", "Celestial", 25, 3.3e19, 4, rgb(50, 20, 90), rgb(200, 120, 255), STARS, { "Legs", "Leaf", "Wings" }),
+	D("starfallo", "Starfallo Supremo", "Celestial", 25, 7.08e19, 1, rgb(20, 15, 50), rgb(255, 230, 120), STARS, { "Wings", "Halo", "Crown", "Orbit" }),
+	-- 26. Aurora Palace
+	D("aurorino", "Aurorino Borealino", "Legendary", 26, 2.83e19, 50, rgb(215, 240, 255), rgb(120, 255, 200), STARS, { "Legs", "IceSpikes" }),
+	D("palazzonut", "Palazzo Donutto", "Celestial", 26, 5.09e19, 28, rgb(230, 240, 255), rgb(170, 215, 255), WHITE, { "Legs", "Crown", "Cape" }),
+	D("icequeen", "Ice Queenerina", "Celestial", 26, 9.89e19, 14, rgb(220, 240, 255), rgb(150, 220, 255), WHITE, { "Legs", "Tutu", "Crown" }),
+	D("prismaro", "Prismaro Lucentino", "Celestial", 26, 1.98e20, 4, rgb(240, 250, 255), rgb(255, 170, 255), RAINBOW, { "Wings", "Halo", "Orbit" }),
+	D("aurorarex", "Aurora Rex Glazorum", "Celestial", 26, 4.25e20, 1, rgb(30, 40, 80), rgb(120, 255, 200), RAINBOW, { "Wings", "Crown", "Cape", "Orbit" }),
+	-- 27. Neon Streets
+	D("pixelino", "Pixelino Bitterino", "Rare", 27, 1.7e20, 50, rgb(30, 30, 45), rgb(255, 40, 200), NEON, { "Legs", "Visor" }),
+	D("neonetto", "Neonetto Streeterino", "Epic", 27, 3.06e20, 28, rgb(30, 30, 45), rgb(0, 255, 220), NEON, { "Legs", "Arms", "Sunglasses" }),
+	D("arcadonut", "Arcadonut Joystickino", "Epic", 27, 5.94e20, 14, rgb(40, 40, 60), rgb(255, 220, 0), NEON, { "Legs", "Arms", "Antenna" }),
+	D("billboardo", "Billboardo Glowino", "Legendary", 27, 1.19e21, 4, rgb(30, 30, 45), rgb(255, 90, 40), NEON, { "Legs", "Visor", "Cape" }),
+	D("cyberskater", "Cyber Skaterino", "Legendary", 27, 2.55e21, 1, rgb(20, 20, 35), rgb(170, 90, 255), NEON, { "Legs", "Arms", "Visor", "Flames" }),
+	-- 28. Hologram Mall
+	D("hologlaze", "Hologlaze Shopperino", "Epic", 28, 1.02e21, 50, rgb(200, 220, 240), rgb(0, 230, 255), NEON, { "Legs", "Arms", "CoffeeCup" }),
+	D("escalatoro", "Escalatoro Rollerino", "Epic", 28, 1.83e21, 28, rgb(180, 190, 210), rgb(120, 160, 255), WHITE, { "Legs", "Antenna" }),
+	D("mannequino", "Mannequino Posetto", "Legendary", 28, 3.56e21, 14, rgb(240, 240, 245), rgb(255, 255, 255), NEON, { "Legs", "Arms", "TopHat" }),
+	D("vendomatico", "Vendomatico Snackerino", "Legendary", 28, 7.14e21, 4, rgb(60, 70, 100), rgb(255, 60, 90), NEON, { "Legs", "Arms", "Gears" }),
+	D("holoqueen", "Holo Queen Glazerina", "Celestial", 28, 1.53e22, 1, rgb(180, 240, 255), rgb(0, 230, 255), RAINBOW, { "Legs", "Tutu", "Crown", "Halo" }),
+	-- 29. Robot Factory
+	D("boltino", "Boltino Screwerino", "Epic", 29, 6.11e21, 50, rgb(120, 125, 135), rgb(255, 190, 0), { rgb(60, 60, 70) }, { "Legs", "Gears" }),
+	D("robodunk", "Robodunk 3000", "Legendary", 29, 1.1e22, 28, rgb(150, 155, 165), rgb(80, 160, 255), NEON, { "Legs", "Arms", "Antenna", "Visor" }),
+	D("conveyoro", "Conveyoro Beltino", "Legendary", 29, 2.14e22, 14, rgb(90, 95, 105), rgb(255, 140, 0), EMBERS, { "Legs", "Gears", "Propeller" }),
+	D("weldonut", "Weldonut Sparkino", "Celestial", 29, 4.28e22, 4, rgb(70, 70, 80), rgb(255, 220, 120), EMBERS, { "Legs", "Arms", "Visor", "Flames" }),
+	D("mechadonut", "Mecha Donut Prime", "Celestial", 29, 9.17e22, 1, rgb(60, 62, 70), rgb(255, 190, 0), GOLD, { "Legs", "Arms", "Gears", "Antenna", "Cape" }),
+	-- 30. Data Highway
+	D("bytecruller", "Byte Cruller", "Legendary", 30, 3.67e22, 50, rgb(15, 30, 45), rgb(40, 255, 120), NEON, { "Legs", "Antenna" }),
+	D("packetino", "Packetino Routerino", "Legendary", 30, 6.6e22, 28, rgb(20, 35, 50), rgb(80, 200, 255), NEON, { "Legs", "Arms", "Antenna", "Visor" }),
+	D("wifinut", "Wifinut Signalino", "Celestial", 30, 1.28e23, 14, rgb(20, 30, 45), rgb(120, 255, 160), NEON, { "Legs", "Antenna", "Orbit" }),
+	D("fiberino", "Fiberino Opticello", "Celestial", 30, 2.57e23, 4, rgb(10, 20, 30), rgb(255, 255, 255), RAINBOW, { "Legs", "Tentacles" }),
+	D("datadragon", "Data Dragonino", "Celestial", 30, 5.5e23, 1, rgb(10, 25, 20), rgb(40, 255, 120), NEON, { "Wings", "Horns", "Flames", "Orbit" }),
+	-- 31. Firewall Fortress
+	D("firewallo", "Firewallo Blockerino", "Legendary", 31, 2.2e23, 50, rgb(60, 20, 20), rgb(255, 60, 40), EMBERS, { "Legs", "Arms", "Horns" }),
+	D("trojanut", "Trojanut Horsino", "Legendary", 31, 3.96e23, 28, rgb(120, 80, 50), rgb(255, 200, 90), EMBERS, { "Legs", "Camel", "Visor" }),
+	D("laserino", "Laserino Guardino", "Celestial", 31, 7.69e23, 14, rgb(40, 15, 15), rgb(255, 40, 40), EMBERS, { "Legs", "Arms", "Visor", "Bat" }),
+	D("shieldonut", "Shieldonut Defendo", "Celestial", 31, 1.54e24, 4, rgb(80, 80, 90), rgb(255, 90, 60), GOLD, { "Legs", "Arms", "Cape", "Crown" }),
+	D("sentinelo", "Sentinelo Supremo", "Celestial", 31, 3.3e24, 1, rgb(30, 10, 10), rgb(255, 50, 30), EMBERS, { "Wings", "Horns", "Flames", "Orbit" }),
+	-- 32. Glitch Zone
+	D("glitchino", "Glitchino Glitchano", "Legendary", 32, 1.32e24, 50, rgb(20, 20, 20), rgb(255, 0, 200), NEON, { "Legs", "Antenna" }),
+	D("errorino", "Error 404 Donutto", "Celestial", 32, 2.38e24, 28, rgb(245, 245, 245), rgb(0, 120, 255), BLACK, { "Legs", "Arms", "Sunglasses" }),
+	D("lagspikeo", "Lag Spikeo", "Celestial", 32, 4.62e24, 14, rgb(20, 20, 20), rgb(0, 255, 220), NEON, { "Legs", "IceSpikes", "Orbit" }),
+	D("bluescreen", "Bluescreen Crashino", "Celestial", 32, 9.25e24, 4, rgb(20, 60, 200), rgb(40, 100, 255), WHITE, { "Legs", "Arms", "Fangs", "Halo" }),
+	D("missingno", "MissingDonut", "Celestial", 32, 1.98e25, 1, rgb(0, 0, 0), rgb(255, 0, 255), RAINBOW, { "Wings", "Tentacles", "Horns", "Orbit" }),
+	-- 33. The Mainframe
+	D("coreino", "Coreino Processore", "Celestial", 33, 7.92e24, 50, rgb(10, 12, 30), rgb(80, 160, 255), NEON, { "Legs", "Gears", "Antenna" }),
+	D("quantumo", "Quantumo Qubitto", "Celestial", 33, 1.43e25, 28, rgb(15, 15, 40), rgb(200, 120, 255), STARS, { "Legs", "Orbit", "Halo" }),
+	D("servero", "Servero Rackino", "Celestial", 33, 2.77e25, 14, rgb(40, 45, 60), rgb(40, 255, 120), NEON, { "Legs", "Arms", "Antenna", "Visor" }),
+	D("aicore", "A.I. Donutronic", "Celestial", 33, 5.55e25, 4, rgb(240, 245, 255), rgb(80, 160, 255), STARS, { "Wings", "Halo", "Visor", "Orbit" }),
+	D("mainframeo", "Mainframo Supremo", "Celestial", 33, 1.19e26, 1, rgb(10, 12, 30), rgb(80, 200, 255), RAINBOW, { "Wings", "Crown", "Cape", "Orbit", "Halo" }),
+	-- Secrets of the new areas, and World 4's ADMIN donut
+	D("arcobalenosupremo", "Arcobaleno Supremo", "Secret", 12, 21_600_000_000, 0.02, rgb(255, 255, 255), rgb(255, 120, 220), RAINBOW, { "Wings", "Halo", "Crown", "Orbit" }),
+	D("poseidonut", "Poseidonut Supremo", "Secret", 19, 6_120_000_000_000_000, 0.02, rgb(20, 60, 120), rgb(60, 220, 255), OCEAN, { "Crown", "Tentacles", "Wings", "Orbit" }),
+	D("auroraimperatrix", "Aurora Imperatrix", "Secret", 26, 1.7e21, 0.015, rgb(20, 30, 60), rgb(120, 255, 200), RAINBOW, { "Wings", "Crown", "Cape", "Halo", "Orbit" }),
+	D("antivirus", "Antivirus Supremo", "Secret", 31, 1.32e25, 0.02, rgb(20, 20, 20), rgb(255, 60, 40), EMBERS, { "Wings", "Crown", "Visor", "Orbit" }),
+	D("overclockus", "Overclockus Maximus", "Secret", 33, 4.75e26, 0.015, rgb(10, 10, 30), rgb(80, 160, 255), NEON, { "Wings", "Crown", "Flames", "Gears", "Orbit" }),
+	D("singularity", "The Singularity Donut", "Secret", 33, 1.43e27, 0.006, rgb(0, 0, 0), rgb(20, 20, 20), STARS, { "Wings", "Halo", "Crown", "Orbit", "Cape", "Flames" }),
+	D("rootaccess", "Root Access Admino", "Admin", 33, 1.19e28, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Wings", "Halo", "Orbit", "Antenna" }),
 } :: { Donut }
 
 Donuts.ById = {} :: { [string]: Donut }
@@ -277,7 +364,35 @@ function Donuts.Roll(areaId: number, rng: Random, luck: number?): Donut
 	return pool[#pool]
 end
 
--- Chance (0-1) of a donut spawning in its area.
+-- A random RARE donut of an area (base chance under RareChance), weighted like normal spawns.
+-- Used by the Rare Donut Rain event.
+function Donuts.RollRare(areaId: number, rng: Random): Donut
+	local pool = Donuts.ByArea[areaId]
+	local base = 0
+	for _, donut in pool do
+		base += donut.Weight
+	end
+	local rare = {}
+	local total = 0
+	for _, donut in pool do
+		if donut.Weight / base < Donuts.RareChance then
+			table.insert(rare, donut)
+			total += donut.Weight
+		end
+	end
+	if #rare == 0 then
+		return Donuts.Roll(areaId, rng)
+	end
+	local pick = rng:NextNumber() * total
+	for _, donut in rare do
+		pick -= donut.Weight
+		if pick <= 0 then
+			return donut
+		end
+	end
+	return rare[#rare]
+end
+
 -- Chance (0-1) that a spawn in the donut's area is this donut. `luck` = the Luck Event's rarity
 -- boost (same maths as Donuts.Roll), so the Index can show the boosted odds while it runs.
 function Donuts.Chance(donut: Donut, luck: number?): number

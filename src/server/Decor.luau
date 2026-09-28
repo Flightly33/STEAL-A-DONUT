@@ -4,8 +4,11 @@
 
 	Areas get more magical the further you go: plain grass -> desert -> candy -> caves -> ice ->
 	lava -> neon night city -> floating crystals -> a cosmic dimension. World 2 (Glaze Islands) goes
-	beach -> coral reef -> pirate cove -> jelly jungle -> volcano, and World 3 (Dream Dimension)
-	clouds -> toy factory -> haunted bakery -> clockwork void -> donut heaven.
+	beach -> coral reef -> pirate cove -> jelly jungle -> volcano -> mango lagoon -> tsunami temple,
+	World 3 (Dream Dimension) clouds -> toy factory -> haunted bakery -> clockwork void -> donut heaven
+	-> starfall garden -> aurora palace, and World 4 (Cyber City) neon streets -> hologram mall ->
+	robot factory -> data highway -> firewall fortress -> glitch zone -> the mainframe.
+	World 1 also ends with candy cane canyon -> rainbow sprinkle summit.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -754,6 +757,466 @@ function Themes.Heaven(folder: Instance, zs: number, ze: number, rng: Random)
 	local donut = Decor.GiantDonut(folder, CFrame.new(0, 52, ze - 8), 12, 9, rgb(255, 215, 0), rgb(255, 255, 255), { rgb(255, 60, 60), rgb(255, 230, 60), rgb(60, 220, 90), rgb(60, 150, 255), rgb(200, 80, 255) }, Enum.Material.Neon)
 	CollectionService:AddTag(donut, "DonutRainbow")
 	weather(folder, zs, ze, rgb(255, 245, 200), Enum.NormalId.Top, 50, 1.5, 0.4, 9)
+end
+
+--------------------------------------------------------------------------------
+-- New areas at the end of Worlds 1-3
+--------------------------------------------------------------------------------
+local RAINBOW_COLORS = { rgb(255, 60, 60), rgb(255, 160, 40), rgb(255, 230, 60), rgb(80, 220, 90), rgb(60, 150, 255), rgb(170, 90, 255) }
+
+local function lollipop(parent: Instance, pos: Vector3, rng: Random)
+	local h = rng:NextNumber(8, 12)
+	Build.Pillar(parent, pos, h, 0.5, rgb(250, 250, 250))
+	local color = RAINBOW_COLORS[rng:NextInteger(1, #RAINBOW_COLORS)]
+	local cf = CFrame.new(pos + Vector3.new(0, h + 2.5, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0)
+	Build.Decor({ Parent = parent, Name = "Lollipop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.8, 6, 6), CFrame = cf * CFrame.Angles(0, math.pi / 2, 0), Color = color, Material = Enum.Material.SmoothPlastic })
+	Build.Decor({ Parent = parent, Name = "Swirl", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.85, 3.4, 3.4), CFrame = cf * CFrame.Angles(0, math.pi / 2, 0), Color = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic })
+end
+
+local function rainbowArch(parent: Instance, z: number, radius: number)
+	for i, color in RAINBOW_COLORS do
+		local r = radius - i * 2
+		for n = 0, 16 do
+			local angle = n / 16 * math.pi
+			Build.Decor({ Parent = parent, Name = "Rainbow", Size = Vector3.new(2.2, 2.2, 2), Position = Vector3.new(math.cos(angle) * r, math.sin(angle) * r * 0.8, z), Color = color, Material = Enum.Material.Neon })
+		end
+	end
+end
+
+function Themes.Candy(folder: Instance, zs: number, ze: number, rng: Random)
+	alongEdges(zs, ze, 18, rng, function(pos, side)
+		if rng:NextNumber() < 0.5 then
+			candyCane(folder, pos)
+		else
+			lollipop(folder, pos, rng)
+		end
+	end)
+	-- Gumdrops you can run past
+	scatter(zs, ze, 18, rng, function(pos)
+		local p = Vector3.new(math.sign(pos.X) * rng:NextNumber(20, 42), 0, pos.Z)
+		Build.Decor({ Parent = folder, Name = "Gumdrop", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 2.6, 3), Position = p + Vector3.new(0, 1, 0), Color = RAINBOW_COLORS[rng:NextInteger(1, #RAINBOW_COLORS)], Material = Enum.Material.Glass, Transparency = 0.15 })
+	end)
+	-- Chocolate bar bridges over the canyon walls
+	for z = zs + 30, ze - 20, 50 do
+		Build.Decor({ Parent = folder, Name = "ChocoBar", Size = Vector3.new(120, 3, 8), Position = Vector3.new(0, 44, z), Color = rgb(110, 60, 35), Material = Enum.Material.SmoothPlastic })
+		for x = -56, 56, 8 do
+			Build.Decor({ Parent = folder, Name = "ChocoSquare", Size = Vector3.new(7, 0.6, 7), Position = Vector3.new(x, 42.3, z), Color = rgb(95, 50, 30), Material = Enum.Material.SmoothPlastic })
+		end
+	end
+	Decor.DonutStatue(folder, Vector3.new(44, 0, zs + 120), 4, rgb(245, 245, 245), rgb(230, 40, 50), { rgb(255, 255, 255) })
+	weather(folder, zs, ze, rgb(255, 150, 200), Enum.NormalId.Bottom, 35, 3, 0.35, 7)
+end
+
+function Themes.Rainbow(folder: Instance, zs: number, ze: number, rng: Random)
+	-- Snowy peaks along the walls
+	alongEdges(zs, ze, 20, rng, function(pos)
+		local h = rng:NextNumber(10, 18)
+		for i = 0, 3 do
+			local s = (4 - i) * 3
+			Build.Decor({ Parent = folder, Name = "Peak", Size = Vector3.new(s, h / 4, s), Position = pos + Vector3.new(0, h / 8 + i * h / 4, 0), Color = if i == 3 then rgb(255, 255, 255) else rgb(190, 205, 235), Material = if i == 3 then Enum.Material.Snow else Enum.Material.Rock })
+		end
+	end)
+	-- Sprinkle piles
+	scatter(zs, ze, 14, rng, function(pos)
+		local p = Vector3.new(math.sign(pos.X) * rng:NextNumber(18, 40), 0, pos.Z)
+		for n = 1, 8 do
+			Build.Decor({ Parent = folder, Name = "Sprinkle", Size = Vector3.new(0.5, 0.5, 2), CFrame = CFrame.new(p + Vector3.new(rng:NextNumber(-1.5, 1.5), 0.3 + n * 0.12, rng:NextNumber(-1.5, 1.5))) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color = RAINBOW_COLORS[(n - 1) % #RAINBOW_COLORS + 1], Material = Enum.Material.SmoothPlastic })
+		end
+	end)
+	rainbowArch(folder, zs + 40, 50)
+	rainbowArch(folder, zs + 120, 50)
+	for n = 1, 8 do
+		cloud(folder, Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(30, 50), rng:NextNumber(zs + 10, ze - 10)), rng:NextNumber(3, 5), rng)
+	end
+	weather(folder, zs, ze, rgb(255, 255, 255), Enum.NormalId.Bottom, 90, 6, 0.4, 7)
+end
+
+function Themes.Lagoon(folder: Instance, zs: number, ze: number, rng: Random)
+	alongEdges(zs, ze, 20, rng, function(pos)
+		palm(folder, pos, rng)
+	end)
+	-- Lagoon pools with lily pads
+	for n = 0, 2 do
+		local center = Vector3.new((if n % 2 == 0 then -1 else 1) * 34, 0.12, zs + 30 + n * 45)
+		Build.Decor({ Parent = folder, Name = "Lagoon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.25, 20, 20), CFrame = CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(40, 200, 200), Material = Enum.Material.Glass, Transparency = 0.2 })
+		for k = 1, 4 do
+			Build.Decor({ Parent = folder, Name = "LilyPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3, 3), CFrame = CFrame.new(center + Vector3.new(rng:NextNumber(-6, 6), 0.1, rng:NextNumber(-6, 6))) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(70, 180, 70), Material = Enum.Material.Grass })
+		end
+		-- A flamingo standing in it
+		local f = center + Vector3.new(4, 0, -3)
+		Build.Decor({ Parent = folder, Name = "FlamingoLeg", Size = Vector3.new(0.3, 5, 0.3), Position = f + Vector3.new(0, 2.5, 0), Color = rgb(255, 140, 170) })
+		Build.Ball(folder, f + Vector3.new(0, 5.5, 0), 2.4, rgb(255, 120, 170))
+		Build.Decor({ Parent = folder, Name = "FlamingoNeck", Size = Vector3.new(0.4, 3, 0.4), CFrame = CFrame.new(f + Vector3.new(0.6, 7.5, 0)) * CFrame.Angles(0, 0, -0.3), Color = rgb(255, 130, 170) })
+		Build.Ball(folder, f + Vector3.new(1.1, 9, 0), 1, rgb(255, 130, 170))
+	end
+	-- Tiki torches
+	for z = zs + 15, ze - 10, 30 do
+		for _, side in { -1, 1 } do
+			local pos = Vector3.new(side * 24, 0, z)
+			Build.Pillar(folder, pos, 6, 0.6, rgb(120, 80, 45), Enum.Material.Wood)
+			local top = Build.Ball(folder, pos + Vector3.new(0, 6.3, 0), 1, rgb(255, 150, 40), Enum.Material.Neon)
+			local fire = Instance.new("Fire")
+			fire.Size = 3
+			fire.Heat = 6
+			fire.Parent = top
+		end
+	end
+	-- Mangoes everywhere
+	scatter(zs, ze, 12, rng, function(pos)
+		Build.Ball(folder, Vector3.new(math.sign(pos.X) * rng:NextNumber(12, 40), 0.9, pos.Z), 1.8, rgb(255, 170, 40))
+	end)
+	weather(folder, zs, ze, rgb(255, 200, 120), Enum.NormalId.Top, 18, 1, 0.3, 6)
+end
+
+function Themes.Temple(folder: Instance, zs: number, ze: number, rng: Random)
+	local stone, moss = rgb(140, 145, 130), rgb(80, 130, 70)
+	-- Mossy temple pillars
+	alongEdges(zs, ze, 22, rng, function(pos)
+		local h = rng:NextNumber(18, 28)
+		Build.Pillar(folder, pos, h, 5, stone, Enum.Material.Cobblestone)
+		Build.Decor({ Parent = folder, Name = "Capital", Size = Vector3.new(7, 1.5, 7), Position = pos + Vector3.new(0, h + 0.75, 0), Color = stone, Material = Enum.Material.Cobblestone })
+		Build.Decor({ Parent = folder, Name = "Moss", Size = Vector3.new(5.4, h * 0.3, 5.4), Position = pos + Vector3.new(0, h * 0.15, 0), Color = moss, Material = Enum.Material.Grass, Transparency = 0.3 })
+	end)
+	-- Tiki statues
+	for n = 1, 4 do
+		local pos = Vector3.new((if n % 2 == 0 then 1 else -1) * 36, 0, zs + n * 32)
+		for i = 0, 2 do
+			Build.Decor({ Parent = folder, Name = "Tiki", Size = Vector3.new(4, 3.5, 4), Position = pos + Vector3.new(0, 1.75 + i * 3.5, 0), Color = if i % 2 == 0 then rgb(120, 85, 50) else rgb(150, 105, 60), Material = Enum.Material.Wood })
+			Build.Decor({ Parent = folder, Name = "TikiEyes", Size = Vector3.new(2.6, 0.6, 0.2), Position = pos + Vector3.new(0, 2.3 + i * 3.5, -2.05), Color = rgb(60, 220, 255), Material = Enum.Material.Neon })
+		end
+	end
+	-- Waterfalls pouring off the walls
+	for z = zs + 25, ze - 20, 55 do
+		for _, side in { -1, 1 } do
+			local fall = Build.Decor({ Parent = folder, Name = "Waterfall", Size = Vector3.new(1, 50, 12), Position = Vector3.new(side * 58, 25, z), Color = rgb(100, 200, 255), Material = Enum.Material.Neon, Transparency = 0.45 })
+			local splash = Instance.new("ParticleEmitter")
+			splash.Color = ColorSequence.new(rgb(220, 245, 255))
+			splash.Rate = 40
+			splash.Speed = NumberRange.new(5, 12)
+			splash.Lifetime = NumberRange.new(0.6, 1.2)
+			splash.Size = NumberSequence.new(1.2, 0)
+			splash.EmissionDirection = Enum.NormalId.Bottom
+			splash.Parent = fall
+			Build.Decor({ Parent = folder, Name = "Pool", Size = Vector3.new(8, 0.3, 16), Position = Vector3.new(side * 53, 0.15, z), Color = rgb(60, 180, 240), Material = Enum.Material.Glass, Transparency = 0.25 })
+		end
+	end
+	-- Broken arch over the lane
+	for _, side in { -1, 1 } do
+		Build.Decor({ Parent = folder, Name = "ArchPost", Size = Vector3.new(6, 30, 6), Position = Vector3.new(side * 30, 15, zs + 90), Color = stone, Material = Enum.Material.Cobblestone })
+	end
+	Build.Decor({ Parent = folder, Name = "ArchTop", Size = Vector3.new(40, 5, 6), CFrame = CFrame.new(-6, 32, zs + 90) * CFrame.Angles(0, 0, 0.08), Color = stone, Material = Enum.Material.Cobblestone })
+	weather(folder, zs, ze, rgb(170, 230, 255), Enum.NormalId.Top, 25, 2, 0.35, 6)
+end
+
+function Themes.Starfall(folder: Instance, zs: number, ze: number, rng: Random)
+	-- Giant glowing flowers
+	alongEdges(zs, ze, 18, rng, function(pos)
+		local h = rng:NextNumber(6, 12)
+		Build.Pillar(folder, pos, h, 0.6, rgb(90, 200, 120), Enum.Material.Neon)
+		local color = if rng:NextNumber() < 0.5 then rgb(255, 170, 240) else rgb(170, 200, 255)
+		for n = 0, 5 do
+			local angle = n / 6 * math.pi * 2
+			Build.Ball(folder, pos + Vector3.new(math.cos(angle) * 1.8, h + 0.5, math.sin(angle) * 1.8), 2.2, color, Enum.Material.Neon)
+		end
+		Build.Ball(folder, pos + Vector3.new(0, h + 0.7, 0), 1.6, rgb(255, 240, 150), Enum.Material.Neon)
+	end)
+	-- Floating stars
+	for n = 1, 10 do
+		local p = Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(18, 45), rng:NextNumber(zs + 10, ze - 10))
+		local star = ringOfBalls(folder, CFrame.new(p) * CFrame.Angles(math.pi / 2, 0, 0), 1.6, 1, rgb(255, 240, 160), 5, "SpinSlow")
+		Build.Decor({ Parent = star, Name = "StarCore", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, CFrame = CFrame.new(p), Color = rgb(255, 250, 200), Material = Enum.Material.Neon })
+	end
+	-- A huge moon at the end of the garden
+	local moon = Build.Ball(folder, Vector3.new(0, 70, ze + 30), 40, rgb(245, 240, 220), Enum.Material.Neon)
+	moon.Transparency = 0.1
+	-- Firefly paths
+	scatter(zs, ze, 20, rng, function(pos)
+		Build.Ball(folder, Vector3.new(pos.X, rng:NextNumber(2, 6), pos.Z), 0.4, rgb(255, 255, 150), Enum.Material.Neon)
+	end)
+	weather(folder, zs, ze, rgb(255, 245, 160), Enum.NormalId.Top, 40, 1, 0.3, 8)
+end
+
+function Themes.Aurora(folder: Instance, zs: number, ze: number, rng: Random)
+	-- Ice spires
+	alongEdges(zs, ze, 16, rng, function(pos)
+		crystal(folder, pos, if rng:NextNumber() < 0.5 then rgb(170, 230, 255) else rgb(200, 180, 255), rng:NextNumber(8, 14), rng, rng:NextNumber() < 0.3)
+	end)
+	-- Palace towers along the walls
+	for z = zs + 30, ze - 20, 55 do
+		for _, side in { -1, 1 } do
+			local base = Vector3.new(side * 50, 0, z)
+			Build.Pillar(folder, base, 34, 8, rgb(225, 240, 255), Enum.Material.Glass)
+			for i = 0, 3 do
+				Build.Decor({ Parent = folder, Name = "Spire", Size = Vector3.new(7 - i * 1.6, 3, 7 - i * 1.6), Position = base + Vector3.new(0, 35.5 + i * 3, 0), Color = rgb(150, 200, 255), Material = Enum.Material.Glass, Transparency = 0.2 })
+			end
+			Build.Ball(folder, base + Vector3.new(0, 48, 0), 1.6, rgb(120, 255, 200), Enum.Material.Neon)
+		end
+	end
+	-- Aurora ribbons in the sky
+	local auroraColors = { rgb(90, 255, 170), rgb(90, 200, 255), rgb(200, 120, 255) }
+	for i, color in auroraColors do
+		for n = 0, 7 do
+			local z = zs + 10 + n * 20
+			Build.Decor({ Parent = folder, Name = "Aurora", Size = Vector3.new(90, 8, 1), CFrame = CFrame.new(0, 60 + i * 6 + math.sin(n + i) * 3, z) * CFrame.Angles(0.3, 0, math.sin(n * 0.7 + i) * 0.12), Color = color, Material = Enum.Material.Neon, Transparency = 0.7 })
+		end
+	end
+	weather(folder, zs, ze, rgb(230, 250, 255), Enum.NormalId.Bottom, 80, 5, 0.4, 7)
+end
+
+--------------------------------------------------------------------------------
+-- World 4: Cyber City
+--------------------------------------------------------------------------------
+local CYBER = { rgb(255, 40, 200), rgb(0, 230, 255), rgb(255, 220, 0), rgb(40, 255, 120), rgb(170, 90, 255) }
+
+-- A tall building against the lane wall with glowing window strips.
+local function building(parent: Instance, pos: Vector3, rng: Random, accent: Color3?)
+	local w, d, h = rng:NextNumber(8, 12), rng:NextNumber(8, 12), rng:NextNumber(30, 70)
+	local color = rgb(24, 24, 38):Lerp(rgb(40, 40, 60), rng:NextNumber())
+	Build.Decor({ Parent = parent, Name = "Building", Size = Vector3.new(w, h, d), Position = pos + Vector3.new(0, h / 2, 0), Color = color, Material = Enum.Material.Metal })
+	local glow = accent or CYBER[rng:NextInteger(1, #CYBER)]
+	for y = 6, h - 4, 6 do
+		Build.Decor({ Parent = parent, Name = "Windows", Size = Vector3.new(w + 0.2, 0.8, d + 0.2), Position = pos + Vector3.new(0, y, 0), Color = glow, Material = Enum.Material.Neon, Transparency = 0.35 })
+	end
+	Build.Decor({ Parent = parent, Name = "Roof", Size = Vector3.new(w + 1, 1, d + 1), Position = pos + Vector3.new(0, h + 0.5, 0), Color = glow, Material = Enum.Material.Neon })
+end
+
+-- A glowing sign with text on both faces.
+local function neonSign(parent: Instance, cf: CFrame, text: string, color: Color3, width: number?)
+	local sign = Build.Decor({ Parent = parent, Name = "NeonSign", Size = Vector3.new(width or 14, 4, 0.6), CFrame = cf, Color = rgb(15, 15, 25), Material = Enum.Material.SmoothPlastic })
+	Build.Decor({ Parent = parent, Name = "SignFrame", Size = Vector3.new((width or 14) + 0.6, 4.6, 0.4), CFrame = cf * CFrame.new(0, 0, 0.1), Color = color, Material = Enum.Material.Neon })
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.LightInfluence = 0
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 20
+		gui.Parent = sign
+		Build.Text(gui, text, { TextColor3 = color, Font = Enum.Font.Arcade, TextStrokeTransparency = 1 })
+	end
+end
+
+local function streetLamp(parent: Instance, pos: Vector3, color: Color3)
+	Build.Pillar(parent, pos, 12, 0.5, rgb(50, 50, 60), Enum.Material.Metal)
+	Build.Decor({ Parent = parent, Name = "LampArm", Size = Vector3.new(4, 0.4, 0.4), Position = pos + Vector3.new(-math.sign(pos.X) * 2, 12, 0), Color = rgb(50, 50, 60), Material = Enum.Material.Metal })
+	local bulb = Build.Decor({ Parent = parent, Name = "LampLight", Size = Vector3.new(2, 0.4, 1), Position = pos + Vector3.new(-math.sign(pos.X) * 3.6, 11.7, 0), Color = color, Material = Enum.Material.Neon })
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 20
+	light.Brightness = 1.5
+	light.Parent = bulb
+end
+
+function Themes.CyberStreets(folder: Instance, zs: number, ze: number, rng: Random)
+	-- A skyline behind the walls (you see it above them)
+	for z = zs + 8, ze - 8, 16 do
+		for _, side in { -1, 1 } do
+			building(folder, Vector3.new(side * rng:NextNumber(72, 90), 0, z + rng:NextNumber(-3, 3)), rng)
+		end
+	end
+	for z = zs + 15, ze - 10, 28 do
+		streetLamp(folder, Vector3.new(-50, 0, z), CYBER[1])
+		streetLamp(folder, Vector3.new(50, 0, z + 14), CYBER[2])
+	end
+	local signs = { "DONUTS 24/7", "GLAZE.EXE", "NEON DUNK", "SPRINKLE.NET", "HACK THE DONUT" }
+	for n = 1, 4 do
+		local side = if n % 2 == 0 then 1 else -1
+		neonSign(folder, CFrame.new(side * 55, 20 + n * 3, zs + n * 32) * CFrame.Angles(0, math.pi / 2, 0), signs[(n - 1) % #signs + 1], CYBER[n], 16)
+	end
+	-- Road markings
+	for z = zs + 6, ze - 6, 12 do
+		Build.Decor({ Parent = folder, Name = "RoadLine", Size = Vector3.new(1, 0.05, 6), Position = Vector3.new(0, 0.03, z), Color = rgb(255, 220, 0), Material = Enum.Material.Neon })
+	end
+	weather(folder, zs, ze, rgb(160, 200, 255), Enum.NormalId.Bottom, 140, 50, 0.12, 1.2)
+end
+
+function Themes.Hologram(folder: Instance, zs: number, ze: number, rng: Random)
+	-- Shop fronts along the walls
+	alongEdges(zs, ze, 24, rng, function(pos, side)
+		local p = Vector3.new(side * 53, 0, pos.Z)
+		Build.Decor({ Parent = folder, Name = "Shop", Size = Vector3.new(8, 14, 16), Position = p + Vector3.new(0, 7, 0), Color = rgb(60, 70, 100), Material = Enum.Material.Glass, Transparency = 0.3 })
+		Build.Decor({ Parent = folder, Name = "ShopTrim", Size = Vector3.new(8.4, 1, 16.4), Position = p + Vector3.new(0, 14.5, 0), Color = CYBER[rng:NextInteger(1, #CYBER)], Material = Enum.Material.Neon })
+	end)
+	-- Hologram donuts slowly turning in the air
+	for n = 1, 5 do
+		local p = Vector3.new(if n % 2 == 0 then 30 else -30, 14, zs + n * 28)
+		local ring = ringOfBalls(folder, CFrame.new(p), 4, 2.2, rgb(0, 230, 255), 14, "SpinSlow")
+		for _, part in ring:GetChildren() do
+			if part:IsA("BasePart") and part.Name == "RingBall" then
+				part.Transparency = 0.4
+			end
+		end
+		Build.Decor({ Parent = folder, Name = "Projector", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 4, 4), CFrame = CFrame.new(p.X, 0.5, p.Z) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(40, 40, 60), Material = Enum.Material.Metal })
+		Build.Decor({ Parent = folder, Name = "HoloBeam", Size = Vector3.new(0.4, 12, 0.4), Position = Vector3.new(p.X, 7, p.Z), Color = rgb(0, 230, 255), Material = Enum.Material.Neon, Transparency = 0.6 })
+	end
+	-- Escalators
+	for _, side in { -1, 1 } do
+		Build.Decor({ Parent = folder, Name = "Escalator", Size = Vector3.new(6, 1, 30), CFrame = CFrame.new(side * 42, 8, zs + 80) * CFrame.Angles(math.rad(28), 0, 0), Color = rgb(170, 175, 190), Material = Enum.Material.DiamondPlate })
+	end
+	neonSign(folder, CFrame.new(0, 34, zs + 130), "HOLO MALL - 99% OFF DONUTS", CYBER[2], 40)
+	weather(folder, zs, ze, rgb(0, 230, 255), Enum.NormalId.Top, 30, 2, 0.3, 5)
+end
+
+function Themes.RobotFactory(folder: Instance, zs: number, ze: number, rng: Random)
+	local yellow, dark = rgb(255, 190, 0), rgb(50, 52, 60)
+	-- Conveyor belts along both walls, with boxes riding them
+	for _, side in { -1, 1 } do
+		Build.Decor({ Parent = folder, Name = "Conveyor", Size = Vector3.new(6, 2, ze - zs - 10), Position = Vector3.new(side * 52, 1, (zs + ze) / 2), Color = dark, Material = Enum.Material.DiamondPlate })
+		for z = zs + 10, ze - 10, 8 do
+			Build.Decor({ Parent = folder, Name = "BeltStripe", Size = Vector3.new(6.1, 0.1, 1), Position = Vector3.new(side * 52, 2.05, z), Color = yellow, Material = Enum.Material.SmoothPlastic })
+		end
+		for z = zs + 14, ze - 14, 22 do
+			Build.Decor({ Parent = folder, Name = "Crate", Size = Vector3.new(3.5, 3.5, 3.5), Position = Vector3.new(side * 52, 3.8, z + rng:NextNumber(-3, 3)), Color = rgb(150, 110, 60), Material = Enum.Material.WoodPlanks })
+		end
+	end
+	-- Robot arms
+	for n = 1, 5 do
+		local side = if n % 2 == 0 then 1 else -1
+		local base = Vector3.new(side * 42, 0, zs + n * 27)
+		Build.Pillar(folder, base, 2, 5, dark, Enum.Material.Metal)
+		Build.Decor({ Parent = folder, Name = "ArmLower", Size = Vector3.new(1.6, 10, 1.6), CFrame = CFrame.new(base + Vector3.new(0, 6.5, 0)) * CFrame.Angles(0, 0, side * 0.35), Color = yellow, Material = Enum.Material.Metal })
+		Build.Decor({ Parent = folder, Name = "ArmUpper", Size = Vector3.new(1.4, 8, 1.4), CFrame = CFrame.new(base + Vector3.new(side * 4.5, 12.5, 0)) * CFrame.Angles(0, 0, side * 1.3), Color = yellow, Material = Enum.Material.Metal })
+		local tool = Build.Ball(folder, base + Vector3.new(side * 8.5, 11, 0), 1.4, rgb(255, 120, 0), Enum.Material.Neon)
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Color = ColorSequence.new(rgb(255, 220, 120))
+		sparks.LightEmission = 1
+		sparks.Rate = 25
+		sparks.Speed = NumberRange.new(6, 14)
+		sparks.Lifetime = NumberRange.new(0.3, 0.6)
+		sparks.Size = NumberSequence.new(0.25, 0)
+		sparks.SpreadAngle = Vector2.new(60, 60)
+		sparks.Acceleration = Vector3.new(0, -30, 0)
+		sparks.Parent = tool
+	end
+	-- Smoke stacks
+	for _, x in { -30, 30 } do
+		local stack = Build.Pillar(folder, Vector3.new(x, 0, ze - 25), 45, 5, rgb(90, 90, 100), Enum.Material.Metal)
+		local smoke = Instance.new("Smoke")
+		smoke.Color = rgb(200, 200, 210)
+		smoke.RiseVelocity = 6
+		smoke.Size = 4
+		smoke.Opacity = 0.2
+		smoke.Parent = stack
+	end
+	weather(folder, zs, ze, rgb(255, 200, 80), Enum.NormalId.Top, 30, 3, 0.25, 4)
+end
+
+function Themes.DataHighway(folder: Instance, zs: number, ze: number, rng: Random)
+	local green = rgb(40, 255, 120)
+	-- Glowing data lanes on the floor
+	for _, x in { -40, -20, 20, 40 } do
+		Build.Decor({ Parent = folder, Name = "DataLane", Size = Vector3.new(1, 0.06, ze - zs - 6), Position = Vector3.new(x, 0.04, (zs + ze) / 2), Color = if math.abs(x) > 30 then green else rgb(80, 200, 255), Material = Enum.Material.Neon })
+	end
+	-- Server racks with blinking lights
+	alongEdges(zs, ze, 14, rng, function(pos, side)
+		local p = Vector3.new(side * 52, 0, pos.Z)
+		Build.Decor({ Parent = folder, Name = "ServerRack", Size = Vector3.new(5, 16, 7), Position = p + Vector3.new(0, 8, 0), Color = rgb(20, 24, 30), Material = Enum.Material.Metal })
+		for y = 2, 14, 2 do
+			Build.Decor({ Parent = folder, Name = "RackLight", Size = Vector3.new(0.2, 0.3, 0.6), Position = p + Vector3.new(-side * 2.55, y, rng:NextNumber(-2.5, 2.5)), Color = if rng:NextNumber() < 0.7 then green else rgb(255, 60, 60), Material = Enum.Material.Neon })
+		end
+	end)
+	-- Floating packets of data
+	for n = 1, 12 do
+		local p = Vector3.new(rng:NextNumber(-44, 44), rng:NextNumber(12, 35), rng:NextNumber(zs + 10, ze - 10))
+		Build.Decor({ Parent = folder, Name = "Packet", Size = Vector3.one * rng:NextNumber(1.5, 3), CFrame = CFrame.new(p) * CFrame.Angles(rng:NextNumber(0, 3), rng:NextNumber(0, 3), 0), Color = if n % 2 == 0 then green else rgb(80, 200, 255), Material = Enum.Material.Neon, Transparency = 0.3 })
+	end
+	-- Cables hanging across the lane
+	for z = zs + 20, ze - 20, 40 do
+		Build.Decor({ Parent = folder, Name = "Cable", Size = Vector3.new(120, 0.6, 0.6), CFrame = CFrame.new(0, 38, z) * CFrame.Angles(0, 0, 0.03), Color = rgb(30, 30, 40) })
+	end
+	weather(folder, zs, ze, green, Enum.NormalId.Bottom, 120, 30, 0.2, 2)
+end
+
+function Themes.Firewall(folder: Instance, zs: number, ze: number, rng: Random)
+	local red = rgb(255, 50, 30)
+	-- Laser walls along the sides
+	for z = zs + 10, ze - 10, 20 do
+		for _, side in { -1, 1 } do
+			Build.Decor({ Parent = folder, Name = "Laser", Size = Vector3.new(0.4, 30, 16), Position = Vector3.new(side * 54, 15, z), Color = red, Material = Enum.Material.Neon, Transparency = 0.6 })
+		end
+	end
+	-- Shield generators
+	for n = 1, 5 do
+		local p = Vector3.new(if n % 2 == 0 then 38 else -38, 0, zs + n * 27)
+		Build.Pillar(folder, p, 6, 3, rgb(60, 60, 70), Enum.Material.Metal)
+		local orb = Build.Ball(folder, p + Vector3.new(0, 8, 0), 4, red, Enum.Material.ForceField)
+		local light = Instance.new("PointLight")
+		light.Color = red
+		light.Range = 18
+		light.Brightness = 2
+		light.Parent = orb
+	end
+	-- Burning braziers
+	scatter(zs, ze, 8, rng, function(pos)
+		local p = Vector3.new(math.sign(pos.X) * rng:NextNumber(22, 34), 0, pos.Z)
+		local bowl = Build.Decor({ Parent = folder, Name = "Brazier", Shape = Enum.PartType.Cylinder, Size = Vector3.new(2, 4, 4), CFrame = CFrame.new(p + Vector3.new(0, 1, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(40, 40, 45), Material = Enum.Material.Metal })
+		local fire = Instance.new("Fire")
+		fire.Size = 5
+		fire.Heat = 8
+		fire.Color = red
+		fire.Parent = bowl
+	end)
+	-- The gate itself
+	for x = -48, 48, 12 do
+		Build.Decor({ Parent = folder, Name = "Battlement", Size = Vector3.new(6, 6, 6), Position = Vector3.new(x, 55, zs + 150), Color = rgb(70, 25, 25), Material = Enum.Material.Metal })
+	end
+	neonSign(folder, CFrame.new(0, 46, zs + 150), "ACCESS DENIED", red, 30)
+	weather(folder, zs, ze, rgb(255, 120, 40), Enum.NormalId.Top, 60, 6, 0.3, 4)
+end
+
+function Themes.Glitch(folder: Instance, zs: number, ze: number, rng: Random)
+	-- "Missing texture" cubes floating at odd angles
+	for n = 1, 26 do
+		local size = rng:NextNumber(2, 7)
+		local p = Vector3.new(rng:NextNumber(-55, 55), rng:NextNumber(3, 45), rng:NextNumber(zs + 5, ze - 5))
+		if math.abs(p.X) < 40 and p.Y < 14 then
+			p = Vector3.new(p.X, p.Y + 14, p.Z) -- keep the running line clear
+		end
+		local cube = Build.Decor({ Parent = folder, Name = "GlitchCube", Size = Vector3.one * size, CFrame = CFrame.new(p) * CFrame.Angles(rng:NextNumber(0, 3), rng:NextNumber(0, 3), rng:NextNumber(0, 3)), Color = if n % 2 == 0 then rgb(255, 0, 220) else rgb(10, 10, 10), Material = if n % 2 == 0 then Enum.Material.Neon else Enum.Material.SmoothPlastic })
+		if n % 5 == 0 then
+			CollectionService:AddTag(cube, "RainbowPart")
+		end
+	end
+	-- Torn "pixels" on the floor
+	scatter(zs, ze, 30, rng, function(pos)
+		Build.Decor({ Parent = folder, Name = "Pixel", Size = Vector3.new(rng:NextNumber(1, 3), 0.1, rng:NextNumber(1, 3)), Position = Vector3.new(pos.X, 0.06, pos.Z), Color = CYBER[rng:NextInteger(1, #CYBER)], Material = Enum.Material.Neon })
+	end)
+	-- Error windows stuck in the air
+	local errors = { "ERROR 404", "DONUT.EXE HAS STOPPED", "NaN NaN NaN", "SEGFAULT", "LAG" }
+	for n = 1, 5 do
+		neonSign(folder, CFrame.new(if n % 2 == 0 then 44 else -44, 18 + n * 4, zs + n * 28) * CFrame.Angles(0, math.pi / 2 + rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.2, 0.2)), errors[n], if n % 2 == 0 then rgb(255, 60, 60) else rgb(0, 230, 255), 18)
+	end
+	weather(folder, zs, ze, rgb(255, 0, 220), Enum.NormalId.Top, 50, 4, 0.5, 3)
+end
+
+function Themes.Mainframe(folder: Instance, zs: number, ze: number, rng: Random)
+	local blue = rgb(80, 160, 255)
+	-- Pillars of light
+	alongEdges(zs, ze, 18, rng, function(pos)
+		Build.Pillar(folder, pos, 40, 3, rgb(20, 24, 50), Enum.Material.Glass)
+		Build.Decor({ Parent = folder, Name = "LightStrip", Size = Vector3.new(0.6, 40, 0.6), Position = pos + Vector3.new(0, 20, 0), Color = blue, Material = Enum.Material.Neon })
+	end)
+	-- Cables running into the core
+	for _, x in { -30, -10, 10, 30 } do
+		Build.Decor({ Parent = folder, Name = "CoreCable", Size = Vector3.new(1.2, 1.2, ze - zs), Position = Vector3.new(x, 44, (zs + ze) / 2), Color = rgb(30, 40, 80), Material = Enum.Material.Metal })
+	end
+	-- The core at the very end of the last lane, with rings turning around it
+	local center = CFrame.new(0, 62, ze - 10)
+	local core = Build.Ball(folder, center.Position, 30, blue, Enum.Material.Neon)
+	core.Transparency = 0.15
+	for i = 1, 3 do
+		ringOfBalls(folder, center * CFrame.Angles(i * 0.9, i * 0.6, 0), 22 + i * 4, 2, if i == 2 then rgb(255, 40, 200) else rgb(0, 230, 255), 24, "SpinSlow")
+	end
+	local light = Instance.new("PointLight")
+	light.Color = blue
+	light.Range = 60
+	light.Brightness = 3
+	light.Parent = core
+	-- Floating code blocks
+	for n = 1, 10 do
+		local p = Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(15, 40), rng:NextNumber(zs + 10, ze - 30))
+		Build.Decor({ Parent = folder, Name = "CodeBlock", Size = Vector3.new(4, 2, 0.3), CFrame = CFrame.new(p) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = if n % 2 == 0 then blue else rgb(255, 40, 200), Material = Enum.Material.Neon, Transparency = 0.4 })
+	end
+	weather(folder, zs, ze, rgb(150, 200, 255), Enum.NormalId.Top, 60, 2, 0.3, 6)
 end
 
 function Decor.BuildTheme(theme: string, folder: Instance, zs: number, ze: number, rng: Random)

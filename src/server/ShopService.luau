@@ -3,11 +3,12 @@
 	===========
 	Handles every client request that costs money, Speed or Robux, plus a few small player actions:
 	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion, BuySecondFloor   (in-game money)
+	  BuyIncubatorUpgrade "Speed" | "Size"                            (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
 	  BuyPass <key>                                    (Robux game passes)
 	  Rebirth, ClaimIndex { DonutId, Kind }
 	  TeleportWorld <id>, TeleportArea <id>            (Teleporter game pass)
-	  SetSlowMode <bool>, TeleportHome, BuyItem <id>, SetMusic { Volume, On }
+	  SetSpeedChoice <0..1>, TeleportHome, BuyItem <id>, SetMusic { Volume, On }
 	  HatchEgg <uid?>, EquipPet <uid>, UnequipPet <uid>, EquipBestPets, ReleasePet <uid>
 	  BuyLuck, BuyCrate <id>, Donate <amount>          (Robux developer products)
 	Other services can add their own actions with ShopService.RegisterAction (e.g. the admin panel).
@@ -162,7 +163,7 @@ function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
 	profile.Data.TreadmillLevel = level + 1
 	player:SetAttribute("TreadmillLevel", level + 1)
 	TreadmillService.Build(player)
-	notify(player, `🏃 {nextTier.Name} Treadmill installed! (+{Format.Number(nextTier.Rate)} speed/s base)`, "success")
+	notify(player, `🏃 {nextTier.Name} Treadmill installed! (+{Format.Rate(nextTier.Rate)} speed/s base)`, "success")
 end
 
 function Actions.BuyExpansion(player: Player, _profile: DataService.Profile)
@@ -171,6 +172,10 @@ end
 
 function Actions.BuySecondFloor(player: Player, _profile: DataService.Profile)
 	PlotService.BuySecondFloor(player)
+end
+
+function Actions.BuyIncubatorUpgrade(player: Player, _profile: DataService.Profile, kind: any)
+	PetService.BuyUpgrade(player, kind)
 end
 
 function Actions.BuyPass(player: Player, profile: DataService.Profile, key: any)
@@ -345,9 +350,13 @@ function Actions.Donate(player: Player, _profile: DataService.Profile, amount: a
 	ProductService.Donate(player, amount)
 end
 
-function Actions.SetSlowMode(player: Player, profile: DataService.Profile, enabled: any)
-	profile.Session.SlowMode = enabled == true
-	player:SetAttribute("SlowMode", profile.Session.SlowMode)
+-- Speed slider: 0 = walk at normal speed (16) ... 1 = full speed.
+function Actions.SetSpeedChoice(player: Player, profile: DataService.Profile, choice: any)
+	if type(choice) ~= "number" or choice ~= choice then
+		return
+	end
+	profile.Data.SpeedChoice = math.clamp(choice, 0, 1)
+	player:SetAttribute("SpeedChoice", profile.Data.SpeedChoice)
 end
 
 function Actions.TeleportHome(player: Player, profile: DataService.Profile)

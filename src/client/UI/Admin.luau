@@ -13,6 +13,7 @@ local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
 local Pets = require(Shared.Pets)
 local Crates = require(Shared.Crates)
+local Events = require(Shared.Events)
 local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
@@ -154,7 +155,7 @@ local function build()
 	end
 
 	-- Crates
-	local crates = section("🎁 Crates (open = free, spawn = in the area you're in)", 150)
+	local crates = section("🎁 Crates - 👑 owner only (open = free, spawn = in the area you're in)", 150)
 	for _, crate in Crates.List do
 		button(crates, "Open " .. crate.Name, crate.Color, function()
 			command("OpenCrate", crate.Id)
@@ -168,11 +169,20 @@ local function build()
 
 	-- Fun
 	local fun = section("✨ Fun", 150)
-	button(fun, "🍀 Luck Event", Theme.Colors.Green, function()
+	button(fun, "👑 🍀 Luck Event", Theme.Colors.Green, function()
 		command("Luck")
 	end)
-	button(fun, "🌪️ Area event here", Theme.Colors.Orange, function()
+	button(fun, "👑 🎲 Random event", Theme.Colors.Orange, function()
 		command("Event")
+	end)
+	button(fun, "🕊 Fly", Theme.Colors.Blue, function()
+		command("Fly", "Fly")
+	end)
+	button(fun, "🧞 Magic carpet", Theme.Colors.Pink, function()
+		command("Fly", "Carpet")
+	end)
+	button(fun, "🚶 Stop flying", Theme.Colors.Gray, function()
+		command("Fly", "Off")
 	end)
 	local god = button(fun, `🛡 {Config.Guard.Name} can't catch me`, Theme.Colors.Purple, function()
 		command("GodMode")
@@ -180,6 +190,14 @@ local function build()
 	State.Changed:Connect(function()
 		Theme.SetButtonColor(god, if State.Data.GodMode then Theme.Colors.Green else Theme.Colors.Purple)
 	end)
+
+	-- Server events (whole server, one at a time)
+	local events = section("🌍 Start a server event - 👑 owner only (it changes the game for everyone here)", 150)
+	for _, event in Events.List do
+		button(events, `{event.Icon} {event.Name}`, event.Color, function()
+			command("Event", event.Id)
+		end)
+	end
 
 	-- Teleport
 	local teleport = section("🌀 Teleport to area", 60)

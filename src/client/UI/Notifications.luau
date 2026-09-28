@@ -1,9 +1,9 @@
 --[[
 	Notifications: small toasts and big server-wide announcements. Top of the screen, from the top:
-	  y 4    Luck Event pill (HUD)
-	  y 46   big banners (area names, announcements)
-	  y 140  chase banner (Chase) - toasts slide below it while it's showing (SetToastOffset)
-	  y 140+ toasts
+	  y 4    Luck Event pill (HUD) and the server event pill under it (EventBanner, y 46)
+	  y 92   big banners (area names, announcements)
+	  y 186  chase banner (Chase) - toasts slide below it while it's showing (SetToastOffset)
+	  y 186+ toasts
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -27,7 +27,7 @@ local KIND_COLORS = {
 local toastHolder: Frame
 local bannerHolder: Frame
 local toastCounter = 0
-local TOAST_Y = 140
+local TOAST_Y = 186
 
 -- Push the toasts down while something else (the chase banner) uses that spot.
 function Notifications.SetToastOffset(extra: number)
@@ -127,7 +127,7 @@ function Notifications.Init()
 	bannerHolder = Theme.new("Frame", {
 		Name = "Banners",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 46),
+		Position = UDim2.new(0.5, 0, 0, 92),
 		Size = UDim2.fromOffset(860, 92),
 		BackgroundTransparency = 1,
 		Parent = gui,

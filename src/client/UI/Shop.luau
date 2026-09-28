@@ -1,6 +1,6 @@
 --[[
 	Shop window with five tabs:
-	  Upgrades  - Speed Multiplier, Treadmill tiers and Base Expansions (in-game money)
+	  Upgrades  - Speed Multiplier, Treadmill tiers, Base Expansions and Incubator upgrades (money)
 	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
 	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
 	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
@@ -116,10 +116,24 @@ local function buildUpgrades(page: ScrollingFrame)
 		end
 	end)
 
+	-- Incubator upgrades
+	local function incubatorCard(order: number, kind: string, title: string, color: Color3): (TextLabel, TextButton)
+		local c = card(page, order, color)
+		Theme.Label({ Text = title, TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.4), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = c })
+		local info = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = c })
+		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
+		button.Activated:Connect(function()
+			State.Action("BuyIncubatorUpgrade", kind)
+		end)
+		return info, button
+	end
+	local hatchInfo, hatchButton = incubatorCard(4, "Speed", "⚡ INCUBATOR SPEED", Theme.Colors.Pink)
+	local sizeInfo, sizeButton = incubatorCard(5, "Size", "🥚 INCUBATOR SIZE", Theme.Colors.Orange)
+
 	-- Summary
-	local summary = card(page, 4, Theme.Colors.Blue)
+	local summary = card(page, 6, Theme.Colors.Blue)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
-	local tip = card(page, 5, Theme.Colors.Green)
+	local tip = card(page, 7, Theme.Colors.Green)
 	Theme.Label({
 		Text = `💡 Run on your treadmill to gain Speed: every {Config.Speed.SpeedPerWalk} Speed is +1 walk speed. Faster = you can steal from further areas, where donuts are rarer and earn way more! Upgrading your donuts (E on them) is cheap early on.`,
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
@@ -146,12 +160,12 @@ local function buildUpgrades(page: ScrollingFrame)
 		local level = math.max(1, State.Number("TreadmillLevel"))
 		local tier = Economy.TreadmillTier(level)
 		if level >= Economy.MaxTreadmillLevel() then
-			treadInfo.Text = `{tier.Name} (Tier {level}/{Economy.MaxTreadmillLevel()}) - the best!\n+{Format.Number(tier.Rate)} speed/s base`
+			treadInfo.Text = `{tier.Name} (Tier {level}/{Economy.MaxTreadmillLevel()}) - the best!\n+{Format.Rate(tier.Rate)} speed/s base`
 			Theme.SetButtonText(treadButton, "MAXED")
 			Theme.SetButtonColor(treadButton, Theme.Colors.Gray)
 		else
 			local nextTier = Economy.TreadmillTier(level + 1)
-			treadInfo.Text = `{tier.Name} → {nextTier.Name} (Tier {level + 1})\n+{Format.Number(tier.Rate)}/s → +{Format.Number(nextTier.Rate)}/s base`
+			treadInfo.Text = `{tier.Name} → {nextTier.Name} (Tier {level + 1})\n+{Format.Rate(tier.Rate)}/s → +{Format.Rate(nextTier.Rate)}/s base`
 			if rebirths < nextTier.RequiredRebirths then
 				Theme.SetButtonText(treadButton, `🔒 Needs Rebirth {nextTier.RequiredRebirths}`)
 				Theme.SetButtonColor(treadButton, Theme.Colors.Gray)
@@ -184,6 +198,24 @@ local function buildUpgrades(page: ScrollingFrame)
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
 		end
 
+		local function incubatorRow(kind: string, info: TextLabel, button: TextButton)
+			local level = State.Number(if kind == "Speed" then "IncubatorSpeed" else "IncubatorSize")
+			local cost = Economy.IncubatorUpgradeCost(kind, level)
+			local now = if kind == "Speed" then `x{Format.Multiplier(Economy.IncubatorSpeed(level))} hatch speed` else `{Economy.IncubatorCapacity(level)} eggs at once`
+			if cost then
+				local nextText = if kind == "Speed" then `x{Format.Multiplier(Economy.IncubatorSpeed(level + 1))}` else `{Economy.IncubatorCapacity(level + 1)} eggs`
+				info.Text = `{now}  →  {nextText}\nKept forever, even when you rebirth`
+				Theme.SetButtonText(button, "Buy " .. Format.Money(cost))
+				Theme.SetButtonColor(button, if money >= cost then Theme.Colors.Green else Theme.Colors.Gray)
+			else
+				info.Text = `{now} (MAX)`
+				Theme.SetButtonText(button, "MAXED")
+				Theme.SetButtonColor(button, Theme.Colors.Gray)
+			end
+		end
+		incubatorRow("Speed", hatchInfo, hatchButton)
+		incubatorRow("Size", sizeInfo, sizeButton)
+
 		local indexBonus = State.Number("IndexBonus")
 		local petBonus = State.Number("PetSpeedBonus")
 		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus)
@@ -199,7 +231,7 @@ local function buildUpgrades(page: ScrollingFrame)
 			table.insert(extras, `🐾 +{math.floor(petBonus * 100 + 0.5)}%`)
 		end
 		local extraText = if #extras > 0 then " (" .. table.concat(extras, " ") .. ")" else ""
-		summaryText.Text = `<b>YOUR STATS</b>\nTreadmill: <font color="#c9a0ff">+{Format.Number(rate)} speed/s</font>{extraText}\nSpeed: <font color="#c9a0ff">{Format.Number(State.Number("Speed"))}</font> (walk speed {math.floor(walk)})\nIncome: <font color="#8dff6a">{Format.Money(State.Number("Income"))}/s</font>`
+		summaryText.Text = `<b>YOUR STATS</b>\nTreadmill: <font color="#c9a0ff">+{Format.Rate(rate)} speed/s</font>{extraText}\nSpeed: <font color="#c9a0ff">{Format.Number(State.Number("Speed"))}</font> (walk speed {math.floor(walk)})\nIncome: <font color="#8dff6a">{Format.Money(State.Number("Income"))}/s</font>`
 	end)
 end
 
@@ -546,7 +578,7 @@ function Shop.Init()
 	buildItems(newPage("Items", body, 2, 175))
 	buildSkins(newPage("Skins", body, 3, 180))
 
-	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "Expansions", "Floors", "IndexBonus" } do
+	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "Expansions", "Floors", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
 		State.OnAttribute(name, function()
 			if modal:IsOpen() then
 				refreshAll()

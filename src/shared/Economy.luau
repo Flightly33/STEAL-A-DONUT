@@ -19,8 +19,7 @@ local Economy = {}
 -- every Config.Speed.SpeedPerWalk Speed is +1 WalkSpeed.
 function Economy.WalkSpeedFromStat(stat: number): number
 	local s = Config.Speed
-	local walk = s.BaseWalkSpeed + math.max(stat, 0) / s.SpeedPerWalk
-	return math.min(walk, s.MaxWalkSpeed)
+	return s.BaseWalkSpeed + math.max(stat, 0) / s.SpeedPerWalk -- no cap: keep training, keep getting faster
 end
 
 function Economy.StatForWalkSpeed(walkSpeed: number): number
@@ -226,6 +225,20 @@ function Economy.SlotCount(expansions: number, floors: number?): number
 	local p = Config.Plots
 	local ground = math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
 	return ground + (if (floors or 1) >= 2 then p.SecondFloor.Slots else 0)
+end
+
+-- Incubator upgrades: hatch speed multiplier, egg capacity, and the price of the next level.
+function Economy.IncubatorSpeed(level: number): number
+	return 1 + Config.Pets.IncubatorSpeed.PerLevel * level
+end
+
+function Economy.IncubatorCapacity(level: number): number
+	return Config.Pets.MaxEggs + Config.Pets.IncubatorSize.PerLevel * level
+end
+
+function Economy.IncubatorUpgradeCost(kind: string, level: number): number?
+	local upgrade = if kind == "Speed" then Config.Pets.IncubatorSpeed else Config.Pets.IncubatorSize
+	return upgrade.Costs[level + 1]
 end
 
 -- Price of the second floor: nil until the ground floor is fully expanded, or once you own it.

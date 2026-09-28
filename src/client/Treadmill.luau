@@ -279,7 +279,7 @@ local function start(belt: BasePart, character: Model, root: BasePart, humanoid:
 			track = loaded
 		end
 	end
-	rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
+	rateLabel.Text = `🏃 RUNNING!  +{Format.Rate(currentRate())} ⚡/s`
 	hint.Visible = true
 	lastWalkPoint = math.floor(State.Number("Speed") / Config.Speed.SpeedPerWalk)
 	setRunFX(true, root)
@@ -318,7 +318,7 @@ end
 local function popup()
 	local amount = currentRate()
 	local label = Theme.Label({
-		Text = "+" .. Format.Number(amount) .. " ⚡",
+		Text = "+" .. Format.Rate(amount) .. " ⚡",
 		TextColor3 = Color3.fromRGB(200, 150, 255),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(math.random(10, 90) / 100, math.random(18, 78) / 100),
@@ -438,7 +438,7 @@ function Treadmill.Init()
 			task.wait(1)
 			if running then
 				popup()
-				rateLabel.Text = `🏃 RUNNING!  +{Format.Number(currentRate())} ⚡/s`
+				rateLabel.Text = `🏃 RUNNING!  +{Format.Rate(currentRate())} ⚡/s`
 			end
 		end
 	end)

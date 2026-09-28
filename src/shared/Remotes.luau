@@ -16,7 +16,7 @@
 		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
 
 	Client -> Server
-		Action(name, arg)                  shop purchases, equip skin, slow mode, teleport home...
+		Action(name, arg)                  shop purchases, equip skin, speed slider, teleport home...
 		ClientReady()                      UI is built; server then sends welcome-back popup etc.
 		GetLeaderboard(boardId) -> data    (RemoteFunction)
 		GetGlobalStats() -> stats          (RemoteFunction) spawn / found counts of every donut

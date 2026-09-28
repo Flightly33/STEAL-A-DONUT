@@ -1,8 +1,8 @@
 --[[
-	Weather: the client-side look of area events (see Events.luau / EventService).
-	While you stand in an area with a running event you get its weather around you (sand, snow,
-	rain, embers, bubbles, sparkles, shooting stars, confetti, ghosts, coins, leaves, rainbows)
-	and a colour tint. A Sandstorm or Blizzard also cuts visibility with thick haze.
+	Weather: the client-side look of server events (see Events.luau / EventService).
+	While an event runs you get its weather around you wherever you are (sand, snow, rain, embers,
+	bubbles, sparkles, shooting stars, confetti, ghosts, coins, leaves, rainbows, eggs) and a colour
+	tint. A Sandstorm or Blizzard also adds some haze.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -14,7 +14,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Events = require(Shared.Events)
 
-local AreaTracker = require(script.Parent.AreaTracker)
 
 local Weather = {}
 
@@ -57,17 +56,12 @@ local STYLES: { [string]: Style } = {
 	Coins = { Rate = 70, Speed = NumberRange.new(10, 18), Size = NumberSequence.new(0.45), Lifetime = NumberRange.new(2.5, 4), Color = ColorSequence.new(rgb(255, 210, 60)), Direction = Enum.NormalId.Bottom, Spin = true, Light = 0.4, Height = 35 },
 	Leaves = { Rate = 90, Speed = NumberRange.new(4, 8), Size = NumberSequence.new(0.5), Lifetime = NumberRange.new(5, 7), Color = ColorSequence.new(rgb(255, 150, 50), rgb(200, 80, 30)), Direction = Enum.NormalId.Bottom, Acceleration = Vector3.new(5, 0, 2), Spin = true, Height = 35 },
 	Rainbow = { Rate = 200, Speed = NumberRange.new(4, 10), Size = NumberSequence.new(0.5, 0), Lifetime = NumberRange.new(3, 5), Color = RAINBOW, Direction = Enum.NormalId.Bottom, Light = 1, Spin = true, Height = 30 },
+	Eggs = { Rate = 40, Speed = NumberRange.new(10, 16), Size = NumberSequence.new(0.7), Lifetime = NumberRange.new(2.5, 4), Color = ColorSequence.new(rgb(255, 240, 200), rgb(255, 190, 230)), Direction = Enum.NormalId.Bottom, Spin = true, Height = 35 },
 }
 
 local holder: Part? = nil
 local tint: ColorCorrectionEffect
 local activeId: string? = nil
-
-local function areaFolder(areaId: number): Instance?
-	local map = workspace:FindFirstChild("Map")
-	local lane = map and map:FindFirstChild("Lane")
-	return lane and lane:FindFirstChild("Area" .. areaId)
-end
 
 local function stop()
 	activeId = nil
@@ -150,9 +144,7 @@ function Weather.Init()
 	task.spawn(function()
 		while true do
 			task.wait(0.5)
-			local areaId = AreaTracker.Current
-			local folder = if areaId > 0 then areaFolder(areaId) else nil
-			local eventId = folder and folder:GetAttribute("EventId")
+			local eventId = workspace:GetAttribute("EventId")
 			local event = if type(eventId) == "string" then Events.ById[eventId] else nil
 			if event and event.Id ~= activeId then
 				start(event)

@@ -51,6 +51,11 @@ function Format.Multiplier(value: number): string
 	return text
 end
 
+-- Rates such as speed per second: 0.115 -> "0.12", 2.5 -> "2.5", 12345 -> "12.3K"
+function Format.Rate(value: number): string
+	return Format.Multiplier(value)
+end
+
 function Format.Money(value: number): string
 	return "$" .. Format.Number(value)
 end

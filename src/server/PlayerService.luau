@@ -180,10 +180,11 @@ local function desiredWalkSpeed(player: Player, profile: DataService.Profile): n
 		-- Carrying someone else's donut: slow mode until you get it home
 		return Config.Raid.CarryWalkSpeed * carry
 	end
-	if profile.Session.SlowMode then
-		return Config.Speed.SlowModeWalkSpeed * carry
-	end
-	return Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * DataService.WalkBoost(profile.Data) * carry
+	-- The speed slider picks anything between normal walking speed and your full speed
+	local full = Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * DataService.WalkBoost(profile.Data)
+	local slowest = Config.Speed.BaseWalkSpeed
+	local choice = math.clamp(profile.Data.SpeedChoice, 0, 1)
+	return (slowest + math.max(full - slowest, 0) * choice) * carry
 end
 
 function PlayerService.Init()

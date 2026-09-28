@@ -60,6 +60,9 @@ export type Data = {
 	UsedAdmin: boolean, -- opened the admin panel (kept off the global leaderboards)
 	SpeedBoostSeconds: number, -- crate Speed Boost time left (only counts down while online)
 	Floors: number, -- 2 once the second floor is bought
+	SpeedChoice: number, -- speed slider: 0 = normal walking speed (16) ... 1 = as fast as you can go
+	IncubatorSpeed: number, -- incubator upgrade levels
+	IncubatorSize: number,
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -68,7 +71,7 @@ export type Profile = {
 	Data: Data,
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
-	Session: { SlowMode: boolean, Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, GodMode: boolean },
+	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, GodMode: boolean },
 	NoSave: boolean,
 }
 
@@ -107,6 +110,9 @@ local TEMPLATE: Data = {
 	UsedAdmin = false,
 	SpeedBoostSeconds = 0,
 	Floors = 1,
+	SpeedChoice = 1,
+	IncubatorSpeed = 0,
+	IncubatorSize = 0,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -298,7 +304,7 @@ function DataService.Load(player: Player): Profile?
 		Data = data,
 		Passes = {},
 		SessionSkins = {},
-		Session = { SlowMode = false, Stunned = false, Ready = false, World = 1, Admin = false, GodMode = false },
+		Session = { Stunned = false, Ready = false, World = 1, Admin = false, GodMode = false },
 		NoSave = noSave,
 	}
 	profiles[player] = profile
@@ -390,7 +396,9 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("TreadmillLevel", data.TreadmillLevel)
 	player:SetAttribute("SpeedMultLevel", data.SpeedMultLevel)
 	player:SetAttribute("PlayTime", data.PlayTime)
-	player:SetAttribute("SlowMode", profile.Session.SlowMode)
+	player:SetAttribute("SpeedChoice", data.SpeedChoice)
+	player:SetAttribute("IncubatorSpeed", data.IncubatorSpeed)
+	player:SetAttribute("IncubatorSize", data.IncubatorSize)
 	player:SetAttribute("Rebirths", data.Rebirths)
 	player:SetAttribute("Expansions", data.Expansions)
 	player:SetAttribute("Floors", data.Floors)
@@ -469,7 +477,6 @@ function DataService.PushState(player: Player)
 		MusicOn = profile.Data.MusicOn,
 		Items = profile.Data.Items,
 		PlotIndex = player:GetAttribute("PlotIndex"),
-		SlowMode = profile.Session.SlowMode,
 		Eggs = profile.Data.Eggs,
 		Pets = profile.Data.Pets,
 		EquippedPets = profile.Data.EquippedPets,

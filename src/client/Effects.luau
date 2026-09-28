@@ -235,7 +235,10 @@ local function startAmbience()
 	local info = TweenInfo.new(2.5, Enum.EasingStyle.Sine)
 
 	local function apply(areaId: number)
-		local amb = if areaId > 0 then Areas.List[areaId].Ambience else Areas.Hub
+		-- In a world's safe hub, use that world's own look (its first area), not World 1's daylight
+		local world = math.max(1, State.Number("World"))
+		local hubAmbience = if world > 1 and Areas.ByWorld[world] then Areas.ByWorld[world][1].Ambience else Areas.Hub
+		local amb = if areaId > 0 then Areas.List[areaId].Ambience else hubAmbience
 		-- Day -> night goes forwards through sunset (ClockTime wraps at 24) instead of rewinding the sun.
 		local clock = amb.ClockTime
 		if clock < 6 and Lighting.ClockTime > 6 then
@@ -253,6 +256,11 @@ local function startAmbience()
 		end
 	end
 	AreaTracker.Changed:Connect(apply)
+	State.OnAttribute("World", function()
+		if AreaTracker.Current >= 0 then
+			apply(AreaTracker.Current)
+		end
+	end)
 	if AreaTracker.Current >= 0 then
 		apply(AreaTracker.Current)
 	end

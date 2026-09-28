@@ -478,7 +478,7 @@ function Chase.Init()
 
 	banner = Theme.new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 140),
+		Position = UDim2.new(0.5, 0, 0, 186),
 		Size = UDim2.fromOffset(780, 78),
 		BackgroundTransparency = 1,
 		Visible = false,

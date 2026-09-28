@@ -52,7 +52,7 @@ local function updateScreen(player: Player)
 		return
 	end
 	local tier = Economy.TreadmillTier(profile.Data.TreadmillLevel)
-	local text = `+{Format.Number(TreadmillService.GetRate(player))} ⚡/s`
+	local text = `+{Format.Rate(TreadmillService.GetRate(player))} ⚡/s`
 	for _, label in model:GetDescendants() do
 		if label:IsA("TextLabel") then
 			if label.Name == "Rate" then

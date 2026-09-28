@@ -102,45 +102,55 @@ Pets.List = {
 	{ Id = "JesterMonkey", Name = "Jester Monkey", Rarity = "Legendary", Money = 0.5, Speed = 0.8, Shape = "Quad", Body = rgb(150, 95, 60), Accent = rgb(170, 60, 255), Features = { "RoundEars", "Tail", "Bow", "Glow" }, Exclusive = "Royal Egg" },
 	{ Id = "RoyalGriffin", Name = "Royal Griffin", Rarity = "Mythic", Money = 1.4, Speed = 0.9, Shape = "Bird", Body = rgb(245, 220, 150), Accent = rgb(255, 200, 40), Features = { "Beak", "Wings", "Crest", "Crown", "Glow" }, Exclusive = "Royal Egg" },
 	{ Id = "CrownWhale", Name = "Crown Whale", Rarity = "Mythic", Money = 1.8, Speed = 0.6, Shape = "Whale", Body = rgb(60, 40, 140), Accent = rgb(255, 215, 60), Features = { "Crown", "Spout", "Stars", "Glow" }, Exclusive = "Royal Egg" },
+	-- Cyber Egg (World 4: Cyber City)
+	{ Id = "PixelPup", Name = "Pixel Pup", Rarity = "Epic", Money = 0.5, Speed = 0.3, Shape = "Quad", Body = rgb(40, 40, 60), Accent = rgb(255, 40, 200), Features = { "PointyEars", "Tail", "Glow" } },
+	{ Id = "DroneBird", Name = "Drone Bird", Rarity = "Legendary", Money = 0.8, Speed = 0.6, Shape = "Bird", Body = rgb(150, 155, 165), Accent = rgb(0, 230, 255), Features = { "Beak", "Wings", "Antenna", "Glow" } },
+	{ Id = "MechaCat", Name = "Mecha Cat", Rarity = "Mythic", Money = 1.6, Speed = 0.9, Shape = "Quad", Body = rgb(60, 62, 70), Accent = rgb(255, 190, 0), Features = { "PointyEars", "Tail", "Antenna", "Glow" } },
+	{ Id = "NeonOverlord", Name = "Neon Overlord", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(20, 20, 35), Accent = rgb(255, 40, 200), Features = { "Wings", "Horns", "Tail", "Crown", "Glitch", "Glow" }, Scale = 1.15 },
 	-- ... and one pet that only comes straight out of a Legendary Crate.
 	{ Id = "CrateKing", Name = "Crate King", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(255, 200, 40), Accent = rgb(255, 60, 60), Features = { "Wings", "Horns", "Tail", "Crown", "Halo", "Rainbow", "Glow" }, Scale = 1.15, Exclusive = "Legendary Crate" },
 } :: { Pet }
 
 Pets.Eggs = {
 	{
-		Id = "Sprinkle", Name = "Sprinkle Egg", MinArea = 4, MaxArea = 10, Weight = 100, HatchSeconds = 180, Tier = 1,
+		Id = "Sprinkle", Name = "Sprinkle Egg", MinArea = 4, MaxArea = 12, Weight = 100, HatchSeconds = 180, Tier = 1,
 		Color = rgb(255, 170, 215), Accent = rgb(255, 255, 255),
 		Pool = { { Pet = "GlazePup", Weight = 45 }, { Pet = "SprinkleKitty", Weight = 30 }, { Pet = "ChocoBunny", Weight = 18 }, { Pet = "DonutDuck", Weight = 7 } },
 	},
 	{
-		Id = "Frosted", Name = "Frosted Egg", MinArea = 6, MaxArea = 12, Weight = 60, HatchSeconds = 480, Tier = 2,
+		Id = "Frosted", Name = "Frosted Egg", MinArea = 6, MaxArea = 14, Weight = 60, HatchSeconds = 480, Tier = 2,
 		Color = rgb(170, 225, 255), Accent = rgb(255, 255, 255),
 		Pool = { { Pet = "FrostPenguin", Weight = 45 }, { Pet = "SnowFox", Weight = 30 }, { Pet = "IceOwl", Weight = 18 }, { Pet = "YetiCub", Weight = 7 } },
 	},
 	{
-		Id = "Molten", Name = "Molten Egg", MinArea = 7, MaxArea = 15, Weight = 40, HatchSeconds = 900, Tier = 3,
+		Id = "Molten", Name = "Molten Egg", MinArea = 7, MaxArea = 19, Weight = 40, HatchSeconds = 900, Tier = 3,
 		Color = rgb(70, 40, 35), Accent = rgb(255, 120, 0),
 		Pool = { { Pet = "EmberLizard", Weight = 45 }, { Pet = "MagmaHound", Weight = 32 }, { Pet = "FirePhoenix", Weight = 17 }, { Pet = "LavaDragon", Weight = 6 } },
 	},
 	{
-		Id = "Cosmic", Name = "Cosmic Egg", MinArea = 9, MaxArea = 20, Weight = 25, HatchSeconds = 1800, Tier = 4,
+		Id = "Cosmic", Name = "Cosmic Egg", MinArea = 9, MaxArea = 26, Weight = 25, HatchSeconds = 1800, Tier = 4,
 		Color = rgb(40, 20, 90), Accent = rgb(150, 220, 255),
 		Pool = { { Pet = "StarJelly", Weight = 48 }, { Pet = "NebulaCat", Weight = 33 }, { Pet = "GalaxyWhale", Weight = 16 }, { Pet = "CosmicUnicorn", Weight = 3 } },
 	},
 	{
-		Id = "Tropical", Name = "Tropical Egg", MinArea = 11, MaxArea = 20, Weight = 35, HatchSeconds = 2700, Tier = 4,
+		Id = "Tropical", Name = "Tropical Egg", MinArea = 13, MaxArea = 26, Weight = 35, HatchSeconds = 2700, Tier = 4,
 		Color = rgb(255, 220, 120), Accent = rgb(0, 200, 190),
 		Pool = { { Pet = "ParrotPal", Weight = 48 }, { Pet = "CoralCrab", Weight = 33 }, { Pet = "TikiTurtle", Weight = 16 }, { Pet = "KrakenJr", Weight = 3 } },
 	},
 	{
-		Id = "Dream", Name = "Dream Egg", MinArea = 16, MaxArea = 20, Weight = 35, HatchSeconds = 3600, Tier = 5,
+		Id = "Dream", Name = "Dream Egg", MinArea = 20, MaxArea = 26, Weight = 35, HatchSeconds = 3600, Tier = 5,
 		Color = rgb(255, 235, 250), Accent = rgb(190, 150, 255),
 		Pool = { { Pet = "CloudSheep", Weight = 55 }, { Pet = "TeddyGhost", Weight = 32 }, { Pet = "AngelBear", Weight = 12 }, { Pet = "DreamDragon", Weight = 1 } },
 	},
 	{
-		Id = "Void", Name = "Void Egg", MinArea = 8, MaxArea = 20, Weight = 3, HatchSeconds = 5400, Tier = 6, Rainbow = true,
+		Id = "Void", Name = "Void Egg", MinArea = 8, MaxArea = 33, Weight = 3, HatchSeconds = 5400, Tier = 6, Rainbow = true,
 		Color = rgb(10, 5, 20), Accent = rgb(200, 80, 255),
 		Pool = { { Pet = "VoidImp", Weight = 70 }, { Pet = "VoidSerpent", Weight = 28 }, { Pet = "GlitchGod", Weight = 2 } },
+	},
+	{
+		Id = "Cyber", Name = "Cyber Egg", MinArea = 27, MaxArea = 33, Weight = 35, HatchSeconds = 4500, Tier = 5,
+		Color = rgb(30, 30, 45), Accent = rgb(255, 40, 200),
+		Pool = { { Pet = "PixelPup", Weight = 55 }, { Pet = "DroneBird", Weight = 32 }, { Pet = "MechaCat", Weight = 12 }, { Pet = "NeonOverlord", Weight = 1 } },
 	},
 	{
 		Id = "Royal", Name = "Royal Egg", MinArea = 0, MaxArea = 0, Weight = 0, HatchSeconds = 1200, Tier = 6, CrateOnly = true,

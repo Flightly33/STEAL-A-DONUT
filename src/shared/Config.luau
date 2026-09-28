@@ -12,8 +12,8 @@
 	   their IDs into Config.LuckEvent.DeveloperProductId, Config.Crates.Products[...] and
 	   Config.Donations.Products[...].DeveloperProductId. Crates are "paid random items": say so in
 	   the Maturity & Compliance Questionnaire on the Creator Dashboard.
-	3. The admin code works for the game's owner and in Studio. To let friends use it, add their
-	   UserIds to Config.Admin.AllowedUserIds.
+	3. The admin code works for EVERYONE who types it (Config.Admin.AllowAnyone). Luck Events and
+	   crates from the panel only work for the owner / Config.Admin.AllowedUserIds.
 	4. In Studio: Game Settings > Security > "Enable Studio Access to API Services" so DataStores work
 	   while testing.
 ]]
@@ -127,7 +127,7 @@ Config.Plots = {
 	-- stands (same layout, Height studs up - above even a Giant donut). A lift pad at the front of
 	-- the base takes you up and down. Kept through rebirths, like expansions.
 	SecondFloor = {
-		Cost = 1_000_000_000_000_000_000, -- $1Qn: 200x the last expansion
+		Cost = 10_000_000_000_000_000_000, -- $10Qn: 2000x the last expansion (bots get it around Rebirth 2)
 		Slots = 24, -- at most SlotsPerPlot
 		Height = 26,
 	},
@@ -141,38 +141,40 @@ Config.Plots = {
 -- is +1 WalkSpeed, so twice the training really is twice the extra speed.
 --   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 16, 90 = 25, 810 = 97)
 -- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
--- MaxWalkSpeed keeps the fastest players inside what Roblox physics handles well.
+-- There's no maximum: the more you train, the faster you run. (Around WalkSpeed 1000+ Roblox physics
+-- can let a player slip through a thin wall; the speed slider on the HUD lets players slow down.)
 --------------------------------------------------------------------------------
 Config.Speed = {
 	BaseWalkSpeed = 16,
 	SpeedPerWalk = 10,
-	MaxWalkSpeed = 220, -- before the world bonus (Areas.Worlds[].WalkMultiplier: later worlds are faster)
-	SlowModeWalkSpeed = 16,
 }
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
--- Balance: a simulated bot that plays well (no passes) needs ~8 min for Area 2, ~37 min for
--- Area 5, ~1.5 h for Area 10 and ~10 h for Rebirth 3. Real players take 2-3x longer.
+-- Balance (about 2x slower than before the Cyber City update): a simulated bot that plays well
+-- (no passes, pets or Index bonus) needs ~16 min for Area 2, ~1.1 h for Area 5, ~2.3 h for Area 10,
+-- ~3.2 h for Rebirth 1, ~9 h for Rebirth 2, ~22 h for Rebirth 3 and ~40 h for Rebirth 4.
+-- Real players take longer (breaks, getting caught); a player who mostly trains and rarely swaps
+-- donuts is faster (~2 h / 5 h / 9 h / 15 h for Rebirth 1-4).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
 	Tiers = {
-		{ Name = "Rusty", Rate = 0.3, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
-		{ Name = "Basic", Rate = 0.33, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
-		{ Name = "Sporty", Rate = 0.36, Cost = 20_000, RequiredRebirths = 0, Base = rgb(220, 40, 40), Accent = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic },
-		{ Name = "Pro", Rate = 0.4, Cost = 150_000, RequiredRebirths = 0, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
-		{ Name = "Turbo", Rate = 0.44, Cost = 1_200_000, RequiredRebirths = 0, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
-		{ Name = "Neon", Rate = 0.48, Cost = 9_000_000, RequiredRebirths = 0, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
-		{ Name = "Diamond", Rate = 0.53, Cost = 70_000_000, RequiredRebirths = 0, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Plasma", Rate = 0.58, Cost = 600_000_000, RequiredRebirths = 0, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Quantum", Rate = 0.64, Cost = 5_000_000_000, RequiredRebirths = 0, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
-		{ Name = "Cosmic", Rate = 0.7, Cost = 40_000_000_000, RequiredRebirths = 0, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Tropical", Rate = 0.8, Cost = 400_000_000_000, RequiredRebirths = 1, Base = rgb(255, 225, 150), Accent = rgb(0, 210, 200), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Tsunami", Rate = 0.9, Cost = 30_000_000_000_000, RequiredRebirths = 1, Base = rgb(20, 70, 150), Accent = rgb(120, 230, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
-		{ Name = "Magma", Rate = 1, Cost = 1_500_000_000_000_000, RequiredRebirths = 1, Base = rgb(50, 30, 30), Accent = rgb(255, 110, 0), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true, Halo = true },
-		{ Name = "Dream", Rate = 1.15, Cost = 100_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(245, 235, 255), Accent = rgb(255, 150, 230), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Infinity", Rate = 1.3, Cost = 4_000_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(255, 215, 90), Accent = rgb(255, 255, 255), Material = Enum.Material.Foil, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Rusty", Rate = 0.1, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
+		{ Name = "Basic", Rate = 0.115, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
+		{ Name = "Sporty", Rate = 0.125, Cost = 20_000, RequiredRebirths = 0, Base = rgb(220, 40, 40), Accent = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic },
+		{ Name = "Pro", Rate = 0.14, Cost = 150_000, RequiredRebirths = 0, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
+		{ Name = "Turbo", Rate = 0.155, Cost = 1_200_000, RequiredRebirths = 0, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
+		{ Name = "Neon", Rate = 0.17, Cost = 9_000_000, RequiredRebirths = 0, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
+		{ Name = "Diamond", Rate = 0.185, Cost = 70_000_000, RequiredRebirths = 0, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Plasma", Rate = 0.2, Cost = 600_000_000, RequiredRebirths = 0, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Quantum", Rate = 0.225, Cost = 5_000_000_000, RequiredRebirths = 0, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
+		{ Name = "Cosmic", Rate = 0.245, Cost = 40_000_000_000, RequiredRebirths = 0, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Tropical", Rate = 0.28, Cost = 400_000_000_000, RequiredRebirths = 1, Base = rgb(255, 225, 150), Accent = rgb(0, 210, 200), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Tsunami", Rate = 0.315, Cost = 30_000_000_000_000, RequiredRebirths = 1, Base = rgb(20, 70, 150), Accent = rgb(120, 230, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
+		{ Name = "Magma", Rate = 0.35, Cost = 1_500_000_000_000_000, RequiredRebirths = 1, Base = rgb(50, 30, 30), Accent = rgb(255, 110, 0), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true, Halo = true },
+		{ Name = "Dream", Rate = 0.4, Cost = 100_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(245, 235, 255), Accent = rgb(255, 150, 230), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Infinity", Rate = 0.455, Cost = 4_000_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(255, 215, 90), Accent = rgb(255, 255, 255), Material = Enum.Material.Foil, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
 	} :: { TreadmillTier },
 }
 
@@ -218,19 +220,19 @@ Config.Spawns = {
 --------------------------------------------------------------------------------
 Config.Rebirth = {
 	MoneyBonus = 1, -- +100% money per rebirth (x2, x3, x4 ...)
-	SpeedBonus = 0.35, -- +35% treadmill speed per rebirth
+	SpeedBonus = 0.25, -- +25% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs)
 	Levels = {
-		{ Speed = 900, Cost = 250_000_000_000 }, -- end of World 1 -> unlocks Glaze Islands
-		{ Speed = 1_350, Cost = 20_000_000_000_000_000 }, -- end of World 2 -> unlocks Dream Dimension
-		{ Speed = 1_800, Cost = 2e20 }, -- end of World 3
-		{ Speed = 1_850, Cost = 2e21 },
-		{ Speed = 1_900, Cost = 2e22 },
-		{ Speed = 1_950, Cost = 2e23 },
-		{ Speed = 2_000, Cost = 2e24 },
-		{ Speed = 2_040, Cost = 2e25 },
-		{ Speed = 2_040, Cost = 2e26 },
-		{ Speed = 2_040, Cost = 2e27 },
+		{ Speed = 1_100, Cost = 2_500_000_000_000 }, -- end of World 1 -> unlocks Glaze Islands
+		{ Speed = 1_750, Cost = 200_000_000_000_000_000 }, -- end of World 2 -> unlocks Dream Dimension
+		{ Speed = 2_400, Cost = 2e22 }, -- end of World 3 -> unlocks Cyber City
+		{ Speed = 3_100, Cost = 2e28 }, -- end of World 4
+		{ Speed = 3_200, Cost = 2e29 },
+		{ Speed = 3_300, Cost = 2e30 },
+		{ Speed = 3_400, Cost = 2e31 },
+		{ Speed = 3_500, Cost = 2e32 },
+		{ Speed = 3_600, Cost = 2e33 },
+		{ Speed = 3_700, Cost = 2e34 },
 	},
 }
 
@@ -257,13 +259,16 @@ Config.GlobalStats = {
 }
 
 --------------------------------------------------------------------------------
--- Area events (see Events.luau): every so often one area gets weather + boosted mutation luck.
+-- Server events (see Events.luau / EventService): every few minutes ONE event runs for the whole
+-- server - a luck event, Rare Donut Rain, Egg Shower or 2x Incubator Speed.
 --------------------------------------------------------------------------------
 Config.Events = {
 	Enabled = true,
 	FirstDelay = 90, -- seconds after the server starts
-	Interval = { 200, 320 }, -- random gap between events (seconds)
-	Duration = 100,
+	Interval = { 180, 300 }, -- random gap between one event ending and the next starting (seconds)
+	Duration = 150, -- how long an event lasts
+	RareRainInterval = 12, -- Rare Donut Rain: a rare donut crashes down this often
+	HatchBoost = 2, -- 2x Incubator Speed
 }
 
 --------------------------------------------------------------------------------
@@ -351,16 +356,19 @@ Config.Donations = {
 -- Admin panel: type the code in chat to open a panel of cheats (money, speed, donuts, eggs,
 -- luck...). The message is hidden from everyone else's chat. The code itself lives on the server
 -- (server/AdminService.luau, ADMIN_CODE) so exploiters can't read it out of this shared module.
--- Who can use the code: the game's owner (for a group game, the group's owner), anyone testing in
+-- AllowAnyone = true: EVERY player who types the code gets the panel (money, speed, donuts, flying...).
+-- The commands that give away things you sell for Robux (OwnerOnlyCommands: Luck Event, crates) or
+-- change the game for everyone in the server (starting server events) still only work for the owner: the game's owner (for a group game, the group's owner), anyone testing in
 -- Studio, and the UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }).
--- AllowAnyone = true lets EVERY player who learns the code in: they'd get free money, free luck
--- events (a paid product) and Admin donuts, so leave it off in a live game.
+-- AllowAnyone = false: only those owners can open the panel at all.
 -- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
 -- scores stay meaningful.
 --------------------------------------------------------------------------------
 Config.Admin = {
 	AllowedUserIds = {} :: { number },
-	AllowAnyone = false,
+	AllowAnyone = true,
+	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event" },
+	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = true,
 }
 
@@ -373,7 +381,16 @@ Config.Admin = {
 Config.Pets = {
 	MaxEquipped = 3,
 	MaxPets = 60,
-	MaxEggs = 6, -- eggs incubating at once
+	MaxEggs = 6, -- eggs incubating at once (before Incubator Size upgrades)
+	-- Incubator upgrades (Shop -> Upgrades, bought with money, kept through rebirths)
+	IncubatorSpeed = {
+		PerLevel = 0.25, -- +25% hatch speed per level (level 8 = x3: a 30 min egg takes 10 min)
+		Costs = { 50_000, 1_000_000, 20_000_000, 400_000_000, 8_000_000_000, 160_000_000_000, 3_200_000_000_000, 64_000_000_000_000 },
+	},
+	IncubatorSize = {
+		PerLevel = 1, -- +1 egg per level
+		Costs = { 100_000, 3_000_000, 90_000_000, 2_700_000_000, 81_000_000_000, 2_430_000_000_000 },
+	},
 	EggCheckInterval = 40, -- seconds between egg spawn rolls in each area
 	EggChance = 0.12, -- chance per roll that an egg appears in an area that doesn't have one
 	EggLifetime = 150, -- an egg nobody grabs vanishes after this many seconds

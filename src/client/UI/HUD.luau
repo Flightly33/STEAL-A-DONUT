@@ -1,14 +1,14 @@
 --[[
 	HUD: always-on screen UI. Kept small and away from Roblox's own UI (chat top-left, player list
 	top-right, hotbar bottom-centre):
-	  left   - Shop / Pets / Index / Rebirth buttons + Slow Mode and Music toggles (middle of the screen)
-	  right  - Home / Worlds / Passes / Skins / Donate / Settings (+ Admin) squares, above the area panel
+	  left   - Shop / Pets / Index / Rebirth buttons + the speed slider (middle of the screen)
+	  right  - Home / Worlds / Passes / Skins / Donate (+ Admin, + Settings once there's music) squares
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
 ]]
 
-local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -20,7 +20,6 @@ local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
 local Notifications = require(script.Parent.Notifications)
-local Settings = require(script.Parent.Settings)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
 local Bases = require(script.Parent.Parent.Bases)
@@ -111,41 +110,62 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		end
 	end)
 
-	-- On/off switches under the buttons
-	local function toggleRow(text: string, order: number, onClick: () -> ()): (enabled: boolean) -> ()
-		local row = Theme.new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(160, 30), LayoutOrder = order, Parent = left })
-		local track = Theme.new("Frame", { Size = UDim2.fromOffset(54, 26), Position = UDim2.fromOffset(2, 2), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = row }, { Theme.Corner(8), Theme.Stroke(2.5) })
-		local knob = Theme.new("Frame", { Size = UDim2.fromOffset(22, 20), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = Theme.Colors.Gray, Parent = track }, { Theme.Corner(6) })
-		Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -64, 0, 22), Position = UDim2.fromOffset(64, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = row })
-		row.Activated:Connect(function()
-			onClick()
-			Theme.PlaySound("Click")
-		end)
-		return function(enabled: boolean)
-			TweenService:Create(knob, TweenInfo.new(0.15), {
-				Position = UDim2.fromOffset(if enabled then 29 else 3, 3),
-				BackgroundColor3 = if enabled then Theme.Colors.Green else Theme.Colors.Gray,
-			}):Play()
+	-- Speed slider: anything from normal walking speed (16) up to your full speed. Handy on your
+	-- base or on the treadmill when you're very fast.
+	local sliderRow = Theme.new("Frame", { Name = "SpeedSlider", BackgroundTransparency = 1, Size = UDim2.fromOffset(160, 48), LayoutOrder = 6, Parent = left })
+	local sliderLabel = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = sliderRow })
+	local bar = Theme.new("TextButton", { Text = "", AutoButtonColor = false, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 26), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = sliderRow }, { Theme.Corner(8), Theme.Stroke(2.5) })
+	local fill = Theme.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
+	local knob = Theme.new("Frame", { Size = UDim2.fromOffset(18, 26), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(1, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 3, Parent = bar }, { Theme.Corner(6), Theme.Stroke(2) })
+	local choice = 1
+	local dragging = false
+	local lastSent = 0
+	local function render()
+		fill.Size = UDim2.fromScale(choice, 1)
+		knob.Position = UDim2.fromScale(choice, 0.5)
+		fill.BackgroundColor3 = Theme.Colors.Gray:Lerp(Theme.Colors.Green, choice)
+		local full = math.max(State.Number("WalkSpeed"), 16)
+		local chosen = 16 + (full - 16) * choice
+		sliderLabel.Text = `🏃 Speed <font color="#9dff7a">{math.floor(chosen)}</font> / {math.floor(full)}`
+	end
+	local function send(force: boolean?)
+		local now = os.clock()
+		if force or now - lastSent > 0.2 then
+			lastSent = now
+			State.Action("SetSpeedChoice", choice)
 		end
 	end
-
-	-- Slow Mode: walk at normal speed on your base when you're very fast
-	local renderSlow: (boolean) -> ()
-	renderSlow = toggleRow("Slow Mode", 6, function()
-		local enabled = not (State.Get("SlowMode") == true)
-		renderSlow(enabled)
-		State.Action("SetSlowMode", enabled)
+	local function setFromX(x: number)
+		local width = math.max(bar.AbsoluteSize.X, 1)
+		choice = math.clamp((x - bar.AbsolutePosition.X) / width, 0, 1)
+		render()
+		send()
+	end
+	bar.InputBegan:Connect(function(input: InputObject)
+		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+			dragging = true
+			setFromX(input.Position.X)
+		end
 	end)
-	State.OnAttribute("SlowMode", function(value)
-		renderSlow(value == true)
+	UserInputService.InputChanged:Connect(function(input: InputObject)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+			setFromX(input.Position.X)
+		end
 	end)
-
-	-- Music on/off (same setting as in the Settings window)
-	local renderMusic = toggleRow("🎵 Music", 7, function()
-		Settings.SetMusicOn(not Settings.MusicOn())
+	UserInputService.InputEnded:Connect(function(input: InputObject)
+		if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
+			dragging = false
+			send(true)
+		end
 	end)
-	renderMusic(Settings.MusicOn())
-	Settings.MusicChanged:Connect(renderMusic)
+	State.OnAttribute("SpeedChoice", function(value)
+		if type(value) == "number" and not dragging then
+			choice = math.clamp(value, 0, 1)
+			render()
+		end
+	end)
+	State.OnAttribute("WalkSpeed", render)
+	render()
 end
 
 local function buildRight(gui: ScreenGui, callbacks: Callbacks)
@@ -181,7 +201,9 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		callbacks.OpenShop("Skins")
 	end)
 	square("💖", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
-	square("⚙️", "SETTINGS", Theme.Colors.Gray, 6, callbacks.OpenSettings)
+	-- Settings only holds the music controls: no button until songs are added (Config.Music.Tracks)
+	local settings = square("⚙️", "SETTINGS", Theme.Colors.Gray, 6, callbacks.OpenSettings)
+	settings.Visible = #Config.Music.Tracks > 0
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)
@@ -267,12 +289,6 @@ local function buildAreaInfo(gui: ScreenGui)
 	local detail = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, -18, 0, 24), Position = UDim2.fromOffset(9, 36), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = panel })
 	local eventLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -18, 0, 22), Position = UDim2.fromOffset(9, 62), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = panel })
 
-	local function areaFolder(areaId: number): Instance?
-		local map = workspace:FindFirstChild("Map")
-		local lane = map and map:FindFirstChild("Lane")
-		return lane and lane:FindFirstChild("Area" .. areaId)
-	end
-
 	local function refresh()
 		local areaId = AreaTracker.Current
 		local walk = State.Number("WalkSpeed")
@@ -292,14 +308,12 @@ local function buildAreaInfo(gui: ScreenGui)
 		detail.Text = `😴 {Config.Guard.Name}: <b>{guard}</b>   •   🏃 You: <font color="{color}"><b>{math.floor(walk)}</b></font>`
 	end
 
-	-- Running event in the area you're standing in (with a countdown)
+	-- The server event that's running (with a countdown)
 	task.spawn(function()
 		while true do
 			task.wait(0.5)
-			local areaId = AreaTracker.Current
-			local folder = if areaId > 0 then areaFolder(areaId) else nil
-			local eventId = folder and folder:GetAttribute("EventId")
-			local endsAt = folder and folder:GetAttribute("EventEndsAt")
+			local eventId = workspace:GetAttribute("EventId")
+			local endsAt = workspace:GetAttribute("EventEndsAt")
 			local event = if type(eventId) == "string" then Events.ById[eventId] else nil
 			if event and type(endsAt) == "number" then
 				eventLabel.Text = `{event.Icon} {event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`

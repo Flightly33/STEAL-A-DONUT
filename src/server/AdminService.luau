@@ -3,11 +3,13 @@
 	============
 	Type ADMIN_CODE ("ender=cool") in chat to unlock the admin panel for this session: money,
 	speed, treadmill, rebirths, any donut (with any mutation/size), eggs, pets, the Luck Event,
-	area events, teleporting, and "Domer can't catch me".
+	server events, teleporting, flying / magic carpet, and "Domer can't catch me".
 
 	* The code message is never shown to anyone else (TextChannel.ShouldDeliverCallback).
-	* The code only works for the game's owner, in Studio, and for Config.Admin.AllowedUserIds
-	  (unless Config.Admin.AllowAnyone is on).
+	* With Config.Admin.AllowAnyone on, the code works for everyone. The commands that give away
+	  things the game sells (Config.Admin.OwnerOnlyCommands) only work for the game's owner, in
+	  Studio, and for Config.Admin.AllowedUserIds.
+	* Flying and the magic carpet: the server sets the "FlyMode" attribute, the client flies.
 	* Anyone who used the admin panel is kept off the global leaderboards
 	  (Config.Admin.HideFromLeaderboards) so the boards stay fair for everyone else.
 	* Every command is checked on the server: the client only asks.
@@ -56,8 +58,9 @@ local function isCode(text: any): boolean
 	return type(text) == "string" and string.lower((string.gsub(text, "^%s*(.-)%s*$", "%1"))) == ADMIN_CODE
 end
 
-local function allowed(player: Player): boolean
-	if Config.Admin.AllowAnyone or RunService:IsStudio() then
+-- The game's owner (or someone they trust): can also use the commands that give away paid products.
+local function isOwner(player: Player): boolean
+	if RunService:IsStudio() then
 		return true
 	end
 	if table.find(Config.Admin.AllowedUserIds, player.UserId) then
@@ -69,6 +72,10 @@ local function allowed(player: Player): boolean
 	end
 	local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
 	return ok and rank == 255
+end
+
+local function allowed(player: Player): boolean
+	return Config.Admin.AllowAnyone or isOwner(player)
 end
 
 local function unlock(player: Player)
@@ -83,6 +90,7 @@ local function unlock(player: Player)
 		DataService.PushState(player)
 		notify(player, "🛠 Admin panel unlocked! (Admin players don't show up on the global leaderboards)", "success")
 	end
+	player:SetAttribute("AdminOwner", isOwner(player))
 	Remotes.Event("AdminPanel"):FireClient(player)
 end
 
@@ -213,15 +221,13 @@ function Commands.SpawnCrate(player: Player, _profile: DataService.Profile, crat
 	end
 end
 
--- Start a random event in the area you're standing in (or area 1 when you're in the safe zone)
-function Commands.Event(player: Player)
-	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	local areaId = if root then Layout.AreaAt(root.Position) else 0
-	if areaId <= 0 then
-		areaId = 1
+-- Start a server event: an event id, or a random one
+function Commands.Event(_player: Player, _profile: DataService.Profile, eventId: any)
+	if type(eventId) == "string" and Events.ById[eventId] then
+		EventService.Start(Events.ById[eventId])
+	else
+		EventService.Start(Events.Pick(rng))
 	end
-	local area = Areas.List[areaId]
-	EventService.Start(areaId, Events.Pick(area.Theme, rng), Config.Events.Duration)
 end
 
 function Commands.GodMode(player: Player, profile: DataService.Profile)
@@ -240,6 +246,14 @@ end
 
 function Commands.ResetSpeed(player: Player, profile: DataService.Profile)
 	DataService.TrySpendSpeed(player, profile.Data.Speed)
+end
+
+-- Flying: "Fly", "Carpet" (a magic carpet under your feet) or anything else to stop. The client does
+-- the flying (Flight.luau); the server only says who may.
+function Commands.Fly(player: Player, _profile: DataService.Profile, mode: any)
+	local value = if mode == "Fly" or mode == "Carpet" then mode else nil
+	player:SetAttribute("FlyMode", value)
+	notify(player, if value == "Carpet" then "🧞 Magic carpet! Space = up, Shift = down." elseif value then "🕊 You can fly! Space = up, Shift = down." else "Back on your feet.", "success")
 end
 
 function Commands.ClearEggs(player: Player, profile: DataService.Profile)
@@ -273,6 +287,10 @@ function AdminService.Init()
 			return
 		end
 		local command = Commands[arg.Cmd]
+		if command and table.find(Config.Admin.OwnerOnlyCommands, arg.Cmd) and not isOwner(player) then
+			notify(player, "Only the game's owner can do that (it's something the game sells).", "error")
+			return
+		end
 		if command then
 			command(player, profile, arg.Arg)
 		end
