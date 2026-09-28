@@ -12,6 +12,7 @@ local Areas = require(Shared.Areas)
 local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
 local Pets = require(Shared.Pets)
+local Crates = require(Shared.Crates)
 local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
@@ -71,7 +72,7 @@ local function build()
 	button(speed, "+1 Rebirth", Theme.Colors.Yellow, function()
 		command("Rebirth")
 	end)
-	button(speed, "+Base expansion", Theme.Colors.Blue, function()
+	button(speed, "+Expansion / 2nd floor", Theme.Colors.Blue, function()
 		command("Expand")
 	end)
 
@@ -149,6 +150,19 @@ local function build()
 	for _, pet in Pets.List do
 		button(pets, "+ " .. pet.Name, Pets.Rarity(pet.Rarity).Color, function()
 			command("Pet", pet.Id)
+		end)
+	end
+
+	-- Crates
+	local crates = section("🎁 Crates (open = free, spawn = in the area you're in)", 150)
+	for _, crate in Crates.List do
+		button(crates, "Open " .. crate.Name, crate.Color, function()
+			command("OpenCrate", crate.Id)
+		end)
+	end
+	for _, crate in Crates.List do
+		button(crates, "Spawn " .. crate.Id, crate.Color:Lerp(Color3.new(0, 0, 0), 0.3), function()
+			command("SpawnCrate", crate.Id)
 		end)
 	end
 

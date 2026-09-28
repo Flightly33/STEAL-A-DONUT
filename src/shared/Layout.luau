@@ -79,6 +79,10 @@ end
 -- The guard sleeps at the BACK of his area, so every steal is a straight race to the safe zone
 -- (donuts never spawn behind him, which would force you to run past an awake guard).
 Layout.GuardBackOffset = 14
+-- Donuts spawn at least SpawnStartMargin studs into their area and SpawnGuardMargin studs in front
+-- of the guard's blanket (MapBuilder; Economy.RecommendedSpeed uses the same range).
+Layout.SpawnStartMargin = 20
+Layout.SpawnGuardMargin = 18
 
 function Layout.GuardHome(areaId: number): Vector3
 	local x = Layout.WorldOffset(Areas.List[areaId].World)
@@ -140,12 +144,19 @@ end
 -- first stands you own are the ones everybody walks past.
 Layout.SlotColumns = { -19.5, -6.5, 6.5, 19.5 }
 Layout.SlotRows = { -26, -12, 2, 16, 30, 42 }
+-- Stands SlotsPerPlot+1 .. MaxSlots are on the second floor (same layout, SecondFloor.Height up).
+Layout.MaxSlots = Config.Plots.SlotsPerPlot + Config.Plots.SecondFloor.Slots
+-- Lift pad between the floors (plot space): front-left, clear of the entrance and the stands.
+Layout.LiftOffset = Vector3.new(-18, 0, -40)
 
 function Layout.SlotOffset(slotIndex: number): Vector3
+	local perFloor = Config.Plots.SlotsPerPlot
+	local floor = (slotIndex - 1) // perFloor
+	local index = (slotIndex - 1) % perFloor + 1
 	local columns = #Layout.SlotColumns
-	local row = (slotIndex - 1) // columns + 1
-	local column = (slotIndex - 1) % columns + 1
-	return Vector3.new(Layout.SlotColumns[column], 0, Layout.SlotRows[row])
+	local row = (index - 1) // columns + 1
+	local column = (index - 1) % columns + 1
+	return Vector3.new(Layout.SlotColumns[column], floor * Config.Plots.SecondFloor.Height, Layout.SlotRows[row])
 end
 
 -- Is `position` inside the plot's fenced area?
@@ -154,7 +165,7 @@ function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?)
 	return math.abs(localPos.X) <= Layout.PlotWidth / 2
 		and math.abs(localPos.Z) <= Layout.PlotDepth / 2
 		and localPos.Y > -5
-		and localPos.Y < 25
+		and localPos.Y < Config.Plots.SecondFloor.Height + 20
 end
 
 return Layout

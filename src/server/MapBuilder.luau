@@ -410,7 +410,8 @@ end
 -- never shows an old guard name or old speeds after a rebalance.
 local function guardInfoText(area: Areas.Area): string
 	local guardSpeed = math.floor(Economy.GuardWalkSpeed(area.Id))
-	local rec = if area.RecommendedSpeed > 0 then "⚡ Recommended Speed: " .. Format.Number(area.RecommendedSpeed) else "⚡ Any speed works here!"
+	local recommended = Economy.RecommendedSpeed(area.Id)
+	local rec = if recommended > 0 then "⚡ Recommended Speed: " .. Format.Number(recommended) else "⚡ Any speed works here!"
 	return `😴 {Config.Guard.Name} speed: {guardSpeed}   •   {rec}`
 end
 
@@ -504,7 +505,7 @@ local function buildSpawns(parent: Instance, areaId: number, zs: number, ze: num
 	while #points < map.DonutSpawnsPerArea and attempts < 2000 do
 		attempts += 1
 		-- Donuts spawn between the hub and the guard, at least 18 studs in front of him.
-		local candidate = Vector3.new(rng:NextNumber(-42, 42), 0, rng:NextNumber(zs + 20, ze - Layout.GuardBackOffset - 18))
+		local candidate = Vector3.new(rng:NextNumber(-42, 42), 0, rng:NextNumber(zs + Layout.SpawnStartMargin, ze - Layout.GuardBackOffset - Layout.SpawnGuardMargin))
 		local ok = (candidate - home).Magnitude > 18
 		for _, other in points do
 			if (candidate - other).Magnitude < 17 then

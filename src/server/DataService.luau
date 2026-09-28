@@ -54,10 +54,12 @@ export type Data = {
 	Eggs: { EggData },
 	Pets: { PetData },
 	EquippedPets: { string }, -- pet Uids
-	Buddy: string?, -- donut id following you around
+	Favorite: string?, -- slot key of the favourite donut (a 1/3-size copy follows you around)
 	Donated: number, -- Robux donated
 	Purchases: { string }, -- the last developer product receipts granted (PurchaseIds), newest last
 	UsedAdmin: boolean, -- opened the admin panel (kept off the global leaderboards)
+	SpeedBoostSeconds: number, -- crate Speed Boost time left (only counts down while online)
+	Floors: number, -- 2 once the second floor is bought
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -99,10 +101,12 @@ local TEMPLATE: Data = {
 	Eggs = {},
 	Pets = {},
 	EquippedPets = {},
-	Buddy = nil,
+	Favorite = nil,
 	Donated = 0,
 	Purchases = {},
 	UsedAdmin = false,
+	SpeedBoostSeconds = 0,
+	Floors = 1,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -184,6 +188,30 @@ function DataService.MoneyMultiplier(profile: Profile): number
 end
 
 -- Speed bonus from equipped pets (0.25 = +25% treadmill speed).
+-- "donutId|mutation|size" of the favourite donut (what every client draws following you), or nil.
+function DataService.FavoriteTag(data: Data): string?
+	local slot = if data.Favorite then data.Slots[data.Favorite] else nil
+	if not slot then
+		return nil
+	end
+	return `{slot.Id}|{slot.Mutation or "None"}|{slot.Size or "Normal"}`
+end
+
+-- x WalkSpeed from a crate Speed Boost (1 when none is running).
+function DataService.WalkBoost(data: Data): number
+	return if data.SpeedBoostSeconds > 0 then Config.Crates.SpeedBoostMultiplier else 1
+end
+
+-- Tell clients when the Speed Boost ends (server time), or clear it.
+function DataService.SyncSpeedBoost(player: Player)
+	local profile = profiles[player]
+	if not profile then
+		return
+	end
+	local left = profile.Data.SpeedBoostSeconds
+	player:SetAttribute("SpeedBoostEndsAt", if left > 0 then workspace:GetServerTimeNow() + left else nil)
+end
+
 function DataService.PetSpeedBonus(data: Data): number
 	local _, speed = Economy.PetBonuses(DataService.EquippedPetIds(data))
 	return speed
@@ -365,10 +393,12 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("SlowMode", profile.Session.SlowMode)
 	player:SetAttribute("Rebirths", data.Rebirths)
 	player:SetAttribute("Expansions", data.Expansions)
+	player:SetAttribute("Floors", data.Floors)
 	player:SetAttribute("BestSpeed", data.BestSpeed)
 	player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
 	player:SetAttribute("PetSpeedBonus", DataService.PetSpeedBonus(data))
-	player:SetAttribute("Buddy", data.Buddy)
+	player:SetAttribute("SpeedBoostEndsAt", if data.SpeedBoostSeconds > 0 then workspace:GetServerTimeNow() + data.SpeedBoostSeconds else nil)
+	player:SetAttribute("Favorite", DataService.FavoriteTag(data))
 end
 
 function DataService.AddMoney(player: Player, amount: number, countsAsEarned: boolean?)
@@ -443,7 +473,7 @@ function DataService.PushState(player: Player)
 		Eggs = profile.Data.Eggs,
 		Pets = profile.Data.Pets,
 		EquippedPets = profile.Data.EquippedPets,
-		Buddy = profile.Data.Buddy,
+		Favorite = profile.Data.Favorite,
 		Donated = profile.Data.Donated,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,

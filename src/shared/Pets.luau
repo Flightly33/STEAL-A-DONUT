@@ -12,6 +12,9 @@
 
 	Look: Shape is the body plan (see PetModel.luau), Features are extra bits (ears, wings, horn...).
 	To add a pet: add a line to Pets.List and put its Id in an egg's Pool.
+
+	Crate exclusives: eggs with CrateOnly never appear in the lane (only from crates, see Crates.luau),
+	and pets with Exclusive set can't be hatched from normal eggs.
 ]]
 
 local rgb = Color3.fromRGB
@@ -29,6 +32,7 @@ export type Pet = {
 	Accent: Color3,
 	Features: { string },
 	Scale: number?,
+	Exclusive: string?, -- where it comes from if not a normal egg, e.g. "Legendary Crate"
 }
 
 export type Egg = {
@@ -42,6 +46,7 @@ export type Egg = {
 	Color: Color3,
 	Accent: Color3,
 	Rainbow: boolean?,
+	CrateOnly: boolean?, -- only from crates, never in the lane
 	Pool: { { Pet: string, Weight: number } },
 }
 
@@ -92,6 +97,13 @@ Pets.List = {
 	{ Id = "VoidImp", Name = "Void Imp", Rarity = "Legendary", Money = 0.8, Speed = 0.5, Shape = "Blob", Body = rgb(20, 10, 30), Accent = rgb(200, 60, 255), Features = { "Horns", "Wings", "Tail", "Glow" } },
 	{ Id = "VoidSerpent", Name = "Void Serpent", Rarity = "Mythic", Money = 1.5, Speed = 0.8, Shape = "Dragon", Body = rgb(15, 5, 25), Accent = rgb(120, 255, 220), Features = { "Horns", "Tail", "Stars", "Glow" } },
 	{ Id = "GlitchGod", Name = "Glitch God", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Blob", Body = rgb(0, 0, 0), Accent = rgb(0, 255, 180), Features = { "Crown", "Halo", "Stars", "Rainbow", "Glitch", "Glow" }, Scale = 1.2 },
+	-- Crate exclusives: the Royal Egg (Epic / Legendary crates) ...
+	{ Id = "RoyalCorgi", Name = "Royal Corgi", Rarity = "Legendary", Money = 0.8, Speed = 0.4, Shape = "Quad", Body = rgb(240, 170, 90), Accent = rgb(255, 215, 60), Features = { "PointyEars", "PuffTail", "Crown", "Glow" }, Exclusive = "Royal Egg" },
+	{ Id = "JesterMonkey", Name = "Jester Monkey", Rarity = "Legendary", Money = 0.5, Speed = 0.8, Shape = "Quad", Body = rgb(150, 95, 60), Accent = rgb(170, 60, 255), Features = { "RoundEars", "Tail", "Bow", "Glow" }, Exclusive = "Royal Egg" },
+	{ Id = "RoyalGriffin", Name = "Royal Griffin", Rarity = "Mythic", Money = 1.4, Speed = 0.9, Shape = "Bird", Body = rgb(245, 220, 150), Accent = rgb(255, 200, 40), Features = { "Beak", "Wings", "Crest", "Crown", "Glow" }, Exclusive = "Royal Egg" },
+	{ Id = "CrownWhale", Name = "Crown Whale", Rarity = "Mythic", Money = 1.8, Speed = 0.6, Shape = "Whale", Body = rgb(60, 40, 140), Accent = rgb(255, 215, 60), Features = { "Crown", "Spout", "Stars", "Glow" }, Exclusive = "Royal Egg" },
+	-- ... and one pet that only comes straight out of a Legendary Crate.
+	{ Id = "CrateKing", Name = "Crate King", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(255, 200, 40), Accent = rgb(255, 60, 60), Features = { "Wings", "Horns", "Tail", "Crown", "Halo", "Rainbow", "Glow" }, Scale = 1.15, Exclusive = "Legendary Crate" },
 } :: { Pet }
 
 Pets.Eggs = {
@@ -130,6 +142,11 @@ Pets.Eggs = {
 		Color = rgb(10, 5, 20), Accent = rgb(200, 80, 255),
 		Pool = { { Pet = "VoidImp", Weight = 70 }, { Pet = "VoidSerpent", Weight = 28 }, { Pet = "GlitchGod", Weight = 2 } },
 	},
+	{
+		Id = "Royal", Name = "Royal Egg", MinArea = 0, MaxArea = 0, Weight = 0, HatchSeconds = 1200, Tier = 6, CrateOnly = true,
+		Color = rgb(255, 205, 50), Accent = rgb(170, 60, 255),
+		Pool = { { Pet = "RoyalCorgi", Weight = 40 }, { Pet = "JesterMonkey", Weight = 35 }, { Pet = "RoyalGriffin", Weight = 17 }, { Pet = "CrownWhale", Weight = 8 } },
+	},
 } :: { Egg }
 
 Pets.ById = {} :: { [string]: Pet }
@@ -161,7 +178,7 @@ end
 function Pets.EggsForArea(areaId: number): { Egg }
 	local result = {}
 	for _, egg in Pets.Eggs do
-		if areaId >= egg.MinArea and areaId <= egg.MaxArea then
+		if not egg.CrateOnly and areaId >= egg.MinArea and areaId <= egg.MaxArea then
 			table.insert(result, egg)
 		end
 	end

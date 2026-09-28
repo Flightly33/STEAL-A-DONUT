@@ -1,7 +1,8 @@
 --[[
-	Leaderboards: the physical boards next to the shop (scrollable, top 500) and the same data in a
-	full-screen window (Top 500 button). The donation board starts with a pinned row (a crown
-	instead of a rank, with a note under the name).
+	Leaderboards: the physical boards next to the shop (scrollable, top 500). Leaderboards.Open()
+	shows the same data in a full-screen window; nothing on the HUD opens it any more (the Top 500
+	button was removed), but it's kept so a button can be added back in one line.
+	The donation board starts with a pinned row (a crown instead of a rank, with a note under the name).
 ]]
 
 local Players = game:GetService("Players")

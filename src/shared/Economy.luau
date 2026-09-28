@@ -8,6 +8,7 @@ local Donuts = require(script.Parent.Donuts)
 local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
 local Pets = require(script.Parent.Pets)
+local Layout = require(script.Parent.Layout)
 
 local Economy = {}
 
@@ -53,7 +54,58 @@ end
 -- Guards in later worlds get the same world bonus as players, so the recommended speeds still hold.
 function Economy.GuardWalkSpeed(areaId: number): number
 	local area = Areas.List[areaId]
-	return (Economy.WalkSpeedFromStat(area.RecommendedSpeed) + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World)
+	return (Economy.WalkSpeedFromStat(area.RecommendedSpeed) + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World) * Config.Guard.SpeedMultiplier
+end
+
+-- The Speed that gets you home with at least the front half of an area's donuts: a straight race
+-- to the safe zone against Domer, who wakes up after the area's WakeDelay and catches you within
+-- CatchRadius. It's worked out from the guard settings, so the signs stay honest when you make
+-- Domer faster or slower. (Areas' RecommendedSpeed is the base the guard's speed is tuned from.)
+local recommendedCache: { [number]: number } = {}
+function Economy.RecommendedSpeed(areaId: number): number
+	local cached = recommendedCache[areaId]
+	if cached then
+		return cached
+	end
+	local area = Areas.List[areaId]
+	local worldMult = Economy.WorldWalkMultiplier(area.World)
+	local guardZ = Layout.AreaEnd(areaId) - Layout.GuardBackOffset
+	local firstSpawn = Layout.AreaStart(areaId) + Layout.SpawnStartMargin
+	local lastSpawn = guardZ - Layout.SpawnGuardMargin
+	local donutZ = (firstSpawn + lastSpawn) / 2 -- the middle of the spawn range
+	local guard = Economy.GuardWalkSpeed(areaId)
+	local wake = area.WakeDelay
+	local function escapes(walk: number): boolean
+		if walk >= guard then
+			return true
+		end
+		local home = (donutZ - Config.Map.SafeZoneZ) / walk
+		local caughtAt = wake + ((guardZ - donutZ) + walk * wake - Config.Guard.CatchRadius) / (guard - walk)
+		return caughtAt >= home
+	end
+	local lo, hi = Config.Speed.BaseWalkSpeed * worldMult, guard
+	if escapes(lo) then
+		hi = lo
+	else
+		for _ = 1, 40 do
+			local mid = (lo + hi) / 2
+			if escapes(mid) then
+				hi = mid
+			else
+				lo = mid
+			end
+		end
+	end
+	local stat = math.max(0, Economy.StatForWalkSpeed(hi / worldMult))
+	local result = math.max(area.RecommendedSpeed, math.ceil(stat / 10 - 1e-9) * 10)
+	recommendedCache[areaId] = result
+	return result
+end
+
+-- WalkSpeed of a player with exactly the area's recommended Speed (world bonus included).
+function Economy.RecommendedWalkSpeed(areaId: number): number
+	local area = Areas.List[areaId]
+	return Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(areaId)) * Economy.WorldWalkMultiplier(area.World)
 end
 
 -- Treadmill multiplier from the Speed Multiplier upgrade (+5% per level, adds up).
@@ -147,9 +199,41 @@ end
 --------------------------------------------------------------------------------
 -- Base expansions
 --------------------------------------------------------------------------------
-function Economy.SlotCount(expansions: number): number
+-- The furthest area a player is fast enough for (in a world they've unlocked).
+function Economy.BestAreaFor(speed: number, rebirths: number): number
+	local best = 1
+	for _, area in Areas.List do
+		if Economy.WorldUnlocked(area.World, rebirths) and speed >= Economy.RecommendedSpeed(area.Id) then
+			best = math.max(best, area.Id)
+		end
+	end
+	return best
+end
+
+-- Crate coins: `seconds` of income from the best normal donut (no Secrets / Admins) of the
+-- furthest area your Speed is good for, with your rebirth money bonus. Grows as you progress.
+function Economy.CrateCoins(seconds: number, speed: number, rebirths: number): number
+	local best = 0
+	for _, donut in Donuts.ByArea[Economy.BestAreaFor(speed, rebirths)] do
+		if donut.Rarity ~= "Secret" and donut.Rarity ~= "Admin" then
+			best = math.max(best, donut.Income)
+		end
+	end
+	return math.floor(seconds * best * Economy.RebirthMoneyMultiplier(rebirths))
+end
+
+function Economy.SlotCount(expansions: number, floors: number?): number
 	local p = Config.Plots
-	return math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
+	local ground = math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
+	return ground + (if (floors or 1) >= 2 then p.SecondFloor.Slots else 0)
+end
+
+-- Price of the second floor: nil until the ground floor is fully expanded, or once you own it.
+function Economy.SecondFloorCost(expansions: number, floors: number): number?
+	if floors >= 2 or Economy.SlotCount(expansions, 1) < Config.Plots.SlotsPerPlot then
+		return nil
+	end
+	return Config.Plots.SecondFloor.Cost
 end
 
 -- Price of the next expansion (nil when fully expanded).

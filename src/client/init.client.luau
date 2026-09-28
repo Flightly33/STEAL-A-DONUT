@@ -16,6 +16,7 @@ local Worlds = require(UI.Worlds)
 local PetsWindow = require(UI.PetsWindow)
 local Donate = require(UI.Donate)
 local Admin = require(UI.Admin)
+local CrateOpen = require(UI.CrateOpen)
 local Effects = require(script.Effects)
 local Treadmill = require(script.Treadmill)
 local Guards = require(script.Guards)
@@ -36,10 +37,10 @@ Worlds.Init()
 PetsWindow.Init()
 Donate.Init()
 Admin.Init()
+CrateOpen.Init()
 HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,
-	OpenLeaderboards = Leaderboards.Open,
 	OpenSettings = Settings.Open,
 	OpenRebirth = Rebirth.Open,
 	OpenWorlds = Worlds.Open,

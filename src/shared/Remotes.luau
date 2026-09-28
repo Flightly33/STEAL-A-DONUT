@@ -13,6 +13,7 @@
 		Alarm(info)                        someone is stealing / stole your donut ({ Stage, Thief, Name })
 		EggHatched(info)                   { EggId, PetId, Uid } - play the hatch animation
 		AdminPanel()                       open the admin panel (you typed the code)
+		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, slow mode, teleport home...
@@ -28,7 +29,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats" }
 
 local Remotes = {}

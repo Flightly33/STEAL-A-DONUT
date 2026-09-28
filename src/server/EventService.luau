@@ -37,7 +37,7 @@ local function bestArea(player: Player): number?
 	local walk = Economy.WalkSpeedFromStat(profile.Data.Speed)
 	local best = nil
 	for _, area in Areas.List do
-		if Economy.WorldUnlocked(area.World, profile.Data.Rebirths) and walk + 0.01 >= Economy.WalkSpeedFromStat(area.RecommendedSpeed) then
+		if Economy.WorldUnlocked(area.World, profile.Data.Rebirths) and walk + 0.01 >= Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
 			best = area.Id
 		end
 	end

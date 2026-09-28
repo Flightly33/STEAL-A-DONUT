@@ -159,7 +159,7 @@ function WorldService.TeleportToArea(player: Player, areaId: any)
 		notify(player, `🔒 {Areas.World(area.World).Name} needs {rebirthsText(Areas.World(area.World).RequiredRebirths)}.`, "error")
 		return
 	end
-	if Economy.WalkSpeedFromStat(profile.Data.Speed) + 0.01 < Economy.WalkSpeedFromStat(area.RecommendedSpeed) then
+	if Economy.WalkSpeedFromStat(profile.Data.Speed) + 0.01 < Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
 		notify(player, "You're not fast enough for that area yet!", "error")
 		return
 	end

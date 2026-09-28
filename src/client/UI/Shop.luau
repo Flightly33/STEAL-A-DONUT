@@ -1,7 +1,10 @@
 --[[
-	Shop window with four tabs:
+	Shop window with five tabs:
 	  Upgrades  - Speed Multiplier, Treadmill tiers and Base Expansions (in-game money)
 	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
+	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
+	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
+	              paid random items rules). Hidden purchase for players whose region blocks them.
 	  Items     - weapons, traps and the base lock (in-game money), with spinning 3D previews of the
 	              real models (shared/ItemModel.luau)
 	  Skins     - base skins (paid with your Speed stat), equip the ones you own
@@ -17,6 +20,9 @@ local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local ItemModel = require(Shared.ItemModel)
+local Crates = require(Shared.Crates)
+local CrateModel = require(Shared.CrateModel)
+local Pets = require(Shared.Pets)
 
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
@@ -98,11 +104,16 @@ local function buildUpgrades(page: ScrollingFrame)
 
 	-- Base expansion
 	local expandCard = card(page, 3, Theme.Colors.Blue)
-	Theme.Label({ Text = "🏗 BASE EXPANSION", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
+	local expandTitle = Theme.Label({ Text = "🏗 BASE EXPANSION", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
 	local expandInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = expandCard })
 	local expandButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = expandCard })
 	expandButton.Activated:Connect(function()
-		State.Action("BuyExpansion")
+		local expansions = State.Number("Expansions")
+		if Economy.ExpansionCost(expansions) then
+			State.Action("BuyExpansion")
+		elseif Economy.SecondFloorCost(expansions, math.max(1, State.Number("Floors"))) then
+			State.Action("BuySecondFloor")
+		end
 	end)
 
 	-- Summary
@@ -151,14 +162,24 @@ local function buildUpgrades(page: ScrollingFrame)
 		end
 
 		local expansions = State.Number("Expansions")
-		local slots = Economy.SlotCount(expansions)
+		local floors = math.max(1, State.Number("Floors"))
+		local slots = Economy.SlotCount(expansions, floors)
 		local expandCost = Economy.ExpansionCost(expansions)
+		local floorCost = Economy.SecondFloorCost(expansions, floors)
 		if expandCost then
+			expandTitle.Text = "🏗 BASE EXPANSION"
 			expandInfo.Text = `{slots} → {slots + Config.Plots.ExpansionSlots} donut stands\nKept forever, even when you rebirth`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(expandCost))
 			Theme.SetButtonColor(expandButton, if money >= expandCost then Theme.Colors.Green else Theme.Colors.Gray)
+		elseif floorCost then
+			-- Ground floor full: the next step is a whole second floor
+			expandTitle.Text = "🏢 SECOND FLOOR"
+			expandInfo.Text = `{slots} → {slots + Config.Plots.SecondFloor.Slots} donut stands on a new floor\nKept forever, even when you rebirth`
+			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(floorCost))
+			Theme.SetButtonColor(expandButton, if money >= floorCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
-			expandInfo.Text = `{slots} donut stands - fully expanded!`
+			expandTitle.Text = "🏢 BASE"
+			expandInfo.Text = `{slots} donut stands on 2 floors - fully built!`
 			Theme.SetButtonText(expandButton, "MAXED")
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
 		end
@@ -193,12 +214,12 @@ local function robuxText(passId: number, suggested: number): string
 	return if price then `R$ {price}` else "R$ ..."
 end
 
-local function fetchPrice(passId: number)
+local function fetchPrice(passId: number, infoType: Enum.InfoType?)
 	if passId <= 0 or robuxPrices[passId] then
 		return
 	end
 	task.spawn(function()
-		local ok, info = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, passId, Enum.InfoType.GamePass)
+		local ok, info = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, passId, infoType or Enum.InfoType.GamePass)
 		if ok and info and info.PriceInRobux then
 			robuxPrices[passId] = info.PriceInRobux
 			refreshAll()
@@ -241,7 +262,7 @@ local function buildPasses(page: ScrollingFrame)
 	local luck = card(page, 90, Color3.fromRGB(60, 200, 90))
 	Theme.Label({ Text = "🍀", Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = luck })
 	Theme.Label({ Text = "LUCK EVENT (10 MIN)", TextColor3 = Color3.fromRGB(140, 255, 160), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = luck })
-	Theme.Label({ Text = "Rarer donuts, more mutations and bigger sizes for EVERYONE in the server", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = luck })
+	Theme.Label({ Text = `Rare donuts x{Config.LuckEvent.RarityLuck}, mutations x{Config.LuckEvent.MutationLuck}, big sizes x{Config.LuckEvent.BigSizeLuck} for EVERYONE (boosted odds show in the Index)`, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = luck })
 	local luckButton = Theme.Button({ Text = `R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = luck })
 	luckButton.Activated:Connect(function()
 		State.Action("BuyLuck")
@@ -251,6 +272,149 @@ local function buildPasses(page: ScrollingFrame)
 		local note = card(page, 100, Theme.Colors.Blue)
 		Theme.Label({ Text = "💡 Money passes stack! Own 2x + 3x = 4x money.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	end
+end
+
+--------------------------------------------------------------------------------
+-- Crates
+--------------------------------------------------------------------------------
+local KIND_ICON = { Coins = "💰", SpeedBoost = "⚡", Luck = "🍀", Egg = "🥚", Pet = "🐾" }
+
+local function percent(chance: number): string
+	local p = chance * 100
+	return if p >= 10 then string.format("%.1f%%", p) elseif p >= 1 then string.format("%.2f%%", p) else string.format("%.3f%%", p)
+end
+
+-- What an outcome gives, in words (coins are estimated for you right now).
+local function outcomeText(outcome: Crates.Outcome): string
+	local reward = outcome.Reward
+	if reward.Kind == "Coins" then
+		local amount = Economy.CrateCoins(reward.Seconds or 60, State.Number("Speed"), State.Number("Rebirths"))
+		return `Coins (~{Format.Money(amount)} for you now)`
+	elseif reward.Kind == "SpeedBoost" then
+		return `Speed Boost: run {math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% faster for {Format.Duration(reward.Seconds or 600)}`
+	elseif reward.Kind == "Luck" then
+		return `Luck Event for the whole server ({Format.Duration(reward.Seconds or 600)})`
+	elseif outcome.Egg then
+		local egg = Pets.EggById[outcome.Egg]
+		return if egg then egg.Name .. (if egg.CrateOnly then " (exclusive)" else "") else outcome.Egg
+	elseif outcome.Pet then
+		local pet = Pets.ById[outcome.Pet]
+		return if pet then `{pet.Name} ({pet.Rarity} pet, exclusive)` else outcome.Pet
+	end
+	return reward.Kind
+end
+
+local function buildCrates(page: ScrollingFrame, body: Instance)
+	-- "All odds" panel (on top of the shop): every outcome, and the pets inside every egg
+	local details = Theme.new("Frame", {
+		Name = "CrateOdds",
+		BackgroundColor3 = Theme.Colors.Panel,
+		Size = UDim2.new(1, 0, 1, -54),
+		Position = UDim2.fromOffset(0, 54),
+		Visible = false,
+		ZIndex = 20,
+		Parent = body,
+	}, { Theme.Corner(14), Theme.Stroke(3) })
+	local detailsTitle = Theme.Label({ Text = "", Size = UDim2.new(1, -130, 0, 36), Position = UDim2.fromOffset(12, 8), TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 21, Parent = details })
+	local close = Theme.Button({ Text = "BACK", Color = Theme.Colors.Red, Size = UDim2.fromOffset(100, 38), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Parent = details })
+	close.ZIndex = 21
+	close.Activated:Connect(function()
+		details.Visible = false
+	end)
+	local detailsText = Theme.new("ScrollingFrame", {
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Position = UDim2.fromOffset(12, 52),
+		Size = UDim2.new(1, -24, 1, -62),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		ScrollBarThickness = 8,
+		ZIndex = 21,
+		Parent = details,
+	})
+	local detailsLabel = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextScaled = false, TextSize = 20, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, -12, 0, 0), StrokeThickness = 1.2, ZIndex = 21, Parent = detailsText })
+
+	local function showOdds(crate: Crates.Crate)
+		detailsTitle.Text = `🎁 {string.upper(crate.Name)} - ALL ODDS`
+		local lines = { "You get ONE of these (adds up to 100%). Luck and passes never change these odds.", "" }
+		for _, outcome in Crates.Odds(crate) do
+			table.insert(lines, `<b>{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)}: {percent(outcome.Chance)}</b>`)
+			local egg = if outcome.Egg then Pets.EggById[outcome.Egg] else nil
+			if egg then
+				table.insert(lines, `      it hatches (after {Format.Duration(egg.HatchSeconds)}) into:`)
+				for _, entry in egg.Pool do
+					local pet = Pets.ById[entry.Pet]
+					local inEgg = Pets.Chance(egg, entry.Pet)
+					table.insert(lines, `      • {pet.Name} ({pet.Rarity}, {Pets.BonusText(pet)}): {percent(inEgg)} of the egg = {percent(outcome.Chance * inEgg)} of the crate`)
+				end
+			end
+		end
+		detailsLabel.Text = table.concat(lines, "\n")
+		details.Visible = true
+	end
+
+	local spinning: { Camera } = {}
+	for _, crate in Crates.List do
+		local product = Config.Crates.Products[crate.Id]
+		fetchPrice(product.DeveloperProductId, Enum.InfoType.Product)
+		local c = card(page, crate.Order, crate.Color)
+		local viewport = Theme.new("ViewportFrame", {
+			BackgroundColor3 = Color3.fromRGB(25, 25, 40),
+			Size = UDim2.fromOffset(84, 84),
+			Position = UDim2.fromOffset(8, 8),
+			Ambient = Color3.fromRGB(180, 180, 180),
+			LightColor = Color3.fromRGB(255, 255, 255),
+			LightDirection = Vector3.new(-0.5, -1, 0.8),
+			Parent = c,
+		}, { Theme.Corner(10) })
+		local model = CrateModel.Build(crate.Id, { NoEffects = true })
+		model:PivotTo(CFrame.new(0, -0.3, 0))
+		model.Parent = viewport
+		local camera = Instance.new("Camera")
+		camera.FieldOfView = 40
+		camera.Parent = viewport
+		viewport.CurrentCamera = camera
+		table.insert(spinning, camera)
+		Theme.Label({ Text = string.upper(crate.Name), TextColor3 = crate.Color:Lerp(Color3.new(1, 1, 1), 0.35), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -110, 0, 32), Position = UDim2.fromOffset(100, 10), Parent = c })
+		Theme.Label({ Text = "Opens right away: ONE of these", Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 200, 210), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.fromOffset(100, 44), StrokeThickness = 1, Parent = c })
+		local odds = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -20, 0, 118), Position = UDim2.fromOffset(10, 98), StrokeThickness = 1.2, Parent = c })
+		local all = Theme.Button({ Text = "📋 All odds", Color = Theme.Colors.Blue, Size = UDim2.new(0.38, -12, 0, 46), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -10), Parent = c })
+		all.Activated:Connect(function()
+			showOdds(crate)
+		end)
+		local buy = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(0.62, -12, 0, 46), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Parent = c })
+		buy.Activated:Connect(function()
+			if State.Get("CratesBlocked") ~= true then
+				State.Action("BuyCrate", crate.Id)
+			end
+		end)
+		table.insert(refreshers, function()
+			local lines = {}
+			for _, outcome in Crates.Odds(crate) do
+				table.insert(lines, `{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)} <b>{percent(outcome.Chance)}</b>`)
+			end
+			odds.Text = table.concat(lines, "\n")
+			if State.Get("CratesBlocked") == true then
+				Theme.SetButtonText(buy, "Not available in your region")
+				Theme.SetButtonColor(buy, Theme.Colors.Gray)
+			else
+				Theme.SetButtonText(buy, robuxText(product.DeveloperProductId, product.Price))
+				Theme.SetButtonColor(buy, Theme.Colors.Green)
+			end
+		end)
+	end
+	local note = card(page, 10, Theme.Colors.Orange)
+	Theme.Label({ Text = "🎁 Crates also show up for free in the lane now and then - hold E to open one! Eggs go straight into your incubator.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
+	RunService.RenderStepped:Connect(function()
+		if not page.Visible then
+			return
+		end
+		local angle = os.clock() * 0.8
+		for _, camera in spinning do
+			camera.CFrame = CFrame.lookAt(Vector3.new(math.sin(angle) * 11, 4, -math.cos(angle) * 11), Vector3.new(0, 0.2, 0))
+		end
+	end)
+	State.OnAttribute("CratesBlocked", refreshAll)
 end
 
 --------------------------------------------------------------------------------
@@ -367,6 +531,7 @@ function Shop.Init()
 	selectTab = Modal.Tabs(body, {
 		{ Name = "Upgrades", Text = "⚡ Upgrades", Color = Theme.Colors.Purple },
 		{ Name = "Passes", Text = "🎟️ Passes", Color = Theme.Colors.Orange },
+		{ Name = "Crates", Text = "🎁 Crates", Color = Theme.Colors.Yellow },
 		{ Name = "Items", Text = "⚔️ Items", Color = Theme.Colors.Red },
 		{ Name = "Skins", Text = "🎨 Skins", Color = Theme.Colors.Pink },
 	}, function(name)
@@ -377,10 +542,11 @@ function Shop.Init()
 	end)
 	buildUpgrades(newPage("Upgrades", body, 2, 190))
 	buildPasses(newPage("Passes", body, 2, 160))
+	buildCrates(newPage("Crates", body, 2, 290), body)
 	buildItems(newPage("Items", body, 2, 175))
 	buildSkins(newPage("Skins", body, 3, 180))
 
-	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "Expansions", "IndexBonus" } do
+	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "Expansions", "Floors", "IndexBonus" } do
 		State.OnAttribute(name, function()
 			if modal:IsOpen() then
 				refreshAll()

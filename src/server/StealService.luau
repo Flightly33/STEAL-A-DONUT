@@ -412,7 +412,7 @@ local function updateCarriers()
 		local flat = Vector2.new(pos.X - carry.LastPos.X, pos.Z - carry.LastPos.Z).Magnitude
 		if flat > 0.01 then
 			local profile = DataService.Get(player)
-			local walkSpeed = Economy.PlayerWalkSpeed(if profile then profile.Data.Speed else 0, Layout.WorldAt(pos))
+			local walkSpeed = if profile then Economy.PlayerWalkSpeed(profile.Data.Speed, Layout.WorldAt(pos)) * DataService.WalkBoost(profile.Data) else 16
 			local allowed = (walkSpeed * 1.6 + 25) * (now - carry.LastTime) + 6
 			if flat > allowed then
 				notify(player, "You moved too fast and dropped it!", "error")
@@ -456,6 +456,7 @@ end
 
 function StealService.Init()
 	DonutSpawnService.SetStealHandler(trySteal)
+	PlotService.Teleporter = StealService.Teleport -- lift pads between base floors
 	GuardService.Caught:Connect(onCaught)
 
 	local accumulator = 0

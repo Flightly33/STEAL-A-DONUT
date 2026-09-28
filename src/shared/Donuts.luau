@@ -278,12 +278,23 @@ function Donuts.Roll(areaId: number, rng: Random, luck: number?): Donut
 end
 
 -- Chance (0-1) of a donut spawning in its area.
-function Donuts.Chance(donut: Donut): number
-	local total = 0
-	for _, other in Donuts.ByArea[donut.Area] do
-		total += other.Weight
+-- Chance (0-1) that a spawn in the donut's area is this donut. `luck` = the Luck Event's rarity
+-- boost (same maths as Donuts.Roll), so the Index can show the boosted odds while it runs.
+function Donuts.Chance(donut: Donut, luck: number?): number
+	local boost = luck or 1
+	local pool = Donuts.ByArea[donut.Area]
+	local base = 0
+	for _, other in pool do
+		base += other.Weight
 	end
-	return donut.Weight / total
+	local function weight(d: Donut): number
+		return if boost ~= 1 and d.Weight / base < Donuts.RareChance then d.Weight * boost else d.Weight
+	end
+	local total = 0
+	for _, other in pool do
+		total += weight(other)
+	end
+	return weight(donut) / total
 end
 
 return Donuts

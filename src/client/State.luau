@@ -28,7 +28,7 @@ export type Snapshot = {
 	Eggs: { { Uid: string, Id: string, HatchAt: number } }?,
 	Pets: { { Uid: string, Id: string } }?,
 	EquippedPets: { string }?,
-	Buddy: string?,
+	Favorite: string?, -- slot key of your favourite donut
 	Donated: number?,
 	Admin: boolean?,
 	GodMode: boolean?,

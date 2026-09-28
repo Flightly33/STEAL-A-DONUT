@@ -9,14 +9,17 @@
 	as it would be if the lane just kept going - otherwise a slow player could steal right next to
 	the safe zone and skip the speed requirements.
 
-	RecommendedSpeed is in "Speed stat" units (the big number in the HUD). The guard's WalkSpeed is
-	derived from it (see Economy.GuardWalkSpeed) so the two always stay in sync when you rebalance.
+	RecommendedSpeed is in "Speed stat" units (the big number in the HUD). It's the BASE the guard's
+	WalkSpeed is tuned from (Economy.GuardWalkSpeed: that speed's WalkSpeed + GuardSpeedBonus, times
+	the world bonus, times Config.Guard.SpeedMultiplier).
 
-	RecommendedSpeed goes up by 90 per area (= +9 WalkSpeed, see Config.Speed), and the guard is
-	GuardSpeedBonus WalkSpeed faster than the recommended speed (5 / 7 / 9 in worlds 1 / 2 / 3).
-	Balance (chase maths with Domer's 10-stud reach): at the recommended speed you get away with
-	almost every donut; the few right in front of him need 1-2 WalkSpeed more. A little below it
-	only the donuts near the safe zone are safe.
+	The "Recommended Speed" players see (signs, HUD, teleporter, events, crate coins) is worked out
+	from the chase itself (Economy.RecommendedSpeed): the Speed that gets you home with at least the
+	front half of the area's donuts. With Domer at +7.5% that's the base below in World 1's early
+	areas and up to ~80 Speed more in World 3. It follows any guard change you make.
+
+	The base goes up by 90 per area (= +9 WalkSpeed, see Config.Speed); GuardSpeedBonus is 5 / 7 / 9
+	WalkSpeed in worlds 1 / 2 / 3.
 
 	Ambience is applied on the client when you walk into the area.
 ]]

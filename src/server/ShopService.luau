@@ -2,15 +2,14 @@
 	ShopService
 	===========
 	Handles every client request that costs money, Speed or Robux, plus a few small player actions:
-	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion   (in-game money)
+	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion, BuySecondFloor   (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
 	  BuyPass <key>                                    (Robux game passes)
 	  Rebirth, ClaimIndex { DonutId, Kind }
 	  TeleportWorld <id>, TeleportArea <id>            (Teleporter game pass)
 	  SetSlowMode <bool>, TeleportHome, BuyItem <id>, SetMusic { Volume, On }
-	  SetBuddy <donutId?>                              (a donut you've found follows you around)
 	  HatchEgg <uid?>, EquipPet <uid>, UnequipPet <uid>, EquipBestPets, ReleasePet <uid>
-	  BuyLuck, Donate <amount>                         (Robux developer products)
+	  BuyLuck, BuyCrate <id>, Donate <amount>          (Robux developer products)
 	Other services can add their own actions with ShopService.RegisterAction (e.g. the admin panel).
 
 	Game pass ownership is checked with MarketplaceService on join and cached in the player's data,
@@ -170,6 +169,10 @@ function Actions.BuyExpansion(player: Player, _profile: DataService.Profile)
 	PlotService.Expand(player)
 end
 
+function Actions.BuySecondFloor(player: Player, _profile: DataService.Profile)
+	PlotService.BuySecondFloor(player)
+end
+
 function Actions.BuyPass(player: Player, profile: DataService.Profile, key: any)
 	local pass = findPass(if type(key) == "string" then key else nil, nil)
 	if not pass then
@@ -310,22 +313,6 @@ function Actions.SetMusic(player: Player, profile: DataService.Profile, settings
 	end
 end
 
--- A donut you've found (in the Index) follows you around. nil = no buddy.
-function Actions.SetBuddy(player: Player, profile: DataService.Profile, donutId: any)
-	if donutId == nil or donutId == false then
-		profile.Data.Buddy = nil
-	elseif type(donutId) == "string" and Donuts.ById[donutId] and profile.Data.Discovered[donutId] then
-		profile.Data.Buddy = if profile.Data.Buddy == donutId then nil else donutId
-	else
-		return
-	end
-	player:SetAttribute("Buddy", profile.Data.Buddy)
-	DataService.PushState(player)
-	if profile.Data.Buddy then
-		notify(player, `🍩 {Donuts.ById[profile.Data.Buddy].Name} is your buddy now!`, "success")
-	end
-end
-
 function Actions.HatchEgg(player: Player, _profile: DataService.Profile, uid: any)
 	PetService.Hatch(player, if type(uid) == "string" then uid else nil)
 end
@@ -348,6 +335,10 @@ end
 
 function Actions.BuyLuck(player: Player)
 	ProductService.BuyLuck(player)
+end
+
+function Actions.BuyCrate(player: Player, _profile: DataService.Profile, crateId: any)
+	ProductService.BuyCrate(player, crateId)
 end
 
 function Actions.Donate(player: Player, _profile: DataService.Profile, amount: any)

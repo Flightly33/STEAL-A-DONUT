@@ -37,6 +37,7 @@ local DonutSpawnService = require(script.Parent.DonutSpawnService)
 local StealService = require(script.Parent.StealService)
 local PetService = require(script.Parent.PetService)
 local LuckService = require(script.Parent.LuckService)
+local CrateService = require(script.Parent.CrateService)
 local EventService = require(script.Parent.EventService)
 local ShopService = require(script.Parent.ShopService)
 
@@ -121,12 +122,16 @@ function Commands.Rebirth(player: Player, profile: DataService.Profile)
 	end
 end
 
+-- Next base expansion, then the second floor (free)
 function Commands.Expand(player: Player, profile: DataService.Profile)
 	if Economy.ExpansionCost(profile.Data.Expansions) then
 		profile.Data.Expansions += 1
 		player:SetAttribute("Expansions", profile.Data.Expansions)
 		PlotService.RefreshLocks(player)
 		PlotService.ApplySkin(player)
+	elseif Economy.SecondFloorCost(profile.Data.Expansions, profile.Data.Floors) then
+		DataService.AddMoney(player, Config.Plots.SecondFloor.Cost, false)
+		PlotService.BuySecondFloor(player)
 	end
 end
 
@@ -187,6 +192,25 @@ end
 
 function Commands.Luck(player: Player)
 	LuckService.Start(player)
+end
+
+-- Open a crate right now (free): crate id
+function Commands.OpenCrate(player: Player, _profile: DataService.Profile, crateId: any)
+	if type(crateId) == "string" then
+		CrateService.Open(player, crateId, "Admin")
+	end
+end
+
+-- Put a crate in the area you're standing in (or area 1 from the safe zone): crate id
+function Commands.SpawnCrate(player: Player, _profile: DataService.Profile, crateId: any)
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local areaId = if root then Layout.AreaAt(root.Position) else 0
+	if areaId <= 0 then
+		areaId = 1
+	end
+	if type(crateId) == "string" and CrateService.SpawnInArea(areaId, crateId) then
+		notify(player, `🎁 {crateId} crate spawned in {Areas.List[areaId].Name}`, "success")
+	end
 end
 
 -- Start a random event in the area you're standing in (or area 1 when you're in the safe zone)

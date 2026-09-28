@@ -129,14 +129,15 @@ local function rebuildIncubator(player: Player, plot: Model?)
 	sign.LightInfluence = 0
 	sign.MaxDistance = 110
 	sign.Parent = signHolder
-	Build.Text(sign, `🥚 INCUBATOR {#profile.Data.Eggs}/{cfg.MaxEggs}`, { TextColor3 = Color3.fromRGB(255, 225, 140), TextStrokeColor3 = Color3.fromRGB(60, 30, 0) })
-
 	local count = #profile.Data.Eggs
+	local label = if count > cfg.MaxEggs then `🥚 INCUBATOR ({count} eggs)` else `🥚 INCUBATOR {count}/{cfg.MaxEggs}`
+	Build.Text(sign, label, { TextColor3 = Color3.fromRGB(255, 225, 140), TextStrokeColor3 = Color3.fromRGB(60, 30, 0) })
+
 	for i, eggData in profile.Data.Eggs do
 		local egg = Pets.EggById[eggData.Id]
 		if egg then
 			local angle = (i - 1) / math.max(count, 1) * math.pi * 2
-			local radius = if count <= 1 then 0 else 3.6
+			local radius = if count <= 1 then 0 else math.max(3.6, count * 0.6)
 			local model = PetModel.BuildEgg(egg, { Scale = 1.05 })
 			local bottom = (model:GetAttribute("Bottom") :: number?) or 1.5
 			model:PivotTo(cf * CFrame.new(math.cos(angle) * radius, 1.2 + bottom, math.sin(angle) * radius))
@@ -158,13 +159,15 @@ local function rebuildIncubator(player: Player, plot: Model?)
 	incubator.Parent = target
 end
 
-function PetService.AddEgg(player: Player, eggId: string): boolean
+-- Add an egg to the player's incubator. `force` (crate rewards) goes past the incubator limit, so a
+-- reward is never lost.
+function PetService.AddEgg(player: Player, eggId: string, force: boolean?): boolean
 	local profile = DataService.Get(player)
 	local egg = Pets.EggById[eggId]
 	if not profile or not egg then
 		return false
 	end
-	if #profile.Data.Eggs >= cfg.MaxEggs then
+	if #profile.Data.Eggs >= cfg.MaxEggs and not force then
 		return false
 	end
 	table.insert(profile.Data.Eggs, { Uid = HttpService:GenerateGUID(false), Id = egg.Id, HatchAt = os.time() + egg.HatchSeconds })
@@ -406,6 +409,7 @@ function spawnEgg(spot: EggSpot, eggId: string, announce: boolean)
 end
 
 -- A random spot in the lane part of the area, away from the donuts and the guard's blanket.
+-- (Crates use it too: PetService.RandomLanePosition.)
 local function randomPosition(areaId: number): Vector3?
 	local area = MapBuilder.GetArea(areaId)
 	local spawns = area:FindFirstChild("Spawns")
@@ -432,6 +436,27 @@ local function randomPosition(areaId: number): Vector3?
 		end
 	end
 	return nil
+end
+
+-- Give a pet directly (crate rewards, admin panel). Goes past the pet limit so a reward is never lost.
+function PetService.GivePet(player: Player, petId: string): boolean
+	local profile = DataService.Get(player)
+	local pet = Pets.ById[petId]
+	if not profile or not pet then
+		return false
+	end
+	local data = profile.Data
+	local petData = { Uid = HttpService:GenerateGUID(false), Id = pet.Id }
+	table.insert(data.Pets, petData)
+	if #data.EquippedPets < cfg.MaxEquipped then
+		table.insert(data.EquippedPets, petData.Uid)
+	end
+	refreshPets(player)
+	return true
+end
+
+function PetService.RandomLanePosition(areaId: number): Vector3?
+	return randomPosition(areaId)
 end
 
 --------------------------------------------------------------------------------

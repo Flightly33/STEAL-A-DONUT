@@ -1,7 +1,7 @@
 --[[
 	HUD: always-on screen UI. Kept small and away from Roblox's own UI (chat top-left, player list
 	top-right, hotbar bottom-centre):
-	  left   - Shop / Pets / Index / Top 500 / Rebirth buttons + Slow Mode toggle (middle of the screen)
+	  left   - Shop / Pets / Index / Rebirth buttons + Slow Mode and Music toggles (middle of the screen)
 	  right  - Home / Worlds / Passes / Skins / Donate / Settings (+ Admin) squares, above the area panel
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
@@ -20,6 +20,7 @@ local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
 local Notifications = require(script.Parent.Notifications)
+local Settings = require(script.Parent.Settings)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
 local Bases = require(script.Parent.Parent.Bases)
@@ -29,7 +30,6 @@ local HUD = {}
 export type Callbacks = {
 	OpenShop: (tab: string?) -> (),
 	OpenIndex: () -> (),
-	OpenLeaderboards: () -> (),
 	OpenSettings: () -> (),
 	OpenRebirth: () -> (),
 	OpenWorlds: () -> (),
@@ -78,14 +78,12 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local shop = Theme.Button({ Text = "Shop", Icon = "🛒", Color = Theme.Colors.Green, Size = size, LayoutOrder = 1, Parent = left })
 	local pets = Theme.Button({ Text = "Pets", Icon = "🐾", Color = Theme.Colors.Pink, Size = size, LayoutOrder = 2, Parent = left })
 	local index = Theme.Button({ Text = "Index", Icon = "📖", Color = Theme.Colors.Blue, Size = size, LayoutOrder = 3, Parent = left })
-	local top = Theme.Button({ Text = "Top 500", Icon = "🏆", Color = Theme.Colors.Orange, Size = size, LayoutOrder = 4, Parent = left })
 	local rebirth = Theme.Button({ Text = "Rebirth", Icon = "🔄", Color = Theme.Colors.Yellow, Size = size, LayoutOrder = 5, Parent = left })
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
 	pets.Activated:Connect(callbacks.OpenPets)
 	index.Activated:Connect(callbacks.OpenIndex)
-	top.Activated:Connect(callbacks.OpenLeaderboards)
 	rebirth.Activated:Connect(callbacks.OpenRebirth)
 
 	-- Badges: unclaimed Index rewards, eggs ready to hatch, rebirth ready
@@ -113,26 +111,41 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		end
 	end)
 
-	-- Slow Mode toggle (walk at normal speed on your base when you're very fast)
-	local row = Theme.new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(160, 30), LayoutOrder = 6, Parent = left })
-	local track = Theme.new("Frame", { Size = UDim2.fromOffset(54, 26), Position = UDim2.fromOffset(2, 2), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = row }, { Theme.Corner(8), Theme.Stroke(2.5) })
-	local knob = Theme.new("Frame", { Size = UDim2.fromOffset(22, 20), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = Theme.Colors.Gray, Parent = track }, { Theme.Corner(6) })
-	Theme.Label({ Text = "Slow Mode", Font = Theme.Font, Size = UDim2.new(1, -64, 0, 22), Position = UDim2.fromOffset(64, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = row })
-	local function render(enabled: boolean)
-		TweenService:Create(knob, TweenInfo.new(0.15), {
-			Position = UDim2.fromOffset(if enabled then 29 else 3, 3),
-			BackgroundColor3 = if enabled then Theme.Colors.Green else Theme.Colors.Gray,
-		}):Play()
+	-- On/off switches under the buttons
+	local function toggleRow(text: string, order: number, onClick: () -> ()): (enabled: boolean) -> ()
+		local row = Theme.new("TextButton", { Text = "", BackgroundTransparency = 1, Size = UDim2.fromOffset(160, 30), LayoutOrder = order, Parent = left })
+		local track = Theme.new("Frame", { Size = UDim2.fromOffset(54, 26), Position = UDim2.fromOffset(2, 2), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = row }, { Theme.Corner(8), Theme.Stroke(2.5) })
+		local knob = Theme.new("Frame", { Size = UDim2.fromOffset(22, 20), Position = UDim2.fromOffset(3, 3), BackgroundColor3 = Theme.Colors.Gray, Parent = track }, { Theme.Corner(6) })
+		Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -64, 0, 22), Position = UDim2.fromOffset(64, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = row })
+		row.Activated:Connect(function()
+			onClick()
+			Theme.PlaySound("Click")
+		end)
+		return function(enabled: boolean)
+			TweenService:Create(knob, TweenInfo.new(0.15), {
+				Position = UDim2.fromOffset(if enabled then 29 else 3, 3),
+				BackgroundColor3 = if enabled then Theme.Colors.Green else Theme.Colors.Gray,
+			}):Play()
+		end
 	end
-	row.Activated:Connect(function()
+
+	-- Slow Mode: walk at normal speed on your base when you're very fast
+	local renderSlow: (boolean) -> ()
+	renderSlow = toggleRow("Slow Mode", 6, function()
 		local enabled = not (State.Get("SlowMode") == true)
-		render(enabled)
+		renderSlow(enabled)
 		State.Action("SetSlowMode", enabled)
-		Theme.PlaySound("Click")
 	end)
 	State.OnAttribute("SlowMode", function(value)
-		render(value == true)
+		renderSlow(value == true)
 	end)
+
+	-- Music on/off (same setting as in the Settings window)
+	local renderMusic = toggleRow("🎵 Music", 7, function()
+		Settings.SetMusicOn(not Settings.MusicOn())
+	end)
+	renderMusic(Settings.MusicOn())
+	Settings.MusicChanged:Connect(renderMusic)
 end
 
 local function buildRight(gui: ScreenGui, callbacks: Callbacks)
@@ -205,11 +218,26 @@ local function buildStats(gui: ScreenGui)
 
 	local function updateSpeed()
 		local walk = State.Number("WalkSpeed")
-		speedLabel.Text = `{Format.Number(State.Number("Speed"))}  <font size="22">(🏃 {math.floor(walk)})</font>`
+		-- A crate Speed Boost shows its countdown next to your speed
+		local endsAt = State.Get("SpeedBoostEndsAt")
+		local left = if type(endsAt) == "number" then endsAt - workspace:GetServerTimeNow() else 0
+		local boost = if left > 0
+			then `  <font size="20" color="#ffe14a">⚡+{math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% {Format.Duration(left)}</font>`
+			else ""
+		speedLabel.Text = `{Format.Number(State.Number("Speed"))}  <font size="22">(🏃 {math.floor(walk)})</font>{boost}`
 	end
 	speedLabel.RichText = true
 	State.OnAttribute("Speed", updateSpeed)
 	State.OnAttribute("WalkSpeed", updateSpeed)
+	State.OnAttribute("SpeedBoostEndsAt", updateSpeed)
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			if State.Get("SpeedBoostEndsAt") ~= nil then
+				updateSpeed()
+			end
+		end
+	end)
 	State.OnAttribute("Money", function(value)
 		moneyLabel.Text = Format.Money(value or 0)
 	end)
@@ -257,7 +285,8 @@ local function buildAreaInfo(gui: ScreenGui)
 		end
 		local area = Areas.List[areaId]
 		local guard = math.floor(Economy.GuardWalkSpeed(areaId))
-		local color = if walk + Areas.List[areaId].GuardSpeedBonus * Economy.WorldWalkMultiplier(area.World) >= guard then "#7dff6a" elseif walk + 8 >= guard then "#ffd54a" else "#ff5a5a"
+		local recommended = Economy.RecommendedWalkSpeed(areaId)
+		local color = if walk >= recommended then "#7dff6a" elseif walk + 8 >= recommended then "#ffd54a" else "#ff5a5a"
 		nameLabel.Text = `📍 {area.Name}`
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
 		detail.Text = `😴 {Config.Guard.Name}: <b>{guard}</b>   •   🏃 You: <font color="{color}"><b>{math.floor(walk)}</b></font>`
@@ -289,7 +318,8 @@ local function buildAreaInfo(gui: ScreenGui)
 			Notifications.Banner("🛡 SAFE ZONE", Color3.fromRGB(110, 200, 255), 1.5)
 		else
 			local area = Areas.List[areaId]
-			local rec = if area.RecommendedSpeed > 0 then `Recommended speed ⚡{Format.Number(area.RecommendedSpeed)} (🏃 {math.floor(Economy.WalkSpeedFromStat(area.RecommendedSpeed) * Economy.WorldWalkMultiplier(area.World))})` else "Anyone can make it back from here!"
+			local recommended = Economy.RecommendedSpeed(areaId)
+			local rec = if recommended > 0 then `Recommended speed ⚡{Format.Number(recommended)} (🏃 {math.floor(Economy.RecommendedWalkSpeed(areaId))})` else "Anyone can make it back from here!"
 			Notifications.Banner(`AREA {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{Config.Guard.Name} speed {math.floor(Economy.GuardWalkSpeed(areaId))} • {rec}`)
 		end
 	end)

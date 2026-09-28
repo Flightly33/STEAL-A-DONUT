@@ -94,9 +94,9 @@ function Worlds.Init()
 			Theme.SetButtonText(go, if not unlocked then "🔒 LOCKED" elseif hasPass then "🌀 GO" else "🌀 PASS")
 			Theme.SetButtonColor(go, if unlocked and hasPass then Theme.Colors.Green else Theme.Colors.Gray)
 			for _, entry in areaButtons do
-				local fastEnough = walk + 0.01 >= Economy.WalkSpeedFromStat(entry.Area.RecommendedSpeed)
+				local fastEnough = walk + 0.01 >= Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(entry.Area.Id))
 				local open = unlocked and fastEnough
-				Theme.SetButtonText(entry.Button, if open then `{entry.Area.Id}. {entry.Area.Name}` else `🔒 ⚡{Format.Number(entry.Area.RecommendedSpeed)}`)
+				Theme.SetButtonText(entry.Button, if open then `{entry.Area.Id}. {entry.Area.Name}` else `🔒 ⚡{Format.Number(Economy.RecommendedSpeed(entry.Area.Id))}`)
 				Theme.SetButtonColor(entry.Button, if open and hasPass then entry.Area.Trim else Theme.Colors.Gray)
 			end
 		end)

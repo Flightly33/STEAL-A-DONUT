@@ -28,6 +28,7 @@ local ItemService = require(script.Parent.ItemService)
 local RaidService = require(script.Parent.RaidService)
 local WorldService = require(script.Parent.WorldService)
 local PetService = require(script.Parent.PetService)
+local CrateService = require(script.Parent.CrateService)
 
 local PlayerService = {}
 
@@ -142,6 +143,7 @@ local function onPlayerAdded(player: Player)
 	player:SetAttribute("Donated", profile.Data.Donated)
 	DataService.SyncAttributes(player)
 	PetService.OnPlayerReady(player) -- pets' bonuses (money multiplier), followers, incubator
+	CrateService.OnPlayerReady(player) -- may this player buy crates? (paid random items rules)
 	DataService.PushState(player)
 
 	player.CharacterAdded:Connect(function(character)
@@ -181,7 +183,7 @@ local function desiredWalkSpeed(player: Player, profile: DataService.Profile): n
 	if profile.Session.SlowMode then
 		return Config.Speed.SlowModeWalkSpeed * carry
 	end
-	return Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * carry
+	return Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * DataService.WalkBoost(profile.Data) * carry
 end
 
 function PlayerService.Init()
@@ -212,6 +214,14 @@ function PlayerService.Init()
 						DataService.AddMoney(player, income * dt)
 					end
 					profile.Data.PlayTime += dt
+					-- Crate Speed Boost counts down while you play
+					if profile.Data.SpeedBoostSeconds > 0 then
+						profile.Data.SpeedBoostSeconds = math.max(0, profile.Data.SpeedBoostSeconds - dt)
+						if profile.Data.SpeedBoostSeconds <= 0 then
+							DataService.SyncSpeedBoost(player)
+							Remotes.Event("Notify"):FireClient(player, "⚡ Your Speed Boost ran out.", "info")
+						end
+					end
 					player:SetAttribute("Income", income)
 					player:SetAttribute("PlayTime", profile.Data.PlayTime)
 					local stats = leaderstats[player]
@@ -237,7 +247,7 @@ function PlayerService.Init()
 					if math.abs(humanoid.WalkSpeed - target) > 0.05 then
 						humanoid.WalkSpeed = target
 					end
-					player:SetAttribute("WalkSpeed", Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World))
+					player:SetAttribute("WalkSpeed", Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * DataService.WalkBoost(profile.Data))
 				end
 			end
 		end

@@ -9,8 +9,6 @@
 	Global rarity scale: Legendary and rarer donuts show how many times they've spawned and been
 	found in the WHOLE game (every server), and what share of all spawns that is. The line at the
 	top does the same for every mutation. (StatsService on the server keeps the counts.)
-
-	Buddy: pick any donut you've found and it follows you around.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -37,7 +35,6 @@ type Card = {
 	Info: TextLabel,
 	Rarity: TextLabel,
 	Global: TextLabel,
-	Buddy: TextButton,
 	Dots: { [string]: Frame },
 	Cash: TextButton,
 	Speed: TextButton?,
@@ -116,12 +113,20 @@ local function refresh()
 			totalSpawns += counts[1] or 0
 		end
 	end
+	-- While a Luck Event runs, show the boosted odds too (Roblox wants boosted odds shown when the
+	-- boost was paid for).
+	local luckEndsAt = workspace:GetAttribute("LuckEndsAt")
+	local lucky = type(luckEndsAt) == "number" and luckEndsAt > workspace:GetServerTimeNow()
 	for id, card in cards do
 		local donut = Donuts.ById[id]
 		local rarity = Rarities.Get(donut.Rarity)
 		local cash = Economy.IndexCashReward(id)
 		local speed = Economy.IndexSpeedReward(id)
-		card.Rarity.Text = `{rarity.Id} • {string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
+		local chance = `{string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
+		if lucky then
+			chance ..= ` (🍀 {string.format("%.2g", Donuts.Chance(donut, Config.LuckEvent.RarityLuck) * 100)}% now)`
+		end
+		card.Rarity.Text = `{rarity.Id} • {chance}`
 		local counts = stats and stats.D[id]
 		if rarity.Order >= Config.GlobalStats.ShowFromRarity then
 			local spawned = if counts then counts[1] or 0 else 0
@@ -130,10 +135,6 @@ local function refresh()
 		else
 			card.Global.Text = ""
 		end
-		card.Buddy.Visible = discovered[id] == true
-		local isBuddy = State.Data.Buddy == id
-		Theme.SetButtonText(card.Buddy, if isBuddy then "✓ Buddy" else "Buddy")
-		Theme.SetButtonColor(card.Buddy, if isBuddy then Theme.Colors.Green else Theme.Colors.Gray)
 		for mutationId, dot in card.Dots do
 			local has = mutations[id] and mutations[id][mutationId]
 			dot.BackgroundTransparency = if has then 0 else 0.75
@@ -173,7 +174,8 @@ local function refresh()
 		if mutation.Order > 0 then
 			local counts = stats and stats.M[mutation.Id]
 			local foundCount = if counts then counts[2] or 0 else 0
-			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {percent(mutation.Chance, 1)} ({if stats then Format.Number(foundCount) else "?"} found)`)
+			local boosted = if lucky then ` → 🍀 {percent(mutation.Chance * Config.LuckEvent.MutationLuck, 1)}` else ""
+			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {percent(mutation.Chance, 1)}{boosted} ({if stats then Format.Number(foundCount) else "?"} found)`)
 		end
 	end
 	legend.Text = "🌍 " .. table.concat(parts, "  ")
@@ -200,12 +202,6 @@ local function buildCard(grid: Instance, donut: Donuts.Donut, order: number)
 	local nameLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 122), StrokeThickness = 1.5, Parent = cardFrame })
 	local info = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Theme.Colors.Money, Size = UDim2.new(1, -8, 0, 17), Position = UDim2.fromOffset(4, 148), StrokeThickness = 1.2, Parent = cardFrame })
 	local global = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(170, 220, 255), Size = UDim2.new(1, -8, 0, 15), Position = UDim2.fromOffset(4, 166), StrokeThickness = 1, Parent = cardFrame })
-	local buddy = Theme.Button({ Text = "Buddy", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(66, 24), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 10), Parent = cardFrame })
-	buddy.ZIndex = 3
-	buddy.Visible = false
-	buddy.Activated:Connect(function()
-		State.Action("SetBuddy", donut.Id)
-	end)
 	-- Mutation dots
 	local dotRow = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -8, 0, 14), Position = UDim2.fromOffset(4, 185), Parent = cardFrame }, {
 		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -234,7 +230,7 @@ local function buildCard(grid: Instance, donut: Donuts.Donut, order: number)
 		speedButton = button
 	end
 	local status = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -8, 0, 26), Position = UDim2.new(0, 4, 1, -34), StrokeThickness = 1.2, Parent = cardFrame })
-	cards[donut.Id] = { Viewport = viewport, Name = nameLabel, Info = info, Rarity = rarityLabel, Global = global, Buddy = buddy, Dots = dots, Cash = cash, Speed = speedButton, Status = status }
+	cards[donut.Id] = { Viewport = viewport, Name = nameLabel, Info = info, Rarity = rarityLabel, Global = global, Dots = dots, Cash = cash, Speed = speedButton, Status = status }
 end
 
 -- Build one world's page (previews are only built the first time you look at it).
@@ -305,6 +301,11 @@ function Index.Init()
 	end)
 	State.Changed:Connect(refresh)
 	State.OnAttribute("IndexBonus", function()
+		if modal:IsOpen() then
+			refresh()
+		end
+	end)
+	workspace:GetAttributeChangedSignal("LuckEndsAt"):Connect(function()
 		if modal:IsOpen() then
 			refresh()
 		end

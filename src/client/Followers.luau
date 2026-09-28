@@ -1,9 +1,10 @@
 --[[
-	Followers: every player's buddy donut and equipped pets, following them around.
+	Followers: every player's favourite donut and equipped pets, following them around.
 
 	Drawn by each client from the player's attributes (nothing is simulated or replicated):
-	  "Buddy" -> the id of the donut they picked in the Index
-	  "Pets"  -> comma-separated ids of their equipped pets
+	  "Favorite" -> "donutId|mutation|size" of their favourite base donut: a copy at
+	                Config.Favorite.Scale (1/3) of its size on the stand, mutation look included
+	  "Pets"     -> comma-separated ids of their equipped pets
 	Walkers hop along behind you, flyers and blobs float, wings flap. Only followers near the camera
 	are animated.
 ]]
@@ -24,7 +25,7 @@ local Followers = {}
 local RANGE = 220
 -- Where followers walk, relative to their owner (behind them, spread out)
 local SLOTS = {
-	Vector3.new(4, 0, 3.5), -- buddy
+	Vector3.new(4, 0, 3.5), -- favourite donut (pushed further out when it's a big one)
 	Vector3.new(-4, 0, 3.5),
 	Vector3.new(0, 0, 6),
 	Vector3.new(-4.5, 0, 8),
@@ -36,6 +37,7 @@ type Follower = {
 	Model: Model,
 	Root: BasePart,
 	Slot: number,
+	Offset: Vector3, -- where it walks, relative to its owner
 	Floats: boolean,
 	Height: number, -- root height above the ground
 	Phase: number,
@@ -48,7 +50,7 @@ type Follower = {
 local folder: Folder
 local byPlayer: { [Player]: { Follower } } = {}
 
-local function prepare(model: Model, slot: number, floats: boolean): Follower
+local function prepare(model: Model, slot: number, floats: boolean, spread: number?): Follower
 	local root = model.PrimaryPart :: BasePart
 	model:SetAttribute("Follower", true)
 	for _, part in model:GetDescendants() do
@@ -77,6 +79,7 @@ local function prepare(model: Model, slot: number, floats: boolean): Follower
 		Model = model,
 		Root = root,
 		Slot = slot,
+		Offset = SLOTS[slot] * (spread or 1),
 		Floats = floats,
 		Height = bottom + (if floats then 2.2 else 0.05),
 		Phase = math.random() * 6,
@@ -100,11 +103,14 @@ end
 local function rebuild(player: Player)
 	clear(player)
 	local list: { Follower } = {}
-	local buddy = player:GetAttribute("Buddy")
-	local donut = if type(buddy) == "string" then Donuts.ById[buddy] else nil
+	local favorite = player:GetAttribute("Favorite")
+	local parts = if type(favorite) == "string" then string.split(favorite, "|") else {}
+	local donut = Donuts.ById[parts[1] or ""]
 	if donut then
-		local model = DonutModel.Build(donut, { Scale = Config.Buddy.Scale })
-		table.insert(list, prepare(model, 1, true))
+		-- Same build as the donut on the stand, just smaller
+		local model = DonutModel.Build(donut, { Scale = Config.Plots.DonutScale * Config.Favorite.Scale, Mutation = parts[2], Size = parts[3] })
+		local _, size = model:GetBoundingBox()
+		table.insert(list, prepare(model, 1, true, math.max(1, math.max(size.X, size.Z) / 3)))
 	end
 	local pets = player:GetAttribute("Pets")
 	if type(pets) == "string" and pets ~= "" then
@@ -126,7 +132,7 @@ local function rebuild(player: Player)
 end
 
 local function watch(player: Player)
-	player:GetAttributeChangedSignal("Buddy"):Connect(function()
+	player:GetAttributeChangedSignal("Favorite"):Connect(function()
 		rebuild(player)
 	end)
 	player:GetAttributeChangedSignal("Pets"):Connect(function()
@@ -161,7 +167,7 @@ local function update(dt: number)
 			local hip = if humanoid and humanoid.RigType == Enum.HumanoidRigType.R15 then humanoid.HipHeight + root.Size.Y / 2 else 3
 			local ground = root.Position.Y - hip
 			local flat = CFrame.new(root.Position) * CFrame.Angles(0, select(2, root.CFrame:ToEulerAnglesYXZ()), 0)
-			local target = (flat * CFrame.new(SLOTS[follower.Slot])).Position
+			local target = (flat * CFrame.new(follower.Offset)).Position
 			local moving = root.AssemblyLinearVelocity.Magnitude > 2
 			local bob = if follower.Floats then math.sin(t * 2.5 + follower.Phase) * 0.35 elseif moving then math.abs(math.sin(t * 9 + follower.Phase)) * 0.6 else 0
 			target = Vector3.new(target.X, ground + follower.Height + bob, target.Z)

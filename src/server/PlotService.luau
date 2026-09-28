@@ -8,9 +8,14 @@
 	Every world's hub has the same 8 plots. You keep the same plot number everywhere, and your base
 	(donuts, treadmill, podium, incubator) moves to whichever world you're in (MoveBase), so you
 	never have to run back to the main hub to drop off a donut.
+
+	Second floor (Config.Plots.SecondFloor): once the ground floor is fully expanded you can buy a
+	deck over your whole base with more stands (slots SlotsPerPlot+1 ..). It's built on whichever
+	plot your base is on, and a lift pad at the front takes anyone up and down (thieves too).
 ]]
 
 local CollectionService = game:GetService("CollectionService")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -36,6 +41,14 @@ PlotService.RaidHandler = nil :: ((Player, number, ProximityPrompt) -> ())?
 -- Fired after a player's base moved to another world: (player, oldWorld, newWorld).
 -- The treadmill, incubator and traps rebuild themselves from this.
 PlotService.BaseMoved = Signal.new()
+-- How the lift pads move a character. StealService swaps in its own Teleport (so someone carrying
+-- a donut isn't mistaken for a teleport cheater).
+PlotService.Teleporter = function(player: Player, cf: CFrame)
+	local character = player.Character
+	if character then
+		character:PivotTo(cf)
+	end
+end :: (Player, CFrame) -> ()
 
 local rgb = Color3.fromRGB
 
@@ -44,6 +57,8 @@ local playerPlots: { [Player]: number } = {}
 local baseWorlds: { [Player]: number } = {}
 local slotModels: { [Player]: { [number]: Model } } = {}
 local baseIncome: { [Player]: number } = {}
+local buildSecondFloor: (player: Player) -> ()
+local removeSecondFloor: (plot: Model) -> ()
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -93,7 +108,7 @@ end
 -- How many stands this player has unlocked.
 function PlotService.GetSlotCount(player: Player): number
 	local profile = DataService.Get(player)
-	return if profile then Economy.SlotCount(profile.Data.Expansions) else Config.Plots.StartSlots
+	return if profile then Economy.SlotCount(profile.Data.Expansions, profile.Data.Floors) else Config.Plots.StartSlots
 end
 
 function PlotService.GetFreeSlot(player: Player): number?
@@ -159,11 +174,15 @@ local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, 
 		nameLabel.TextColor3 = rgb(255, 255, 255)
 		incomeLabel.TextColor3 = rgb(90, 255, 90)
 		local profile = DataService.Get(owner)
+		-- Above the second floor's deck when there is one
+		local tall = profile ~= nil and profile.Data.Floors >= 2
+		signGui.StudsOffsetWorldSpace = Vector3.new(0, if tall then Config.Plots.SecondFloor.Height + 12 else 0, 0)
 		local mult = if profile then DataService.MoneyMultiplier(profile) else 1
 		local rebirths = if profile then profile.Data.Rebirths else 0
 		nameLabel.Text = if rebirths > 0 then `{owner.DisplayName}  🔄{rebirths}` else owner.DisplayName
 		incomeLabel.Text = Format.Money((baseIncome[owner] or 0) * mult) .. "/s"
 	else
+		signGui.StudsOffsetWorldSpace = Vector3.zero
 		nameLabel.Text = "Empty Base"
 		nameLabel.TextColor3 = rgb(200, 200, 200)
 		incomeLabel.Text = ""
@@ -401,6 +420,19 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	sell:SetAttribute("OwnerUserId", player.UserId)
 	sell.Parent = root
 
+	local favorite = Instance.new("ProximityPrompt")
+	favorite.Name = "FavoritePrompt"
+	favorite.ActionText = if profile.Data.Favorite == tostring(slotIndex) then "💔 Unfavorite" else "❤ Favorite"
+	favorite.ObjectText = "Follows you at 1/3 size"
+	favorite.KeyboardKeyCode = Enum.KeyCode.R
+	favorite.GamepadKeyCode = Enum.KeyCode.ButtonB
+	favorite.HoldDuration = 0
+	favorite.MaxActivationDistance = 9
+	favorite.RequiresLineOfSight = false
+	favorite.UIOffset = Vector2.new(0, 140)
+	favorite:SetAttribute("OwnerUserId", player.UserId)
+	favorite.Parent = root
+
 	-- Raid prompt: other players hold this for Config.Raid.HoldSeconds while the owner is away.
 	-- RaidService turns it on/off and handles the steal; the owner never sees it.
 	if Config.Raid.Enabled then
@@ -432,6 +464,11 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 			PlotService.SellSlot(player, slotIndex)
 		end
 	end)
+	favorite.Triggered:Connect(function(who)
+		if who == player then
+			PlotService.FavoriteSlot(player, slotIndex)
+		end
+	end)
 
 	-- Base donuts play idle animations on every client (client/DonutIdle.luau)
 	model:SetAttribute("IdleSeed", slotIndex)
@@ -441,10 +478,52 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	updateSlotLabels(player, slotIndex)
 end
 
+-- The favourite donut: a 1/3-size copy follows its owner around (every client draws it from the
+-- "Favorite" attribute). It's cleared when that donut leaves the base (sold, stolen, rebirth).
+local function syncFavorite(player: Player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local key = profile.Data.Favorite
+	if key and not profile.Data.Slots[key] then
+		profile.Data.Favorite = nil
+	end
+	player:SetAttribute("Favorite", DataService.FavoriteTag(profile.Data))
+	local models: { [number]: Model } = slotModels[player] or {}
+	for index, model in models do
+		local root = model.PrimaryPart
+		local prompt = root and root:FindFirstChild("FavoritePrompt") :: ProximityPrompt?
+		if prompt then
+			prompt.ActionText = if profile.Data.Favorite == tostring(index) then "💔 Unfavorite" else "❤ Favorite"
+		end
+	end
+end
+
+function PlotService.FavoriteSlot(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local key = tostring(slotIndex)
+	local slot = profile and profile.Data.Slots[key]
+	if not profile or not slot then
+		return
+	end
+	local donut = Donuts.ById[slot.Id]
+	if profile.Data.Favorite == key then
+		profile.Data.Favorite = nil
+		notify(player, "Unfavorited. It stays on your base.")
+	else
+		profile.Data.Favorite = key
+		notify(player, `❤ {Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)} is your favorite! It follows you around (and keeps earning on its stand).`, "success")
+	end
+	syncFavorite(player)
+	DataService.PushState(player)
+end
+
 local function afterSlotsChanged(player: Player)
 	recalcIncome(player)
 	PlotService.RefreshSign(player)
 	PlotService.RefreshPodium(player)
+	syncFavorite(player)
 end
 
 -- Put a donut on the first free stand (or on `preferredSlot` if that one is free: a donut that
@@ -573,7 +652,7 @@ local function applySlotLocks(plotIndex: number, unlocked: number, worldId: numb
 		end
 	end
 	local columns = #Layout.SlotColumns
-	for index = 1, Config.Plots.SlotsPerPlot do
+	for index = 1, Layout.MaxSlots do
 		local pedestal = slots:FindFirstChild("Slot" .. index)
 		if pedestal and pedestal:IsA("BasePart") then
 			local locked = index > unlocked
@@ -589,7 +668,8 @@ local function applySlotLocks(plotIndex: number, unlocked: number, worldId: numb
 				holder.CanTouch = false
 				holder.Transparency = 1
 				holder.Size = Vector3.one
-				local rowCenter = Layout.PlotCFrame(plotIndex, worldId) * CFrame.new(0, Layout.PlotFloorHeight + 3, Layout.SlotOffset(index).Z)
+				local offset = Layout.SlotOffset(index)
+				local rowCenter = Layout.PlotCFrame(plotIndex, worldId) * CFrame.new(0, offset.Y + Layout.PlotFloorHeight + 3, offset.Z)
 				holder.CFrame = rowCenter
 				local gui = Instance.new("BillboardGui")
 				gui.Size = UDim2.fromScale(22, 2.2)
@@ -749,6 +829,167 @@ function PlotService.ApplySkin(player: Player)
 end
 
 --------------------------------------------------------------------------------
+-- Second floor
+--------------------------------------------------------------------------------
+local liftCooldown: { [Player]: number } = {}
+
+-- A glowing lift pad: step on it and you're taken to `target`.
+local function liftPad(parent: Instance, cf: CFrame, text: string, target: CFrame)
+	local pad = Build.Part({
+		Parent = parent, Name = "LiftPad",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.4, 7, 7),
+		CFrame = cf * CFrame.Angles(0, 0, math.pi / 2),
+		Color = rgb(90, 220, 255), Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+	pad.CanTouch = true
+	local beam = Build.Decor({ Parent = parent, Name = "LiftGlow", Shape = Enum.PartType.Cylinder, Size = Vector3.new(6, 6.6, 6.6), CFrame = cf * CFrame.new(0, 3, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(120, 230, 255), Material = Enum.Material.Neon, Transparency = 0.85 })
+	beam.CanTouch = false
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromScale(10, 2)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, 7.5, 0)
+	gui.LightInfluence = 0
+	gui.MaxDistance = 90
+	gui.Parent = pad
+	Build.Text(gui, text, { TextColor3 = rgb(160, 240, 255), Font = Enum.Font.FredokaOne })
+	pad.Touched:Connect(function(hit: BasePart)
+		local character = hit.Parent
+		local player = if character then Players:GetPlayerFromCharacter(character) else nil
+		if not player then
+			return
+		end
+		local now = os.clock()
+		if liftCooldown[player] and now - liftCooldown[player] < 1 then
+			return
+		end
+		liftCooldown[player] = now
+		PlotService.Teleporter(player, target)
+	end)
+end
+
+function removeSecondFloor(plot: Model)
+	local deck = plot:FindFirstChild("SecondFloor")
+	if deck then
+		deck:Destroy()
+	end
+	local slots = plot:FindFirstChild("Slots")
+	if slots then
+		for index = Config.Plots.SlotsPerPlot + 1, Layout.MaxSlots do
+			local pedestal = slots:FindFirstChild("Slot" .. index)
+			if pedestal then
+				pedestal:Destroy()
+			end
+		end
+	end
+end
+
+-- Build the owner's second floor on the plot their base is on (or clear it if they have none).
+function buildSecondFloor(player: Player)
+	local profile = DataService.Get(player)
+	local plot = PlotService.GetPlotModel(player)
+	local index = playerPlots[player]
+	if not plot or not index then
+		return
+	end
+	removeSecondFloor(plot)
+	if not profile or profile.Data.Floors < 2 then
+		return
+	end
+	local cf = Layout.PlotCFrame(index, PlotService.GetBaseWorld(player))
+	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
+	local height = Config.Plots.SecondFloor.Height
+	local classic = Config.Skins[1]
+	local deck = Instance.new("Model")
+	deck.Name = "SecondFloor"
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
+	end
+	local function skinned(role: string, props): BasePart
+		props.Parent = props.Parent or deck
+		local part = Build.Part(props)
+		part:SetAttribute("SkinRole", role)
+		return part
+	end
+	-- Deck (checker tiles like the ground floor, so skins recolour it too)
+	local tile = 14
+	for ix = 0, w / tile - 1 do
+		for iz = 0, d / tile - 1 do
+			local role = if (ix + iz) % 2 == 0 then "Floor" else "FloorAlt"
+			skinned(role, { Name = "Tile", Size = Vector3.new(tile, fh + 0.5, tile), CFrame = at(-w / 2 + tile / 2 + ix * tile, height + (fh - 0.5) / 2, -d / 2 + tile / 2 + iz * tile), Color = if role == "Floor" then classic.Floor else classic.FloorAlt, Material = classic.FloorMaterial })
+		end
+	end
+	-- Pillars holding it up
+	for _, x in { -w / 2 + 1.5, w / 2 - 1.5 } do
+		for _, z in { -d / 2 + 1.5, 0, d / 2 - 1.5 } do
+			skinned("Trim", { Name = "Pillar", Size = Vector3.new(2.4, height, 2.4), CFrame = at(x, height / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
+		end
+	end
+	-- Railing all the way round
+	local railHeight = 4
+	local function rail(from: Vector3, to: Vector3)
+		local length = (to - from).Magnitude
+		local mid = (from + to) / 2
+		local line = CFrame.lookAt(Vector3.new(mid.X, 0, mid.Z), Vector3.new(to.X, 0, to.Z))
+		skinned("Fence", { Name = "Rail", Size = Vector3.new(0.6, railHeight, length), CFrame = cf * line * CFrame.new(0, height + fh + railHeight / 2, 0), Color = classic.Fence, Material = classic.FenceMaterial, Transparency = 0.4 })
+		skinned("Trim", { Name = "RailCap", Size = Vector3.new(0.9, 0.4, length), CFrame = cf * line * CFrame.new(0, height + fh + railHeight + 0.2, 0), Color = classic.Trim, Material = classic.TrimMaterial })
+	end
+	local hw, hd = w / 2 - 0.3, d / 2 - 0.3
+	rail(Vector3.new(-hw, 0, -hd), Vector3.new(hw, 0, -hd))
+	rail(Vector3.new(-hw, 0, hd), Vector3.new(hw, 0, hd))
+	rail(Vector3.new(-hw, 0, -hd), Vector3.new(-hw, 0, hd))
+	rail(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd))
+	-- Lift pads, one above the other (so a carried donut never "teleports" sideways)
+	local lift = Layout.LiftOffset
+	local step = Vector3.new(0, 0, 7) -- step off the pad towards the stands
+	liftPad(deck, at(lift.X, fh + 0.2, lift.Z), "⬆ 2ND FLOOR", at(lift.X + step.X, height + fh + 3, lift.Z + step.Z))
+	liftPad(deck, at(lift.X, height + fh + 0.2, lift.Z), "⬇ GROUND FLOOR", at(lift.X + step.X, fh + 3, lift.Z + step.Z))
+	-- The stands (in the plot's Slots folder, like the ground floor's)
+	local slots = plot:FindFirstChild("Slots")
+	if slots then
+		for slotIndex = Config.Plots.SlotsPerPlot + 1, Layout.MaxSlots do
+			local offset = Layout.SlotOffset(slotIndex)
+			local pedestal = Build.Part({
+				Parent = slots, Name = "Slot" .. slotIndex,
+				Shape = Enum.PartType.Cylinder,
+				Size = Vector3.new(1, 7.5, 7.5),
+				CFrame = cf * CFrame.new(offset.X, offset.Y + fh + 0.5, offset.Z) * CFrame.Angles(0, 0, math.pi / 2),
+				Color = classic.Pedestal, Material = classic.PedestalMaterial,
+			})
+			pedestal:SetAttribute("SkinRole", "Pedestal")
+			pedestal:SetAttribute("SlotIndex", slotIndex)
+			pedestal:SetAttribute("Surface", cf * CFrame.new(offset.X, offset.Y + fh + 1, offset.Z))
+		end
+	end
+	deck.Parent = plot
+end
+
+-- Buy the second floor (after the ground floor is fully expanded).
+function PlotService.BuySecondFloor(player: Player): boolean
+	local profile = DataService.Get(player)
+	if not profile then
+		return false
+	end
+	local cost = Economy.SecondFloorCost(profile.Data.Expansions, profile.Data.Floors)
+	if not cost then
+		notify(player, if profile.Data.Floors >= 2 then "You already have a second floor!" else "Fully expand your base first!", "error")
+		return false
+	end
+	if not DataService.TrySpend(player, cost) then
+		notify(player, "Not enough money! Need " .. Format.Money(cost), "error")
+		return false
+	end
+	profile.Data.Floors = 2
+	player:SetAttribute("Floors", 2)
+	buildSecondFloor(player)
+	PlotService.RefreshLocks(player)
+	PlotService.ApplySkin(player)
+	PlotService.RefreshSign(player)
+	notify(player, `🏢 SECOND FLOOR built! +{Config.Plots.SecondFloor.Slots} stands ({PlotService.GetSlotCount(player)} total). Take the lift pad at the front of your base.`, "success")
+	return true
+end
+
+--------------------------------------------------------------------------------
 -- Assign / release / move to another world
 --------------------------------------------------------------------------------
 -- Put everything that belongs to the player's base on the plot in their current base world.
@@ -762,7 +1003,8 @@ local function showBase(player: Player)
 	MapBuilder.GetPlot(index, worldId):SetAttribute("OwnerUserId", player.UserId)
 	player:SetAttribute("BaseWorld", worldId)
 	if profile then
-		for i = 1, Config.Plots.SlotsPerPlot do
+		buildSecondFloor(player) -- (its stands must exist before the donuts go on them)
+		for i = 1, Layout.MaxSlots do
 			spawnSlotModel(player, i)
 		end
 	end
@@ -787,6 +1029,7 @@ local function hideBase(player: Player, worldId: number, away: boolean)
 	slotModels[player] = {}
 	local plot = MapBuilder.GetPlot(index, worldId)
 	plot:SetAttribute("OwnerUserId", nil)
+	removeSecondFloor(plot)
 	local podium = plot:FindFirstChild("Podium")
 	if podium then
 		podium:Destroy()
@@ -819,7 +1062,7 @@ function PlotService.Assign(player: Player): number?
 	if profile then
 		-- Drop any saved slot that points at a donut that no longer exists (e.g. removed from Donuts.luau).
 		for key, slot in profile.Data.Slots do
-			if not Donuts.ById[slot.Id] or (tonumber(key) or 99) > Config.Plots.SlotsPerPlot then
+			if not Donuts.ById[slot.Id] or (tonumber(key) or 999) > Layout.MaxSlots then
 				profile.Data.Slots[key] = nil
 			end
 		end
@@ -858,6 +1101,7 @@ function PlotService.Release(player: Player)
 	end
 	slotModels[player] = nil
 	baseIncome[player] = nil
+	liftCooldown[player] = nil
 	playerPlots[player] = nil
 	baseWorlds[player] = nil
 	plotOwners[index] = nil

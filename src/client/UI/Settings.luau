@@ -12,11 +12,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 
+local Signal = require(Shared.Signal)
+
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
 local Settings = {}
+
+-- Fires (on: boolean) whenever music is switched on or off (the HUD's music toggle listens).
+Settings.MusicChanged = Signal.new()
 
 local modal: Modal.Modal
 local sound: Sound
@@ -95,6 +100,21 @@ function Settings.Open()
 	modal:Open()
 end
 
+function Settings.MusicOn(): boolean
+	return musicOn
+end
+
+function Settings.SetMusicOn(on: boolean)
+	if on == musicOn then
+		return
+	end
+	musicOn = on
+	applyVolume()
+	refresh()
+	save()
+	Settings.MusicChanged:Fire(musicOn)
+end
+
 function Settings.Init()
 	sound = Instance.new("Sound")
 	sound.Name = "Soundtrack"
@@ -136,10 +156,7 @@ function Settings.Init()
 	end
 
 	toggle.Activated:Connect(function()
-		musicOn = not musicOn
-		applyVolume()
-		refresh()
-		save()
+		Settings.SetMusicOn(not musicOn)
 	end)
 	skip.Activated:Connect(function()
 		playTrack(trackIndex + 1)
@@ -171,6 +188,7 @@ function Settings.Init()
 		end
 		applyVolume()
 		refresh()
+		Settings.MusicChanged:Fire(musicOn)
 	end)
 
 	refresh()

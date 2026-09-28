@@ -8,8 +8,10 @@
 	1. Create the Game Passes on the Creator Dashboard and paste their IDs into
 	   Config.GamePasses[...].GamePassId.
 	   A GamePassId of 0 means "not set up yet" and the item shows as "Coming Soon" in live servers.
-	2. Create the Developer Products (Luck Event + one per donation amount) and paste their IDs into
-	   Config.LuckEvent.DeveloperProductId and Config.Donations.Products[...].DeveloperProductId.
+	2. Create the Developer Products (Luck Event, one per crate, one per donation amount) and paste
+	   their IDs into Config.LuckEvent.DeveloperProductId, Config.Crates.Products[...] and
+	   Config.Donations.Products[...].DeveloperProductId. Crates are "paid random items": say so in
+	   the Maturity & Compliance Questionnaire on the Creator Dashboard.
 	3. The admin code works for the game's owner and in Studio. To let friends use it, add their
 	   UserIds to Config.Admin.AllowedUserIds.
 	4. In Studio: Game Settings > Security > "Enable Studio Access to API Services" so DataStores work
@@ -74,6 +76,8 @@ Config.Guard = {
 	-- players can't wake him up for you. When a chase ends he poofs back to his blanket.
 	Scale = 4, -- model scale (1 = normal player size). He's HUGE: about 20 studs tall.
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
+	-- Every Domer runs this much faster than the area's base guard speed (1.075 = +7.5%).
+	SpeedMultiplier = 1.075,
 	-- Lag compensation: the catch is judged against where the guard was on YOUR screen (the server
 	-- rewinds him by your ping plus Roblox's interpolation delay), so a fast chase over a laggy
 	-- connection can't catch you while he still looks 40 studs away. Capped so lag can't be abused.
@@ -119,6 +123,14 @@ Config.Plots = {
 	-- Each expansion adds one row of 4 stands. Bought with money in the Shop, kept through rebirths.
 	ExpansionSlots = 4,
 	ExpansionCosts = { 50_000, 250_000_000, 1_000_000_000_000, 5_000_000_000_000_000 },
+	-- Second floor: once all SlotsPerPlot stands are unlocked, buy a second floor with Slots more
+	-- stands (same layout, Height studs up - above even a Giant donut). A lift pad at the front of
+	-- the base takes you up and down. Kept through rebirths, like expansions.
+	SecondFloor = {
+		Cost = 1_000_000_000_000_000_000, -- $1Qn: 200x the last expansion
+		Slots = 24, -- at most SlotsPerPlot
+		Height = 26,
+	},
 	DonutScale = 1.1,
 	PodiumDonutScale = 1.7,
 }
@@ -294,6 +306,31 @@ Config.LuckEvent = {
 }
 
 --------------------------------------------------------------------------------
+-- Crates (what's inside and the odds: Crates.luau). Found in the lane now and then, or bought in
+-- the shop. Each crate you can buy is a developer product: create them and paste the IDs here.
+-- Players in regions where paid random items aren't allowed (PolicyService) can't buy them, but
+-- can still open crates they find.
+--------------------------------------------------------------------------------
+export type CrateProduct = { DeveloperProductId: number, Price: number }
+
+Config.Crates = {
+	Products = {
+		Common = { DeveloperProductId = 0, Price = 50 },
+		Rare = { DeveloperProductId = 0, Price = 150 },
+		Epic = { DeveloperProductId = 0, Price = 300 },
+		Legendary = { DeveloperProductId = 0, Price = 800 },
+	} :: { [string]: CrateProduct },
+	SpeedBoostMultiplier = 1.2, -- a crate Speed Boost makes you run 20% faster
+	-- Crates in the lane: every CheckInterval seconds each area without a crate has Chance to get one.
+	Found = {
+		CheckInterval = 60,
+		Chance = 0.015,
+		Lifetime = 180, -- a crate nobody opens vanishes after this many seconds
+		OpenSeconds = 1.2, -- hold E this long to open it
+	},
+}
+
+--------------------------------------------------------------------------------
 -- Donations (Robux) with their own leaderboard. Each button is a developer product.
 --------------------------------------------------------------------------------
 export type DonationProduct = { Amount: number, DeveloperProductId: number }
@@ -345,11 +382,11 @@ Config.Pets = {
 }
 
 --------------------------------------------------------------------------------
--- Buddy: pick any donut you've found in the Index and it follows you around (just for looks).
+-- Favorite donut: press R on one of your own donuts and a copy follows you around (just for looks;
+-- the real one stays on its stand and keeps earning). Size = the donut on the stand x Scale.
 --------------------------------------------------------------------------------
-Config.Buddy = {
-	Scale = 0.55,
-	FollowDistance = 5,
+Config.Favorite = {
+	Scale = 1 / 3,
 }
 
 --------------------------------------------------------------------------------
