@@ -4,6 +4,7 @@
 	(Action "Admin" { Cmd, Arg }); the server decides (AdminService).
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -45,7 +46,95 @@ local function button(parent: Instance, text: string, color: Color3, onClick: ()
 	return b
 end
 
+-- HD Admin-style commands: pick who (me / everyone / others / a player), type a value if the
+-- command needs one, press the command.
+local function buildHD()
+	order += 1
+	Theme.Label({ Text = "👥 PLAYER COMMANDS (HD Admin)", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = order, Parent = scroll })
+	order += 1
+	local row = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 44), LayoutOrder = order, Parent = scroll })
+	local choices: { { Label: string, Target: any } } = {}
+	local choice = 1
+	local targetButton = Theme.Button({ Text = "", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(250, 40), Parent = row })
+	local function refreshChoices()
+		local current = choices[choice]
+		choices = { { Label = "🙋 Me", Target = "me" }, { Label = "🌍 Everyone", Target = "all" }, { Label = "👥 Everyone else", Target = "others" } }
+		for _, other in Players:GetPlayers() do
+			if other ~= Players.LocalPlayer then
+				table.insert(choices, { Label = "👤 " .. other.DisplayName, Target = other.UserId })
+			end
+		end
+		choice = 1
+		for i, entry in choices do
+			if current and entry.Target == current.Target then
+				choice = i
+			end
+		end
+		Theme.SetButtonText(targetButton, "Target: " .. choices[choice].Label .. "  ▸")
+	end
+	targetButton.Activated:Connect(function()
+		refreshChoices()
+		choice = choice % #choices + 1
+		Theme.SetButtonText(targetButton, "Target: " .. choices[choice].Label .. "  ▸")
+	end)
+	Players.PlayerAdded:Connect(refreshChoices)
+	Players.PlayerRemoving:Connect(function()
+		task.defer(refreshChoices)
+	end)
+	refreshChoices()
+	local valueBox = Theme.new("TextBox", {
+		Size = UDim2.new(1, -262, 0, 40), Position = UDim2.fromOffset(262, 0),
+		BackgroundColor3 = Theme.Colors.PanelLight, TextColor3 = Color3.new(1, 1, 1), PlaceholderText = "value: number or message",
+		PlaceholderColor3 = Color3.fromRGB(170, 170, 190), Text = "", Font = Theme.Font, TextScaled = true, ClearTextOnFocus = false, Parent = row,
+	}, { Theme.Corner(10), Theme.Stroke(2) })
+	local function run(action: string)
+		command("HD", { Action = action, Target = choices[choice].Target, Value = if valueBox.Text ~= "" then (tonumber(valueBox.Text) or valueBox.Text) else nil })
+	end
+	type Entry = { Text: string, Action: string, Color: Color3 }
+	local groups: { { Title: string, Entries: { Entry } } } = {
+		{ Title = "Health", Entries = {
+			{ Text = "💀 Kill", Action = "kill", Color = Theme.Colors.Red }, { Text = "🔄 Respawn", Action = "respawn", Color = Theme.Colors.Gray },
+			{ Text = "❤️ Heal", Action = "heal", Color = Theme.Colors.Green }, { Text = "😇 God", Action = "god", Color = Theme.Colors.Yellow },
+			{ Text = "🙂 Ungod", Action = "ungod", Color = Theme.Colors.Gray }, { Text = "🛡 Forcefield", Action = "ff", Color = Theme.Colors.Blue },
+			{ Text = "❌ Unforcefield", Action = "unff", Color = Theme.Colors.Gray }, { Text = "💥 Explode", Action = "explode", Color = Theme.Colors.Orange },
+		} },
+		{ Title = "Control", Entries = {
+			{ Text = "🧊 Freeze", Action = "freeze", Color = Theme.Colors.Blue }, { Text = "🔥 Thaw", Action = "thaw", Color = Theme.Colors.Orange },
+			{ Text = "🔒 Jail", Action = "jail", Color = Theme.Colors.Gray }, { Text = "🔓 Unjail", Action = "unjail", Color = Theme.Colors.Green },
+			{ Text = "🧲 Bring", Action = "bring", Color = Theme.Colors.Purple }, { Text = "🚀 Go to", Action = "goto", Color = Theme.Colors.Purple },
+			{ Text = "🌪 Fling", Action = "fling", Color = Theme.Colors.Red }, { Text = "🪑 Sit", Action = "sit", Color = Theme.Colors.Gray },
+		} },
+		{ Title = "Body (value = number)", Entries = {
+			{ Text = "🏃 Speed", Action = "speed", Color = Theme.Colors.Green }, { Text = "🚶 Normal speed", Action = "unspeed", Color = Theme.Colors.Gray },
+			{ Text = "🦘 Jump power", Action = "jump", Color = Theme.Colors.Green }, { Text = "📏 Size", Action = "size", Color = Theme.Colors.Purple },
+			{ Text = "👻 Invisible", Action = "invisible", Color = Theme.Colors.Gray }, { Text = "👀 Visible", Action = "visible", Color = Theme.Colors.Blue },
+			{ Text = "🧱 Noclip", Action = "noclip", Color = Theme.Colors.Purple }, { Text = "🧍 Clip", Action = "clip", Color = Theme.Colors.Gray },
+		} },
+		{ Title = "Effects", Entries = {
+			{ Text = "✨ Sparkles", Action = "sparkles", Color = Theme.Colors.Yellow }, { Text = "🔥 Fire", Action = "fire", Color = Theme.Colors.Orange },
+			{ Text = "💨 Smoke", Action = "smoke", Color = Theme.Colors.Gray }, { Text = "🧹 Remove effects", Action = "unfx", Color = Theme.Colors.Gray },
+		} },
+		{ Title = "Moderation", Entries = {
+			{ Text = "👢 Kick", Action = "kick", Color = Theme.Colors.Red }, { Text = "⛔ Ban (this server)", Action = "ban", Color = Theme.Colors.Red },
+			{ Text = "✅ Unban all", Action = "unbanall", Color = Theme.Colors.Green },
+		} },
+		{ Title = "Server (value = message / hour / gravity)", Entries = {
+			{ Text = "📢 Announce", Action = "announce", Color = Theme.Colors.Yellow }, { Text = "🕒 Time of day", Action = "time", Color = Theme.Colors.Blue },
+			{ Text = "🌙 Gravity", Action = "gravity", Color = Theme.Colors.Purple }, { Text = "🛑 Shut down", Action = "shutdown", Color = Theme.Colors.Red },
+		} },
+	}
+	for _, group in groups do
+		local grid = section(group.Title, 150)
+		for _, entry in group.Entries do
+			button(grid, entry.Text, entry.Color, function()
+				run(entry.Action)
+			end)
+		end
+	end
+end
+
 local function build()
+	buildHD()
 	-- Money
 	local money = section("💵 Money")
 	for _, entry in { { Text = "+1K", Amount = 1e3 }, { Text = "+1M", Amount = 1e6 }, { Text = "+1B", Amount = 1e9 }, { Text = "+1T", Amount = 1e12 }, { Text = "+1Qa", Amount = 1e15 }, { Text = "+1Qi", Amount = 1e18 } } do
@@ -171,7 +260,7 @@ local function build()
 	end
 
 	-- Crates
-	local crates = section("🎁 Crates - 👑 owner only (open = free, spawn = in the area you're in)", 150)
+	local crates = section("🎁 Crates (open = free, spawn = in the area you're in)", 150)
 	for _, crate in Crates.List do
 		button(crates, "Open " .. crate.Name, crate.Color, function()
 			command("OpenCrate", crate.Id)
@@ -185,10 +274,10 @@ local function build()
 
 	-- Fun
 	local fun = section("✨ Fun", 150)
-	button(fun, "👑 🍀 Luck Event", Theme.Colors.Green, function()
+	button(fun, "🍀 Luck Event", Theme.Colors.Green, function()
 		command("Luck")
 	end)
-	button(fun, "👑 🎲 Random event", Theme.Colors.Orange, function()
+	button(fun, "🎲 Random event", Theme.Colors.Orange, function()
 		command("Event")
 	end)
 	button(fun, "🕊 Fly", Theme.Colors.Blue, function()
@@ -208,7 +297,7 @@ local function build()
 	end)
 
 	-- Server events (whole server, one at a time)
-	local events = section("🌍 Start a server event - 👑 owner only (it changes the game for everyone here)", 150)
+	local events = section("🌍 Start a server event (for the whole server)", 150)
 	for _, event in Events.List do
 		button(events, `{event.Icon} {event.Name}`, event.Color, function()
 			command("Event", event.Id)

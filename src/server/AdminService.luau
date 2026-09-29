@@ -6,9 +6,9 @@
 	server events, teleporting, flying / magic carpet, and "Domer can't catch me".
 
 	* The code message is never shown to anyone else (TextChannel.ShouldDeliverCallback).
-	* With Config.Admin.AllowAnyone on, the code works for everyone. The commands that give away
-	  things the game sells (Config.Admin.OwnerOnlyCommands) only work for the game's owner, in
-	  Studio, and for Config.Admin.AllowedUserIds.
+	* With Config.Admin.AllowAnyone on, the code works for everyone, and so does every command
+	  (Config.Admin.OwnerOnlyCommands can list commands only the owner may use).
+	* HD Admin-style commands on any player (HDAdmin.luau); the owner can't be targeted by others.
 	* Flying and the magic carpet: the server sets the "FlyMode" attribute, the client flies.
 	* Anyone who used the admin panel is kept off the global leaderboards
 	  (Config.Admin.HideFromLeaderboards) so the boards stay fair for everyone else.
@@ -43,6 +43,7 @@ local CrateService = require(script.Parent.CrateService)
 local EventService = require(script.Parent.EventService)
 local ShopService = require(script.Parent.ShopService)
 local ItemService = require(script.Parent.ItemService)
+local HDAdmin = require(script.Parent.HDAdmin)
 
 local AdminService = {}
 
@@ -278,6 +279,11 @@ function Commands.ClearDonuts(player: Player)
 	notify(player, "🍩 All the donuts on your base were removed.", "success")
 end
 
+-- HD Admin-style player commands (kill, bring, jail, kick, speed, noclip...): see HDAdmin.luau.
+function Commands.HD(player: Player, _profile: DataService.Profile, arg: any)
+	HDAdmin.Run(player, arg)
+end
+
 function Commands.ClearEggs(player: Player, profile: DataService.Profile)
 	profile.Data.Eggs = {}
 	PetService.OnPlayerReady(player)
@@ -304,6 +310,8 @@ local function hookChannel(channel: Instance)
 end
 
 function AdminService.Init()
+	HDAdmin.IsOwner = isOwner
+	HDAdmin.Init()
 	ShopService.RegisterAction("Admin", function(player: Player, profile, arg: any)
 		if not profile.Session.Admin or type(arg) ~= "table" or type(arg.Cmd) ~= "string" then
 			return

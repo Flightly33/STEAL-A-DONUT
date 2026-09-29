@@ -1,5 +1,5 @@
 --[[
-	Flight (admin panel): the server sets your "FlyMode" attribute to "Fly" or "Carpet"; this flies.
+	Flight and noclip (admin panel): the server sets your "FlyMode" attribute to "Fly" or "Carpet"; this flies.
 
 	  Move with the normal controls (WASD / thumbstick); the way you face follows the camera.
 	  Space / the ⬆ button = up, Shift or Ctrl / the ⬇ button = down. Looking up or down while moving
@@ -151,6 +151,26 @@ local function buildButtons()
 end
 
 function Flight.Init()
+	-- Noclip (admin panel): walk through walls while the "Noclip" attribute is on.
+	local noclipParts: { [BasePart]: boolean } = {}
+	RunService.Stepped:Connect(function()
+		local character = player.Character
+		if player:GetAttribute("Noclip") and character then
+			for _, part in character:GetDescendants() do
+				if part:IsA("BasePart") and part.CanCollide then
+					noclipParts[part] = true
+					part.CanCollide = false
+				end
+			end
+		elseif next(noclipParts) then
+			for part in noclipParts do
+				if part.Parent then
+					part.CanCollide = true
+				end
+			end
+			table.clear(noclipParts)
+		end
+	end)
 	buildButtons()
 	player:GetAttributeChangedSignal("FlyMode"):Connect(apply)
 	player.CharacterAdded:Connect(function()

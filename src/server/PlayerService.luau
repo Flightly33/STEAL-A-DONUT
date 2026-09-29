@@ -172,8 +172,13 @@ local function onPlayerRemoving(player: Player)
 end
 
 local function desiredWalkSpeed(player: Player, profile: DataService.Profile): number
-	if profile.Session.Stunned then
+	if profile.Session.Stunned or player:GetAttribute("Frozen") then
 		return 0
+	end
+	-- Admin panel "speed" command
+	local adminSpeed = player:GetAttribute("AdminWalkSpeed")
+	if type(adminSpeed) == "number" then
+		return adminSpeed
 	end
 	local carrySize = player:GetAttribute("CarrySize")
 	local carry = Economy.CarrySpeed(if type(carrySize) == "string" then carrySize else nil)

@@ -370,11 +370,11 @@ Config.Donations = {
 -- luck...). The message is hidden from everyone else's chat. The code itself lives on the server
 -- (server/AdminService.luau, ADMIN_CODE) so exploiters can't read it out of this shared module.
 -- AllowAnyone = true: EVERY player who types the code gets the panel (money, speed, donuts, flying...).
--- The commands that give away things you sell for Robux (OwnerOnlyCommands: Luck Event, crates) or
--- change the game for everyone in the server (starting server events) still only work for the
--- owner: the game's owner (for a group game, the group's owner), anyone testing in Studio, and the
--- UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }). Everything else - including the
--- permanent Base Lock - works for everyone who has the panel.
+-- Every command works for everyone who has the panel - free Luck Events and crates, server events,
+-- and the HD Admin-style commands on other players (kill, jail, kick, ban...). Put command names in
+-- OwnerOnlyCommands to keep them for the owner: the game's owner (for a group game, the group's
+-- owner), anyone testing in Studio, and the UserIds in AllowedUserIds. The owner can never be
+-- kicked, banned, killed or jailed by other admins.
 -- AllowAnyone = false: only those owners can open the panel at all.
 -- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
 -- scores stay meaningful.
@@ -382,7 +382,7 @@ Config.Donations = {
 Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
-	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event" },
+	OwnerOnlyCommands = {} :: { string }, -- e.g. { "Luck", "OpenCrate", "SpawnCrate", "Event" }
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = true,
 }
