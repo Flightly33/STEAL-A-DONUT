@@ -173,13 +173,20 @@ local function useWeapon(player: Player, tool: Tool, item: Config.Item)
 	end
 end
 
+-- Traps go at your feet: in your base, in the lane, in front of someone's base... anywhere except
+-- INSIDE another player's base (that would just trap them in their own home).
 local function placeTrap(player: Player, item: Config.Item)
 	local root = rootOf(player)
 	local plotIndex = PlotService.GetPlotIndex(player)
 	local plot = PlotService.GetPlotModel(player)
-	if not root or not plotIndex or not plot or not PlotService.IsInOwnPlot(player, root.Position) then
-		notify(player, "Stand inside your own base to place traps.", "error")
+	if not root or not plotIndex or not plot then
 		return
+	end
+	for _, other in Players:GetPlayers() do
+		if other ~= player and PlotService.IsInOwnPlot(other, root.Position) then
+			notify(player, "You can't put traps inside someone else's base.", "error")
+			return
+		end
 	end
 	if onCooldown(player, item.Id, 1) then
 		return
@@ -194,7 +201,10 @@ local function placeTrap(player: Player, item: Config.Item)
 		folder.Parent = plot
 	end
 
-	local position = Vector3.new(root.Position.X, Layout.PlotFloorHeight, root.Position.Z)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local feet = root.Position.Y - (if humanoid then humanoid.HipHeight else 2) - root.Size.Y / 2
+	local position = Vector3.new(root.Position.X, feet, root.Position.Z)
 	local base = CFrame.new(position) * CFrame.Angles(0, math.random() * math.pi * 2, 0)
 	-- The trap is an invisible touch pad with a little model on top.
 	local trap = Build.Part({ Parent = folder, Name = if item.Id == "Banana" then "BananaTrap" else "LaunchPad", Size = Vector3.new(3.4, 1.2, 3.4), CFrame = base * CFrame.new(0, 0.6, 0), Transparency = 1, CanCollide = false })
@@ -243,24 +253,34 @@ local function placeTrap(player: Player, item: Config.Item)
 	notify(player, `{item.Name} placed ({#list}/{item.MaxPlaced or 1})`, "success")
 end
 
-local function useLock(player: Player, item: Config.Item)
+-- Take the player's base lock down (if there is one).
+function ItemService.StopLock(player: Player)
+	local field = lockParts[player]
+	if not field then
+		return
+	end
+	lockParts[player] = nil
+	local plot = field.Parent
+	if plot then
+		plot:SetAttribute("Locked", nil)
+	end
+	local wall = field:FindFirstChild("LockWall")
+	if wall and player.Parent then
+		ItemService.PlaySound(wall, "Unlock")
+	end
+	field:Destroy()
+end
+
+-- Put a force field on ALL four sides of the player's base, far too tall to jump over. It pushes
+-- other players away, and anyone who still gets inside (hopping the walls, lag) is put outside the
+-- entrance. `duration` in seconds, or nil for a lock that stays until StopLock (admin panel).
+local function startLock(player: Player, duration: number?): boolean
 	local plot = PlotService.GetPlotModel(player)
 	local plotIndex = PlotService.GetPlotIndex(player)
 	if not plot or not plotIndex then
-		return
+		return false
 	end
-	local duration = item.Duration or 30
-	lastUse[player] = lastUse[player] or {}
-	local last = lastUse[player][item.Id]
-	local wait = if last then duration + (item.Cooldown or 60) - (os.clock() - last) else 0
-	if wait > 0 then
-		notify(player, `Base Lock recharging: {Format.Duration(wait)}`, "error")
-		return
-	end
-	lastUse[player][item.Id] = os.clock()
-
-	-- A force field on ALL four sides of the base, far too tall to jump over. It pushes other players
-	-- away, and anyone who still gets inside (hopping the walls, lag) is put outside the entrance.
+	ItemService.StopLock(player)
 	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
 	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, LOCK_HEIGHT
 	local field = Instance.new("Model")
@@ -277,7 +297,8 @@ local function useLock(player: Player, item: Config.Item)
 			Parent = field, Name = "LockWall",
 			Size = side.Size,
 			CFrame = cf * side.Offset,
-			Color = rgb(255, 40, 40), Material = Enum.Material.ForceField, Transparency = 0.2, CanCollide = false,
+			Color = if duration then rgb(255, 40, 40) else rgb(255, 200, 40),
+			Material = Enum.Material.ForceField, Transparency = 0.2, CanCollide = false,
 		})
 		wall.Touched:Connect(function(hit: BasePart)
 			local victim = playerFromPart(hit)
@@ -287,10 +308,9 @@ local function useLock(player: Player, item: Config.Item)
 		end)
 	end
 	field.Parent = plot
-	local laser = field:FindFirstChild("LockWall") :: BasePart
 	lockParts[player] = field
 	plot:SetAttribute("Locked", true)
-	ItemService.PlaySound(laser, "Lock")
+	ItemService.PlaySound(field:FindFirstChild("LockWall") :: BasePart, "Lock")
 	task.spawn(function()
 		while lockParts[player] == field and field.Parent do
 			for _, other in Players:GetPlayers() do
@@ -306,20 +326,61 @@ local function useLock(player: Player, item: Config.Item)
 			task.wait(0.2)
 		end
 	end)
-	notify(player, `🔒 Base locked for {duration}s!`, "success")
-	task.delay(duration, function()
-		if lockParts[player] == laser then
-			lockParts[player] = nil
-			if plot.Parent then
-				plot:SetAttribute("Locked", nil)
+	if duration then
+		task.delay(duration, function()
+			if lockParts[player] == field then
+				ItemService.StopLock(player)
+				if player.Parent then
+					notify(player, "🔓 Your base lock wore off.")
+				end
 			end
-			if player.Parent then
-				notify(player, "🔓 Your base lock wore off.")
-				ItemService.PlaySound(laser, "Unlock")
-			end
-		end
-		laser:Destroy()
-	end)
+		end)
+	end
+	return true
+end
+
+local function useLock(player: Player, item: Config.Item)
+	local profile = DataService.Get(player)
+	if profile and profile.Data.PermaLock then
+		notify(player, "🔒 Your base is already permanently locked (admin panel).")
+		return
+	end
+	local duration = item.Duration or 30
+	lastUse[player] = lastUse[player] or {}
+	local last = lastUse[player][item.Id]
+	local wait = if last then duration + (item.Cooldown or 60) - (os.clock() - last) else 0
+	if wait > 0 then
+		notify(player, `Base Lock recharging: {Format.Duration(wait)}`, "error")
+		return
+	end
+	if startLock(player, duration) then
+		lastUse[player][item.Id] = os.clock()
+		notify(player, `🔒 Base locked for {duration}s!`, "success")
+	end
+end
+
+-- Admin panel: a Base Lock that never runs out (saved, so it comes back when you rejoin or move
+-- your base to another world) - or take it off again.
+function ItemService.SetPermanentLock(player: Player, on: boolean)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	profile.Data.PermaLock = on
+	if on then
+		startLock(player, nil)
+	else
+		ItemService.StopLock(player)
+	end
+	DataService.PushState(player)
+end
+
+-- Re-apply a permanent lock (the base was just assigned or moved to another world).
+function ItemService.RestoreLock(player: Player)
+	local profile = DataService.Get(player)
+	if profile and profile.Data.PermaLock then
+		startLock(player, nil)
+	end
 end
 
 local function giveTool(player: Player, item: Config.Item)
@@ -369,10 +430,39 @@ function ItemService.GiveTools(player: Player)
 		return
 	end
 	for _, item in Config.Items do
-		if profile.Data.Items[item.Id] or item.Starter then
+		if (profile.Data.Items[item.Id] or item.Starter) and not profile.Data.HiddenItems[item.Id] then
 			giveTool(player, item)
 		end
 	end
+end
+
+-- Take an item off the hotbar (you still own it) or put it back. Saved.
+function ItemService.ToggleHotbar(player: Player, itemId: any)
+	local item = if type(itemId) == "string" then itemsById[itemId] else nil
+	local profile = DataService.Get(player)
+	if not item or not profile or not (profile.Data.Items[item.Id] or item.Starter) then
+		return
+	end
+	local hide = not profile.Data.HiddenItems[item.Id]
+	if hide then
+		profile.Data.HiddenItems[item.Id] = true
+		local containers: { Instance? } = { player:FindFirstChildOfClass("Backpack"), player.Character }
+		for _, container in containers do
+			if container then
+				for _, child in container:GetChildren() do
+					if child:IsA("Tool") and child:GetAttribute("ItemId") == item.Id then
+						child:Destroy()
+					end
+				end
+			end
+		end
+		notify(player, `{item.Icon} {item.Name} taken off your hotbar (you still own it).`)
+	else
+		profile.Data.HiddenItems[item.Id] = nil
+		giveTool(player, item)
+		notify(player, `{item.Icon} {item.Name} is back on your hotbar.`, "success")
+	end
+	DataService.PushState(player)
 end
 
 function ItemService.Buy(player: Player, itemId: any)
@@ -390,6 +480,7 @@ function ItemService.Buy(player: Player, itemId: any)
 		return
 	end
 	profile.Data.Items[item.Id] = true
+	profile.Data.HiddenItems[item.Id] = nil
 	giveTool(player, item)
 	DataService.PushState(player)
 	notify(player, `{item.Icon} {item.Name} bought! It's in your hotbar.`, "success")
@@ -407,16 +498,14 @@ local function clearBaseItems(player: Player, plot: Model?)
 		end
 	end
 	placedTraps[player] = nil
-	if lockParts[player] then
-		lockParts[player]:Destroy()
-		lockParts[player] = nil
-	end
+	ItemService.StopLock(player)
 end
 
 function ItemService.Init()
 	PlotService.BaseMoved:Connect(function(player: Player, oldWorld: number)
 		local index = PlotService.GetPlotIndex(player)
 		clearBaseItems(player, if index then MapBuilder.GetPlot(index, oldWorld) else nil)
+		ItemService.RestoreLock(player)
 	end)
 end
 

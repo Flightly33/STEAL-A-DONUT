@@ -2,7 +2,7 @@
 	HUD: always-on screen UI. Kept small and away from Roblox's own UI (chat top-left, player list
 	top-right, hotbar bottom-centre):
 	  left   - Shop / Pets / Index / Rebirth buttons + the speed slider (middle of the screen)
-	  right  - Home / Worlds / Passes / Skins / Donate (+ Admin, + Settings once there's music) squares
+	  right  - Home / Worlds / Passes / Skins / Donate / Music on-off / Settings (+ Admin) squares
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
@@ -23,6 +23,7 @@ local Notifications = require(script.Parent.Notifications)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
 local Bases = require(script.Parent.Parent.Bases)
+local Settings = require(script.Parent.Settings)
 
 local HUD = {}
 
@@ -184,7 +185,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	local function square(icon: string, caption: string, color: Color3, order: number, onClick: () -> ()): TextButton
 		local button = Theme.Button({ Text = "", Color = color, Size = UDim2.fromOffset(60, 60), LayoutOrder = order, Parent = right })
 		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.6, 0), Position = UDim2.fromScale(0, 0.07), Parent = button })
-		Theme.Label({ Text = caption, Font = Theme.Font, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 1.6, Parent = button })
+		Theme.Label({ Name = "Caption", Text = caption, Font = Theme.Font, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 1.6, Parent = button })
 		button.Activated:Connect(onClick)
 		return button
 	end
@@ -201,9 +202,24 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		callbacks.OpenShop("Skins")
 	end)
 	square("💖", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
-	-- Settings only holds the music controls: no button until songs are added (Config.Music.Tracks)
-	local settings = square("⚙️", "SETTINGS", Theme.Colors.Gray, 6, callbacks.OpenSettings)
-	settings.Visible = #Config.Music.Tracks > 0
+	-- Music on/off in one tap (saved), and Settings for the volume. Both only when there are songs.
+	local hasMusic = #Config.Music.Tracks > 0
+	local music: TextButton
+	music = square("🎵", "MUSIC ON", Theme.Colors.Green, 6, function()
+		Settings.SetMusicOn(not Settings.MusicOn())
+	end)
+	local function showMusic(on: boolean)
+		local caption = music:FindFirstChild("Caption") :: TextLabel?
+		if caption then
+			caption.Text = if on then "MUSIC ON" else "MUSIC OFF"
+		end
+		Theme.SetButtonColor(music, if on then Theme.Colors.Green else Theme.Colors.Gray)
+	end
+	Settings.MusicChanged:Connect(showMusic)
+	showMusic(Settings.MusicOn())
+	music.Visible = hasMusic
+	local settings = square("⚙️", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
+	settings.Visible = hasMusic
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)

@@ -524,16 +524,23 @@ function buildItems(page: ScrollingFrame)
 		Theme.Label({ Text = KIND_LABEL[item.Kind] or item.Kind, Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 200, 210), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 18), Position = UDim2.fromOffset(74, 38), StrokeThickness = 1, Parent = c })
 		Theme.Label({ Text = item.Description, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 36), Position = UDim2.fromOffset(10, 68), StrokeThickness = 1.2, Parent = c })
 		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
+		-- Owned items: the button takes the item off your hotbar / puts it back (you keep owning it).
 		button.Activated:Connect(function()
 			local owned = item.Starter or (State.Data.Items and State.Data.Items[item.Id])
-			if not owned then
+			if owned then
+				State.Action("ToggleHotbar", item.Id)
+			else
 				State.Action("BuyItem", item.Id)
 			end
 		end)
 		table.insert(refreshers, function()
 			local owned = item.Starter or (State.Data.Items and State.Data.Items[item.Id])
-			if owned then
-				Theme.SetButtonText(button, if item.Starter then "FREE ✓ (in hotbar)" else "OWNED ✓ (in hotbar)")
+			local hidden = State.Data.HiddenItems and State.Data.HiddenItems[item.Id]
+			if owned and hidden then
+				Theme.SetButtonText(button, "➕ Put back on hotbar")
+				Theme.SetButtonColor(button, Theme.Colors.Blue)
+			elseif owned then
+				Theme.SetButtonText(button, "✓ In hotbar  •  tap to remove")
 				Theme.SetButtonColor(button, Theme.Colors.Gray)
 			else
 				Theme.SetButtonText(button, "Buy " .. Format.Money(item.Cost))

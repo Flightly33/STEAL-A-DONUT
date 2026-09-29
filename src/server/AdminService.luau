@@ -42,6 +42,7 @@ local LuckService = require(script.Parent.LuckService)
 local CrateService = require(script.Parent.CrateService)
 local EventService = require(script.Parent.EventService)
 local ShopService = require(script.Parent.ShopService)
+local ItemService = require(script.Parent.ItemService)
 
 local AdminService = {}
 
@@ -254,6 +255,24 @@ function Commands.Fly(player: Player, _profile: DataService.Profile, mode: any)
 	local value = if mode == "Fly" or mode == "Carpet" then mode else nil
 	player:SetAttribute("FlyMode", value)
 	notify(player, if value == "Carpet" then "🧞 Magic carpet! Space = up, Shift = down." elseif value then "🕊 You can fly! Space = up, Shift = down." else "Back on your feet.", "success")
+end
+
+-- A Base Lock that never runs out (kept when you rejoin), or take it off again.
+function Commands.PermaLock(player: Player, profile: DataService.Profile)
+	local on = not profile.Data.PermaLock
+	ItemService.SetPermanentLock(player, on)
+	notify(player, if on then "🔒 Your base is locked for good (press again to unlock)." else "🔓 Permanent lock off.", "success")
+end
+
+function Commands.ResetMoney(player: Player, profile: DataService.Profile)
+	DataService.TrySpend(player, profile.Data.Money)
+	notify(player, "💸 Money reset to $0.", "success")
+end
+
+-- Every donut on your base is gone (both floors).
+function Commands.ClearDonuts(player: Player)
+	PlotService.ClearAll(player)
+	notify(player, "🍩 All the donuts on your base were removed.", "success")
 end
 
 function Commands.ClearEggs(player: Player, profile: DataService.Profile)

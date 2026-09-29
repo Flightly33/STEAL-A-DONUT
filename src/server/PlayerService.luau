@@ -135,6 +135,7 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 	TreadmillService.Build(player)
+	ItemService.RestoreLock(player) -- admin permanent Base Lock
 	createLeaderstats(player)
 	grantOfflineEarnings(player)
 

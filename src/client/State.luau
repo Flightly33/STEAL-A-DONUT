@@ -29,6 +29,8 @@ export type Snapshot = {
 	EquippedPets: { string }?,
 	Favorite: string?, -- slot key of your favourite donut
 	Donated: number?,
+	HiddenItems: { [string]: boolean }?, -- items taken off the hotbar
+	PermaLock: boolean?, -- admin: permanent Base Lock
 	Admin: boolean?,
 	GodMode: boolean?,
 }

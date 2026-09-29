@@ -27,6 +27,7 @@ local DonutFX = require(script.DonutFX)
 local Followers = require(script.Followers)
 local PetFX = require(script.PetFX)
 local Flight = require(script.Flight)
+local ChatTags = require(script.ChatTags)
 
 Notifications.Init()
 Shop.Init()
@@ -41,6 +42,7 @@ Donate.Init()
 Admin.Init()
 CrateOpen.Init()
 EventBanner.Init()
+ChatTags.Init()
 HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,

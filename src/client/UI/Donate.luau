@@ -1,6 +1,7 @@
 --[[
-	Donate window: donation buttons (Robux developer products, Config.Donations) and the Luck Event.
-	Donations go on the TOP DONATORS leaderboard (Top 500 window and the board in the hub).
+	Donate window: tip buttons (Robux developer products, Config.Donations) and the Luck Event.
+	Tips go on the TOP DONATORS leaderboard (the board in the hub) and each one gives a title shown
+	above your head and in chat (your biggest tip's title is the one you keep).
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -26,11 +27,16 @@ function Donate.Init()
 	local body = modal.Body
 	local total = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 44), StrokeThickness = 1.5, Parent = body })
 
-	local grid = Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 0, 130), Parent = body }, {
-		Theme.new("UIGridLayout", { CellSize = UDim2.new(1 / 3, -8, 0, 58), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+	local grid = Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 0, 140), Parent = body }, {
+		Theme.new("UIGridLayout", { CellSize = UDim2.new(1 / 3, -8, 0, 66), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for order, product in Config.Donations.Products do
 		local button = Theme.Button({ Text = `R$ {Format.Commas(product.Amount)}`, Icon = "💖", Color = Theme.Colors.Pink, Size = UDim2.new(), LayoutOrder = order, Parent = grid })
+		-- the title this tip gives, under the price
+		Theme.Label({
+			Text = product.Title, Font = Theme.Font, TextColor3 = product.Color, StrokeThickness = 1.5,
+			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -2), Size = UDim2.new(1, -8, 0, 16), ZIndex = 5, Parent = button,
+		})
 		button.Activated:Connect(function()
 			State.Action("Donate", product.Amount)
 		end)
@@ -53,7 +59,9 @@ function Donate.Init()
 
 	local function refresh()
 		local donated = State.Number("Donated")
-		total.Text = `Thank you for playing! Donations go on the <b>TOP DONATORS</b> board.\nYou've donated <font color="#ff8ad0"><b>R$ {Format.Commas(donated)}</b></font>`
+		local title = game:GetService("Players").LocalPlayer:GetAttribute("DonorTitle")
+		local titleText = if type(title) == "string" then `  •  Your title: <b>{title}</b>` else "  •  Every tip gives a title!"
+		total.Text = `Thank you for playing! Tips go on the <b>TOP DONATORS</b> board.\nYou've tipped <font color="#ff8ad0"><b>R$ {Format.Commas(donated)}</b></font>{titleText}`
 		local endsAt = workspace:GetAttribute("LuckEndsAt")
 		local left = if type(endsAt) == "number" then endsAt - workspace:GetServerTimeNow() else 0
 		Theme.SetButtonText(buy, if left > 0 then `ADD 10 MIN! R$ {Config.LuckEvent.SuggestedPrice} ({Format.Duration(left)} left)` else `START IT! R$ {Config.LuckEvent.SuggestedPrice}`)

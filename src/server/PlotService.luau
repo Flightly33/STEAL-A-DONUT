@@ -189,10 +189,22 @@ local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, 
 	end
 end
 
+local updateSlotLabels: (player: Player, slotIndex: number) -> ()
+local labelMultiplier: { [Player]: number } = {} -- the money multiplier the stand labels show
+
 function PlotService.RefreshSign(player: Player)
 	local index = playerPlots[player]
 	if index then
 		refreshSign(index, player, PlotService.GetBaseWorld(player))
+	end
+	-- Money passes, rebirths and pets changed what every donut earns: update their labels.
+	local profile = DataService.Get(player)
+	local mult = if profile then DataService.MoneyMultiplier(profile) else 1
+	if labelMultiplier[player] ~= mult and slotModels[player] then
+		labelMultiplier[player] = mult
+		for slotIndex in slotModels[player] do
+			updateSlotLabels(player, slotIndex)
+		end
 	end
 end
 
@@ -334,7 +346,9 @@ local function getSlotPart(plot: Model, slotIndex: number): BasePart?
 	return slots and slots:FindFirstChild("Slot" .. slotIndex) :: BasePart?
 end
 
-local function updateSlotLabels(player: Player, slotIndex: number)
+-- The label under each donut shows what it REALLY earns: its income times your money
+-- multiplier (money passes, rebirths, pets).
+function updateSlotLabels(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local model = slotModels[player] and slotModels[player][slotIndex]
 	if not profile or not model then
@@ -346,8 +360,9 @@ local function updateSlotLabels(player: Player, slotIndex: number)
 	end
 	local root = model.PrimaryPart :: BasePart
 	local donut = Donuts.ById[slot.Id]
-	local income = Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
-	model:SetAttribute("Income", income) -- used by the client's "+$" popups
+	local baseIncome = Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
+	model:SetAttribute("Income", baseIncome) -- the client's "+$" popups multiply this themselves
+	local income = baseIncome * DataService.MoneyMultiplier(profile)
 
 	local old = root:FindFirstChild("DonutInfo")
 	if old then
@@ -365,7 +380,7 @@ local function updateSlotLabels(player: Player, slotIndex: number)
 		else
 			upgrade.ActionText = "Upgrade " .. Format.Money(Economy.DonutUpgradeCost(slot.Id, slot.Level, slot.Mutation, slot.Size))
 		end
-		local gain = Economy.DonutBaseIncome(slot.Id, slot.Mutation, slot.Size) * Config.DonutUpgrade.IncomePerLevel
+		local gain = Economy.DonutBaseIncome(slot.Id, slot.Mutation, slot.Size) * Config.DonutUpgrade.IncomePerLevel * DataService.MoneyMultiplier(profile)
 		upgrade.ObjectText = `Lv. {slot.Level} → {slot.Level + 1}  (+{Format.Money(gain)}/s)`
 	end
 	if sell then
@@ -1100,6 +1115,7 @@ function PlotService.Release(player: Player)
 		refreshSign(index, nil, world.Id, false)
 	end
 	slotModels[player] = nil
+	labelMultiplier[player] = nil
 	baseIncome[player] = nil
 	liftCooldown[player] = nil
 	playerPlots[player] = nil

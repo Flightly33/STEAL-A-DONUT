@@ -5,11 +5,10 @@
 	You should be able to rebalance the whole game without touching any other script.
 
 	>>> BEFORE PUBLISHING <<<
-	1. Create the Game Passes on the Creator Dashboard and paste their IDs into
-	   Config.GamePasses[...].GamePassId.
+	1. Game Passes: their IDs are in Config.GamePasses[...].GamePassId (from the Creator Dashboard).
 	   A GamePassId of 0 means "not set up yet" and the item shows as "Coming Soon" in live servers.
-	2. Create the Developer Products (Luck Event, one per crate, one per donation amount) and paste
-	   their IDs into Config.LuckEvent.DeveloperProductId, Config.Crates.Products[...] and
+	2. Developer Products: Luck Event, one per crate, one per tip. IDs are in
+	   Config.LuckEvent.DeveloperProductId, Config.Crates.Products[...] and
 	   Config.Donations.Products[...].DeveloperProductId. Crates are "paid random items": say so in
 	   the Maturity & Compliance Questionnaire on the Creator Dashboard.
 	3. The admin code works for EVERYONE who types it (Config.Admin.AllowAnyone). Luck Events and
@@ -275,21 +274,22 @@ Config.Events = {
 -- Robux game passes
 --------------------------------------------------------------------------------
 -- How money passes combine:
---   "Additive"       -> bonuses add up: 1.5x + 2x = 2.5x, all six = 20.5x   (recommended)
---   "Multiplicative" -> 1.5x * 2x = 3x, all six = 1800x (breaks the economy for buyers)
+--   "Additive"       -> bonuses add up: 1.5x + 4x = 4.5x, all four = 17.5x   (recommended)
+--   "Multiplicative" -> 1.5x * 4x = 6x, all four = 300x (breaks the economy for buyers)
 --   "Highest"        -> only your best pass counts (makes cheaper passes pointless once you own a big one)
 Config.MoneyPassStacking = "Additive"
 
 Config.GamePasses = {
-	{ Key = "Money1_5", Name = "1.5x Money", Kind = "Money", Multiplier = 1.5, GamePassId = 0, SuggestedPrice = 49, Color = Color3.fromRGB(90, 200, 90) },
-	{ Key = "Money2", Name = "2x Money", Kind = "Money", Multiplier = 2, GamePassId = 0, SuggestedPrice = 99, Color = Color3.fromRGB(60, 190, 80) },
-	{ Key = "Money3", Name = "3x Money", Kind = "Money", Multiplier = 3, GamePassId = 0, SuggestedPrice = 199, Color = Color3.fromRGB(40, 170, 70) },
-	{ Key = "Money4", Name = "4x Money", Kind = "Money", Multiplier = 4, GamePassId = 0, SuggestedPrice = 349, Color = Color3.fromRGB(20, 150, 90) },
-	{ Key = "Money5", Name = "5x Money", Kind = "Money", Multiplier = 5, GamePassId = 0, SuggestedPrice = 499, Color = Color3.fromRGB(0, 140, 110) },
-	{ Key = "Money10", Name = "10x Money", Kind = "Money", Multiplier = 10, GamePassId = 0, SuggestedPrice = 1499, Color = Color3.fromRGB(255, 200, 0) },
-	{ Key = "Speed2", Name = "2x Speed", Kind = "Speed", Multiplier = 2, GamePassId = 0, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255) },
+	{ Key = "Money1_5", Name = "1.5x Money", Kind = "Money", Multiplier = 1.5, GamePassId = 2001956275, SuggestedPrice = 5, Color = Color3.fromRGB(90, 200, 90) },
+	{ Key = "Money4", Name = "4x Money (INSANE)", Kind = "Money", Multiplier = 4, GamePassId = 1998003425, SuggestedPrice = 110, Color = Color3.fromRGB(20, 150, 90) },
+	{ Key = "Money5", Name = "5x Money (GODLY)", Kind = "Money", Multiplier = 5, GamePassId = 2002232267, SuggestedPrice = 300, Color = Color3.fromRGB(0, 140, 110) },
+	{ Key = "Money10", Name = "10x Money (HACKER LEVEL)", Kind = "Money", Multiplier = 10, GamePassId = 2002412263, SuggestedPrice = 999, Color = Color3.fromRGB(255, 200, 0) },
+	-- Two 2x Speed passes exist on the Creator Dashboard; owning either (or both) gives 2x speed
+	-- (speed passes don't stack: see Economy.SpeedPassMultiplier).
+	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255) },
+	{ Key = "Speed2b", Name = "2x Speed (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999838937, SuggestedPrice = 50, Color = Color3.fromRGB(110, 90, 255) },
 	-- Teleport menu: jump to any world you've unlocked, or the start of any area you're fast enough for.
-	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 0, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
+	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 1999581396, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
 } :: { GamePass }
 
 --------------------------------------------------------------------------------
@@ -302,8 +302,8 @@ Config.GamePasses = {
 --------------------------------------------------------------------------------
 Config.LuckEvent = {
 	Name = "Luck Event",
-	DeveloperProductId = 0,
-	SuggestedPrice = 100,
+	DeveloperProductId = 3715357149,
+	SuggestedPrice = 49,
 	Duration = 600, -- seconds (stacks)
 	RarityLuck = 3, -- every donut with a base chance under 10% in its area (the rare ones, Secrets, Admins) x3
 	MutationLuck = 3, -- every mutation chance x3
@@ -320,10 +320,10 @@ export type CrateProduct = { DeveloperProductId: number, Price: number }
 
 Config.Crates = {
 	Products = {
-		Common = { DeveloperProductId = 0, Price = 50 },
-		Rare = { DeveloperProductId = 0, Price = 150 },
-		Epic = { DeveloperProductId = 0, Price = 300 },
-		Legendary = { DeveloperProductId = 0, Price = 800 },
+		Common = { DeveloperProductId = 3715357273, Price = 10 },
+		Rare = { DeveloperProductId = 3715361739, Price = 50 },
+		Epic = { DeveloperProductId = 3715361816, Price = 70 },
+		Legendary = { DeveloperProductId = 3715361998, Price = 150 },
 	} :: { [string]: CrateProduct },
 	SpeedBoostMultiplier = 1.2, -- a crate Speed Boost makes you run 20% faster
 	-- Crates in the lane: every CheckInterval seconds each area without a crate has Chance to get one.
@@ -338,15 +338,15 @@ Config.Crates = {
 --------------------------------------------------------------------------------
 -- Donations (Robux) with their own leaderboard. Each button is a developer product.
 --------------------------------------------------------------------------------
-export type DonationProduct = { Amount: number, DeveloperProductId: number }
+export type DonationProduct = { Amount: number, DeveloperProductId: number, Title: string, Color: Color3 }
 
 Config.Donations = {
 	Products = {
-		{ Amount = 10, DeveloperProductId = 0 },
-		{ Amount = 50, DeveloperProductId = 0 },
-		{ Amount = 100, DeveloperProductId = 0 },
-		{ Amount = 500, DeveloperProductId = 0 },
-		{ Amount = 1000, DeveloperProductId = 0 },
+		{ Amount = 10, DeveloperProductId = 3715362080, Title = "Tipper", Color = Color3.fromRGB(150, 230, 255) },
+		{ Amount = 50, DeveloperProductId = 3715362184, Title = "Generous Tipper", Color = Color3.fromRGB(120, 255, 140) },
+		{ Amount = 100, DeveloperProductId = 3715362302, Title = "Major Donor", Color = Color3.fromRGB(255, 150, 60) },
+		{ Amount = 500, DeveloperProductId = 3715362446, Title = "Legendary Donor", Color = Color3.fromRGB(255, 80, 200) },
+		{ Amount = 1000, DeveloperProductId = 3715362649, Title = "Ultimate Donor", Color = Color3.fromRGB(255, 215, 0) },
 	} :: { DonationProduct },
 	-- Always shown at the very top of the donation board (not a real score, never saved).
 	Pinned = { Name = "Flightly33", Amount = 100_000_000_000_000, Note = "-10 Robux donated" },
@@ -358,7 +358,8 @@ Config.Donations = {
 -- (server/AdminService.luau, ADMIN_CODE) so exploiters can't read it out of this shared module.
 -- AllowAnyone = true: EVERY player who types the code gets the panel (money, speed, donuts, flying...).
 -- The commands that give away things you sell for Robux (OwnerOnlyCommands: Luck Event, crates) or
--- change the game for everyone in the server (starting server events) still only work for the owner: the game's owner (for a group game, the group's owner), anyone testing in
+-- change the game for everyone in the server (starting server events, a permanent Base Lock that
+-- would make one base unraidable forever) still only work for the owner: the game's owner (for a group game, the group's owner), anyone testing in
 -- Studio, and the UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }).
 -- AllowAnyone = false: only those owners can open the panel at all.
 -- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
@@ -367,7 +368,7 @@ Config.Donations = {
 Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
-	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event" },
+	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event", "PermaLock" },
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = true,
 }
@@ -515,7 +516,8 @@ Config.Raid = {
 --------------------------------------------------------------------------------
 -- Item shop (bought with money, kept forever). Items appear in your backpack (hotbar).
 --   Weapon: click to swing; flings the players in front of you (and makes thieves drop donuts)
---   Trap:   click inside your base to place it at your feet; flings intruders who touch it
+--   Trap:   click to place it at your feet (anywhere but inside someone else's base); flings
+--           any other player who touches it (and makes thieves drop what they carry)
 --   Lock:   click to wrap your whole base in a force field for Duration seconds (all four sides, far
 --           too tall to jump; no raids, and anyone who gets inside is put back out)
 --------------------------------------------------------------------------------
@@ -539,8 +541,8 @@ Config.Items = {
 	{ Id = "Slap", Name = "Slap Hand", Kind = "Weapon", Cost = 0, Starter = true, Icon = "🖐️", Color = Color3.fromRGB(255, 200, 60), Range = 9, Power = 70, Cooldown = 2.5, Description = "Free for everyone! Slap a thief to send your donut home." },
 	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 250_000, Icon = "🏏", Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Longer reach, bigger fling." },
 	{ Id = "Hammer", Name = "Mega Hammer", Kind = "Weapon", Cost = 50_000_000, Icon = "🔨", Color = Color3.fromRGB(150, 90, 255), Range = 14, Power = 160, Cooldown = 1.6, Description = "Sends thieves into orbit." },
-	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 in your base. Intruders slip and fly." },
-	{ Id = "Spring", Name = "Launch Pad", Kind = "Trap", Cost = 2_000_000, Icon = "🚀", Color = Color3.fromRGB(80, 200, 255), Power = 150, MaxPlaced = 2, Description = "Place up to 2. Launches intruders sky-high." },
+	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 anywhere (not in other bases). Others slip and fly." },
+	{ Id = "Spring", Name = "Launch Pad", Kind = "Trap", Cost = 2_000_000, Icon = "🚀", Color = Color3.fromRGB(80, 200, 255), Power = 150, MaxPlaced = 2, Description = "Place up to 2 anywhere (not in other bases). Launches others sky-high." },
 	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Force field around your WHOLE base for 30s: too tall to jump, blocks raids, kicks intruders out." },
 } :: { Item }
 
@@ -552,9 +554,9 @@ Config.Items = {
 --------------------------------------------------------------------------------
 -- The player skips songs that fail to load and prints which ID failed to the Output window.
 Config.Music = {
-	DefaultVolume = 0.35, -- 0 to 1 (players change it in Settings)
+	DefaultVolume = 0.3, -- 0 to 1 (players change it in Settings; the 🎵 button turns it off)
 	Tracks = {
-		-- { Name = "Donut Theme", Id = 1234567890 },
+		{ Name = "Relaxed Scene", Id = 1848354536 }, -- Roblox's licensed music (Creator Store)
 	} :: { { Name: string, Id: number } },
 }
 
@@ -571,7 +573,9 @@ Config.Data = {
 -- Studio testing helpers (never active in live servers)
 --------------------------------------------------------------------------------
 Config.Debug = {
-	StudioFreePurchases = true, -- in Studio, "buying" a game pass grants it for that test session only
+	-- In Studio, pressing buy on something WITHOUT an ID yet (0) grants it for that test session.
+	-- Things with a real ID always show Roblox's purchase window; in Studio that's a free test purchase.
+	StudioFreePurchases = true,
 	StudioStartMoney = 0, -- give yourself money in Studio to test late-game content
 	StudioStartSpeed = 0,
 }

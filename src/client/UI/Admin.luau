@@ -77,6 +77,22 @@ local function build()
 		command("Expand")
 	end)
 
+	-- Your base
+	local base = section("🏠 Your base", 170)
+	local lock = button(base, "👑 🔒 Permanent lock", Theme.Colors.Red, function()
+		command("PermaLock")
+	end)
+	State.Changed:Connect(function()
+		Theme.SetButtonText(lock, if State.Data.PermaLock then "👑 🔓 Unlock base" else "👑 🔒 Permanent lock")
+		Theme.SetButtonColor(lock, if State.Data.PermaLock then Theme.Colors.Green else Theme.Colors.Red)
+	end)
+	button(base, "💸 Reset money", Theme.Colors.Gray, function()
+		command("ResetMoney")
+	end)
+	button(base, "🍩 Clear all donuts", Theme.Colors.Gray, function()
+		command("ClearDonuts")
+	end)
+
 	-- Donuts: pick one, a mutation and a size
 	local donutSection = section("🍩 Donuts (pick one, then give or spawn it)", 150)
 	local mutations = { "None" }

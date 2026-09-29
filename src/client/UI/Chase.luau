@@ -451,6 +451,23 @@ end
 function Chase.Init()
 	gui = Theme.ScreenGui("Chase", 5)
 
+	-- Small "Drop donut" button, only while you carry a donut stolen from someone's base. Kept small
+	-- and away from the other buttons (right side, under the middle) so it isn't hit by accident.
+	local dropHolder = Theme.new("Frame", {
+		Name = "DropDonut", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.64, 0),
+		Size = UDim2.fromOffset(112, 32), BackgroundTransparency = 1, Visible = false, Parent = gui,
+	})
+	Theme.AutoScale(dropHolder)
+	local drop = Theme.Button({ Text = "✋ Drop donut", Color = Theme.Colors.Gray, Size = UDim2.fromScale(1, 1), Parent = dropHolder })
+	drop.Activated:Connect(function()
+		Remotes.Event("Action"):FireServer("DropCarried")
+	end)
+	local function updateDrop()
+		dropHolder.Visible = player:GetAttribute("CarryKind") == "Raid"
+	end
+	player:GetAttributeChangedSignal("CarryKind"):Connect(updateDrop)
+	updateDrop()
+
 	-- Red/blue glow around the screen edges. Its own ScreenGui that ignores the top bar and the
 	-- phone notch/safe area, so the glow reaches every edge of the screen.
 	local edgeGui = Theme.ScreenGui("ChaseGlow", 3)

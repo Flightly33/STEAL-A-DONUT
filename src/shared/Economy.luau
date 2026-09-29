@@ -308,11 +308,12 @@ function Economy.PetBonuses(petIds: { string }): (number, number)
 	return math.min(money, Config.Pets.MaxMoneyBonus), math.min(speed, Config.Pets.MaxSpeedBonus)
 end
 
+-- Speed passes don't stack (there are two 2x Speed passes: owning both is still 2x).
 function Economy.SpeedPassMultiplier(ownedPasses: { [string]: boolean }): number
 	local result = 1
 	for _, pass in Config.GamePasses do
 		if pass.Kind == "Speed" and ownedPasses[pass.Key] then
-			result *= pass.Multiplier
+			result = math.max(result, pass.Multiplier)
 		end
 	end
 	return result

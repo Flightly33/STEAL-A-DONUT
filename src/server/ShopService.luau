@@ -69,8 +69,10 @@ local function ownsSkin(profile: DataService.Profile, skinId: string): boolean
 	return skin ~= nil and (skin.SpeedCost <= 0 or profile.Data.OwnedSkins[skinId] == true)
 end
 
-local function studioFree(): boolean
-	return RunService:IsStudio() and Config.Debug.StudioFreePurchases
+-- Studio only: something without a real ID yet (0) is granted for this test session. Anything with
+-- an ID goes through Roblox's purchase window (a free test purchase in Studio).
+local function studioFree(id: number): boolean
+	return RunService:IsStudio() and Config.Debug.StudioFreePurchases and id <= 0
 end
 
 -- Re-apply everything that depends on owned passes / rebirths.
@@ -121,6 +123,7 @@ function ShopService.LoadOwnership(player: Player)
 	end
 	player:SetAttribute("MoneyMultiplier", DataService.MoneyMultiplier(profile))
 	player:SetAttribute("SpeedPassMultiplier", Economy.SpeedPassMultiplier(profile.Passes))
+	PlotService.RefreshSign(player) -- base sign and donut labels include the money passes
 end
 
 --------------------------------------------------------------------------------
@@ -187,7 +190,7 @@ function Actions.BuyPass(player: Player, profile: DataService.Profile, key: any)
 		notify(player, "You already own " .. pass.Name .. "!")
 		return
 	end
-	if studioFree() then
+	if studioFree(pass.GamePassId) then
 		grantPass(player, pass, false)
 		notify(player, "(Studio test purchase - not saved)")
 	elseif pass.GamePassId <= 0 then
@@ -306,6 +309,10 @@ function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: 
 	ItemService.Buy(player, itemId)
 end
 
+function Actions.ToggleHotbar(player: Player, _profile: DataService.Profile, itemId: any)
+	ItemService.ToggleHotbar(player, itemId)
+end
+
 function Actions.SetMusic(player: Player, profile: DataService.Profile, settings: any)
 	if type(settings) ~= "table" then
 		return
@@ -357,6 +364,14 @@ function Actions.SetSpeedChoice(player: Player, profile: DataService.Profile, ch
 	end
 	profile.Data.SpeedChoice = math.clamp(choice, 0, 1)
 	player:SetAttribute("SpeedChoice", profile.Data.SpeedChoice)
+end
+
+-- The small "Drop donut" button while raiding: give the donut up (it goes back to its owner's stand).
+function Actions.DropCarried(player: Player)
+	local carry = StealService.GetCarry(player)
+	if carry and carry.Kind == "Raid" then
+		StealService.Drop(player, "You dropped it. It went back to its owner.")
+	end
 end
 
 function Actions.TeleportHome(player: Player, profile: DataService.Profile)

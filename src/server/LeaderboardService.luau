@@ -151,6 +151,13 @@ function LeaderboardService.WriteScores(player: Player)
 	end
 end
 
+-- A tip was just bought: save it to the global board now (not on the next periodic write) and
+-- tell every client to redraw the donation board, which merges in this server's players live.
+function LeaderboardService.OnDonation(player: Player)
+	task.spawn(LeaderboardService.WriteScores, player)
+	Remotes.Event("LeaderboardUpdated"):FireAllClients("Donated")
+end
+
 function LeaderboardService.OnPlayerRemoving(player: Player)
 	LeaderboardService.WriteScores(player)
 	lastWritten[player] = nil
@@ -169,6 +176,9 @@ local function withLivePlayers(boardId: string, board: Board?): Board
 	end
 	for player, profile in DataService.GetAll() do
 		local score = scoreFor(boardId, profile.Data)
+		if boardId == "Donated" then
+			score += profile.Session.TestDonated -- Studio test tips: shown here, never saved
+		end
 		local existing = byUser[player.UserId]
 		if hidden(boardId, profile.Data) then
 			byUser[player.UserId] = nil

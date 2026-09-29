@@ -63,6 +63,9 @@ export type Data = {
 	SpeedChoice: number, -- speed slider: 0 = normal walking speed (16) ... 1 = as fast as you can go
 	IncubatorSpeed: number, -- incubator upgrade levels
 	IncubatorSize: number,
+	DonorTier: number, -- the biggest tip bought (Config.Donations.Products[].Amount): gives a title
+	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
+	PermaLock: boolean, -- admin: Base Lock that never runs out
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -71,11 +74,12 @@ export type Profile = {
 	Data: Data,
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
-	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, GodMode: boolean },
+	-- TestDonated / TestDonorTier: Studio test tips (shown for the session, never saved)
+	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number },
 	NoSave: boolean,
 }
 
-local DATA_VERSION = 3
+local DATA_VERSION = 4
 
 local TEMPLATE: Data = {
 	Version = DATA_VERSION,
@@ -113,6 +117,9 @@ local TEMPLATE: Data = {
 	SpeedChoice = 1,
 	IncubatorSpeed = 0,
 	IncubatorSize = 0,
+	DonorTier = 0,
+	HiddenItems = {},
+	PermaLock = false,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -170,6 +177,13 @@ local function migrate(data: Data, isNew: boolean)
 			data.SpeedMultLevel = math.min(data.SpeedMultLevel, Config.SpeedMultiplier.MaxLevel)
 		end
 		data.Version = 3
+	end
+	if data.Version < 4 then
+		-- Version 4: music is on now (Relaxed Scene) at 0.3; move the old untouched default (0.35).
+		if math.abs(data.MusicVolume - 0.35) < 1e-6 then
+			data.MusicVolume = Config.Music.DefaultVolume
+		end
+		data.Version = 4
 	end
 end
 
@@ -304,7 +318,7 @@ function DataService.Load(player: Player): Profile?
 		Data = data,
 		Passes = {},
 		SessionSkins = {},
-		Session = { Stunned = false, Ready = false, World = 1, Admin = false, GodMode = false },
+		Session = { Stunned = false, Ready = false, World = 1, Admin = false, GodMode = false, TestDonated = 0, TestDonorTier = 0 },
 		NoSave = noSave,
 	}
 	profiles[player] = profile
@@ -481,7 +495,9 @@ function DataService.PushState(player: Player)
 		Pets = profile.Data.Pets,
 		EquippedPets = profile.Data.EquippedPets,
 		Favorite = profile.Data.Favorite,
-		Donated = profile.Data.Donated,
+		Donated = profile.Data.Donated + profile.Session.TestDonated,
+		HiddenItems = profile.Data.HiddenItems,
+		PermaLock = profile.Data.PermaLock,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})
