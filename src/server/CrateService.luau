@@ -57,7 +57,18 @@ function CrateService.Open(player: Player, crateId: string, source: string?): Re
 	if not crate or not profile then
 		return nil
 	end
+	-- Roll until we get a reward we can hand out (a paid crate must always give something)
 	local reward, eggId = Crates.Roll(crate, rng)
+	for _ = 1, 20 do
+		local valid = (reward.Kind == "Egg" and eggId ~= nil and Pets.EggById[eggId] ~= nil)
+			or (reward.Kind == "Pet" and reward.Pet ~= nil and Pets.ById[reward.Pet] ~= nil)
+			or reward.Kind == "Coins" or reward.Kind == "SpeedBoost" or reward.Kind == "Luck"
+		if valid then
+			break
+		end
+		warn(`[Crates] {crate.Id} rolled an unusable reward ({reward.Kind}), rolling again`)
+		reward, eggId = Crates.Roll(crate, rng)
+	end
 	local result: Result = { Crate = crate.Id, Kind = reward.Kind }
 	local got: string
 	if reward.Kind == "Coins" then
@@ -114,6 +125,10 @@ local function checkPolicy(player: Player)
 		end
 		task.wait(5)
 	end
+	-- Roblox couldn't tell us: don't lock the store forever. (Roblox itself still refuses the
+	-- purchase where paid random items aren't allowed.)
+	warn(`[Crates] Policy lookup failed for {player.Name}; allowing crate purchases`)
+	player:SetAttribute("CratesBlocked", false)
 end
 
 function CrateService.CanBuy(player: Player): boolean

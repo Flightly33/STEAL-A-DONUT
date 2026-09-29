@@ -6297,7 +6297,18 @@ function CrateService.Open(player: Player, crateId: string, source: string?): Re
 	if not crate or not profile then
 		return nil
 	end
+	-- Roll until we get a reward we can hand out (a paid crate must always give something)
 	local reward, eggId = Crates.Roll(crate, rng)
+	for _ = 1, 20 do
+		local valid = (reward.Kind == "Egg" and eggId ~= nil and Pets.EggById[eggId] ~= nil)
+			or (reward.Kind == "Pet" and reward.Pet ~= nil and Pets.ById[reward.Pet] ~= nil)
+			or reward.Kind == "Coins" or reward.Kind == "SpeedBoost" or reward.Kind == "Luck"
+		if valid then
+			break
+		end
+		warn(`[Crates] {crate.Id} rolled an unusable reward ({reward.Kind}), rolling again`)
+		reward, eggId = Crates.Roll(crate, rng)
+	end
 	local result: Result = { Crate = crate.Id, Kind = reward.Kind }
 	local got: string
 	if reward.Kind == "Coins" then
@@ -6354,6 +6365,10 @@ local function checkPolicy(player: Player)
 		end
 		task.wait(5)
 	end
+	-- Roblox couldn't tell us: don't lock the store forever. (Roblox itself still refuses the
+	-- purchase where paid random items aren't allowed.)
+	warn(`[Crates] Policy lookup failed for {player.Name}; allowing crate purchases`)
+	player:SetAttribute("CratesBlocked", false)
 end
 
 function CrateService.CanBuy(player: Player): boolean
@@ -13816,7 +13831,11 @@ local function processReceipt(receipt: { PlayerId: number, ProductId: number, Pu
 	if table.find(receipts, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted
 	end
-	if not grant(player, receipt.ProductId, receipt.CurrencySpent) then
+	local ok, granted = pcall(grant, player, receipt.ProductId, receipt.CurrencySpent)
+	if not ok then
+		warn(`[Products] Granting product {receipt.ProductId} failed: {granted}`)
+		return Enum.ProductPurchaseDecision.NotProcessedYet -- Roblox tries again later
+	elseif not granted then
 		warn(`[Products] Unknown developer product {receipt.ProductId} - add it to Config.`)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
@@ -13824,7 +13843,7 @@ local function processReceipt(receipt: { PlayerId: number, ProductId: number, Pu
 	while #receipts > MAX_RECEIPTS do
 		table.remove(receipts, 1)
 	end
-	DataService.SaveNow(player) -- remember the receipt before telling Roblox it's done
+	pcall(DataService.SaveNow, player) -- remember the receipt before telling Roblox it's done
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -23012,9 +23031,8 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		end)
 		local buy = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(0.62, -12, 0, 46), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Parent = c })
 		buy.Activated:Connect(function()
-			if State.Get("CratesBlocked") ~= true then
-				State.Action("BuyCrate", crate.Id)
-			end
+			-- The server double-checks and explains if crates can't be bought here
+			State.Action("BuyCrate", crate.Id)
 		end)
 		table.insert(refreshers, function()
 			local lines = {}

@@ -176,7 +176,11 @@ local function processReceipt(receipt: { PlayerId: number, ProductId: number, Pu
 	if table.find(receipts, receipt.PurchaseId) then
 		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted
 	end
-	if not grant(player, receipt.ProductId, receipt.CurrencySpent) then
+	local ok, granted = pcall(grant, player, receipt.ProductId, receipt.CurrencySpent)
+	if not ok then
+		warn(`[Products] Granting product {receipt.ProductId} failed: {granted}`)
+		return Enum.ProductPurchaseDecision.NotProcessedYet -- Roblox tries again later
+	elseif not granted then
 		warn(`[Products] Unknown developer product {receipt.ProductId} - add it to Config.`)
 		return Enum.ProductPurchaseDecision.NotProcessedYet
 	end
@@ -184,7 +188,7 @@ local function processReceipt(receipt: { PlayerId: number, ProductId: number, Pu
 	while #receipts > MAX_RECEIPTS do
 		table.remove(receipts, 1)
 	end
-	DataService.SaveNow(player) -- remember the receipt before telling Roblox it's done
+	pcall(DataService.SaveNow, player) -- remember the receipt before telling Roblox it's done
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

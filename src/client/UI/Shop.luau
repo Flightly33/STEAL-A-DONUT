@@ -416,9 +416,8 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		end)
 		local buy = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(0.62, -12, 0, 46), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Parent = c })
 		buy.Activated:Connect(function()
-			if State.Get("CratesBlocked") ~= true then
-				State.Action("BuyCrate", crate.Id)
-			end
+			-- The server double-checks and explains if crates can't be bought here
+			State.Action("BuyCrate", crate.Id)
 		end)
 		table.insert(refreshers, function()
 			local lines = {}
