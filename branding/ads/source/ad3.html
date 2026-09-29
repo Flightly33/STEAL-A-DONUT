@@ -1,0 +1,98 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "Luckiest Guy"; src: url(LuckiestGuy-400.woff2) format("woff2"); }
+@font-face { font-family: "Fredoka"; src: url(Fredoka-700.woff2) format("woff2"); font-weight: 300 700; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #6fd0ff; }
+</style>
+<script src="art.js"></script>
+</head><body>
+<script>
+seed = 5;
+let s = "";
+s += `<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3fb4ff"/><stop offset="1" stop-color="#b8ecff"/></linearGradient>
+  <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fdc4f"/><stop offset="1" stop-color="#3aa83a"/></linearGradient>
+  <radialGradient id="redEdge" cx="0.5" cy="0.5" r="0.75"><stop offset="0.65" stop-color="#ff0000" stop-opacity="0"/><stop offset="1" stop-color="#ff0000" stop-opacity="0.35"/></radialGradient>
+  <linearGradient id="sirenBeam" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff2a2a" stop-opacity="0.7"/><stop offset="1" stop-color="#ff2a2a" stop-opacity="0"/></linearGradient>
+  <linearGradient id="headRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe45a"/><stop offset="1" stop-color="#ff9d00"/></linearGradient>
+</defs>`;
+s += `<rect width="1920" height="1080" fill="url(#sky)"/>`;
+// clouds
+const cloud = (x, y, k) => `<g opacity="0.95"><ellipse cx="${x}" cy="${y}" rx="${110 * k}" ry="${44 * k}" fill="#fff"/><circle cx="${x - 45 * k}" cy="${y - 25 * k}" r="${45 * k}" fill="#fff"/><circle cx="${x + 25 * k}" cy="${y - 40 * k}" r="${58 * k}" fill="#fff"/></g>`;
+s += cloud(1480, 150, 1.1) + cloud(1780, 260, 0.8) + cloud(950, 110, 0.7);
+// ground and the base floor in perspective
+s += `<rect y="600" width="1920" height="480" fill="url(#grass)"/>`;
+const vx = 960, vy = 300;
+const floorTop = 640, floorBot = 1080, left = 120, right = 1800;
+const lerp = (a, b, t) => a + (b - a) * t;
+const topL = lerp(vx, left, (floorTop - vy) / (floorBot - vy)), topR = lerp(vx, right, (floorTop - vy) / (floorBot - vy));
+const rows = 7, cols = 12;
+for (let r = 0; r < rows; r++) {
+  const t0 = r / rows, t1 = (r + 1) / rows;
+  const y0 = lerp(floorTop, floorBot, t0 * t0 * 0.3 + t0 * 0.7), y1 = lerp(floorTop, floorBot, t1 * t1 * 0.3 + t1 * 0.7);
+  const f0 = (y0 - vy) / (floorBot - vy), f1 = (y1 - vy) / (floorBot - vy);
+  for (let c = 0; c < cols; c++) {
+    const u0 = c / cols, u1 = (c + 1) / cols;
+    const xa = lerp(vx + (left - vx) * f0, vx + (right - vx) * f0, u0), xb = lerp(vx + (left - vx) * f0, vx + (right - vx) * f0, u1);
+    const xc = lerp(vx + (left - vx) * f1, vx + (right - vx) * f1, u1), xd = lerp(vx + (left - vx) * f1, vx + (right - vx) * f1, u0);
+    s += `<path d="M${xa} ${y0} L ${xb} ${y0} L ${xc} ${y1} L ${xd} ${y1} Z" fill="${(r + c) % 2 ? "#f4d9ff" : "#d6a8ff"}"/>`;
+  }
+}
+// fence posts along the back edge
+for (let i = 0; i <= 14; i++) {
+  const x = lerp(topL, topR, i / 14);
+  s += `<rect x="${x - 7}" y="${floorTop - 60}" width="14" height="62" fill="#fff" stroke="#6b4a2a" stroke-width="4"/>`;
+}
+s += `<rect x="${topL}" y="${floorTop - 46}" width="${topR - topL}" height="10" fill="#fff" stroke="#6b4a2a" stroke-width="3"/>`;
+// donut stands in the back row
+const standXs = [300, 520, 1130, 1780];
+for (const x of standXs) {
+  s += `<rect x="${x - 38}" y="665" width="76" height="46" fill="#fff" stroke="#6b4a2a" stroke-width="5"/><ellipse cx="${x}" cy="665" rx="38" ry="10" fill="#ffe7ff" stroke="#6b4a2a" stroke-width="5"/>`;
+}
+s += donut({ x: 300, y: 620, r: 46, frosting: "#6fd0ff", eyes: "shock", mouth: "o" });
+s += donut({ x: 520, y: 620, r: 46, frosting: "#ffe14d", eyes: "shock", mouth: "o" });
+s += donut({ x: 1780, y: 620, r: 46, frosting: "#b36bff", eyes: "shock", mouth: "o" });
+// the empty stand the donut was stolen from
+s += `<ellipse cx="1130" cy="652" rx="40" ry="10" fill="none" stroke="#ff2a2a" stroke-width="5" stroke-dasharray="10 8"/>`;
+s += title("!", { x: 1130, y: 640, size: 80, fill: "#ff2a2a", stroke: "#fff", sw: 12, shadow: false });
+
+s += `<rect width="1920" height="1080" fill="url(#redEdge)"/>`;
+
+// speed lines
+for (let i = 0; i < 16; i++) {
+  const y = 700 + rnd() * 320, x = 1000 + rnd() * 260, l = 100 + rnd() * 180;
+  s += `<path d="M${x} ${y} h ${l}" stroke="#fff" stroke-width="${4 + rnd() * 6}" stroke-linecap="round" opacity="0.75"/>`;
+}
+
+// The thief: running away (left), stolen donut held over the head
+const tx = 830, ty = 1010;
+s += `<ellipse cx="${tx}" cy="${ty + 10}" rx="130" ry="22" fill="#000" opacity="0.3" filter="url(#blur8)"/>`;
+s += avatar({ x: tx, y: ty, s: 2.3, flip: true, face: "evil", colors: { head: "#f2c29a", torso: "#24222e", arms: "#f2c29a", legs: "#3c3a4a" }, pose: { legBack: 38, legFront: -38, armFront: 172, armBack: -172, lean: -6 } });
+s += donut({ x: tx - 4, y: ty - 560, r: 115, frosting: "#ff5fae", eyes: "shock", mouth: "o", glow: "#ffd23a", sprinkles: ["#fff", "#ffe14d", "#4dd2ff", "#7dff6a"] });
+for (const [dx, dy, sz] of [[-170, -640, 22], [160, -700, 18], [190, -540, 14]]) s += sparkle(tx + dx, ty + dy, sz, "#fff6b0");
+
+// The owner: chasing with a giant slap hand
+const ox = 1500, oy = 1030;
+s += `<ellipse cx="${ox}" cy="${oy + 8}" rx="130" ry="22" fill="#000" opacity="0.3" filter="url(#blur8)"/>`;
+s += avatar({ x: ox, y: oy, s: 2.45, flip: true, face: "angry", colors: { head: "#ffd23a", torso: "#ff3d6e", arms: "#ffd23a", legs: "#2f7bff" }, pose: { legBack: 30, legFront: -34, armFront: 150, armBack: -20, lean: -10 } });
+// giant slap hand (raised)
+const hx = ox - 120, hy = oy - 560;
+s += `<g transform="rotate(-25 ${hx} ${hy})">
+  <rect x="${hx - 70}" y="${hy - 40}" width="140" height="150" rx="50" fill="#ff4a4a" stroke="#5a0000" stroke-width="8"/>
+  ${[-52, -18, 18, 52].map((dx, i) => `<rect x="${hx + dx - 18}" y="${hy - 135 + Math.abs(dx) * 0.4}" width="36" height="120" rx="18" fill="#ff4a4a" stroke="#5a0000" stroke-width="8"/>`).join("")}
+  <rect x="${hx + 50}" y="${hy + 10}" width="100" height="36" rx="18" fill="#ff4a4a" stroke="#5a0000" stroke-width="8" transform="rotate(-35 ${hx + 60} ${hy + 28})"/>
+  <rect x="${hx - 72}" y="${hy + 95}" width="144" height="42" rx="12" fill="#fff" stroke="#5a0000" stroke-width="8"/>
+</g>`;
+s += title("SLAP!", { x: hx - 170, y: hy - 150, size: 88, fill: "#fff", stroke: "#b00000", sw: 16, rotate: -14 });
+
+// Headline
+s += title("RAID YOUR", { x: 60, y: 175, size: 150, fill: "#fff", anchor: "start", sw: 26, rotate: -4 });
+s += title("FRIENDS!", { x: 50, y: 335, size: 170, fill: "url(#headRed)", anchor: "start", sw: 28, rotate: -4 });
+for (const [i, line] of ["Steal their best donuts...", "before they slap you back!"].entries())
+  s += `<text x="${72}" y="${420 + i * 58}" font-family="Fredoka" font-weight="700" font-size="48" fill="#ffffff" stroke="#1b0b2e" stroke-width="11" paint-order="stroke" stroke-linejoin="round" transform="rotate(-4 72 420)">${line}</text>`;
+
+s += logo(1455, 40, 0.85);
+page(s);
+</script>
+</body></html>
