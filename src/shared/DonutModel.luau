@@ -1,8 +1,9 @@
 --[[
 	DonutModel
 	==========
-	Builds a donut "character" out of plain parts (no uploaded meshes needed): a ring of dough balls,
-	a glossy frosting layer with drips, sprinkles, a cute face and brainrot accessories (legs,
+	Builds a donut "character" out of plain parts (no uploaded meshes needed): a smooth dough ring
+	(a torus made of short cylinders laid end to end), a glossy glaze ring in front of it with a wavy,
+	dripping edge, sprinkles lying on the glaze, a cute face and brainrot accessories (legs,
 	sunglasses, shark fin...).
 
 	Rarer donuts get more and more effects (sparkles, lights, floating, light pillars, orbiting orbs,
@@ -16,8 +17,9 @@
 	The model is a single rigid assembly: the invisible "Root" part is anchored and every other part is
 	welded to it, so moving Root moves the whole donut (cheap to animate on the client).
 	Moving parts (legs, arms, wings, propellers, orbiting orbs, tentacles, capes) are marked with a
-	"Limb" attribute and the point they swing around ("Pivot", in the donut's own space), and each eye
-	has a hidden eyelid ("Lid"), so the client can play idle animations (see client/DonutIdle.luau).
+	"Limb" attribute and the point they swing around ("Pivot", in the donut's own space); the eyes
+	("EyeWhite"), pupils ("Pupil") and mouth ("Mouth") are marked too, so the client can make the
+	donut blink, look around and open its mouth (see client/DonutIdle.luau).
 
 	Used by the server (lane spawns, bases, podiums, carried donuts) and the client (Index previews).
 ]]
@@ -34,10 +36,11 @@ type Donut = Donuts.Donut
 local DonutModel = {}
 
 local RING_RADIUS = 1.5
-local BALL = 1.55
-local SEGMENTS = 12
-local FROSTING_OFFSET = -0.28 -- frosting sits on the front face (-Z is the donut's front)
-local FROSTING_BALL = BALL * 0.92
+local BALL = 1.55 -- thickness of the dough ring
+local SEGMENTS = 16 -- tube pieces in the dough ring
+local GLAZE_SEGMENTS = 18 -- the glaze is shinier, so it gets a few more (smoother highlights)
+local FROSTING_OFFSET = -0.3 -- the glaze sits on the front face (-Z is the donut's front)
+local FROSTING_TUBE = 1.36
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
@@ -193,31 +196,74 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	local R = RING_RADIUS
 	local TOP = R + BALL / 2 -- top of the ring
-	local shine = if rarity.Shine or special then 0.15 else 0.04
+	local shine = if rarity.Shine or special then 0.15 else 0.06
+	local TAU = math.pi * 2
+	local FROST_R = FROSTING_TUBE / 2
 
-	-- Dough ring + frosting (+ a lighter "inner ring" so the hole reads clearly)
-	for i = 0, SEGMENTS - 1 do
-		local angle = (i / SEGMENTS) * math.pi * 2
-		local x, y = R * math.cos(angle), R * math.sin(angle)
-		local dough = ball(BALL, doughColor, at(x, y, 0), doughMaterial, "Dough")
-		dough.Reflectance = shine * 0.4
-		local frosting = ball(FROSTING_BALL, frostingColor, at(x, y, FROSTING_OFFSET), frostingMaterial, "Frosting")
-		frosting.Reflectance = shine
+	-- A smooth ring (a torus) out of straight tube pieces: one cylinder per segment lying along the
+	-- ring, each just long enough to meet its neighbours on the outside without a notch.
+	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string): { BasePart }
+		local step = TAU / count
+		local length = 2 * R * math.sin(step / 2) + diameter * math.tan(step / 2)
+		local pieces = {}
+		for i = 0, count - 1 do
+			local angle = i * step
+			local p = Instance.new("Part")
+			p.Shape = Enum.PartType.Cylinder
+			p.Size = Vector3.new(length, diameter, diameter) * s
+			p.Name = name
+			local cf = at(R * math.cos(angle), R * math.sin(angle), z) * CFrame.Angles(0, 0, angle + math.pi / 2)
+			table.insert(pieces, add(p, cf, color, material))
+		end
+		return pieces
+	end
+
+	-- A spot on the glaze, facing out of it: `angle` around the ring, `tilt` from the front of the
+	-- tube towards its outer edge (negative = towards the hole), `lift` above the surface.
+	local function onGlaze(angle: number, tilt: number, lift: number): CFrame
+		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+		local normal = radial * math.sin(tilt) + Vector3.new(0, 0, -math.cos(tilt))
+		local point = radial * R + Vector3.new(0, 0, FROSTING_OFFSET) + normal * (FROST_R + lift)
+		return CFrame.lookAt(point * s, (point + normal) * s)
+	end
+
+	-- The glaze surface in front of the point (x, y) on the donut's face.
+	local function face(x: number, y: number, lift: number): CFrame
+		local offset = math.clamp(math.sqrt(x * x + y * y) - R, -FROST_R * 0.95, FROST_R * 0.95)
+		return onGlaze(math.atan2(y, x), math.asin(offset / FROST_R), lift)
+	end
+
+	-- Dough ring, with a thinner glaze ring in front of it (the dough shows around its edges)
+	for _, piece in ring(SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough") do
+		piece.Reflectance = shine * 0.3
+	end
+	local glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting")
+
+	-- Wavy glaze edge: tongues of glaze lying over the dough rim all the way round; on the lower
+	-- sides some run right over the edge like drips.
+	local edgeCount = 8
+	for n = 0, edgeCount - 1 do
+		local angle = (n + rng:NextNumber(-0.25, 0.25)) / edgeCount * TAU + 0.2
+		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+		local drip = radial.Y < -0.2 and math.abs(radial.X) > 0.4 and rng:NextNumber() < 0.75
+		-- how far round the dough tube (from its front towards the outside) the tongue sits
+		local around = math.rad(if drip then 74 else 60)
+		local normal = radial * math.sin(around) + Vector3.new(0, 0, -math.cos(around))
+		local downTube = radial * math.cos(around) + Vector3.new(0, 0, math.sin(around))
+		local tangent = Vector3.new(-radial.Y, radial.X, 0)
+		local center = (radial * R + normal * (BALL / 2)) * s
+		local length = if drip then rng:NextNumber(0.85, 1.1) else rng:NextNumber(0.45, 0.6)
+		local cf = CFrame.fromMatrix(center, tangent, normal, downTube)
+		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), frostingColor, cf, frostingMaterial, "Frosting"))
+	end
+	for _, piece in glaze do
+		piece.Reflectance = shine
 		if mutation.Id == "Diamond" then
-			frosting.Transparency = 0.15
+			piece.Transparency = 0.15
 		end
 	end
-	ball(BALL * 0.55, doughColor:Lerp(BLACK, 0.25), at(0, 0, 0.35), nil, "Hole").Transparency = 0.2
 
-	-- Frosting drips running down the outside of the ring
-	for n = 1, 5 do
-		local angle = math.rad(200 + n * 28 + rng:NextNumber(-8, 8))
-		local dripLength = rng:NextNumber(0.35, 0.7)
-		local cf = at((R + FROSTING_BALL * 0.42) * math.cos(angle), (R + FROSTING_BALL * 0.42) * math.sin(angle) - dripLength * 0.4, FROSTING_OFFSET - 0.1)
-		ellipsoid(Vector3.new(0.34, dripLength + 0.3, 0.34), frostingColor, cf, frostingMaterial, "Frosting").Reflectance = shine
-	end
-
-	-- Sprinkles on the frosting (skipping the balls under the face)
+	-- Sprinkles lying on the glaze (none on the face)
 	local sprinkleColors = donut.Sprinkles
 	if mutation.Id == "Gold" then
 		sprinkleColors = { rgb(255, 250, 200), rgb(255, 180, 40) }
@@ -226,44 +272,45 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 	if sprinkleColors then
 		local colors = sprinkleColors
-		local frostRadius = FROSTING_BALL / 2
-		for n = 1, 20 do
-			local segment
+		for n = 1, 16 do
+			local angle
 			repeat
-				segment = rng:NextInteger(0, SEGMENTS - 1)
-			until segment ~= 2 and segment ~= 3 and segment ~= 4
-			local angle = (segment / SEGMENTS) * math.pi * 2
-			local dx, dy
-			repeat
-				dx, dy = rng:NextNumber(-0.45, 0.45), rng:NextNumber(-0.45, 0.45)
-			until dx * dx + dy * dy < 0.2
-			local z = FROSTING_OFFSET - math.sqrt(frostRadius * frostRadius - dx * dx - dy * dy) + 0.04
-			local cf = at(R * math.cos(angle) + dx, R * math.sin(angle) + dy, z) * CFrame.Angles(0, 0, rng:NextNumber(0, math.pi * 2))
-			block(Vector3.new(0.11, 0.38, 0.11), colors[(n - 1) % #colors + 1], cf, if special then Enum.Material.Neon else Enum.Material.SmoothPlastic, "Sprinkle")
+				angle = rng:NextNumber(0, TAU)
+			until math.abs(angle - math.pi / 2) > 0.62
+			local cf = onGlaze(angle, rng:NextNumber(-1.0, 1.1), -0.035) * CFrame.Angles(0, 0, rng:NextNumber(0, TAU))
+			local sprinkle = Instance.new("Part")
+			sprinkle.Shape = Enum.PartType.Cylinder
+			sprinkle.Size = Vector3.new(0.4, 0.12, 0.12) * s
+			sprinkle.Name = "Sprinkle"
+			add(sprinkle, cf, colors[(n - 1) % #colors + 1], if special then Enum.Material.Neon else Enum.Material.SmoothPlastic)
 		end
 	end
 
-	-- Face (eyes with shiny highlights, blushing cheeks, a smile)
+	-- Face: big shiny eyes, rosy cheeks and a smile.
+	-- The client squashes the eye whites ("EyeWhite") to blink, shifts the pupils and their
+	-- highlights ("Pupil") to look around, and opens the mouth (widens the middle of the smile,
+	-- "Mouth" = "Middle", and hides its corners) when the donut jumps or dances.
 	local eyesCovered = partsSet.Sunglasses or partsSet.Visor
+	local EYE_Y = TOP - 0.66
 	for _, side in { -1, 1 } do
-		if not (partsSet.EyePatch and side == 1) then
-			ball(0.64, WHITE, at(side * 0.5, TOP - 0.68, -0.95), nil, "Eye")
-			if not eyesCovered then
-				ball(0.34, BLACK, at(side * 0.47, TOP - 0.7, -1.2), nil, "Pupil")
-				ball(0.11, WHITE, at(side * 0.42, TOP - 0.6, -1.36), Enum.Material.Neon, "Glint")
-				-- Eyelid + lashes: invisible until the client makes the donut blink
-				local lid = ellipsoid(Vector3.new(0.72, 0.72, 0.46), frostingColor:Lerp(doughColor, 0.5), at(side * 0.49, TOP - 0.68, -1.2), nil, "Lid")
-				lid.Transparency = 1
-				lid:SetAttribute("Blink", true)
-				local lash = block(Vector3.new(0.5, 0.07, 0.06), BLACK, at(side * 0.49, TOP - 0.72, -1.45), nil, "Lash")
-				lash.Transparency = 1
-				lash:SetAttribute("Blink", true)
-			end
+		if not eyesCovered and not (partsSet.EyePatch and side == 1) then
+			local eye = ellipsoid(Vector3.new(0.62, 0.8, 0.4), WHITE, at(side * 0.5, EYE_Y, -0.93), nil, "Eye")
+			eye:SetAttribute("EyeWhite", true)
+			local px = side * 0.5 - side * 0.04
+			ellipsoid(Vector3.new(0.4, 0.5, 0.2), BLACK, at(px, EYE_Y - 0.05, -1.06), nil, "Pupil"):SetAttribute("Pupil", true)
+			ball(0.17, WHITE, at(px - 0.07, EYE_Y + 0.07, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
+			ball(0.08, WHITE, at(px + 0.08, EYE_Y - 0.15, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
 		end
-		ellipsoid(Vector3.new(0.36, 0.2, 0.1), rgb(255, 130, 160), at(side * 0.86, TOP - 1.08, -0.86), nil, "Cheek").Transparency = 0.25
+		ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), face(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
 	end
 	if not partsSet.Mustache and not partsSet.Beak and not partsSet.Fangs then
-		ellipsoid(Vector3.new(0.5, 0.18, 0.12), rgb(90, 30, 30), at(0, TOP - 1.2, -0.76), nil, "Mouth")
+		local mouthY = TOP - 1.2
+		local dark = rgb(90, 30, 35)
+		ellipsoid(Vector3.new(0.28, 0.11, 0.1), dark, face(0, mouthY - 0.035, 0), nil, "Mouth"):SetAttribute("Mouth", "Middle")
+		for _, side in { -1, 1 } do
+			local corner = ellipsoid(Vector3.new(0.22, 0.1, 0.1), dark, face(side * 0.18, mouthY, 0) * CFrame.Angles(0, 0, side * math.rad(30)), nil, "Mouth")
+			corner:SetAttribute("Mouth", "Corner")
+		end
 	end
 
 	-- Brainrot accessories
@@ -272,9 +319,10 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	function accessories.Legs()
 		for _, side in { -1, 1 } do
 			local hipX, hipY = side * 0.55, -TOP + 0.2
-			limb(cylinder(1.3, 0.38, doughColor, at(side * 0.55, -TOP - 0.45, 0)), "Leg", side, hipX, hipY, 0)
-			limb(block(Vector3.new(0.55, 0.32, 0.8), WHITE, at(side * 0.55, -TOP - 1.12, -0.15), nil, "Shoe"), "Leg", side, hipX, hipY, 0)
-			limb(block(Vector3.new(0.57, 0.1, 0.82), rgb(230, 40, 40), at(side * 0.55, -TOP - 1.0, -0.15), nil, "ShoeStripe"), "Leg", side, hipX, hipY, 0)
+			limb(cylinder(1.25, 0.36, doughColor, at(side * 0.55, -TOP - 0.42, 0)), "Leg", side, hipX, hipY, 0)
+			-- Chunky sneakers
+			limb(ellipsoid(Vector3.new(0.62, 0.46, 0.92), rgb(235, 50, 60), at(side * 0.55, -TOP - 1.08, -0.16), nil, "Shoe"), "Leg", side, hipX, hipY, 0)
+			limb(ellipsoid(Vector3.new(0.7, 0.2, 1.0), WHITE, at(side * 0.55, -TOP - 1.24, -0.17), nil, "Sole"), "Leg", side, hipX, hipY, 0)
 		end
 	end
 
@@ -284,7 +332,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			-- The shoulder is the arm's inner end, where it meets the ring
 			local shoulderX, shoulderY = side * (R + 0.74), -0.25
 			limb(cylinder(1.1, 0.3, doughColor, cf), "Arm", side, shoulderX, shoulderY, -0.1)
-			limb(ball(0.45, WHITE, at(side * (R + 1.4), 0.7, -0.1), nil, "Glove"), "Arm", side, shoulderX, shoulderY, -0.1)
+			limb(ball(0.52, WHITE, at(side * (R + 1.42), 0.72, -0.1), nil, "Glove"), "Arm", side, shoulderX, shoulderY, -0.1)
 		end
 	end
 
@@ -298,7 +346,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Mustache()
 		for _, side in { -1, 1 } do
-			ellipsoid(Vector3.new(0.55, 0.22, 0.16), BLACK, at(side * 0.25, TOP - 1.12, -0.82) * CFrame.Angles(0, 0, side * math.rad(-15)), nil, "Mustache")
+			ellipsoid(Vector3.new(0.58, 0.24, 0.2), BLACK, face(side * 0.26, TOP - 1.14, 0.02) * CFrame.Angles(0, 0, side * math.rad(-15)), nil, "Mustache")
 		end
 	end
 
@@ -310,13 +358,13 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Sunglasses()
 		for _, side in { -1, 1 } do
-			block(Vector3.new(0.62, 0.4, 0.12), BLACK, at(side * 0.48, TOP - 0.68, -1.28), Enum.Material.Glass, "Lens").Reflectance = 0.3
+			block(Vector3.new(0.7, 0.46, 0.12), BLACK, at(side * 0.5, TOP - 0.66, -1.12), Enum.Material.Glass, "Lens").Reflectance = 0.3
 		end
-		block(Vector3.new(0.36, 0.08, 0.1), BLACK, at(0, TOP - 0.62, -1.28))
+		block(Vector3.new(0.36, 0.08, 0.1), BLACK, at(0, TOP - 0.58, -1.12))
 	end
 
 	function accessories.Visor()
-		block(Vector3.new(1.9, 0.4, 0.14), rgb(0, 255, 255), at(0, TOP - 0.68, -1.28), Enum.Material.Neon, "Visor")
+		block(Vector3.new(1.9, 0.44, 0.14), rgb(0, 255, 255), at(0, TOP - 0.66, -1.12), Enum.Material.Neon, "Visor")
 	end
 
 	function accessories.Camel()
@@ -456,36 +504,61 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Snorkel()
 		for _, side in { -1, 1 } do
-			cylinder(0.14, 0.6, rgb(120, 220, 255), at(side * 0.48, TOP - 0.68, -1.25) * CFrame.Angles(math.pi / 2, 0, 0), Enum.Material.Glass, "Goggle")
+			cylinder(0.14, 0.92, rgb(120, 220, 255), at(side * 0.5, TOP - 0.66, -1.2) * CFrame.Angles(math.pi / 2, 0, 0), Enum.Material.Glass, "Goggle")
 		end
-		block(Vector3.new(1.9, 0.12, 0.1), rgb(40, 40, 50), at(0, TOP - 0.68, -1.2))
+		block(Vector3.new(2.1, 0.12, 0.1), rgb(40, 40, 50), at(0, TOP - 0.66, -1.12))
 		cylinder(1.6, 0.22, rgb(255, 200, 40), at(R + 0.6, TOP - 0.1, -0.3), Enum.Material.SmoothPlastic, "Snorkel")
 	end
 
 	function accessories.Tentacles()
+		-- Six tentacles hanging from the bottom of the ring, curling outwards at the ends
+		local color = doughColor:Lerp(WHITE, 0.15)
 		for n = 0, 5 do
-			local x = -1.25 + n * 0.5
-			for k = 0, 2 do
-				local piece = ball(0.42 - k * 0.08, doughColor:Lerp(WHITE, 0.15), at(x + math.sin(n + k) * 0.12, -TOP - 0.1 - k * 0.38, 0), nil, "Tentacle")
-				limb(piece, "Tentacle", if n % 2 == 0 then 1 else -1, x, -TOP + 0.1, 0)
+			local angle = math.rad(228 + n * 16.8)
+			local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+			local root = radial * (R + 0.35)
+			local side = if radial.X < 0 then -1 else 1
+			local down = (radial * 0.35 + Vector3.new(0, -1, 0)).Unit
+			local curl = CFrame.fromAxisAngle(Vector3.zAxis, side * math.rad(40)):VectorToWorldSpace(down)
+			local knee = root + down * 0.75
+			local tip = knee + curl * 0.55
+			local function segment(from: Vector3, to: Vector3, diameter: number): BasePart
+				local mid = (from + to) / 2
+				local p = Instance.new("Part")
+				p.Shape = Enum.PartType.Cylinder
+				p.Size = Vector3.new((to - from).Magnitude + diameter * 0.5, diameter, diameter) * s
+				p.Name = "Tentacle"
+				local along = (to - from).Unit
+				return add(p, CFrame.fromMatrix(mid * s, along, Vector3.zAxis:Cross(along).Unit), color)
+			end
+			for _, piece in { segment(root, knee, 0.36), segment(knee, tip, 0.26), ball(0.3, frostingColor, at(tip.X, tip.Y, tip.Z), nil, "Tentacle") } do
+				limb(piece, "Tentacle", side, root.X, root.Y, root.Z)
 			end
 		end
 	end
 
 	function accessories.Fangs()
 		for _, side in { -1, 1 } do
-			wedge(Vector3.new(0.14, 0.32, 0.14), WHITE, at(side * 0.2, TOP - 1.3, -0.84) * CFrame.Angles(math.pi, 0, 0))
+			wedge(Vector3.new(0.12, 0.26, 0.12), WHITE, face(side * 0.17, TOP - 1.3, 0.04) * CFrame.Angles(math.pi, 0, 0))
 		end
-		ellipsoid(Vector3.new(0.6, 0.2, 0.12), rgb(90, 20, 30), at(0, TOP - 1.16, -0.78), nil, "Mouth")
+		ellipsoid(Vector3.new(0.6, 0.2, 0.12), rgb(90, 20, 30), face(0, TOP - 1.18, 0), nil, "Mouth")
 	end
 
 	function accessories.PirateHat()
-		ellipsoid(Vector3.new(2.3, 0.7, 1.1), BLACK, at(0, TOP + 0.35, 0), nil, "PirateHat")
-		ball(0.4, WHITE, at(0, TOP + 0.4, -0.5), nil, "Skull")
+		-- A tricorne: wide brim with the sides turned up, a round crown, and a skull badge
+		ellipsoid(Vector3.new(2.4, 0.3, 1.5), BLACK, at(0, TOP - 0.02, 0), nil, "PirateHat")
+		for _, side in { -1, 1 } do
+			ellipsoid(Vector3.new(0.9, 0.3, 1.3), BLACK, at(side * 0.95, TOP + 0.18, 0) * CFrame.Angles(0, 0, side * math.rad(35)), nil, "PirateHat")
+		end
+		ellipsoid(Vector3.new(1.45, 1.0, 1.2), BLACK, at(0, TOP + 0.3, 0.05), nil, "PirateHat")
+		ball(0.36, WHITE, at(0, TOP + 0.32, -0.56), nil, "Skull")
+		for _, side in { -1, 1 } do
+			block(Vector3.new(0.48, 0.08, 0.08), WHITE, at(0, TOP + 0.22, -0.58) * CFrame.Angles(0, 0, side * math.rad(35)), nil, "Skull")
+		end
 	end
 
 	function accessories.EyePatch()
-		block(Vector3.new(0.6, 0.5, 0.1), BLACK, at(0.5, TOP - 0.68, -1.18), nil, "EyePatch")
+		ellipsoid(Vector3.new(0.66, 0.62, 0.16), BLACK, at(0.5, TOP - 0.66, -1.0), nil, "EyePatch")
 		block(Vector3.new(2.6, 0.08, 0.08), BLACK, at(0, TOP - 0.45, -1.02) * CFrame.Angles(0, 0, math.rad(-12)))
 	end
 
@@ -555,7 +628,6 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	model:SetAttribute("Bottom", -bottom)
 
 	-- Mystical theme parts ----------------------------------------------------
-	local TAU = math.pi * 2
 	local RAINBOW_SEQUENCE = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, rgb(255, 60, 60)),
 		ColorSequenceKeypoint.new(0.2, rgb(255, 200, 40)),
@@ -759,12 +831,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 		if opts.Pillar and rarity.Order >= 5 then
 			-- Glowing ring on the ground under legendary+ lane donuts
-			local ring = Instance.new("Part")
-			ring.Name = "GroundGlow"
-			ring.Shape = Enum.PartType.Cylinder
-			ring.Size = Vector3.new(0.15, 6 * s, 6 * s)
-			add(ring, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
-			ring.Transparency = 0.5
+			local glow = Instance.new("Part")
+			glow.Name = "GroundGlow"
+			glow.Shape = Enum.PartType.Cylinder
+			glow.Size = Vector3.new(0.15, 6 * s, 6 * s)
+			add(glow, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
+			glow.Transparency = 0.5
 		end
 		if rarity.Float or mutation.Order >= 2 then
 			CollectionService:AddTag(model, "DonutFloat")

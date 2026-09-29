@@ -5,8 +5,10 @@
 	  "Favorite" -> "donutId|mutation|size" of their favourite base donut: a copy at
 	                Config.Favorite.Scale (1/3) of its size on the stand, mutation look included
 	  "Pets"     -> comma-separated ids of their equipped pets
-	Walkers hop along behind you, flyers and blobs float, wings flap. Only followers near the camera
-	are animated.
+	Walkers hop along behind you, flyers and blobs float. Wings flap, tails wag (faster while you're
+	on the move), whale flukes paddle, tentacles wiggle and everyone blinks - all by swinging the
+	parts PetModel marked ("Limb") around their joints ("Pivot"). Only followers near the camera are
+	animated.
 ]]
 
 local Players = game:GetService("Players")
@@ -32,7 +34,11 @@ local SLOTS = {
 	Vector3.new(4.5, 0, 8),
 }
 
-type Wing = { Weld: Weld, Base: CFrame, Side: number }
+-- Limbs that move while following (a favourite donut's arms and legs stay put)
+local ANIMATED = { Wing = true, Tail = true, Fluke = true, Fin = true, Tentacle = true, Spin = true, Orbit = true }
+
+type Limb = { Weld: Weld, Base: CFrame, Pivot: CFrame, Kind: string, Side: number }
+type Eye = { Part: BasePart, Size: Vector3, Color: Color3 }
 type Follower = {
 	Model: Model,
 	Root: BasePart,
@@ -42,7 +48,11 @@ type Follower = {
 	Height: number, -- root height above the ground
 	Phase: number,
 	CFrame: CFrame,
-	Wings: { Wing },
+	Limbs: { Limb },
+	Eyes: { Eye },
+	Pupils: { BasePart },
+	Blinking: boolean,
+	NextBlink: number,
 	Rainbow: { BasePart },
 	Glitch: boolean,
 }
@@ -60,14 +70,29 @@ local function prepare(model: Model, slot: number, floats: boolean, spread: numb
 			part.CanTouch = false
 		end
 	end
-	local wings: { Wing } = {}
+	local limbs: { Limb } = {}
+	local eyes: { Eye } = {}
+	local pupils: { BasePart } = {}
 	local rainbow: { BasePart } = {}
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			local weld = part:FindFirstChildOfClass("Weld")
-			local side = part:GetAttribute("Flap")
-			if weld and type(side) == "number" then
-				table.insert(wings, { Weld = weld, Base = weld.C0, Side = side })
+			local kind = part:GetAttribute("Limb")
+			if weld and type(kind) == "string" and ANIMATED[kind] then
+				local pivot = part:GetAttribute("Pivot")
+				local side = part:GetAttribute("Side")
+				table.insert(limbs, {
+					Weld = weld,
+					Base = weld.C0,
+					Pivot = CFrame.new(if typeof(pivot) == "Vector3" then pivot else Vector3.zero),
+					Kind = kind,
+					Side = if type(side) == "number" then side else 0,
+				})
+			end
+			if part:GetAttribute("EyeWhite") then
+				table.insert(eyes, { Part = part, Size = part.Size, Color = part.Color })
+			elseif part:GetAttribute("Pupil") then
+				table.insert(pupils, part)
 			end
 			if model:GetAttribute("Rainbow") and (part.Name == "Body" or part.Name == "Wing") then
 				table.insert(rainbow, part)
@@ -84,7 +109,11 @@ local function prepare(model: Model, slot: number, floats: boolean, spread: numb
 		Height = bottom + (if floats then 2.2 else 0.05),
 		Phase = math.random() * 6,
 		CFrame = CFrame.new(),
-		Wings = wings,
+		Limbs = limbs,
+		Eyes = eyes,
+		Pupils = pupils,
+		Blinking = false,
+		NextBlink = os.clock() + math.random() * 4,
 		Rainbow = rainbow,
 		Glitch = model:GetAttribute("Glitch") == true,
 	}
@@ -185,8 +214,43 @@ local function update(dt: number)
 				finalCf = facing * CFrame.new(math.random() - 0.5, 0, math.random() - 0.5)
 			end
 			follower.Root.CFrame = finalCf
-			for _, wing in follower.Wings do
-				wing.Weld.C0 = wing.Base * CFrame.Angles(0, 0, math.sin(t * 12 + follower.Phase) * 0.45 * wing.Side)
+			local phase = t + follower.Phase
+			for _, limb in follower.Limbs do
+				local kind = limb.Kind
+				local rotation
+				if kind == "Wing" then
+					rotation = CFrame.Angles(0, 0, math.sin(phase * 12) * 0.45 * limb.Side)
+				elseif kind == "Tail" then
+					rotation = CFrame.Angles(0, math.sin(phase * (if moving then 16 else 8)) * 0.4, 0)
+				elseif kind == "Fluke" then
+					rotation = CFrame.Angles(math.sin(phase * 3) * 0.22, 0, 0)
+				elseif kind == "Fin" then
+					rotation = CFrame.Angles(0, 0, math.sin(phase * 4) * 0.25 * limb.Side)
+				elseif kind == "Tentacle" then
+					rotation = CFrame.Angles(0, 0, math.sin(phase * 3 + limb.Side) * 0.2)
+				elseif kind == "Spin" then
+					rotation = CFrame.Angles(0, (t * 14) % (math.pi * 2), 0)
+				elseif kind == "Orbit" then
+					rotation = CFrame.Angles(0, (t * 1.3) % (math.pi * 2), 0)
+				else
+					rotation = CFrame.identity
+				end
+				limb.Weld.C0 = limb.Pivot * rotation * limb.Pivot:Inverse() * limb.Base
+			end
+			-- Blink: squash the eyes shut for a moment every few seconds
+			local shut = t < follower.NextBlink + 0.12 and t >= follower.NextBlink
+			if shut ~= follower.Blinking then
+				follower.Blinking = shut
+				for _, eye in follower.Eyes do
+					eye.Part.Size = if shut then Vector3.new(eye.Size.X * 1.05, eye.Size.Y * 0.14, eye.Size.Z * 0.8) else eye.Size
+					eye.Part.Color = if shut then Color3.fromRGB(40, 25, 30) else eye.Color
+				end
+				for _, pupil in follower.Pupils do
+					pupil.Transparency = if shut then 1 else 0
+				end
+			end
+			if t >= follower.NextBlink + 0.12 then
+				follower.NextBlink = t + 2 + math.random() * 3.5
 			end
 			if #follower.Rainbow > 0 then
 				local color = Color3.fromHSV((t * 0.25) % 1, 0.55, 1)

@@ -1386,8 +1386,9 @@ return Crates
           <string name="Source"><![CDATA[--[[
 	DonutModel
 	==========
-	Builds a donut "character" out of plain parts (no uploaded meshes needed): a ring of dough balls,
-	a glossy frosting layer with drips, sprinkles, a cute face and brainrot accessories (legs,
+	Builds a donut "character" out of plain parts (no uploaded meshes needed): a smooth dough ring
+	(a torus made of short cylinders laid end to end), a glossy glaze ring in front of it with a wavy,
+	dripping edge, sprinkles lying on the glaze, a cute face and brainrot accessories (legs,
 	sunglasses, shark fin...).
 
 	Rarer donuts get more and more effects (sparkles, lights, floating, light pillars, orbiting orbs,
@@ -1401,8 +1402,9 @@ return Crates
 	The model is a single rigid assembly: the invisible "Root" part is anchored and every other part is
 	welded to it, so moving Root moves the whole donut (cheap to animate on the client).
 	Moving parts (legs, arms, wings, propellers, orbiting orbs, tentacles, capes) are marked with a
-	"Limb" attribute and the point they swing around ("Pivot", in the donut's own space), and each eye
-	has a hidden eyelid ("Lid"), so the client can play idle animations (see client/DonutIdle.luau).
+	"Limb" attribute and the point they swing around ("Pivot", in the donut's own space); the eyes
+	("EyeWhite"), pupils ("Pupil") and mouth ("Mouth") are marked too, so the client can make the
+	donut blink, look around and open its mouth (see client/DonutIdle.luau).
 
 	Used by the server (lane spawns, bases, podiums, carried donuts) and the client (Index previews).
 ]]
@@ -1419,10 +1421,11 @@ type Donut = Donuts.Donut
 local DonutModel = {}
 
 local RING_RADIUS = 1.5
-local BALL = 1.55
-local SEGMENTS = 12
-local FROSTING_OFFSET = -0.28 -- frosting sits on the front face (-Z is the donut's front)
-local FROSTING_BALL = BALL * 0.92
+local BALL = 1.55 -- thickness of the dough ring
+local SEGMENTS = 16 -- tube pieces in the dough ring
+local GLAZE_SEGMENTS = 18 -- the glaze is shinier, so it gets a few more (smoother highlights)
+local FROSTING_OFFSET = -0.3 -- the glaze sits on the front face (-Z is the donut's front)
+local FROSTING_TUBE = 1.36
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
@@ -1578,31 +1581,74 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	local R = RING_RADIUS
 	local TOP = R + BALL / 2 -- top of the ring
-	local shine = if rarity.Shine or special then 0.15 else 0.04
+	local shine = if rarity.Shine or special then 0.15 else 0.06
+	local TAU = math.pi * 2
+	local FROST_R = FROSTING_TUBE / 2
 
-	-- Dough ring + frosting (+ a lighter "inner ring" so the hole reads clearly)
-	for i = 0, SEGMENTS - 1 do
-		local angle = (i / SEGMENTS) * math.pi * 2
-		local x, y = R * math.cos(angle), R * math.sin(angle)
-		local dough = ball(BALL, doughColor, at(x, y, 0), doughMaterial, "Dough")
-		dough.Reflectance = shine * 0.4
-		local frosting = ball(FROSTING_BALL, frostingColor, at(x, y, FROSTING_OFFSET), frostingMaterial, "Frosting")
-		frosting.Reflectance = shine
+	-- A smooth ring (a torus) out of straight tube pieces: one cylinder per segment lying along the
+	-- ring, each just long enough to meet its neighbours on the outside without a notch.
+	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string): { BasePart }
+		local step = TAU / count
+		local length = 2 * R * math.sin(step / 2) + diameter * math.tan(step / 2)
+		local pieces = {}
+		for i = 0, count - 1 do
+			local angle = i * step
+			local p = Instance.new("Part")
+			p.Shape = Enum.PartType.Cylinder
+			p.Size = Vector3.new(length, diameter, diameter) * s
+			p.Name = name
+			local cf = at(R * math.cos(angle), R * math.sin(angle), z) * CFrame.Angles(0, 0, angle + math.pi / 2)
+			table.insert(pieces, add(p, cf, color, material))
+		end
+		return pieces
+	end
+
+	-- A spot on the glaze, facing out of it: `angle` around the ring, `tilt` from the front of the
+	-- tube towards its outer edge (negative = towards the hole), `lift` above the surface.
+	local function onGlaze(angle: number, tilt: number, lift: number): CFrame
+		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+		local normal = radial * math.sin(tilt) + Vector3.new(0, 0, -math.cos(tilt))
+		local point = radial * R + Vector3.new(0, 0, FROSTING_OFFSET) + normal * (FROST_R + lift)
+		return CFrame.lookAt(point * s, (point + normal) * s)
+	end
+
+	-- The glaze surface in front of the point (x, y) on the donut's face.
+	local function face(x: number, y: number, lift: number): CFrame
+		local offset = math.clamp(math.sqrt(x * x + y * y) - R, -FROST_R * 0.95, FROST_R * 0.95)
+		return onGlaze(math.atan2(y, x), math.asin(offset / FROST_R), lift)
+	end
+
+	-- Dough ring, with a thinner glaze ring in front of it (the dough shows around its edges)
+	for _, piece in ring(SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough") do
+		piece.Reflectance = shine * 0.3
+	end
+	local glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting")
+
+	-- Wavy glaze edge: tongues of glaze lying over the dough rim all the way round; on the lower
+	-- sides some run right over the edge like drips.
+	local edgeCount = 8
+	for n = 0, edgeCount - 1 do
+		local angle = (n + rng:NextNumber(-0.25, 0.25)) / edgeCount * TAU + 0.2
+		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+		local drip = radial.Y < -0.2 and math.abs(radial.X) > 0.4 and rng:NextNumber() < 0.75
+		-- how far round the dough tube (from its front towards the outside) the tongue sits
+		local around = math.rad(if drip then 74 else 60)
+		local normal = radial * math.sin(around) + Vector3.new(0, 0, -math.cos(around))
+		local downTube = radial * math.cos(around) + Vector3.new(0, 0, math.sin(around))
+		local tangent = Vector3.new(-radial.Y, radial.X, 0)
+		local center = (radial * R + normal * (BALL / 2)) * s
+		local length = if drip then rng:NextNumber(0.85, 1.1) else rng:NextNumber(0.45, 0.6)
+		local cf = CFrame.fromMatrix(center, tangent, normal, downTube)
+		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), frostingColor, cf, frostingMaterial, "Frosting"))
+	end
+	for _, piece in glaze do
+		piece.Reflectance = shine
 		if mutation.Id == "Diamond" then
-			frosting.Transparency = 0.15
+			piece.Transparency = 0.15
 		end
 	end
-	ball(BALL * 0.55, doughColor:Lerp(BLACK, 0.25), at(0, 0, 0.35), nil, "Hole").Transparency = 0.2
 
-	-- Frosting drips running down the outside of the ring
-	for n = 1, 5 do
-		local angle = math.rad(200 + n * 28 + rng:NextNumber(-8, 8))
-		local dripLength = rng:NextNumber(0.35, 0.7)
-		local cf = at((R + FROSTING_BALL * 0.42) * math.cos(angle), (R + FROSTING_BALL * 0.42) * math.sin(angle) - dripLength * 0.4, FROSTING_OFFSET - 0.1)
-		ellipsoid(Vector3.new(0.34, dripLength + 0.3, 0.34), frostingColor, cf, frostingMaterial, "Frosting").Reflectance = shine
-	end
-
-	-- Sprinkles on the frosting (skipping the balls under the face)
+	-- Sprinkles lying on the glaze (none on the face)
 	local sprinkleColors = donut.Sprinkles
 	if mutation.Id == "Gold" then
 		sprinkleColors = { rgb(255, 250, 200), rgb(255, 180, 40) }
@@ -1611,44 +1657,45 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 	if sprinkleColors then
 		local colors = sprinkleColors
-		local frostRadius = FROSTING_BALL / 2
-		for n = 1, 20 do
-			local segment
+		for n = 1, 16 do
+			local angle
 			repeat
-				segment = rng:NextInteger(0, SEGMENTS - 1)
-			until segment ~= 2 and segment ~= 3 and segment ~= 4
-			local angle = (segment / SEGMENTS) * math.pi * 2
-			local dx, dy
-			repeat
-				dx, dy = rng:NextNumber(-0.45, 0.45), rng:NextNumber(-0.45, 0.45)
-			until dx * dx + dy * dy < 0.2
-			local z = FROSTING_OFFSET - math.sqrt(frostRadius * frostRadius - dx * dx - dy * dy) + 0.04
-			local cf = at(R * math.cos(angle) + dx, R * math.sin(angle) + dy, z) * CFrame.Angles(0, 0, rng:NextNumber(0, math.pi * 2))
-			block(Vector3.new(0.11, 0.38, 0.11), colors[(n - 1) % #colors + 1], cf, if special then Enum.Material.Neon else Enum.Material.SmoothPlastic, "Sprinkle")
+				angle = rng:NextNumber(0, TAU)
+			until math.abs(angle - math.pi / 2) > 0.62
+			local cf = onGlaze(angle, rng:NextNumber(-1.0, 1.1), -0.035) * CFrame.Angles(0, 0, rng:NextNumber(0, TAU))
+			local sprinkle = Instance.new("Part")
+			sprinkle.Shape = Enum.PartType.Cylinder
+			sprinkle.Size = Vector3.new(0.4, 0.12, 0.12) * s
+			sprinkle.Name = "Sprinkle"
+			add(sprinkle, cf, colors[(n - 1) % #colors + 1], if special then Enum.Material.Neon else Enum.Material.SmoothPlastic)
 		end
 	end
 
-	-- Face (eyes with shiny highlights, blushing cheeks, a smile)
+	-- Face: big shiny eyes, rosy cheeks and a smile.
+	-- The client squashes the eye whites ("EyeWhite") to blink, shifts the pupils and their
+	-- highlights ("Pupil") to look around, and opens the mouth (widens the middle of the smile,
+	-- "Mouth" = "Middle", and hides its corners) when the donut jumps or dances.
 	local eyesCovered = partsSet.Sunglasses or partsSet.Visor
+	local EYE_Y = TOP - 0.66
 	for _, side in { -1, 1 } do
-		if not (partsSet.EyePatch and side == 1) then
-			ball(0.64, WHITE, at(side * 0.5, TOP - 0.68, -0.95), nil, "Eye")
-			if not eyesCovered then
-				ball(0.34, BLACK, at(side * 0.47, TOP - 0.7, -1.2), nil, "Pupil")
-				ball(0.11, WHITE, at(side * 0.42, TOP - 0.6, -1.36), Enum.Material.Neon, "Glint")
-				-- Eyelid + lashes: invisible until the client makes the donut blink
-				local lid = ellipsoid(Vector3.new(0.72, 0.72, 0.46), frostingColor:Lerp(doughColor, 0.5), at(side * 0.49, TOP - 0.68, -1.2), nil, "Lid")
-				lid.Transparency = 1
-				lid:SetAttribute("Blink", true)
-				local lash = block(Vector3.new(0.5, 0.07, 0.06), BLACK, at(side * 0.49, TOP - 0.72, -1.45), nil, "Lash")
-				lash.Transparency = 1
-				lash:SetAttribute("Blink", true)
-			end
+		if not eyesCovered and not (partsSet.EyePatch and side == 1) then
+			local eye = ellipsoid(Vector3.new(0.62, 0.8, 0.4), WHITE, at(side * 0.5, EYE_Y, -0.93), nil, "Eye")
+			eye:SetAttribute("EyeWhite", true)
+			local px = side * 0.5 - side * 0.04
+			ellipsoid(Vector3.new(0.4, 0.5, 0.2), BLACK, at(px, EYE_Y - 0.05, -1.06), nil, "Pupil"):SetAttribute("Pupil", true)
+			ball(0.17, WHITE, at(px - 0.07, EYE_Y + 0.07, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
+			ball(0.08, WHITE, at(px + 0.08, EYE_Y - 0.15, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
 		end
-		ellipsoid(Vector3.new(0.36, 0.2, 0.1), rgb(255, 130, 160), at(side * 0.86, TOP - 1.08, -0.86), nil, "Cheek").Transparency = 0.25
+		ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), face(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
 	end
 	if not partsSet.Mustache and not partsSet.Beak and not partsSet.Fangs then
-		ellipsoid(Vector3.new(0.5, 0.18, 0.12), rgb(90, 30, 30), at(0, TOP - 1.2, -0.76), nil, "Mouth")
+		local mouthY = TOP - 1.2
+		local dark = rgb(90, 30, 35)
+		ellipsoid(Vector3.new(0.28, 0.11, 0.1), dark, face(0, mouthY - 0.035, 0), nil, "Mouth"):SetAttribute("Mouth", "Middle")
+		for _, side in { -1, 1 } do
+			local corner = ellipsoid(Vector3.new(0.22, 0.1, 0.1), dark, face(side * 0.18, mouthY, 0) * CFrame.Angles(0, 0, side * math.rad(30)), nil, "Mouth")
+			corner:SetAttribute("Mouth", "Corner")
+		end
 	end
 
 	-- Brainrot accessories
@@ -1657,9 +1704,10 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	function accessories.Legs()
 		for _, side in { -1, 1 } do
 			local hipX, hipY = side * 0.55, -TOP + 0.2
-			limb(cylinder(1.3, 0.38, doughColor, at(side * 0.55, -TOP - 0.45, 0)), "Leg", side, hipX, hipY, 0)
-			limb(block(Vector3.new(0.55, 0.32, 0.8), WHITE, at(side * 0.55, -TOP - 1.12, -0.15), nil, "Shoe"), "Leg", side, hipX, hipY, 0)
-			limb(block(Vector3.new(0.57, 0.1, 0.82), rgb(230, 40, 40), at(side * 0.55, -TOP - 1.0, -0.15), nil, "ShoeStripe"), "Leg", side, hipX, hipY, 0)
+			limb(cylinder(1.25, 0.36, doughColor, at(side * 0.55, -TOP - 0.42, 0)), "Leg", side, hipX, hipY, 0)
+			-- Chunky sneakers
+			limb(ellipsoid(Vector3.new(0.62, 0.46, 0.92), rgb(235, 50, 60), at(side * 0.55, -TOP - 1.08, -0.16), nil, "Shoe"), "Leg", side, hipX, hipY, 0)
+			limb(ellipsoid(Vector3.new(0.7, 0.2, 1.0), WHITE, at(side * 0.55, -TOP - 1.24, -0.17), nil, "Sole"), "Leg", side, hipX, hipY, 0)
 		end
 	end
 
@@ -1669,7 +1717,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			-- The shoulder is the arm's inner end, where it meets the ring
 			local shoulderX, shoulderY = side * (R + 0.74), -0.25
 			limb(cylinder(1.1, 0.3, doughColor, cf), "Arm", side, shoulderX, shoulderY, -0.1)
-			limb(ball(0.45, WHITE, at(side * (R + 1.4), 0.7, -0.1), nil, "Glove"), "Arm", side, shoulderX, shoulderY, -0.1)
+			limb(ball(0.52, WHITE, at(side * (R + 1.42), 0.72, -0.1), nil, "Glove"), "Arm", side, shoulderX, shoulderY, -0.1)
 		end
 	end
 
@@ -1683,7 +1731,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Mustache()
 		for _, side in { -1, 1 } do
-			ellipsoid(Vector3.new(0.55, 0.22, 0.16), BLACK, at(side * 0.25, TOP - 1.12, -0.82) * CFrame.Angles(0, 0, side * math.rad(-15)), nil, "Mustache")
+			ellipsoid(Vector3.new(0.58, 0.24, 0.2), BLACK, face(side * 0.26, TOP - 1.14, 0.02) * CFrame.Angles(0, 0, side * math.rad(-15)), nil, "Mustache")
 		end
 	end
 
@@ -1695,13 +1743,13 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Sunglasses()
 		for _, side in { -1, 1 } do
-			block(Vector3.new(0.62, 0.4, 0.12), BLACK, at(side * 0.48, TOP - 0.68, -1.28), Enum.Material.Glass, "Lens").Reflectance = 0.3
+			block(Vector3.new(0.7, 0.46, 0.12), BLACK, at(side * 0.5, TOP - 0.66, -1.12), Enum.Material.Glass, "Lens").Reflectance = 0.3
 		end
-		block(Vector3.new(0.36, 0.08, 0.1), BLACK, at(0, TOP - 0.62, -1.28))
+		block(Vector3.new(0.36, 0.08, 0.1), BLACK, at(0, TOP - 0.58, -1.12))
 	end
 
 	function accessories.Visor()
-		block(Vector3.new(1.9, 0.4, 0.14), rgb(0, 255, 255), at(0, TOP - 0.68, -1.28), Enum.Material.Neon, "Visor")
+		block(Vector3.new(1.9, 0.44, 0.14), rgb(0, 255, 255), at(0, TOP - 0.66, -1.12), Enum.Material.Neon, "Visor")
 	end
 
 	function accessories.Camel()
@@ -1841,36 +1889,61 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Snorkel()
 		for _, side in { -1, 1 } do
-			cylinder(0.14, 0.6, rgb(120, 220, 255), at(side * 0.48, TOP - 0.68, -1.25) * CFrame.Angles(math.pi / 2, 0, 0), Enum.Material.Glass, "Goggle")
+			cylinder(0.14, 0.92, rgb(120, 220, 255), at(side * 0.5, TOP - 0.66, -1.2) * CFrame.Angles(math.pi / 2, 0, 0), Enum.Material.Glass, "Goggle")
 		end
-		block(Vector3.new(1.9, 0.12, 0.1), rgb(40, 40, 50), at(0, TOP - 0.68, -1.2))
+		block(Vector3.new(2.1, 0.12, 0.1), rgb(40, 40, 50), at(0, TOP - 0.66, -1.12))
 		cylinder(1.6, 0.22, rgb(255, 200, 40), at(R + 0.6, TOP - 0.1, -0.3), Enum.Material.SmoothPlastic, "Snorkel")
 	end
 
 	function accessories.Tentacles()
+		-- Six tentacles hanging from the bottom of the ring, curling outwards at the ends
+		local color = doughColor:Lerp(WHITE, 0.15)
 		for n = 0, 5 do
-			local x = -1.25 + n * 0.5
-			for k = 0, 2 do
-				local piece = ball(0.42 - k * 0.08, doughColor:Lerp(WHITE, 0.15), at(x + math.sin(n + k) * 0.12, -TOP - 0.1 - k * 0.38, 0), nil, "Tentacle")
-				limb(piece, "Tentacle", if n % 2 == 0 then 1 else -1, x, -TOP + 0.1, 0)
+			local angle = math.rad(228 + n * 16.8)
+			local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+			local root = radial * (R + 0.35)
+			local side = if radial.X < 0 then -1 else 1
+			local down = (radial * 0.35 + Vector3.new(0, -1, 0)).Unit
+			local curl = CFrame.fromAxisAngle(Vector3.zAxis, side * math.rad(40)):VectorToWorldSpace(down)
+			local knee = root + down * 0.75
+			local tip = knee + curl * 0.55
+			local function segment(from: Vector3, to: Vector3, diameter: number): BasePart
+				local mid = (from + to) / 2
+				local p = Instance.new("Part")
+				p.Shape = Enum.PartType.Cylinder
+				p.Size = Vector3.new((to - from).Magnitude + diameter * 0.5, diameter, diameter) * s
+				p.Name = "Tentacle"
+				local along = (to - from).Unit
+				return add(p, CFrame.fromMatrix(mid * s, along, Vector3.zAxis:Cross(along).Unit), color)
+			end
+			for _, piece in { segment(root, knee, 0.36), segment(knee, tip, 0.26), ball(0.3, frostingColor, at(tip.X, tip.Y, tip.Z), nil, "Tentacle") } do
+				limb(piece, "Tentacle", side, root.X, root.Y, root.Z)
 			end
 		end
 	end
 
 	function accessories.Fangs()
 		for _, side in { -1, 1 } do
-			wedge(Vector3.new(0.14, 0.32, 0.14), WHITE, at(side * 0.2, TOP - 1.3, -0.84) * CFrame.Angles(math.pi, 0, 0))
+			wedge(Vector3.new(0.12, 0.26, 0.12), WHITE, face(side * 0.17, TOP - 1.3, 0.04) * CFrame.Angles(math.pi, 0, 0))
 		end
-		ellipsoid(Vector3.new(0.6, 0.2, 0.12), rgb(90, 20, 30), at(0, TOP - 1.16, -0.78), nil, "Mouth")
+		ellipsoid(Vector3.new(0.6, 0.2, 0.12), rgb(90, 20, 30), face(0, TOP - 1.18, 0), nil, "Mouth")
 	end
 
 	function accessories.PirateHat()
-		ellipsoid(Vector3.new(2.3, 0.7, 1.1), BLACK, at(0, TOP + 0.35, 0), nil, "PirateHat")
-		ball(0.4, WHITE, at(0, TOP + 0.4, -0.5), nil, "Skull")
+		-- A tricorne: wide brim with the sides turned up, a round crown, and a skull badge
+		ellipsoid(Vector3.new(2.4, 0.3, 1.5), BLACK, at(0, TOP - 0.02, 0), nil, "PirateHat")
+		for _, side in { -1, 1 } do
+			ellipsoid(Vector3.new(0.9, 0.3, 1.3), BLACK, at(side * 0.95, TOP + 0.18, 0) * CFrame.Angles(0, 0, side * math.rad(35)), nil, "PirateHat")
+		end
+		ellipsoid(Vector3.new(1.45, 1.0, 1.2), BLACK, at(0, TOP + 0.3, 0.05), nil, "PirateHat")
+		ball(0.36, WHITE, at(0, TOP + 0.32, -0.56), nil, "Skull")
+		for _, side in { -1, 1 } do
+			block(Vector3.new(0.48, 0.08, 0.08), WHITE, at(0, TOP + 0.22, -0.58) * CFrame.Angles(0, 0, side * math.rad(35)), nil, "Skull")
+		end
 	end
 
 	function accessories.EyePatch()
-		block(Vector3.new(0.6, 0.5, 0.1), BLACK, at(0.5, TOP - 0.68, -1.18), nil, "EyePatch")
+		ellipsoid(Vector3.new(0.66, 0.62, 0.16), BLACK, at(0.5, TOP - 0.66, -1.0), nil, "EyePatch")
 		block(Vector3.new(2.6, 0.08, 0.08), BLACK, at(0, TOP - 0.45, -1.02) * CFrame.Angles(0, 0, math.rad(-12)))
 	end
 
@@ -1940,7 +2013,6 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	model:SetAttribute("Bottom", -bottom)
 
 	-- Mystical theme parts ----------------------------------------------------
-	local TAU = math.pi * 2
 	local RAINBOW_SEQUENCE = ColorSequence.new({
 		ColorSequenceKeypoint.new(0, rgb(255, 60, 60)),
 		ColorSequenceKeypoint.new(0.2, rgb(255, 200, 40)),
@@ -2144,12 +2216,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 		if opts.Pillar and rarity.Order >= 5 then
 			-- Glowing ring on the ground under legendary+ lane donuts
-			local ring = Instance.new("Part")
-			ring.Name = "GroundGlow"
-			ring.Shape = Enum.PartType.Cylinder
-			ring.Size = Vector3.new(0.15, 6 * s, 6 * s)
-			add(ring, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
-			ring.Transparency = 0.5
+			local glow = Instance.new("Part")
+			glow.Name = "GroundGlow"
+			glow.Shape = Enum.PartType.Cylinder
+			glow.Size = Vector3.new(0.15, 6 * s, 6 * s)
+			add(glow, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
+			glow.Transparency = 0.5
 		end
 		if rarity.Float or mutation.Order >= 2 then
 			CollectionService:AddTag(model, "DonutFloat")
@@ -4138,7 +4210,11 @@ return Layout
 	  6  (Void) + a black-hole vortex of rainbow particles pouring into it, and rainbow cracks
 	The client (client/PetFX.luau) wobbles the eggs, spins the rune rings and cycles rainbow colours.
 
-	Pets are little creatures built from a body plan (Shape) plus Features (see Pets.luau).
+	Eggs are decorated by kind: sprinkles, an icing cap, a royal gold band and crown, or spots.
+
+	Pets are little chibi creatures built from a body plan (Shape) plus Features (see Pets.luau), with
+	big shiny eyes that blink and wings / tails / fins / tentacles that the client swings around
+	their joints (see BuildPet and client/Followers.luau).
 	Both are one rigid assembly welded to an anchored, invisible "Root" part, so moving Root moves
 	everything (cheap to animate on the client). The front is -Z.
 ]]
@@ -4167,6 +4243,8 @@ type Builder = {
 	S: number,
 	Part: (size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?) -> Part,
 	Blob: (size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?) -> Part,
+	Ball: (diameter: number, position: Vector3, color: Color3, material: Enum.Material?) -> Part,
+	Rod: (from: Vector3, to: Vector3, diameter: number, color: Color3, material: Enum.Material?) -> Part,
 }
 
 local function newBuilder(name: string, scale: number): Builder
@@ -4217,7 +4295,18 @@ local function newBuilder(name: string, scale: number): Builder
 		mesh.Parent = p
 		return p
 	end
-	return { Model = model, Root = root, S = scale, Part = part, Blob = blob }
+	local function ball(diameter: number, position: Vector3, color: Color3, material: Enum.Material?): Part
+		return part(Vector3.one * diameter, CFrame.new(position), color, material, Enum.PartType.Ball)
+	end
+	-- A cylinder from one point to another (a leg, a tail segment, a horn...)
+	local function rod(from: Vector3, to: Vector3, diameter: number, color: Color3, material: Enum.Material?): Part
+		local along = to - from
+		local dir = along.Unit
+		local side = dir:Cross(if math.abs(dir.Y) > 0.95 then Vector3.xAxis else Vector3.yAxis).Unit
+		local cf = CFrame.fromMatrix((from + to) / 2, dir, side:Cross(dir))
+		return part(Vector3.new(along.Magnitude + diameter * 0.3, diameter, diameter), cf, color, material, Enum.PartType.Cylinder)
+	end
+	return { Model = model, Root = root, S = scale, Part = part, Blob = blob, Ball = ball, Rod = rod }
 end
 
 local function emitter(parent: Instance, color: ColorSequence, rate: number, size: number, speed: number, lifetime: number): ParticleEmitter
@@ -4287,6 +4376,44 @@ local function runeRing(b: Builder, name: string, radius: number, height: number
 	end
 end
 
+local PINK = rgb(255, 135, 170)
+local CREAM = rgb(250, 240, 220)
+local ORANGE = rgb(255, 165, 40)
+local GOLD = rgb(255, 205, 50)
+
+-- The point on an ellipsoid (centre, half-sizes) in direction `dir` from its centre.
+local function onSurface(center: Vector3, semi: Vector3, dir: Vector3): Vector3
+	local d = dir.Unit
+	local t = 1 / math.sqrt((d.X / semi.X) ^ 2 + (d.Y / semi.Y) ^ 2 + (d.Z / semi.Z) ^ 2)
+	return center + d * t
+end
+
+-- The outward direction of that ellipsoid's surface at `point`.
+local function normalAt(center: Vector3, semi: Vector3, point: Vector3): Vector3
+	local p = point - center
+	return Vector3.new(p.X / semi.X ^ 2, p.Y / semi.Y ^ 2, p.Z / semi.Z ^ 2).Unit
+end
+
+-- A frame at `position` whose front (-Z) points along `facing`, kept as upright as it can be.
+local function facingFrame(position: Vector3, facing: Vector3): CFrame
+	local back = -facing.Unit
+	local right = Vector3.yAxis:Cross(back)
+	right = if right.Magnitude < 1e-3 then Vector3.xAxis else right.Unit
+	return CFrame.fromMatrix(position, right, back:Cross(right))
+end
+
+-- A ring (tube) lying flat, out of straight cylinder pieces: donut floaties, scarves, halos, bands.
+local function flatRing(b: Builder, center: Vector3, radius: number, thickness: number, count: number, color: Color3, material: Enum.Material?)
+	local step = TAU / count
+	local length = 2 * radius * math.sin(step / 2) + thickness * math.tan(step / 2)
+	for i = 0, count - 1 do
+		local angle = i * step
+		local position = center + Vector3.new(math.cos(angle) * radius, 0, math.sin(angle) * radius)
+		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		b.Part(Vector3.new(length, thickness, thickness), CFrame.fromMatrix(position, tangent, Vector3.yAxis), color, material, Enum.PartType.Cylinder)
+	end
+end
+
 --------------------------------------------------------------------------------
 -- Eggs
 --------------------------------------------------------------------------------
@@ -4298,18 +4425,61 @@ function PetModel.BuildEgg(egg: Pets.Egg, options: Options?): Model
 	if tier == 5 then
 		material = Enum.Material.SmoothPlastic
 	end
-	local shell = b.Blob(Vector3.new(2.2, 2.9, 2.2), CFrame.new(0, 0, 0), egg.Color, material)
+	local shellSemi = Vector3.new(1.1, 1.45, 1.1)
+	local shell = b.Blob(shellSemi * 2, CFrame.identity, egg.Color, material)
 	shell.Name = "Shell"
 	if tier == 2 or tier == 5 then
 		shell.Reflectance = 0.25
 	end
-	-- Spots on the surface of the ellipsoid
+	-- A point on the shell in direction `dir` from the middle, and the way the shell faces there
+	local function onShell(dir: Vector3): (Vector3, Vector3)
+		local point = onSurface(Vector3.zero, shellSemi, dir)
+		return point, normalAt(Vector3.zero, shellSemi, point)
+	end
 	local rng = Random.new(#egg.Id * 97)
-	for i = 1, 7 do
-		local yaw = i / 7 * TAU + rng:NextNumber(-0.3, 0.3)
-		local y = rng:NextNumber(-0.9, 1.0)
-		local ring = math.sqrt(math.max(0, 1 - (y / 1.45) ^ 2)) * 1.08
-		local spot = b.Blob(Vector3.new(0.55, 0.55, 0.12), CFrame.lookAt(Vector3.new(math.cos(yaw) * ring, y, math.sin(yaw) * ring), Vector3.zero), egg.Accent, if tier >= 4 then Enum.Material.Neon else Enum.Material.SmoothPlastic)
+	local spotMaterial = if tier >= 4 then Enum.Material.Neon else Enum.Material.SmoothPlastic
+	local spots = 7
+	if egg.Id == "Sprinkle" then
+		-- covered in sprinkles instead of spots
+		spots = 0
+		local colors = { rgb(255, 80, 80), rgb(80, 200, 255), rgb(255, 235, 70), rgb(120, 230, 90), WHITE }
+		for i = 1, 26 do
+			local point, normal = onShell(Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-0.9, 1.1), rng:NextNumber(-1, 1)))
+			local along = normal:Cross(Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(-1, 1), rng:NextNumber(-1, 1)).Unit).Unit * 0.17
+			point += normal * 0.02
+			b.Rod(point - along, point + along, 0.12, colors[i % #colors + 1])
+		end
+	elseif egg.Id == "Frosted" then
+		-- an icing cap dripping down the sides
+		spots = 4
+		-- (a slightly narrower ellipsoid poking out of the top half: a thin, even layer of icing)
+		b.Blob(Vector3.new(1.92, 1.3, 1.92), CFrame.new(0, 0.83, 0), WHITE).Reflectance = 0.2
+		for i = 0, 6 do
+			local angle = i / 7 * TAU + rng:NextNumber(-0.2, 0.2)
+			local point, normal = onShell(Vector3.new(math.cos(angle), 0.3 + rng:NextNumber(-0.1, 0.04), math.sin(angle)))
+			b.Blob(Vector3.new(0.34, 0.75, 0.16), facingFrame(point, normal), WHITE)
+		end
+	elseif egg.Id == "Royal" then
+		-- a golden band with gems, and a little crown on top
+		flatRing(b, Vector3.new(0, -0.05, 0), 1.1, 0.26, 16, GOLD, Enum.Material.Foil)
+		for i = 0, 3 do
+			local angle = i / 4 * TAU + math.pi / 4
+			local point, normal = onShell(Vector3.new(math.cos(angle), 0, math.sin(angle)))
+			b.Ball(0.3, point + normal * 0.1, egg.Accent, Enum.Material.Neon)
+		end
+		local top = onShell(Vector3.yAxis)
+		b.Rod(top - Vector3.new(0, 0.15, 0), top + Vector3.new(0, 0.15, 0), 0.8, GOLD, Enum.Material.Foil)
+		for i = 0, 4 do
+			local angle = i / 5 * TAU
+			b.Ball(0.16, top + Vector3.new(math.cos(angle) * 0.34, 0.25, math.sin(angle) * 0.34), GOLD, Enum.Material.Foil)
+		end
+	end
+	-- Spots on the shell
+	for i = 1, spots do
+		local yaw = i / spots * TAU + rng:NextNumber(-0.3, 0.3)
+		local y = if egg.Id == "Frosted" then rng:NextNumber(-0.9, -0.2) else rng:NextNumber(-0.7, 0.8)
+		local point, normal = onShell(Vector3.new(math.cos(yaw), y, math.sin(yaw)))
+		local spot = b.Blob(Vector3.new(0.55, 0.55, 0.12), facingFrame(point - normal * 0.02, normal), egg.Accent, spotMaterial)
 		spot.Name = "Spot"
 	end
 	-- Glowing zig-zag crack around the middle
@@ -4317,10 +4487,16 @@ function PetModel.BuildEgg(egg: Pets.Egg, options: Options?): Model
 		for i = 0, 11 do
 			local angle = i / 12 * TAU
 			local y = if i % 2 == 0 then 0.12 else -0.12
-			local crack = b.Part(Vector3.new(0.62, 0.1, 0.08), CFrame.new(math.cos(angle) * 1.1, y, math.sin(angle) * 1.1) * CFrame.Angles(0, -angle + math.pi / 2, if i % 2 == 0 then 0.35 else -0.35), egg.Accent, Enum.Material.Neon)
+			local point = onShell(Vector3.new(math.cos(angle), y, math.sin(angle)))
+			local crack = b.Part(Vector3.new(0.62, 0.1, 0.08), CFrame.new(point) * CFrame.Angles(0, -angle + math.pi / 2, if i % 2 == 0 then 0.35 else -0.35), egg.Accent, Enum.Material.Neon)
 			crack.Name = "Crack"
 		end
 	end
+	-- A glossy highlight
+	local shine, shineNormal = onShell(Vector3.new(-0.45, 0.55, -0.75))
+	local gloss = b.Blob(Vector3.new(0.36, 0.7, 0.08), facingFrame(shine, shineNormal) * CFrame.Angles(0, 0, -0.4), WHITE, Enum.Material.Neon)
+	gloss.Name = "Gloss"
+	gloss.Transparency = 0.55
 
 	if not opts.NoEffects then
 		local root = b.Root
@@ -4416,6 +4592,13 @@ end
 --------------------------------------------------------------------------------
 -- Pets
 --------------------------------------------------------------------------------
+--[[
+	Pets are chibi critters: a big round head with shiny eyes that blink ("EyeWhite" / "Pupil", like
+	the donuts), a body plan (Shape) and Features. Wings, tails, fins and tentacles hang from real
+	joints ("Limb" = Wing / Tail / Fluke / Fin / Tentacle, swinging around "Pivot"), so the client can
+	flap and wag them (client/Followers.luau). Body-coloured parts are all named "Body" so rainbow pets
+	change colour all over.
+]]
 function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 	local opts: Options = options or {}
 	local b = newBuilder(pet.Id, (opts.Scale or 1) * (pet.Scale or 1))
@@ -4424,207 +4607,390 @@ function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 		return Pets.HasFeature(pet, feature)
 	end
 	local glowMaterial = if has("Glow") then Enum.Material.Neon else Enum.Material.SmoothPlastic
+	local pale = body:Lerp(WHITE, 0.5) -- snouts, paws
 	local shape = pet.Shape
 
-	-- Body plan: where the head sits, how big it is, and where the back / tail go.
-	local head: CFrame
-	local headSize = 1.5
-	local back = CFrame.new(0, 0.8, 0.9)
+	local function limb(part: BasePart, kind: string, side: number, pivot: Vector3)
+		part:SetAttribute("Limb", kind)
+		part:SetAttribute("Side", side)
+		part:SetAttribute("Pivot", pivot * b.S)
+	end
+	local function skin(part: Part): Part
+		part.Name = "Body"
+		return part
+	end
+
+	-- Every body plan fills these in
 	local bodyPart: Part
-	if shape == "Bird" then
-		bodyPart = b.Blob(Vector3.new(1.8, 2, 1.8), CFrame.new(0, 0, 0), body)
-		head = CFrame.new(0, 1.35, -0.15)
-		headSize = 1.35
-		back = CFrame.new(0, 0.2, 0.8)
-		for _, side in { -1, 1 } do
-			b.Blob(Vector3.new(0.5, 0.2, 0.7), CFrame.new(side * 0.4, -1.05, -0.3), rgb(255, 170, 40))
-		end
-	elseif shape == "Blob" then
-		bodyPart = b.Blob(Vector3.new(2.3, 2, 2.3), CFrame.new(0, 0, 0), body, if has("Ghost") then Enum.Material.SmoothPlastic else nil)
-		head = CFrame.new(0, 0.3, -0.35)
-		headSize = 0 -- the body is the head
-		back = CFrame.new(0, 0.6, 0.8)
-	elseif shape == "Whale" then
-		bodyPart = b.Blob(Vector3.new(2.3, 1.7, 3.6), CFrame.new(0, 0, 0), body)
-		b.Blob(Vector3.new(1.9, 1, 3.2), CFrame.new(0, -0.35, -0.05), accent)
-		head = CFrame.new(0, 0.2, -1.35)
-		headSize = 0
-		back = CFrame.new(0, 0.3, 1.6)
-		b.Blob(Vector3.new(2.2, 0.25, 0.9), CFrame.new(0, 0.2, 2.1) * CFrame.Angles(0.3, 0, 0), body)
-		for _, side in { -1, 1 } do
-			b.Blob(Vector3.new(1.1, 0.2, 0.6), CFrame.new(side * 1.2, -0.3, -0.2) * CFrame.Angles(0, 0, side * 0.5), body)
-		end
-	elseif shape == "Crab" then
-		bodyPart = b.Blob(Vector3.new(2.6, 1.2, 2), CFrame.new(0, 0, 0), body)
-		head = CFrame.new(0, 0.9, -0.6)
-		headSize = 0
-		back = CFrame.new(0, 0.4, 0.9)
-		for _, side in { -1, 1 } do
-			for i = 0, 2 do
-				b.Part(Vector3.new(0.9, 0.18, 0.18), CFrame.new(side * 1.45, -0.4, -0.5 + i * 0.5) * CFrame.Angles(0, 0, side * -0.6), body, nil, Enum.PartType.Cylinder)
-			end
-			-- eye stalks
-			b.Part(Vector3.new(0.6, 0.15, 0.15), CFrame.new(side * 0.35, 0.85, -0.6) * UPRIGHT, body, nil, Enum.PartType.Cylinder)
-		end
-	else -- Quad / Dragon: a body with four legs and a head at the front
+	local bodyCenter, bodySemi = Vector3.zero, Vector3.one
+	local headCenter, headSemi = Vector3.zero, Vector3.one -- the face goes on this (the head, or the body)
+	local eyeSpread, eyeLift, eyeSize = 0.42, 0.12, 1
+	local snout = false
+	local wingRoot = Vector3.new(0.6, 0.45, 0.3)
+	local tailRoot: Vector3? = nil
+	local spade = false -- devil / dragon tail instead of a curly one
+	local stalkEyes: { Vector3 }? = nil
+
+	if shape == "Quad" or shape == "Dragon" then
 		local dragon = shape == "Dragon"
-		bodyPart = b.Blob(Vector3.new(1.9, 1.6, if dragon then 3 else 2.5), CFrame.new(0, 0, 0.1), body)
-		head = if dragon then CFrame.new(0, 1.3, -1.6) else CFrame.new(0, 0.85, -1.15)
-		headSize = if dragon then 1.35 else 1.55
-		for _, x in { -0.6, 0.6 } do
-			for _, z in { -0.8, 0.9 } do
-				b.Part(Vector3.new(0.7, 0.45, 0.45), CFrame.new(x, -0.95, z) * UPRIGHT, body, nil, Enum.PartType.Cylinder)
-				b.Part(Vector3.one * 0.5, CFrame.new(x, -1.2, z - 0.05), accent, nil, Enum.PartType.Ball)
+		bodyCenter = if dragon then Vector3.new(0, -0.05, 0.45) else Vector3.new(0, -0.1, 0.35)
+		bodySemi = if dragon then Vector3.new(0.88, 0.74, 1.3) else Vector3.new(0.8, 0.66, 1.02)
+		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
+		-- Stubby legs with round paws
+		local legZ: { number } = if dragon then { -0.3, 1.2 } else { -0.2, 0.9 }
+		for _, x in { -0.47, 0.47 } do
+			for _, z in legZ do
+				skin(b.Rod(Vector3.new(x, bodyCenter.Y - 0.25, z), Vector3.new(x, -0.98, z), 0.44, body))
+				b.Blob(Vector3.new(0.52, 0.28, 0.62), CFrame.new(x, -1.04, z - 0.08), pale)
 			end
 		end
 		if dragon then
-			b.Part(Vector3.new(1, 0.6, 0.6), CFrame.new(0, 0.75, -1.1) * CFrame.Angles(0, math.pi / 2, math.rad(40)), body, nil, Enum.PartType.Cylinder)
+			headCenter, headSemi = Vector3.new(0, 1.15, -1.2), Vector3.one * 0.74
+			skin(b.Rod(Vector3.new(0, 0.25, -0.35), Vector3.new(0, 0.95, -1.05), 0.78, body)) -- neck
+			tailRoot = Vector3.new(0, 0.05, bodyCenter.Z + bodySemi.Z * 0.85)
+			spade = true
+			wingRoot = Vector3.new(0.55, 0.5, 0.25)
+		else
+			headCenter, headSemi = Vector3.new(0, 0.72, -0.72), Vector3.one * 0.86
+			tailRoot = Vector3.new(0, 0.05, bodyCenter.Z + bodySemi.Z * 0.9)
 		end
-		if has("Shell") then
-			b.Blob(Vector3.new(2.3, 1.2, 2.6), CFrame.new(0, 0.55, 0.1), accent, Enum.Material.Slate)
-			for i = 0, 5 do
-				local angle = i / 6 * TAU
-				b.Blob(Vector3.new(0.6, 0.15, 0.6), CFrame.new(math.cos(angle) * 0.6, 1.05, 0.1 + math.sin(angle) * 0.6), accent:Lerp(BLACK, 0.3))
+		skin(b.Ball(headSemi.X * 2, headCenter, body))
+		snout = true
+		eyeSize = headSemi.X / 0.8
+	elseif shape == "Bird" then
+		bodyCenter, bodySemi = Vector3.new(0, -0.05, 0.05), Vector3.new(0.92, 0.98, 0.9)
+		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
+		headCenter, headSemi = Vector3.new(0, 1.12, -0.2), Vector3.one * 0.72
+		skin(b.Ball(1.44, headCenter, body))
+		for _, side in { -1, 1 } do
+			b.Rod(Vector3.new(side * 0.36, -0.8, -0.05), Vector3.new(side * 0.36, -1.0, -0.15), 0.13, ORANGE)
+			b.Blob(Vector3.new(0.42, 0.16, 0.62), CFrame.new(side * 0.36, -1.02, -0.3), ORANGE)
+			if not has("Wings") then
+				-- little wings folded at its sides
+				local root = Vector3.new(side * 0.82, 0.25, 0.05)
+				local wing = b.Blob(Vector3.new(0.22, 0.8, 0.95), CFrame.new(root + Vector3.new(side * 0.1, -0.3, 0.08)) * CFrame.Angles(0.25, 0, side * 0.18), accent, glowMaterial)
+				wing.Name = "Wing"
+				limb(wing, "Wing", side, root)
 			end
 		end
+		-- a fan of tail feathers
+		for i = -1, 1 do
+			local feather = b.Blob(Vector3.new(0.3, 0.14, 0.85), CFrame.new(i * 0.22, -0.25, 0.95) * CFrame.Angles(0, i * 0.35, 0) * CFrame.Angles(-0.5, 0, 0), accent, glowMaterial)
+			limb(feather, "Tail", 0, Vector3.new(0, -0.3, 0.7))
+		end
+		wingRoot = Vector3.new(0.8, 0.3, 0.05)
+		eyeSize = 0.95
+	elseif shape == "Blob" then
+		bodyCenter, bodySemi = Vector3.zero, Vector3.new(1.1, 0.98, 1.05)
+		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
+		headCenter, headSemi = bodyCenter, bodySemi
+		eyeSpread, eyeLift, eyeSize = 0.36, 0.22, 1.2
+		wingRoot = Vector3.new(0.9, 0.35, 0.35)
+		tailRoot = Vector3.new(0, -0.35, 0.9)
+		spade = true
+		if has("Ghost") then
+			-- a wavy hem instead of a round bottom
+			for i = 0, 6 do
+				local angle = i / 7 * TAU
+				skin(b.Ball(0.62, Vector3.new(math.cos(angle) * 0.74, -0.78, math.sin(angle) * 0.7), body))
+			end
+		end
+	elseif shape == "Whale" then
+		bodyCenter, bodySemi = Vector3.zero, Vector3.new(1.1, 0.9, 1.7)
+		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
+		b.Blob(Vector3.new(1.85, 1.0, 3.0), CFrame.new(0, -0.38, -0.1), accent) -- belly
+		headCenter, headSemi = bodyCenter, bodySemi
+		eyeSpread, eyeLift, eyeSize = 0.55, 0.08, 1.1
+		-- tail and flukes (flap up and down)
+		local tailBase = Vector3.new(0, 0.15, 1.35)
+		local stock = skin(b.Blob(Vector3.new(0.95, 0.75, 1.5), CFrame.new(0, 0.3, 1.9) * CFrame.Angles(-0.35, 0, 0), body))
+		limb(stock, "Fluke", 0, tailBase)
+		for _, side in { -1, 1 } do
+			local fluke = skin(b.Blob(Vector3.new(1.1, 0.16, 0.62), CFrame.new(side * 0.5, 0.58, 2.5) * CFrame.Angles(0, side * 0.45, 0), body))
+			limb(fluke, "Fluke", 0, tailBase)
+			local fin = skin(b.Blob(Vector3.new(1.0, 0.18, 0.55), CFrame.new(side * 1.2, -0.3, -0.25) * CFrame.Angles(0, 0, side * 0.5), body))
+			limb(fin, "Fin", side, Vector3.new(side * 0.85, -0.2, -0.25))
+		end
+		wingRoot = Vector3.new(0.9, 0.5, 0.2)
+	else -- Crab
+		bodyCenter, bodySemi = Vector3.zero, Vector3.new(1.2, 0.62, 0.95)
+		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
+		headCenter, headSemi = bodyCenter, bodySemi
+		local stalks: { Vector3 } = {}
+		stalkEyes = stalks
+		for _, side in { -1, 1 } do
+			-- walking legs
+			for i = 0, 2 do
+				local z = -0.2 + i * 0.4
+				local hip = Vector3.new(side * 0.95, -0.1, z)
+				local knee = Vector3.new(side * 1.55, 0.2, z + 0.12 * (i - 1))
+				local foot = Vector3.new(side * 1.85, -0.62, z + 0.22 * (i - 1))
+				skin(b.Rod(hip, knee, 0.18, body))
+				skin(b.Rod(knee, foot, 0.14, body))
+			end
+			-- big claws
+			local shoulder = Vector3.new(side * 0.85, 0.05, -0.55)
+			local elbow = Vector3.new(side * 1.35, 0.3, -1.0)
+			skin(b.Rod(shoulder, elbow, 0.26, body))
+			skin(b.Blob(Vector3.new(0.7, 0.5, 0.78), CFrame.new(side * 1.48, 0.38, -1.3), body))
+			b.Blob(Vector3.new(0.26, 0.2, 0.58), CFrame.new(side * 1.34, 0.66, -1.5) * CFrame.Angles(0.45, 0, 0), accent)
+			b.Blob(Vector3.new(0.26, 0.18, 0.5), CFrame.new(side * 1.6, 0.2, -1.62), accent)
+			-- eye stalks
+			local top = Vector3.new(side * 0.4, 1.02, -0.6)
+			skin(b.Rod(Vector3.new(side * 0.32, 0.35, -0.55), top, 0.14, body))
+			table.insert(stalks, top + Vector3.new(0, 0.12, -0.06))
+		end
+		eyeSize = 1.05
 	end
 	bodyPart.Name = "Body"
-	if has("Ghost") then
-		bodyPart.Transparency = 0.25
+
+	-- Face -----------------------------------------------------------------
+	local function eye(position: Vector3, facing: Vector3, size: number)
+		local frame = facingFrame(position, facing)
+		local white = b.Blob(Vector3.new(0.36, 0.46, 0.24) * size, frame, WHITE)
+		white.Name = "Eye"
+		white:SetAttribute("EyeWhite", true)
+		local pupil = b.Blob(Vector3.new(0.26, 0.34, 0.14) * size, frame * CFrame.new(0, -0.02 * size, -0.07 * size), BLACK)
+		pupil.Name = "Pupil"
+		local glint = b.Ball(0.1 * size, (frame * CFrame.new(-0.05 * size, 0.07 * size, -0.15 * size)).Position, WHITE, Enum.Material.Neon)
+		glint.Name = "Glint"
+		local glint2 = b.Ball(0.05 * size, (frame * CFrame.new(0.05 * size, -0.08 * size, -0.14 * size)).Position, WHITE, Enum.Material.Neon)
+		glint2.Name = "Glint"
+		for _, p in { pupil, glint, glint2 } do
+			p:SetAttribute("Pupil", true)
+		end
+	end
+	-- A point on the face and the way it faces (x: sideways, y: up, from the middle of the face)
+	local function facePoint(x: number, y: number): (Vector3, Vector3)
+		local point = onSurface(headCenter, headSemi, Vector3.new(x, y, -1))
+		return point, normalAt(headCenter, headSemi, point)
+	end
+	local function smile(frame: CFrame, size: number)
+		for _, side in { -1, 1 } do
+			b.Blob(Vector3.new(0.17, 0.06, 0.06) * size, frame * CFrame.new(side * 0.065 * size, 0, 0) * CFrame.Angles(0, 0, side * 0.5), rgb(70, 30, 35))
+		end
 	end
 
-	-- Head (or the face on the body) + eyes, cheeks and a smile
-	local face = head
-	if headSize > 0 then
-		local headPart = b.Part(Vector3.one * headSize, head, body, nil, Enum.PartType.Ball)
-		headPart.Name = "Head"
-		face = head * CFrame.new(0, 0, -headSize * 0.42)
+	if stalkEyes then
+		for _, position in stalkEyes do
+			eye(position, Vector3.new(0, 0, -1), 1.05)
+		end
+		local point, normal = facePoint(0, 0.05)
+		smile(facingFrame(point + normal * 0.01, normal), 1.3)
 	else
-		face = head * CFrame.new(0, 0, -0.75)
+		for _, side in { -1, 1 } do
+			local point, normal = facePoint(side * eyeSpread, eyeLift)
+			eye(point - normal * 0.04 * eyeSize, (normal + Vector3.new(0, 0, -1.5)).Unit, eyeSize)
+			local cheekPoint, cheekNormal = facePoint(side * (eyeSpread + 0.14), eyeLift - 0.32)
+			b.Blob(Vector3.new(0.28, 0.16, 0.08) * eyeSize, facingFrame(cheekPoint, cheekNormal), PINK).Transparency = 0.3
+		end
 	end
-	local eyeSpread = if headSize > 0 then headSize * 0.22 else 0.38
-	for _, side in { -1, 1 } do
-		local eye = face * CFrame.new(side * eyeSpread, 0.12, 0)
-		b.Part(Vector3.one * 0.42, eye, WHITE, nil, Enum.PartType.Ball)
-		b.Part(Vector3.one * 0.26, eye * CFrame.new(0, -0.02, -0.14), BLACK, nil, Enum.PartType.Ball)
-		b.Part(Vector3.one * 0.08, eye * CFrame.new(0.05, 0.06, -0.25), WHITE, Enum.Material.Neon, Enum.PartType.Ball)
-		b.Blob(Vector3.new(0.3, 0.15, 0.05), face * CFrame.new(side * eyeSpread * 1.35, -0.2, 0.05), rgb(255, 140, 170))
-	end
-	b.Part(Vector3.new(0.3, 0.06, 0.05), face * CFrame.new(0, -0.22, -0.02), BLACK)
 
-	-- Features
-	local headTop = if headSize > 0 then head * CFrame.new(0, headSize * 0.45, 0) else head * CFrame.new(0, 0.85, 0.3)
+	if snout then
+		local dragon = shape == "Dragon"
+		local point, normal = facePoint(0, -0.34)
+		local size = if dragon then Vector3.new(0.92, 0.6, 0.9) else Vector3.new(0.76, 0.5, 0.5) * (headSemi.X / 0.86)
+		local frame = facingFrame(point + normal * (if dragon then 0.12 else 0.02), Vector3.new(0, -0.1, -1))
+		b.Blob(size, frame, if dragon then body:Lerp(accent, 0.3) else pale)
+		if dragon then
+			for _, side in { -1, 1 } do
+				b.Ball(0.1, (frame * CFrame.new(side * 0.16, size.Y * 0.2, -size.Z * 0.46)).Position, BLACK)
+			end
+		else
+			b.Blob(Vector3.new(0.26, 0.17, 0.14), frame * CFrame.new(0, size.Y * 0.16, -size.Z * 0.45), BLACK) -- nose
+		end
+		smile(frame * CFrame.new(0, -size.Y * 0.2, -size.Z * 0.43), if dragon then 1.3 else 1)
+	elseif has("Beak") then
+		local point, normal = facePoint(0, -0.12)
+		local frame = facingFrame(point + normal * 0.08, Vector3.new(0, -0.15, -1))
+		b.Blob(Vector3.new(0.46, 0.24, 0.52), frame, ORANGE)
+		b.Blob(Vector3.new(0.36, 0.14, 0.38), frame * CFrame.new(0, -0.12, 0.02), rgb(230, 130, 30))
+	elseif not stalkEyes then
+		local point, normal = facePoint(0, eyeLift - 0.36)
+		smile(facingFrame(point + normal * 0.01, normal), eyeSize * 1.2)
+	end
+
+	-- Features ------------------------------------------------------------------
+	local headTop = onSurface(headCenter, headSemi, Vector3.yAxis)
+	local function onHead(x: number, y: number, z: number): Vector3
+		return onSurface(headCenter, headSemi, Vector3.new(x, y, z))
+	end
+
 	for _, side in { -1, 1 } do
 		if has("PointyEars") then
-			b.Part(Vector3.new(0.45, 0.6, 0.18), headTop * CFrame.new(side * 0.4, 0.2, 0.05) * CFrame.Angles(0, 0, side * -0.3), body)
-			b.Part(Vector3.new(0.25, 0.35, 0.2), headTop * CFrame.new(side * 0.4, 0.17, 0.02) * CFrame.Angles(0, 0, side * -0.3), accent)
+			-- a square turned on its corner, half buried in the head, reads as a triangle
+			local frame = CFrame.new(onHead(side * 0.6, 0.8, 0.05)) * CFrame.Angles(0, 0, side * -0.4)
+			skin(b.Part(Vector3.new(0.62, 0.62, 0.18), frame * CFrame.Angles(0, 0, math.rad(45)), body))
+			b.Part(Vector3.new(0.34, 0.34, 0.06), frame * CFrame.new(0, 0.06, -0.08) * CFrame.Angles(0, 0, math.rad(45)), accent)
 		end
 		if has("FloppyEars") then
-			b.Blob(Vector3.new(0.35, 0.9, 0.5), headTop * CFrame.new(side * 0.72, -0.35, 0.1) * CFrame.Angles(0, 0, side * 0.3), accent)
+			local point = onHead(side * 0.8, 0.45, 0.05)
+			b.Blob(Vector3.new(0.32, 0.95, 0.58), CFrame.new(point + Vector3.new(side * 0.1, -0.35, 0)) * CFrame.Angles(0, 0, side * 0.28), accent)
 		end
 		if has("LongEars") then
-			b.Blob(Vector3.new(0.35, 1.4, 0.25), headTop * CFrame.new(side * 0.3, 0.6, 0.1) * CFrame.Angles(0, 0, side * -0.15), body)
-			b.Blob(Vector3.new(0.18, 1.1, 0.26), headTop * CFrame.new(side * 0.3, 0.6, 0.08) * CFrame.Angles(0, 0, side * -0.15), accent)
+			local point = onHead(side * 0.35, 1, 0.05)
+			local frame = CFrame.new(point + Vector3.new(side * 0.08, 0.55, 0)) * CFrame.Angles(0, 0, side * -0.12)
+			skin(b.Blob(Vector3.new(0.36, 1.3, 0.26), frame, body))
+			b.Blob(Vector3.new(0.18, 0.95, 0.08), frame * CFrame.new(0, 0, -0.1), PINK)
 		end
 		if has("RoundEars") then
-			b.Part(Vector3.one * 0.5, headTop * CFrame.new(side * 0.5, 0.05, 0.05), body, nil, Enum.PartType.Ball)
+			local point = onHead(side * 0.62, 0.8, 0.05)
+			skin(b.Ball(0.56, point, body))
+			b.Ball(0.3, point + Vector3.new(0, 0, -0.16), accent)
 		end
 		if has("Horns") then
-			b.Part(Vector3.new(0.2, 0.7, 0.2), headTop * CFrame.new(side * 0.35, 0.3, 0.1) * CFrame.Angles(0, 0, side * -0.35), rgb(250, 240, 220))
+			-- swept back a little
+			local base = onHead(side * 0.45, 0.9, 0.15)
+			local mid = base + Vector3.new(side * 0.14, 0.32, 0.14)
+			local tip = mid + Vector3.new(side * 0.14, 0.2, 0.3)
+			b.Rod(base, mid, 0.24, CREAM)
+			b.Rod(mid, tip, 0.15, CREAM)
+			b.Ball(0.14, tip, CREAM)
 		end
 		if has("Tufts") then
-			b.Part(Vector3.new(0.18, 0.5, 0.18), headTop * CFrame.new(side * 0.4, 0.15, 0) * CFrame.Angles(0, 0, side * -0.5), accent)
+			local point = onHead(side * 0.55, 0.85, 0)
+			b.Blob(Vector3.new(0.2, 0.55, 0.2), CFrame.new(point + Vector3.new(side * 0.1, 0.2, 0)) * CFrame.Angles(0, 0, side * -0.5), accent)
 		end
 		if has("Wings") then
-			local wing = back * CFrame.new(side * 1.05, 0.3, 0) * CFrame.Angles(0, 0, side * -0.5)
-			local w = b.Blob(Vector3.new(0.25, 1.4, 1.6), wing * CFrame.new(side * 0.4, 0.4, 0), accent, glowMaterial)
-			w.Name = "Wing"
-			w:SetAttribute("Flap", side)
+			-- two layers of feathers (or leather), spreading up and out from the shoulders
+			local root = Vector3.new(side * wingRoot.X, wingRoot.Y, wingRoot.Z)
+			local k = if shape == "Dragon" then 1.3 else 1
+			local frame = CFrame.new(root) * CFrame.Angles(0, side * -0.35, side * -0.6)
+			local main = b.Blob(Vector3.new(0.22, 1.35 * k, 1.1 * k), frame * CFrame.new(0, 0.62 * k, 0.15 * k), accent, glowMaterial)
+			local inner = b.Blob(Vector3.new(0.2, 0.95 * k, 0.8 * k), frame * CFrame.new(side * 0.05, 0.42 * k, 0.38 * k), accent:Lerp(WHITE, 0.35), glowMaterial)
+			for _, wing in { main, inner } do
+				wing.Name = "Wing"
+				limb(wing, "Wing", side, root)
+			end
 		end
-		if has("Claws") then
-			b.Blob(Vector3.new(0.9, 0.55, 0.7), CFrame.new(side * 1.5, 0.1, -1.1), accent)
+		if has("Antenna") then
+			local base = onHead(side * 0.3, 1, 0)
+			local tip = base + Vector3.new(side * 0.25, 0.6, 0.05)
+			b.Rod(base, tip, 0.07, rgb(70, 70, 80))
+			b.Ball(0.2, tip, accent, Enum.Material.Neon)
 		end
-		if has("Belly") then
-			b.Blob(Vector3.new(1.2, 1.5, 0.3), CFrame.new(0, -0.1, -0.78), accent)
-		end
+	end
+	if has("Belly") then
+		local point = onSurface(bodyCenter, bodySemi, Vector3.new(0, -0.15, -1))
+		b.Blob(Vector3.new(1.2, 1.4, 0.3), facingFrame(point + Vector3.new(0, 0, 0.12), Vector3.new(0, 0, -1)), accent)
 	end
 	if has("Horn") then
-		b.Part(Vector3.new(0.9, 0.22, 0.22), headTop * CFrame.new(0, 0.3, -0.35) * CFrame.Angles(0, 0, math.rad(80)) * CFrame.Angles(0, math.rad(-20), 0), rgb(255, 230, 120), Enum.Material.Neon, Enum.PartType.Cylinder)
-	end
-	if has("Beak") then
-		b.Blob(Vector3.new(0.45, 0.3, 0.6), face * CFrame.new(0, -0.08, -0.2), rgb(255, 170, 40))
+		-- a twisty unicorn horn
+		local base = onHead(0, 0.8, -0.6)
+		local up = Vector3.new(0, 0.85, -0.5).Unit
+		local a, c = base + up * 0.32, base + up * 0.62
+		b.Rod(base, a, 0.28, rgb(255, 230, 120), Enum.Material.Neon)
+		b.Rod(a, c, 0.2, rgb(255, 240, 170), Enum.Material.Neon)
+		b.Rod(c, c + up * 0.28, 0.11, rgb(255, 250, 210), Enum.Material.Neon)
 	end
 	if has("Crest") then
 		for i = 0, 2 do
-			b.Part(Vector3.new(0.12, 0.6, 0.3), headTop * CFrame.new(0, 0.2, 0.1 + i * 0.25) * CFrame.Angles(0.3 * i, 0, 0), accent, glowMaterial)
-		end
-	end
-	if has("Antenna") then
-		for _, side in { -1, 1 } do
-			b.Part(Vector3.new(0.7, 0.08, 0.08), headTop * CFrame.new(side * 0.25, 0.35, 0) * CFrame.Angles(0, 0, side * -1.2), accent, nil, Enum.PartType.Cylinder)
+			b.Blob(Vector3.new(0.14, 0.62, 0.3), CFrame.new(headTop + Vector3.new(0, 0.22 - i * 0.05, 0.05 + i * 0.2)) * CFrame.Angles(-0.25 - i * 0.3, 0, 0), accent, glowMaterial)
 		end
 	end
 	if has("Mane") then
 		for i = 0, 4 do
-			b.Blob(Vector3.new(0.35, 0.6, 0.4), headTop * CFrame.new(0, -0.1 - i * 0.25, 0.3 + i * 0.22), Color3.fromHSV(i / 5, 0.6, 1), Enum.Material.Neon)
+			local a = i / 4
+			local point = headTop:Lerp(bodyCenter + Vector3.new(0, bodySemi.Y, -0.2), a) + Vector3.new(0, 0.05, 0.25)
+			b.Blob(Vector3.new(0.3, 0.55, 0.42), CFrame.new(point) * CFrame.Angles(0.5, 0, 0), Color3.fromHSV(i / 5, 0.6, 1), Enum.Material.Neon)
 		end
 	end
-	if has("Tail") then
-		b.Part(Vector3.new(1.2, 0.3, 0.3), back * CFrame.new(0, -0.3, 0.8) * CFrame.Angles(0, math.pi / 2, math.rad(35)), body, nil, Enum.PartType.Cylinder)
-		b.Part(Vector3.one * 0.4, back * CFrame.new(0, 0.1, 1.35), accent, glowMaterial, Enum.PartType.Ball)
-	end
-	if has("PuffTail") then
-		b.Part(Vector3.one * 0.6, back * CFrame.new(0, -0.4, 0.4), accent, nil, Enum.PartType.Ball)
-	end
-	if has("BigTail") then
-		b.Blob(Vector3.new(0.8, 0.8, 1.8), back * CFrame.new(0, 0, 0.9) * CFrame.Angles(0.6, 0, 0), body)
-		b.Blob(Vector3.new(0.6, 0.6, 0.6), back * CFrame.new(0, 0.55, 1.55), accent)
+	if tailRoot and (has("Tail") or has("PuffTail") or has("BigTail")) then
+		local root = tailRoot
+		local parts: { BasePart } = {}
+		if has("BigTail") then
+			local tail = skin(b.Blob(Vector3.new(0.8, 0.8, 1.6), CFrame.new(root + Vector3.new(0, 0.45, 0.6)) * CFrame.Angles(-0.7, 0, 0), body))
+			local tip = b.Blob(Vector3.one * 0.66, CFrame.new(root + Vector3.new(0, 0.45, 0.6) + Vector3.new(0, 0.64, 0.76) * 0.72), accent)
+			parts = { tail, tip }
+		elseif has("PuffTail") then
+			parts = { b.Ball(0.62, root + Vector3.new(0, 0.1, 0.1), accent) }
+		elseif spade then
+			local a = root + Vector3.new(0, 0.1, 0.65)
+			local c = a + Vector3.new(0, 0.38, 0.5)
+			local tip = b.Part(Vector3.new(0.1, 0.46, 0.46), CFrame.new(c + Vector3.new(0, 0.12, 0.18)) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
+			parts = { skin(b.Rod(root, a, 0.34, body)), skin(b.Rod(a, c, 0.24, body)), tip }
+		else
+			local a = root + Vector3.new(0, 0.3, 0.5)
+			local c = a + Vector3.new(0, 0.5, 0.12)
+			parts = { skin(b.Rod(root, a, 0.28, body)), skin(b.Rod(a, c, 0.22, body)), b.Ball(0.34, c, accent, glowMaterial) }
+		end
+		for _, part in parts do
+			limb(part, "Tail", 0, root)
+		end
 	end
 	if has("Spikes") then
 		for i = 0, 3 do
-			b.Part(Vector3.new(0.25, 0.45, 0.25), CFrame.new(0, 0.85, -0.6 + i * 0.45) * CFrame.Angles(0, math.rad(45), 0), accent)
+			local point = onSurface(bodyCenter, bodySemi, Vector3.new(0, 1, -0.6 + i * 0.45))
+			b.Part(Vector3.new(0.1, 0.34, 0.34), CFrame.new(point) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
+		end
+	end
+	if shape == "Dragon" then
+		-- a spiky ridge from the top of its head down its back
+		for i = 0, 1 do
+			local point = onHead(0, 0.75, 0.35 + i * 0.5)
+			b.Part(Vector3.new(0.1, 0.26, 0.26), CFrame.new(point) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
+		end
+		for i = 0, 2 do
+			local point = onSurface(bodyCenter, bodySemi, Vector3.new(0, 1, -0.3 + i * 0.55))
+			b.Part(Vector3.new(0.1, 0.34, 0.34), CFrame.new(point) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
 		end
 	end
 	if has("Tentacles") then
 		for i = 0, 5 do
-			local angle = i / 6 * TAU
-			local t = b.Part(Vector3.new(1.1, 0.3, 0.3), CFrame.new(math.cos(angle) * 0.7, -1.1, math.sin(angle) * 0.7) * CFrame.Angles(0, -angle, math.rad(70)), accent, glowMaterial, Enum.PartType.Cylinder)
-			t.Name = "Tentacle"
+			local angle = i / 6 * TAU + 0.26
+			local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
+			local root = bodyCenter + out * 0.65 + Vector3.new(0, -0.7, 0)
+			local knee = root + out * 0.15 + Vector3.new(0, -0.5, 0)
+			local tip = knee + out * 0.3 + Vector3.new(0, -0.22, 0)
+			for _, part in { b.Rod(root, knee, 0.32, accent, glowMaterial), b.Rod(knee, tip, 0.22, accent, glowMaterial), b.Ball(0.24, tip, accent, glowMaterial) } do
+				part.Name = "Tentacle"
+				limb(part, "Tentacle", if i % 2 == 0 then 1 else -1, root)
+			end
 		end
 	end
 	if has("Sprinkles") then
 		local colors = { rgb(255, 70, 70), rgb(80, 200, 255), rgb(255, 235, 70), rgb(120, 230, 90) }
-		for i = 1, 8 do
-			local angle = i / 8 * TAU
-			b.Part(Vector3.new(0.08, 0.08, 0.3), CFrame.new(math.cos(angle) * 0.6, 0.82, 0.1 + math.sin(angle) * 0.8) * CFrame.Angles(0, angle, 0), colors[i % 4 + 1], Enum.Material.Neon)
+		local rng = Random.new(#pet.Id)
+		for i = 1, 9 do
+			local point = onSurface(bodyCenter, bodySemi, Vector3.new(rng:NextNumber(-0.55, 0.55), 1, rng:NextNumber(-0.7, 0.8)))
+			local normal = normalAt(bodyCenter, bodySemi, point)
+			local along = normal:Cross(Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)).Unit).Unit * 0.14
+			b.Rod(point - along, point + along, 0.09, colors[i % 4 + 1], Enum.Material.Neon)
 		end
 	end
 	if has("DonutRing") then
-		for i = 0, 9 do
-			local angle = i / 10 * TAU
-			b.Part(Vector3.one * 0.42, CFrame.new(math.cos(angle) * 1.05, -0.2, math.sin(angle) * 1.05), rgb(222, 165, 95), nil, Enum.PartType.Ball)
-			b.Part(Vector3.one * 0.34, CFrame.new(math.cos(angle) * 1.05, -0.02, math.sin(angle) * 1.05), rgb(255, 130, 190), nil, Enum.PartType.Ball)
-		end
+		-- a donut floatie round its middle
+		flatRing(b, bodyCenter + Vector3.new(0, -0.35, 0), 1.0, 0.44, 12, rgb(222, 165, 95))
+		flatRing(b, bodyCenter + Vector3.new(0, -0.24, 0), 1.0, 0.36, 12, rgb(255, 130, 190))
 	end
 	if has("Scarf") then
-		b.Part(Vector3.new(0.35, 1.5, 1.5), CFrame.new(0, 0.55, -0.1) * UPRIGHT, rgb(230, 50, 60), Enum.Material.Fabric, Enum.PartType.Cylinder)
+		flatRing(b, Vector3.new(0, 0.55, -0.12), 0.64, 0.26, 12, rgb(230, 50, 60), Enum.Material.Fabric)
+		b.Blob(Vector3.new(0.3, 0.75, 0.12), CFrame.new(0.32, 0.2, -0.72) * CFrame.Angles(0, 0, 0.2), rgb(230, 50, 60), Enum.Material.Fabric)
 	end
 	if has("Leaf") then
-		b.Blob(Vector3.new(1, 0.1, 0.5), headTop * CFrame.new(0.2, 0.15, 0) * CFrame.Angles(0, 0.5, 0.3), rgb(90, 200, 70))
+		b.Rod(headTop - Vector3.new(0, 0.05, 0), headTop + Vector3.new(0.05, 0.3, 0), 0.08, rgb(100, 70, 40))
+		b.Blob(Vector3.new(0.95, 0.08, 0.45), CFrame.new(headTop + Vector3.new(0.35, 0.36, 0)) * CFrame.Angles(0, 0.4, 0.3), rgb(90, 200, 70))
 	end
 	if has("Fluff") then
-		for i = 1, 7 do
-			local angle = i / 7 * TAU
-			b.Part(Vector3.one * 0.9, CFrame.new(math.cos(angle) * 0.75, 0.5, math.sin(angle) * 0.9), rgb(255, 255, 255), nil, Enum.PartType.Ball)
+		-- woolly puffs all over its back and a tuft on its head
+		local wool = body:Lerp(WHITE, 0.5)
+		for i = 1, 9 do
+			local angle = i / 9 * TAU
+			b.Ball(0.72, onSurface(bodyCenter, bodySemi, Vector3.new(math.cos(angle) * 0.8, 0.75, math.sin(angle) * 0.9)), wool)
+		end
+		for i = -1, 1 do
+			b.Ball(0.4, headTop + Vector3.new(i * 0.2, 0.02, 0.05), wool)
 		end
 	end
 	if has("Bow") then
+		local point = onHead(0.45, 0.85, -0.1)
 		for _, side in { -1, 1 } do
-			b.Blob(Vector3.new(0.45, 0.35, 0.15), headTop * CFrame.new(side * 0.25 + 0.3, 0.05, -0.1) * CFrame.Angles(0, 0, side * 0.3), accent)
+			b.Blob(Vector3.new(0.42, 0.32, 0.14), CFrame.new(point + Vector3.new(side * 0.2, 0.05, 0)) * CFrame.Angles(0, 0, side * 0.3), accent)
 		end
+		b.Ball(0.18, point + Vector3.new(0, 0.05, -0.02), accent)
 	end
 	if has("Spout") then
-		local spout = b.Part(Vector3.one * 0.3, CFrame.new(0, 1.1, -0.4), accent, Enum.Material.Neon, Enum.PartType.Ball)
+		local spout = b.Ball(0.3, onSurface(bodyCenter, bodySemi, Vector3.new(0, 1, -0.3)), accent, Enum.Material.Neon)
 		if not opts.NoEffects then
 			local water = emitter(spout, ColorSequence.new(accent, WHITE), 8, 0.35 * b.S, 5 * b.S, 0.7)
 			water.EmissionDirection = Enum.NormalId.Top
@@ -4633,15 +4999,34 @@ function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 		end
 	end
 	if has("Crown") then
-		b.Part(Vector3.new(0.3, 1, 1), headTop * CFrame.new(0, 0.15, 0) * UPRIGHT, rgb(255, 205, 50), Enum.Material.Foil, Enum.PartType.Cylinder)
+		b.Rod(headTop - Vector3.new(0, 0.08, 0), headTop + Vector3.new(0, 0.26, 0), 0.9, GOLD, Enum.Material.Foil)
 		for i = 0, 4 do
-			local angle = i / 5 * TAU
-			b.Part(Vector3.new(0.14, 0.32, 0.14), headTop * CFrame.new(math.cos(angle) * 0.42, 0.4, math.sin(angle) * 0.42), rgb(255, 205, 50), Enum.Material.Foil)
+			local angle = i / 5 * TAU + math.pi / 2
+			local point = headTop + Vector3.new(math.cos(angle) * 0.38, 0.4, math.sin(angle) * 0.38)
+			b.Part(Vector3.new(0.14, 0.26, 0.14), CFrame.new(point), GOLD, Enum.Material.Foil)
+			b.Ball(0.13, point + Vector3.new(0, 0.16, 0), GOLD, Enum.Material.Foil)
 		end
+		b.Ball(0.2, headTop + Vector3.new(0, 0.1, -0.44), rgb(255, 40, 70), Enum.Material.Neon)
 	end
 	if has("Halo") then
-		b.Part(Vector3.new(0.12, 1.2, 1.2), headTop * CFrame.new(0, 0.75, 0) * UPRIGHT, rgb(255, 240, 150), Enum.Material.Neon, Enum.PartType.Cylinder)
-		b.Part(Vector3.new(0.14, 0.9, 0.9), headTop * CFrame.new(0, 0.75, 0) * UPRIGHT, body, nil, Enum.PartType.Cylinder)
+		flatRing(b, headTop + Vector3.new(0, if has("Crown") then 0.95 else 0.6, 0), 0.5, 0.12, 12, rgb(255, 240, 150), Enum.Material.Neon)
+	end
+	if has("Shell") then
+		local domeCenter, domeSemi = bodyCenter + Vector3.new(0, 0.42, 0), Vector3.new(0.98, 0.55, 1.18)
+		b.Blob(domeSemi * 2, CFrame.new(domeCenter), accent, Enum.Material.Slate)
+		local plate = accent:Lerp(BLACK, 0.25)
+		for i = 0, 6 do
+			local dir = if i == 0 then Vector3.yAxis else Vector3.new(math.cos(i / 6 * TAU) * 0.8, 0.75, math.sin(i / 6 * TAU) * 0.8)
+			local point = onSurface(domeCenter, domeSemi, dir)
+			b.Blob(Vector3.new(0.55, 0.55, 0.1), facingFrame(point, normalAt(domeCenter, domeSemi, point)), plate, Enum.Material.Slate)
+		end
+	end
+	if has("Ghost") then
+		for _, part in b.Model:GetChildren() do
+			if part:IsA("BasePart") and part.Name == "Body" then
+				part.Transparency = 0.25
+			end
+		end
 	end
 
 	if not opts.NoEffects then
@@ -16488,17 +16873,22 @@ return DonutFX
 	server never has to replicate any of it).
 
 	Every donut gets its own personality, picked from its id and the stand it's on:
-	  Bounce - happy little hops (feet kick, arms go up)
+	  Bounce - happy little hops (feet kick, arms flop)
 	  Sway   - rocks side to side, arms swinging
 	  Dance  - bops to a beat, arms up in turn, feet stepping
 	  Look   - stands still, breathing, looking around
 	  Float  - rare / mutated donuts that float: hover, spin and flap their wings
-	Every few seconds a donut does something special (a twirl, a big jump, a wave, a wiggle) and they
-	all blink. Propellers spin, orbiting orbs orbit, tentacles wiggle and capes flutter.
+	Every few seconds a donut does something special: a twirl, a big jump (crouch, leap, land), a
+	backflip, a wave, a cheer, a wiggle, a look around, or a little doze. They blink, their eyes wander,
+	and when you walk past they watch you (eyes first, then they turn a little) - and when you come
+	close they wave or jump to say hi. Their mouths open while they jump, twirl and cheer.
+	Propellers spin, orbiting orbs orbit, tentacles wiggle and capes flutter.
 
 	How it works: a donut is one anchored Root with every other part welded to it (DonutModel), so
 	moving Root moves the whole donut, and changing a limb's weld (C0) bends that limb around the
-	"Pivot" the server stored on it. Only donuts near the camera are animated.
+	"Pivot" the server stored on it. Eyes ("EyeWhite") are squashed to blink, pupils ("Pupil") slide
+	inside the eyes, and the middle of the smile ("Mouth" = "Middle") stretches into an open mouth.
+	Only donuts near the camera are animated.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -16510,12 +16900,31 @@ local DonutIdle = {}
 local player = Players.LocalPlayer :: Player
 local RANGE = 110 -- studs from the camera; further donuts stand still
 local NEAR = 45 -- closer than this: every frame, otherwise 30 times a second
+local WATCH_RANGE = 30 -- donuts this close to you watch you
+local GREET_RANGE = 13 -- ...and say hi when you come this close
+local GREET_COOLDOWN = 25
 local TAU = math.pi * 2
 local STYLES = { "Bounce", "Sway", "Dance", "Look" }
-local ACTION_LENGTH: { [string]: number } = { Twirl = 0.9, Jump = 0.7, Wiggle = 0.8, Wave = 1.6 }
+local ACTION_LENGTH: { [string]: number } = {
+	Twirl = 0.9,
+	Jump = 0.95,
+	Flip = 1.15,
+	Wiggle = 0.8,
+	Wave = 1.6,
+	Cheer = 1.3,
+	LookAround = 2.2,
+	Doze = 2.8,
+}
+local OPEN_MOUTH: { [string]: boolean } = { Twirl = true, Jump = true, Flip = true, Cheer = true, Wave = true }
 local LOOK_TARGETS = { -0.55, 0, 0.55, 0, -0.3, 0.3 }
+local CLOSED_EYE = Color3.fromRGB(70, 35, 40)
+local GAZE = 0.075 -- how far pupils slide (studs, before the donut's scale)
+local EYE_HEIGHT = 1.6 -- eyes above the middle of the donut (before its scale)
 
 type Limb = { Weld: Weld, Base: CFrame, Pivot: CFrame, Kind: string, Side: number, Phase: number }
+type Eye = { Part: BasePart, Size: Vector3, Color: Color3 }
+type Pupil = { Part: BasePart, Weld: Weld, Base: CFrame }
+type Mouth = { Part: BasePart, Weld: Weld, Base: CFrame, Size: Vector3, Corners: { BasePart } }
 
 type Idle = {
 	Model: Model,
@@ -16527,17 +16936,29 @@ type Idle = {
 	Rng: Random,
 	Phase: number,
 	Limbs: { Limb },
-	Lids: { BasePart },
+	Eyes: { Eye },
+	Pupils: { Pupil },
+	Mouth: Mouth?,
 	HasArms: boolean,
 	Blinking: boolean,
 	NextBlink: number,
 	BlinkUntil: number,
+	MouthOpen: boolean,
+	Gaze: Vector2,
+	GazeTarget: Vector2,
+	NextGaze: number,
 	Action: string?,
 	ActionStart: number,
 	NextAction: number,
 	Yaw: number,
+	Turn: number,
 	LookTarget: number,
 	NextLook: number,
+	Near: boolean,
+	GreetAt: number?,
+	NextGreet: number,
+	LastY: number,
+	Flop: number,
 	Active: boolean,
 	Accum: number,
 }
@@ -16554,7 +16975,12 @@ local function hashString(text: string): number
 end
 
 local function smooth(a: number): number
+	a = math.clamp(a, 0, 1)
 	return a * a * (3 - 2 * a)
+end
+
+local function approach(current: number, target: number, rate: number, dt: number): number
+	return current + (target - current) * (1 - math.exp(-rate * dt))
 end
 
 local function setBlink(idle: Idle, closed: boolean)
@@ -16562,8 +16988,37 @@ local function setBlink(idle: Idle, closed: boolean)
 		return
 	end
 	idle.Blinking = closed
-	for _, lid in idle.Lids do
-		lid.Transparency = if closed then 0 else 1
+	for _, eye in idle.Eyes do
+		eye.Part.Size = if closed then Vector3.new(eye.Size.X * 1.05, eye.Size.Y * 0.14, eye.Size.Z * 0.8) else eye.Size
+		eye.Part.Color = if closed then CLOSED_EYE else eye.Color
+	end
+	for _, pupil in idle.Pupils do
+		pupil.Part.Transparency = if closed then 1 else 0
+	end
+end
+
+local function setMouth(idle: Idle, open: boolean)
+	local mouth = idle.Mouth
+	if not mouth or idle.MouthOpen == open then
+		return
+	end
+	idle.MouthOpen = open
+	-- The middle of the smile grows into a round "wheee!" mouth, the corners hide
+	mouth.Part.Size = if open then Vector3.new(mouth.Size.X * 1.25, mouth.Size.Y * 2.6, mouth.Size.Z) else mouth.Size
+	mouth.Weld.C0 = if open then mouth.Base * CFrame.new(0, -mouth.Size.Y * 0.6, 0) else mouth.Base
+	for _, corner in mouth.Corners do
+		corner.Transparency = if open then 1 else 0
+	end
+end
+
+local function setGaze(idle: Idle, gaze: Vector2)
+	if (gaze - idle.Gaze).Magnitude < 0.004 then
+		return
+	end
+	idle.Gaze = gaze
+	local offset = CFrame.new(gaze.X * GAZE * idle.Scale, gaze.Y * GAZE * idle.Scale, 0)
+	for _, pupil in idle.Pupils do
+		pupil.Weld.C0 = pupil.Base * offset
 	end
 end
 
@@ -16574,6 +17029,8 @@ local function reset(idle: Idle)
 		limb.Weld.C0 = limb.Base
 	end
 	setBlink(idle, false)
+	setMouth(idle, false)
+	setGaze(idle, Vector2.zero)
 end
 
 local function register(instance: Instance)
@@ -16595,7 +17052,11 @@ local function register(instance: Instance)
 	local rng = Random.new(seed)
 
 	local limbs: { Limb } = {}
-	local lids: { BasePart } = {}
+	local eyes: { Eye } = {}
+	local pupils: { Pupil } = {}
+	local mouth: Mouth? = nil
+	local corners: { BasePart } = {}
+	local phases: { [string]: number } = {} -- parts swinging around the same pivot move together
 	local hasArms = false
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -16603,19 +17064,31 @@ local function register(instance: Instance)
 			local weld = part:FindFirstChildOfClass("Weld")
 			if type(kind) == "string" and weld then
 				local pivot = part:GetAttribute("Pivot")
+				local pivotPosition = if typeof(pivot) == "Vector3" then pivot else Vector3.zero
 				local side = part:GetAttribute("Side")
+				local key = string.format("%.2f,%.2f,%.2f", pivotPosition.X, pivotPosition.Y, pivotPosition.Z)
+				local phase = phases[key] or rng:NextNumber(0, TAU)
+				phases[key] = phase
 				table.insert(limbs, {
 					Weld = weld,
 					Base = weld.C0,
-					Pivot = CFrame.new(if typeof(pivot) == "Vector3" then pivot else Vector3.zero),
+					Pivot = CFrame.new(pivotPosition),
 					Kind = kind,
 					Side = if type(side) == "number" then side else 0,
-					Phase = rng:NextNumber(0, TAU),
+					Phase = phase,
 				})
 				hasArms = hasArms or kind == "Arm"
 			end
-			if part:GetAttribute("Blink") then
-				table.insert(lids, part)
+			if part:GetAttribute("EyeWhite") then
+				table.insert(eyes, { Part = part, Size = part.Size, Color = part.Color })
+			elseif part:GetAttribute("Pupil") and weld then
+				table.insert(pupils, { Part = part, Weld = weld, Base = weld.C0 })
+			end
+			local mouthPart = part:GetAttribute("Mouth")
+			if mouthPart == "Middle" and weld then
+				mouth = { Part = part, Weld = weld, Base = weld.C0, Size = part.Size, Corners = corners }
+			elseif mouthPart == "Corner" then
+				table.insert(corners, part)
 			end
 		end
 	end
@@ -16632,29 +17105,73 @@ local function register(instance: Instance)
 		Rng = rng,
 		Phase = rng:NextNumber(0, 10),
 		Limbs = limbs,
-		Lids = lids,
+		Eyes = eyes,
+		Pupils = pupils,
+		Mouth = mouth,
 		HasArms = hasArms,
 		Blinking = false,
 		NextBlink = now + rng:NextNumber(0.5, 4),
 		BlinkUntil = 0,
+		MouthOpen = false,
+		Gaze = Vector2.zero,
+		GazeTarget = Vector2.zero,
+		NextGaze = now + rng:NextNumber(0.5, 2),
 		Action = nil,
 		ActionStart = 0,
 		NextAction = now + rng:NextNumber(2, 10),
 		Yaw = 0,
+		Turn = 0,
 		LookTarget = 0,
 		NextLook = now + rng:NextNumber(0.5, 2),
+		Near = false,
+		GreetAt = nil,
+		NextGreet = 0,
+		LastY = 0,
+		Flop = 0,
 		Active = false,
 		Accum = 0,
 	}
 end
 
-local function animate(idle: Idle, now: number, dt: number)
+local function startAction(idle: Idle, action: string, now: number)
+	idle.Action = action
+	idle.ActionStart = now
+end
+
+local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 	local t = now + idle.Phase
 	local k = idle.Scale
-	local y, yaw, pitch, roll = 0, 0, 0, 0
+	local y, yaw, pitch, roll, flip = 0, 0, 0, 0, 0
 	-- Limb amounts. Arms: 0 = relaxed, 0.5 = the built "hands up" pose, 1 = straight up.
 	-- Legs: positive kicks the feet forward. Wings: positive = tips up.
 	local legL, legR, armL, armR, wing = 0, 0, 0.2, 0.2, 0
+	local eyesClosed = false
+	local floppy = true -- arms flop with the bounce (off while waving)
+
+	-- Where you are, seen from the donut's stand: angle to turn to face you, and how close you are
+	local watching = false
+	local faceYaw = 0
+	if target then
+		local fromStand = idle.Base:PointToObjectSpace(target)
+		local distance = Vector3.new(fromStand.X, 0, fromStand.Z).Magnitude
+		watching = distance < WATCH_RANGE * math.max(1, k)
+		faceYaw = math.atan2(-fromStand.X, -fromStand.Z)
+		-- Say hi when you walk up (once in a while, not every donut at once)
+		local near = distance < GREET_RANGE * math.max(1, k)
+		if near and not idle.Near and now >= idle.NextGreet and idle.Rng:NextNumber() < 0.7 then
+			idle.GreetAt = now + idle.Rng:NextNumber(0, 0.6)
+			idle.NextGreet = now + GREET_COOLDOWN
+		end
+		idle.Near = distance < (GREET_RANGE + 6) * math.max(1, k)
+	end
+	if idle.GreetAt and now >= idle.GreetAt and not idle.Action then
+		idle.GreetAt = nil
+		startAction(idle, if idle.HasArms then "Wave" else "Jump", now)
+	end
+
+	-- Turn a little towards you while you're around (not all the way round if you're behind it)
+	local turnTarget = if watching and math.abs(faceYaw) < 2 then math.clamp(faceYaw, -0.7, 0.7) * 0.6 else 0
+	idle.Turn = approach(idle.Turn, turnTarget, 2.5, dt)
 
 	local style = idle.Style
 	if style == "Float" then
@@ -16665,17 +17182,20 @@ local function animate(idle: Idle, now: number, dt: number)
 		legR = -legL
 		armL = 0.45 + 0.15 * math.sin(t * 2.5)
 		armR = 0.45 + 0.15 * math.sin(t * 2.5 + 1)
+		floppy = false
 	elseif style == "Bounce" then
 		local u = (t * 0.75) % 1 -- one hop every 1.33 s
 		local hop = if u < 0.45 then math.sin(u / 0.45 * math.pi) else 0
 		y = 0.45 * k * hop
-		if u > 0.85 then
-			y -= 0.06 * k * math.sin((u - 0.85) / 0.15 * math.pi) -- little squat before the next hop
+		if u > 0.8 then
+			y -= 0.07 * k * math.sin((u - 0.8) / 0.2 * math.pi) -- little squat before the next hop
+		elseif u > 0.45 and u < 0.58 then
+			y -= 0.05 * k * math.sin((u - 0.45) / 0.13 * math.pi) -- and a soft landing
 		end
 		pitch = -0.08 * hop
 		legL = 0.5 * hop
 		legR = legL
-		armL = 0.2 + 0.6 * hop
+		armL = 0.2 + 0.4 * hop
 		armR = armL
 		wing = 0.3 * hop
 	elseif style == "Sway" then
@@ -16699,13 +17219,15 @@ local function animate(idle: Idle, now: number, dt: number)
 		armL = 0.2 + 0.7 * math.max(0, math.sin(t * w / 2))
 		armR = 0.2 + 0.7 * math.max(0, -math.sin(t * w / 2))
 		wing = 0.25 * beat
-	else -- Look: breathe, and turn to look at things now and then
+		floppy = false
+	else -- Look: breathe, and turn to look at things now and then (at you, if you're close)
 		y = 0.04 * k * math.sin(t * 1.8)
 		if now >= idle.NextLook then
 			idle.LookTarget = LOOK_TARGETS[idle.Rng:NextInteger(1, #LOOK_TARGETS)]
 			idle.NextLook = now + idle.Rng:NextNumber(1.2, 3.5)
 		end
-		idle.Yaw += (idle.LookTarget - idle.Yaw) * (1 - math.exp(-5 * dt))
+		local lookAt = if watching and math.abs(faceYaw) < 2 then math.clamp(faceYaw, -0.8, 0.8) else idle.LookTarget
+		idle.Yaw = approach(idle.Yaw, lookAt, 5, dt)
 		yaw = idle.Yaw
 		pitch = 0.03 * math.sin(t * 1.8)
 		legL = 0.06 * math.sin(t * 0.9) -- shifting its weight from foot to foot
@@ -16714,16 +17236,19 @@ local function animate(idle: Idle, now: number, dt: number)
 		armR = armL
 		wing = 0.08 * math.sin(t * 1.8)
 	end
+	if style ~= "Float" and style ~= "Look" then
+		yaw += idle.Turn
+	end
 
 	-- A special move every few seconds
 	if not idle.Action and now >= idle.NextAction then
-		local options = { "Twirl", "Jump", "Wiggle" }
+		local options = { "Twirl", "Jump", "Jump", "Wiggle", "LookAround", "Flip", "Doze" }
 		if idle.HasArms then
 			table.insert(options, "Wave")
-			table.insert(options, "Wave")
+			table.insert(options, "Cheer")
+			table.insert(options, "Cheer")
 		end
-		idle.Action = options[idle.Rng:NextInteger(1, #options)]
-		idle.ActionStart = now
+		startAction(idle, options[idle.Rng:NextInteger(1, #options)], now)
 	end
 	local action = idle.Action
 	if action then
@@ -16731,29 +17256,88 @@ local function animate(idle: Idle, now: number, dt: number)
 		if a >= 1 then
 			idle.Action = nil
 			idle.NextAction = now + idle.Rng:NextNumber(6, 14)
+			action = nil
 		elseif action == "Twirl" then
 			yaw += TAU * smooth(a)
 			y += 0.35 * k * math.sin(a * math.pi)
-		elseif action == "Jump" then
-			local h = math.sin(a * math.pi)
-			y += 0.9 * k * h
-			legL = 0.7 * h
-			legR = legL
-			armL = 0.2 + 0.8 * h
-			armR = armL
-			wing = 0.6 * h * math.sin(a * TAU * 3)
+			armL, armR = 0.7, 0.7
+		elseif action == "Jump" or action == "Flip" then
+			-- crouch... leap... land
+			local high = if action == "Flip" then 1.45 else 0.95
+			if a < 0.22 then
+				local c = math.sin(a / 0.22 * math.pi * 0.5)
+				y -= 0.14 * k * c
+				legL, legR = 0.3 * c, 0.3 * c
+				armL, armR = 0, 0
+				pitch += 0.1 * c
+			elseif a < 0.82 then
+				local air = (a - 0.22) / 0.6
+				local h = math.sin(air * math.pi)
+				y += high * k * h
+				legL = 0.7 * h
+				legR = legL
+				armL = 0.2 + 0.8 * h
+				armR = armL
+				wing = 0.6 * h * math.sin(air * TAU * 3)
+				if action == "Flip" then
+					flip = -TAU * smooth(air)
+				end
+			else
+				local land = (a - 0.82) / 0.18
+				y -= 0.1 * k * math.sin(land * math.pi)
+				armL, armR = 0.5 * (1 - land), 0.5 * (1 - land)
+			end
 		elseif action == "Wiggle" then
 			roll += 0.25 * math.sin(a * TAU * 3) * (1 - a)
 		elseif action == "Wave" then
 			local up = math.min(1, a * 4, (1 - a) * 4)
 			armR = armR + (0.85 - armR) * up + 0.3 * up * math.sin(a * TAU * 3)
-			roll += 0.04 * up
+			roll += 0.05 * up
+			floppy = false
+		elseif action == "Cheer" then
+			local pump = math.abs(math.sin(a * TAU * 1.5))
+			y += 0.28 * k * pump
+			armL = 0.55 + 0.45 * pump
+			armR = armL
+			legL, legR = 0.3 * pump, 0.3 * pump
+			floppy = false
+		elseif action == "LookAround" then
+			yaw += 0.75 * math.sin(a * TAU) * math.sin(a * math.pi)
+		elseif action == "Doze" then
+			-- a stretch and a yawn, then a quick nap
+			if a < 0.25 then
+				local stretch = math.sin(a / 0.25 * math.pi)
+				armL, armR = 0.2 + 0.8 * stretch, 0.2 + 0.8 * stretch
+				y += 0.12 * k * stretch
+				setMouth(idle, stretch > 0.3)
+			else
+				eyesClosed = true
+				roll += 0.07 * math.sin((a - 0.25) * TAU * 0.8)
+				y -= 0.05 * k * (0.5 + 0.5 * math.sin((a - 0.25) * TAU * 1.2))
+				armL, armR = 0.05, 0.05
+			end
+			floppy = false
 		end
 	end
 
-	-- Blink
-	if #idle.Lids > 0 then
-		if idle.Blinking then
+	-- Arms flop with the bounce: they lag behind, flying up as the donut drops
+	local velocity = (y - idle.LastY) / math.max(dt, 1 / 120) / math.max(k, 0.1)
+	idle.LastY = y
+	idle.Flop = approach(idle.Flop, if floppy then math.clamp(-velocity * 0.12, -0.25, 0.3) else 0, 12, dt)
+	armL += idle.Flop
+	armR += idle.Flop
+
+	-- Mouth: open for the big moves (the Doze yawn sets it above)
+	if action ~= "Doze" then
+		setMouth(idle, action ~= nil and OPEN_MOUTH[action] == true)
+	end
+
+	-- Blink (and keep them shut while dozing)
+	if #idle.Eyes > 0 then
+		if eyesClosed then
+			setBlink(idle, true)
+			idle.BlinkUntil = now + 0.1
+		elseif idle.Blinking then
 			if now >= idle.BlinkUntil then
 				setBlink(idle, false)
 			end
@@ -16765,14 +17349,36 @@ local function animate(idle: Idle, now: number, dt: number)
 		end
 	end
 
-	-- Body: rock around the feet, turn around the middle
+	-- Body: rock around the feet, turn and flip around the middle
 	local b = idle.Bottom
-	idle.Root.CFrame = idle.Base
+	local body = idle.Base
 		* CFrame.new(0, y, 0)
 		* CFrame.Angles(0, yaw, 0)
+		* CFrame.Angles(flip, 0, 0)
 		* CFrame.new(0, -b, 0)
 		* CFrame.Angles(pitch, 0, roll)
 		* CFrame.new(0, b, 0)
+	idle.Root.CFrame = body
+
+	-- Eyes: follow you while you're close, otherwise wander now and then
+	if #idle.Pupils > 0 and not idle.Blinking then
+		if watching and target then
+			local seen = body:PointToObjectSpace(target)
+			if seen.Z < 0 then
+				idle.GazeTarget = Vector2.new(math.clamp(seen.X / -seen.Z * 1.6, -1, 1), math.clamp((seen.Y - EYE_HEIGHT * k) / -seen.Z * 1.6, -1, 1))
+			else
+				idle.GazeTarget = Vector2.new(if seen.X > 0 then 1 else -1, 0)
+			end
+		elseif action == "LookAround" then
+			idle.GazeTarget = Vector2.new(math.clamp(math.sin((now - idle.ActionStart) / ACTION_LENGTH.LookAround * TAU) * 2, -1, 1), 0.2)
+		elseif now >= idle.NextGaze then
+			idle.GazeTarget = if idle.Rng:NextNumber() < 0.4 then Vector2.zero else Vector2.new(idle.Rng:NextNumber(-1, 1), idle.Rng:NextNumber(-0.6, 0.8))
+			idle.NextGaze = now + idle.Rng:NextNumber(0.8, 3)
+		end
+		-- eyes dart quickly towards what they look at
+		local gaze = idle.Gaze:Lerp(idle.GazeTarget, 1 - math.exp(-18 * dt))
+		setGaze(idle, gaze)
+	end
 
 	-- Limbs: swing each one around its pivot
 	for _, limb in idle.Limbs do
@@ -16789,9 +17395,9 @@ local function animate(idle: Idle, now: number, dt: number)
 		elseif kind == "Orbit" then
 			rotation = CFrame.Angles(0, (t * 1.3) % TAU, 0)
 		elseif kind == "Tentacle" then
-			rotation = CFrame.Angles(0, 0, 0.2 * math.sin(t * 3 + limb.Phase))
+			rotation = CFrame.Angles(0, 0, 0.18 * math.sin(t * 3 + limb.Phase) - limb.Side * 0.12 * math.max(0, y / math.max(k, 0.1)))
 		elseif kind == "Cape" then
-			rotation = CFrame.Angles(0.12 + 0.08 * math.sin(t * 2.2), 0, 0.03 * math.sin(t * 1.3))
+			rotation = CFrame.Angles(0.12 + 0.08 * math.sin(t * 2.2) + math.clamp(velocity * 0.05, -0.2, 0.2), 0, 0.03 * math.sin(t * 1.3))
 		else
 			rotation = CFrame.identity
 		end
@@ -16807,6 +17413,23 @@ local function focusPosition(): Vector3?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	return root and root.Position
+end
+
+-- What donuts look at: your head (or where it would be).
+local function watchedPosition(): Vector3?
+	local character = player.Character
+	if not character then
+		return nil
+	end
+	local head = character:FindFirstChild("Head")
+	if head and head:IsA("BasePart") then
+		return head.Position
+	end
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return root.Position + Vector3.new(0, 1.5, 0)
+	end
+	return nil
 end
 
 function DonutIdle.Init()
@@ -16827,6 +17450,7 @@ function DonutIdle.Init()
 		end
 		clock += dt
 		local now = clock
+		local target = watchedPosition()
 		for model, idle in idles do
 			if not model.Parent then
 				idles[model] = nil
@@ -16837,7 +17461,7 @@ function DonutIdle.Init()
 				idle.Active = true
 				idle.Accum += dt
 				if distance < NEAR or idle.Accum >= 1 / 30 then
-					animate(idle, now, idle.Accum)
+					animate(idle, now, idle.Accum, target)
 					idle.Accum = 0
 				end
 			elseif idle.Active then
@@ -17417,8 +18041,10 @@ return Flight
 	  "Favorite" -> "donutId|mutation|size" of their favourite base donut: a copy at
 	                Config.Favorite.Scale (1/3) of its size on the stand, mutation look included
 	  "Pets"     -> comma-separated ids of their equipped pets
-	Walkers hop along behind you, flyers and blobs float, wings flap. Only followers near the camera
-	are animated.
+	Walkers hop along behind you, flyers and blobs float. Wings flap, tails wag (faster while you're
+	on the move), whale flukes paddle, tentacles wiggle and everyone blinks - all by swinging the
+	parts PetModel marked ("Limb") around their joints ("Pivot"). Only followers near the camera are
+	animated.
 ]]
 
 local Players = game:GetService("Players")
@@ -17444,7 +18070,11 @@ local SLOTS = {
 	Vector3.new(4.5, 0, 8),
 }
 
-type Wing = { Weld: Weld, Base: CFrame, Side: number }
+-- Limbs that move while following (a favourite donut's arms and legs stay put)
+local ANIMATED = { Wing = true, Tail = true, Fluke = true, Fin = true, Tentacle = true, Spin = true, Orbit = true }
+
+type Limb = { Weld: Weld, Base: CFrame, Pivot: CFrame, Kind: string, Side: number }
+type Eye = { Part: BasePart, Size: Vector3, Color: Color3 }
 type Follower = {
 	Model: Model,
 	Root: BasePart,
@@ -17454,7 +18084,11 @@ type Follower = {
 	Height: number, -- root height above the ground
 	Phase: number,
 	CFrame: CFrame,
-	Wings: { Wing },
+	Limbs: { Limb },
+	Eyes: { Eye },
+	Pupils: { BasePart },
+	Blinking: boolean,
+	NextBlink: number,
 	Rainbow: { BasePart },
 	Glitch: boolean,
 }
@@ -17472,14 +18106,29 @@ local function prepare(model: Model, slot: number, floats: boolean, spread: numb
 			part.CanTouch = false
 		end
 	end
-	local wings: { Wing } = {}
+	local limbs: { Limb } = {}
+	local eyes: { Eye } = {}
+	local pupils: { BasePart } = {}
 	local rainbow: { BasePart } = {}
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			local weld = part:FindFirstChildOfClass("Weld")
-			local side = part:GetAttribute("Flap")
-			if weld and type(side) == "number" then
-				table.insert(wings, { Weld = weld, Base = weld.C0, Side = side })
+			local kind = part:GetAttribute("Limb")
+			if weld and type(kind) == "string" and ANIMATED[kind] then
+				local pivot = part:GetAttribute("Pivot")
+				local side = part:GetAttribute("Side")
+				table.insert(limbs, {
+					Weld = weld,
+					Base = weld.C0,
+					Pivot = CFrame.new(if typeof(pivot) == "Vector3" then pivot else Vector3.zero),
+					Kind = kind,
+					Side = if type(side) == "number" then side else 0,
+				})
+			end
+			if part:GetAttribute("EyeWhite") then
+				table.insert(eyes, { Part = part, Size = part.Size, Color = part.Color })
+			elseif part:GetAttribute("Pupil") then
+				table.insert(pupils, part)
 			end
 			if model:GetAttribute("Rainbow") and (part.Name == "Body" or part.Name == "Wing") then
 				table.insert(rainbow, part)
@@ -17496,7 +18145,11 @@ local function prepare(model: Model, slot: number, floats: boolean, spread: numb
 		Height = bottom + (if floats then 2.2 else 0.05),
 		Phase = math.random() * 6,
 		CFrame = CFrame.new(),
-		Wings = wings,
+		Limbs = limbs,
+		Eyes = eyes,
+		Pupils = pupils,
+		Blinking = false,
+		NextBlink = os.clock() + math.random() * 4,
 		Rainbow = rainbow,
 		Glitch = model:GetAttribute("Glitch") == true,
 	}
@@ -17597,8 +18250,43 @@ local function update(dt: number)
 				finalCf = facing * CFrame.new(math.random() - 0.5, 0, math.random() - 0.5)
 			end
 			follower.Root.CFrame = finalCf
-			for _, wing in follower.Wings do
-				wing.Weld.C0 = wing.Base * CFrame.Angles(0, 0, math.sin(t * 12 + follower.Phase) * 0.45 * wing.Side)
+			local phase = t + follower.Phase
+			for _, limb in follower.Limbs do
+				local kind = limb.Kind
+				local rotation
+				if kind == "Wing" then
+					rotation = CFrame.Angles(0, 0, math.sin(phase * 12) * 0.45 * limb.Side)
+				elseif kind == "Tail" then
+					rotation = CFrame.Angles(0, math.sin(phase * (if moving then 16 else 8)) * 0.4, 0)
+				elseif kind == "Fluke" then
+					rotation = CFrame.Angles(math.sin(phase * 3) * 0.22, 0, 0)
+				elseif kind == "Fin" then
+					rotation = CFrame.Angles(0, 0, math.sin(phase * 4) * 0.25 * limb.Side)
+				elseif kind == "Tentacle" then
+					rotation = CFrame.Angles(0, 0, math.sin(phase * 3 + limb.Side) * 0.2)
+				elseif kind == "Spin" then
+					rotation = CFrame.Angles(0, (t * 14) % (math.pi * 2), 0)
+				elseif kind == "Orbit" then
+					rotation = CFrame.Angles(0, (t * 1.3) % (math.pi * 2), 0)
+				else
+					rotation = CFrame.identity
+				end
+				limb.Weld.C0 = limb.Pivot * rotation * limb.Pivot:Inverse() * limb.Base
+			end
+			-- Blink: squash the eyes shut for a moment every few seconds
+			local shut = t < follower.NextBlink + 0.12 and t >= follower.NextBlink
+			if shut ~= follower.Blinking then
+				follower.Blinking = shut
+				for _, eye in follower.Eyes do
+					eye.Part.Size = if shut then Vector3.new(eye.Size.X * 1.05, eye.Size.Y * 0.14, eye.Size.Z * 0.8) else eye.Size
+					eye.Part.Color = if shut then Color3.fromRGB(40, 25, 30) else eye.Color
+				end
+				for _, pupil in follower.Pupils do
+					pupil.Transparency = if shut then 1 else 0
+				end
+			end
+			if t >= follower.NextBlink + 0.12 then
+				follower.NextBlink = t + 2 + math.random() * 3.5
 			end
 			if #follower.Rainbow > 0 then
 				local color = Color3.fromHSV((t * 0.25) % 1, 0.55, 1)
