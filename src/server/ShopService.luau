@@ -2,7 +2,7 @@
 	ShopService
 	===========
 	Handles every client request that costs money, Speed or Robux, plus a few small player actions:
-	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion, BuySecondFloor   (in-game money)
+	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion, BuyFloor (2nd / 3rd floor)   (in-game money)
 	  BuyIncubatorUpgrade "Speed" | "Size"                            (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
 	  BuyPass <key>                                    (Robux game passes)
@@ -173,8 +173,8 @@ function Actions.BuyExpansion(player: Player, _profile: DataService.Profile)
 	PlotService.Expand(player)
 end
 
-function Actions.BuySecondFloor(player: Player, _profile: DataService.Profile)
-	PlotService.BuySecondFloor(player)
+function Actions.BuyFloor(player: Player, _profile: DataService.Profile)
+	PlotService.BuyFloor(player)
 end
 
 function Actions.BuyIncubatorUpgrade(player: Player, _profile: DataService.Profile, kind: any)

@@ -111,8 +111,8 @@ local function buildUpgrades(page: ScrollingFrame)
 		local expansions = State.Number("Expansions")
 		if Economy.ExpansionCost(expansions) then
 			State.Action("BuyExpansion")
-		elseif Economy.SecondFloorCost(expansions, math.max(1, State.Number("Floors"))) then
-			State.Action("BuySecondFloor")
+		elseif Economy.NextFloorCost(expansions, math.max(1, State.Number("Floors"))) then
+			State.Action("BuyFloor")
 		end
 	end)
 
@@ -179,21 +179,21 @@ local function buildUpgrades(page: ScrollingFrame)
 		local floors = math.max(1, State.Number("Floors"))
 		local slots = Economy.SlotCount(expansions, floors)
 		local expandCost = Economy.ExpansionCost(expansions)
-		local floorCost = Economy.SecondFloorCost(expansions, floors)
+		local floorCost = Economy.NextFloorCost(expansions, floors)
 		if expandCost then
 			expandTitle.Text = "🏗 BASE EXPANSION"
 			expandInfo.Text = `{slots} → {slots + Config.Plots.ExpansionSlots} donut stands\nKept forever, even when you rebirth`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(expandCost))
 			Theme.SetButtonColor(expandButton, if money >= expandCost then Theme.Colors.Green else Theme.Colors.Gray)
 		elseif floorCost then
-			-- Ground floor full: the next step is a whole second floor
-			expandTitle.Text = "🏢 SECOND FLOOR"
-			expandInfo.Text = `{slots} → {slots + Config.Plots.SecondFloor.Slots} donut stands on a new floor\nKept forever, even when you rebirth`
+			-- Ground floor full: the next step is a whole new floor
+			expandTitle.Text = if floors >= 2 then "🏢 THIRD FLOOR" else "🏢 SECOND FLOOR"
+			expandInfo.Text = `{slots} → {slots + Config.Plots.UpperFloors.Slots} donut stands on a new floor\nKept forever, even when you rebirth`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(floorCost))
 			Theme.SetButtonColor(expandButton, if money >= floorCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
 			expandTitle.Text = "🏢 BASE"
-			expandInfo.Text = `{slots} donut stands on 2 floors - fully built!`
+			expandInfo.Text = `{slots} donut stands on {floors} floors - fully built!`
 			Theme.SetButtonText(expandButton, "MAXED")
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
 		end

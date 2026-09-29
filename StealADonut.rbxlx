@@ -556,7 +556,7 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe hub (bases, shop, leaderboards)
 	HubHalfWidth = 230,
-	HubDepth = 260,
+	HubDepth = 400, -- deep enough for 4 rows of bases Layout.PlotRowSpacing apart (every world's hub)
 	HubWallHeight = 40,
 
 	DonutSpawnsPerArea = 7,
@@ -572,13 +572,26 @@ Config.Plots = {
 	-- Each expansion adds one row of 4 stands. Bought with money in the Shop, kept through rebirths.
 	ExpansionSlots = 4,
 	ExpansionCosts = { 50_000, 250_000_000, 1_000_000_000_000, 5_000_000_000_000_000 },
-	-- Second floor: once all SlotsPerPlot stands are unlocked, buy a second floor with Slots more
-	-- stands (same layout, Height studs up - above even a Giant donut). A lift pad at the front of
-	-- the base takes you up and down. Kept through rebirths, like expansions.
-	SecondFloor = {
-		Cost = 10_000_000_000_000_000_000, -- $10Qn: 2000x the last expansion (bots get it around Rebirth 2)
-		Slots = 24, -- at most SlotsPerPlot
+	-- Upper floors: once all SlotsPerPlot stands are unlocked, buy a second floor, then a third,
+	-- each with Slots more stands (same layout, Height studs up - above even a Giant donut). Lift
+	-- pads at the front of the base take you between floors. Kept through rebirths, like expansions.
+	UpperFloors = {
+		Costs = {
+			1e19, -- 2nd floor: $10Qn, 2000x the last expansion (bots get it around Rebirth 2)
+			1e23, -- 3rd floor: $100Sx, 10,000x the 2nd floor (around Rebirth 3)
+		},
+		Slots = 24, -- per floor (at most SlotsPerPlot)
 		Height = 26,
+	},
+	-- Every base is a building: glass windows from the top of its low walls up to a roof above its
+	-- top floor, so you can see the donuts inside. The front stays open (that's the way in), and a
+	-- thief can only get in there, not over the sides.
+	-- Enclosed = false: no glass walls (low walls you can hop over from the side, and no roof).
+	Building = {
+		Enclosed = true,
+		GlassColor = Color3.fromRGB(170, 225, 255),
+		GlassTransparency = 0.55,
+		EntranceHeight = 12, -- the open gap at the front of the ground floor (studs)
 	},
 	DonutScale = 1.1,
 	PodiumDonutScale = 1.7,
@@ -808,9 +821,10 @@ Config.Donations = {
 -- (server/AdminService.luau, ADMIN_CODE) so exploiters can't read it out of this shared module.
 -- AllowAnyone = true: EVERY player who types the code gets the panel (money, speed, donuts, flying...).
 -- The commands that give away things you sell for Robux (OwnerOnlyCommands: Luck Event, crates) or
--- change the game for everyone in the server (starting server events, a permanent Base Lock that
--- would make one base unraidable forever) still only work for the owner: the game's owner (for a group game, the group's owner), anyone testing in
--- Studio, and the UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }).
+-- change the game for everyone in the server (starting server events) still only work for the
+-- owner: the game's owner (for a group game, the group's owner), anyone testing in Studio, and the
+-- UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }). Everything else - including the
+-- permanent Base Lock - works for everyone who has the panel.
 -- AllowAnyone = false: only those owners can open the panel at all.
 -- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
 -- scores stay meaningful.
@@ -818,7 +832,7 @@ Config.Donations = {
 Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
-	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event", "PermaLock" },
+	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event" },
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = true,
 }
@@ -2886,7 +2900,12 @@ end
 function Economy.SlotCount(expansions: number, floors: number?): number
 	local p = Config.Plots
 	local ground = math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
-	return ground + (if (floors or 1) >= 2 then p.SecondFloor.Slots else 0)
+	local upper = math.clamp((floors or 1) - 1, 0, #p.UpperFloors.Costs)
+	return ground + p.UpperFloors.Slots * upper
+end
+
+function Economy.MaxFloors(): number
+	return 1 + #Config.Plots.UpperFloors.Costs
 end
 
 -- Incubator upgrades: hatch speed multiplier, egg capacity, and the price of the next level.
@@ -2903,12 +2922,13 @@ function Economy.IncubatorUpgradeCost(kind: string, level: number): number?
 	return upgrade.Costs[level + 1]
 end
 
--- Price of the second floor: nil until the ground floor is fully expanded, or once you own it.
-function Economy.SecondFloorCost(expansions: number, floors: number): number?
-	if floors >= 2 or Economy.SlotCount(expansions, 1) < Config.Plots.SlotsPerPlot then
+-- Price of the next floor (2nd, then 3rd): nil until the ground floor is fully expanded, or once
+-- every floor is built.
+function Economy.NextFloorCost(expansions: number, floors: number): number?
+	if floors >= Economy.MaxFloors() or Economy.SlotCount(expansions, 1) < Config.Plots.SlotsPerPlot then
 		return nil
 	end
-	return Config.Plots.SecondFloor.Cost
+	return Config.Plots.UpperFloors.Costs[math.max(floors, 1)]
 end
 
 -- Price of the next expansion (nil when fully expanded).
@@ -4038,14 +4058,17 @@ Layout.PortalRadius = 6
 --------------------------------------------------------------------------------
 Layout.PlotWidth = 56
 Layout.PlotDepth = 98
-Layout.PlotRowSpacing = 60
+-- Bases in a row are this far apart (centre to centre): 44 studs of open ground between two bases,
+-- so a thief has a real run from someone's base to their own.
+Layout.PlotRowSpacing = 100
+Layout.PlotFirstRowZ = 40 -- the first row's centre, this far behind the safe-zone line
 Layout.PlotFloorHeight = 0.4
 
 function Layout.PlotCFrame(plotIndex: number, worldId: number?): CFrame
 	local side = if plotIndex % 2 == 1 then -1 else 1
 	local row = (plotIndex - 1) // 2
 	local x = Layout.WorldOffset(worldId or 1) + side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 2)
-	local z = map.SafeZoneZ - 34 - row * Layout.PlotRowSpacing
+	local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
 	local center = Vector3.new(x, 0, z)
 	-- LookVector points out of the plot's open side, towards the plaza.
 	return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
@@ -4055,19 +4078,36 @@ end
 -- first stands you own are the ones everybody walks past.
 Layout.SlotColumns = { -19.5, -6.5, 6.5, 19.5 }
 Layout.SlotRows = { -26, -12, 2, 16, 30, 42 }
--- Stands SlotsPerPlot+1 .. MaxSlots are on the second floor (same layout, SecondFloor.Height up).
-Layout.MaxSlots = Config.Plots.SlotsPerPlot + Config.Plots.SecondFloor.Slots
--- Lift pad between the floors (plot space): front-left, clear of the entrance and the stands.
-Layout.LiftOffset = Vector3.new(-18, 0, -40)
+-- Floors: the ground floor has SlotsPerPlot stands, every upper floor UpperFloors.Slots more
+-- (stands SlotsPerPlot+1 .. are upstairs, same layout, UpperFloors.Height studs per floor).
+Layout.MaxFloors = 1 + #Config.Plots.UpperFloors.Costs
+Layout.MaxSlots = Config.Plots.SlotsPerPlot + Config.Plots.UpperFloors.Slots * (Layout.MaxFloors - 1)
+-- Lift pads (plot space) at the front of the base, clear of the entrance and the stands:
+-- LiftOffsets[k] joins floor k and floor k + 1 (pads stacked exactly above each other).
+Layout.LiftOffsets = { Vector3.new(-18, 0, -40), Vector3.new(18, 0, -40) }
+
+-- Height of a floor's surface above the plot's floor (floor 1 = ground = 0).
+function Layout.FloorY(floor: number): number
+	return (floor - 1) * Config.Plots.UpperFloors.Height
+end
+
+-- Which floor (1 = ground) a stand is on.
+function Layout.SlotFloor(slotIndex: number): number
+	local ground = Config.Plots.SlotsPerPlot
+	if slotIndex <= ground then
+		return 1
+	end
+	return 2 + (slotIndex - ground - 1) // Config.Plots.UpperFloors.Slots
+end
 
 function Layout.SlotOffset(slotIndex: number): Vector3
-	local perFloor = Config.Plots.SlotsPerPlot
-	local floor = (slotIndex - 1) // perFloor
-	local index = (slotIndex - 1) % perFloor + 1
+	local floor = Layout.SlotFloor(slotIndex)
+	local ground = Config.Plots.SlotsPerPlot
+	local index = if floor == 1 then slotIndex else (slotIndex - ground - 1) % Config.Plots.UpperFloors.Slots + 1
 	local columns = #Layout.SlotColumns
 	local row = (index - 1) // columns + 1
 	local column = (index - 1) % columns + 1
-	return Vector3.new(Layout.SlotColumns[column], floor * Config.Plots.SecondFloor.Height, Layout.SlotRows[row])
+	return Vector3.new(Layout.SlotColumns[column], Layout.FloorY(floor), Layout.SlotRows[row])
 end
 
 -- Is `position` inside the plot's fenced area?
@@ -4076,7 +4116,7 @@ function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?)
 	return math.abs(localPos.X) <= Layout.PlotWidth / 2
 		and math.abs(localPos.Z) <= Layout.PlotDepth / 2
 		and localPos.Y > -5
-		and localPos.Y < Config.Plots.SecondFloor.Height + 20
+		and localPos.Y < Layout.FloorY(Layout.MaxFloors) + Config.Plots.UpperFloors.Height + 10
 end
 
 return Layout
@@ -5429,16 +5469,19 @@ function Commands.Rebirth(player: Player, profile: DataService.Profile)
 	end
 end
 
--- Next base expansion, then the second floor (free)
+-- Next base expansion, then the next floor (free)
 function Commands.Expand(player: Player, profile: DataService.Profile)
 	if Economy.ExpansionCost(profile.Data.Expansions) then
 		profile.Data.Expansions += 1
 		player:SetAttribute("Expansions", profile.Data.Expansions)
 		PlotService.RefreshLocks(player)
 		PlotService.ApplySkin(player)
-	elseif Economy.SecondFloorCost(profile.Data.Expansions, profile.Data.Floors) then
-		DataService.AddMoney(player, Config.Plots.SecondFloor.Cost, false)
-		PlotService.BuySecondFloor(player)
+	else
+		local floorCost = Economy.NextFloorCost(profile.Data.Expansions, profile.Data.Floors)
+		if floorCost then
+			DataService.AddMoney(player, floorCost, false)
+			PlotService.BuyFloor(player)
+		end
 	end
 end
 
@@ -8934,7 +8977,10 @@ local function startLock(player: Player, duration: number?): boolean
 	end
 	ItemService.StopLock(player)
 	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
-	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, LOCK_HEIGHT
+	-- (well above the roof, however many floors the base has)
+	local profile = DataService.Get(player)
+	local floors = if profile then profile.Data.Floors else 1
+	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, math.max(LOCK_HEIGHT, Layout.FloorY(floors + 1) + 30)
 	local field = Instance.new("Model")
 	field.Name = "LockLaser"
 	type Side = { Offset: CFrame, Size: Vector3 }
@@ -9609,7 +9655,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 4
+local MAP_VERSION = 5
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -9938,11 +9984,8 @@ local function buildLeaderboards(parent: Instance)
 	end
 end
 
-local function buildHub(parent: Folder)
-	local hub = Instance.new("Folder")
-	hub.Name = "Hub"
-	hub.Parent = parent
-
+-- The hub's floor and outer walls (sized by Config.Map.HubHalfWidth / HubDepth).
+local function buildHubGround(hub: Instance)
 	local hw, depth, z0 = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ
 	Build.CheckerFloor(hub, -hw, hw, z0 - depth, z0, map.TileSize, HUB_GREEN, Enum.Material.Plastic)
 
@@ -9964,6 +10007,14 @@ local function buildHub(parent: Folder)
 	} do
 		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(100, 200, 60), Material = Enum.Material.Grass })
 	end
+end
+
+local function buildHub(parent: Folder)
+	local hub = Instance.new("Folder")
+	hub.Name = "Hub"
+	hub.Parent = parent
+	local z0 = map.SafeZoneZ
+	buildHubGround(hub)
 
 	buildSafeZoneLine(hub)
 	buildEntranceGate(hub)
@@ -10214,8 +10265,9 @@ local function buildSlots(plot: Model, plotIndex: number, worldId: number)
 	end
 end
 
--- Walls between neighbouring bases (the plot's left and right sides): solid, but low enough
--- (PLOT_WALL_HEIGHT) to hop over, so thieves can jump in from the side.
+-- Low solid walls on the plot's left and right sides (PLOT_WALL_HEIGHT). With the building on
+-- (Config.Plots.Building.Enclosed) glass rises from their top to the roof; without it they're low
+-- enough to hop over, so thieves can jump in from the side.
 local PLOT_WALL_HEIGHT = 6
 local function addPlotWalls(plot: Instance, cf: CFrame)
 	if plot:FindFirstChild("SideWalls") then
@@ -10242,6 +10294,86 @@ local function addPlotWalls(plot: Instance, cf: CFrame)
 		cap:SetAttribute("SkinRole", "Trim")
 	end
 	folder.Parent = plot
+end
+
+-- A base as a building (Config.Plots.Building): glass windows from the top of the low walls up
+-- to a roof above the top floor, so the donuts inside stay in view. The front is open below
+-- EntranceHeight (the way in); the sides and back are closed, so nobody hops in over a wall.
+-- Rebuilt by PlotService whenever the number of floors changes (floors = 1, 2 or 3).
+function MapBuilder.BuildShell(plot: Model, floors: number)
+	local old = plot:FindFirstChild("Building")
+	if old then
+		old:Destroy()
+	end
+	local settings = Config.Plots.Building
+	if not settings.Enclosed then
+		return
+	end
+	local cf = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number, (plot:GetAttribute("WorldId") :: number?) or 1)
+	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
+	local classic = Config.Skins[1]
+	local top = Layout.FloorY(floors + 1) + fh -- underside of the roof
+	local wallHeight = PLOT_WALL_HEIGHT
+	local entrance = settings.EntranceHeight
+	local ex, ez = w / 2 + 0.9, d / 2 + 0.9 -- the wall lines (the side walls stand on them too)
+	local building = Instance.new("Model")
+	building.Name = "Building"
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
+	end
+	local function glass(name: string, size: Vector3, position: CFrame)
+		local pane = Build.Part({
+			Parent = building, Name = name, Size = size, CFrame = position,
+			Color = settings.GlassColor, Material = Enum.Material.Glass, Transparency = settings.GlassTransparency,
+		})
+		pane.CastShadow = false
+	end
+	local function trim(name: string, size: Vector3, position: CFrame)
+		local part = Build.Part({ Parent = building, Name = name, Size = size, CFrame = position, Color = classic.Trim, Material = classic.TrimMaterial })
+		part:SetAttribute("SkinRole", "Trim")
+	end
+	-- Glass: both sides and the back from the top of the low walls, the front above the entrance
+	local glassHeight = top - wallHeight
+	for _, side in { -1, 1 } do
+		glass("SideGlass", Vector3.new(0.6, glassHeight, ez * 2), at(side * ex, wallHeight + glassHeight / 2, 0))
+	end
+	glass("BackGlass", Vector3.new(ex * 2, glassHeight, 0.6), at(0, wallHeight + glassHeight / 2, ez))
+	glass("FrontGlass", Vector3.new(ex * 2, top - entrance, 0.6), at(0, entrance + (top - entrance) / 2, -ez))
+	-- A low solid wall along the back, like the side walls
+	local back = Build.Part({ Parent = building, Name = "BackWall", Size = Vector3.new(ex * 2 + 1.4, wallHeight, 1.4), CFrame = at(0, wallHeight / 2, ez), Color = classic.Fence, Material = classic.FenceMaterial })
+	back:SetAttribute("SkinRole", "Fence")
+	-- Frame: corner pillars, window bars, a beam over the entrance and a band at every floor
+	for _, x in { -ex, ex } do
+		for _, z in { -ez, ez } do
+			trim("Pillar", Vector3.new(1.8, top, 1.8), at(x, top / 2, z))
+		end
+	end
+	for z = -d / 2 + 14, d / 2 - 13, 14 do
+		for _, side in { -1, 1 } do
+			trim("WindowBar", Vector3.new(0.5, glassHeight, 0.9), at(side * (ex + 0.4), wallHeight + glassHeight / 2, z))
+		end
+	end
+	for x = -14, 14, 14 do
+		trim("WindowBar", Vector3.new(0.9, glassHeight, 0.5), at(x, wallHeight + glassHeight / 2, ez + 0.4))
+		trim("WindowBar", Vector3.new(0.9, top - entrance, 0.5), at(x, entrance + (top - entrance) / 2, -ez - 0.4))
+	end
+	trim("EntranceBeam", Vector3.new(ex * 2, 1, 1.2), at(0, entrance, -ez))
+	for floor = 2, floors do
+		local y = Layout.FloorY(floor) + fh
+		trim("FloorBand", Vector3.new(ex * 2, 0.8, 1), at(0, y, -ez - 0.2))
+		trim("FloorBand", Vector3.new(ex * 2, 0.8, 1), at(0, y, ez + 0.2))
+		for _, side in { -1, 1 } do
+			trim("FloorBand", Vector3.new(1, 0.8, ez * 2), at(side * (ex + 0.2), y, 0))
+		end
+	end
+	-- Roof: a frame with a big glass skylight
+	local roofW, roofD = ex * 2 + 3, ez * 2 + 3
+	glass("Skylight", Vector3.new(roofW - 12, 0.6, roofD - 12), at(0, top + 0.3, 0))
+	for _, side in { -1, 1 } do
+		trim("RoofEdge", Vector3.new(6, 1.2, roofD), at(side * (roofW / 2 - 3), top + 0.6, 0))
+		trim("RoofEdge", Vector3.new(roofW - 12, 1.2, 6), at(0, top + 0.6, side * (roofD / 2 - 3)))
+	end
+	building.Parent = plot
 end
 
 function buildPlot(parent: Instance, plotIndex: number, worldId: number)
@@ -10325,6 +10457,7 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	skinFx.Parent = plot
 
 	plot.PrimaryPart = plot:FindFirstChild("Spawn") :: BasePart
+	MapBuilder.BuildShell(plot, 1)
 	plot.Parent = parent
 end
 
@@ -10415,6 +10548,27 @@ function MapBuilder.Build(): Folder
 				portals:Destroy()
 			end
 		end
+		if version < 5 then
+			-- Version 5: bases are much further apart (Layout.PlotRowSpacing), so every hub is deeper
+			-- (Config.Map.HubDepth), and every base is a building (BuildShell). Rebuild the bases, the
+			-- world hubs, and the main hub's floor and outer walls; the shop, boards, portals and the
+			-- spawn in the middle of the hub are kept as they are.
+			for _, name in { "Plots", "Worlds" } do
+				local old = existing:FindFirstChild(name)
+				if old then
+					old:Destroy()
+				end
+			end
+			if hub then
+				for _, name in { "Floor", "Walls" } do
+					local old = hub:FindFirstChild(name)
+					if old then
+						old:Destroy()
+					end
+				end
+				buildHubGround(hub)
+			end
+		end
 		if hub then
 			local shop = hub:FindFirstChild("ShopStall")
 			if shop and shop:GetAttribute("ShopTab") == nil then
@@ -10501,6 +10655,9 @@ function MapBuilder.Build(): Folder
 			end
 		end
 		buildLane(existing) -- adds any areas that are missing (new worlds)
+		if not existing:FindFirstChild("Plots") then
+			buildPlots(existing)
+		end
 		if not existing:FindFirstChild("Worlds") then
 			buildWorlds(existing)
 		end
@@ -11502,9 +11659,11 @@ return PlayerService
 	(donuts, treadmill, podium, incubator) moves to whichever world you're in (MoveBase), so you
 	never have to run back to the main hub to drop off a donut.
 
-	Second floor (Config.Plots.SecondFloor): once the ground floor is fully expanded you can buy a
-	deck over your whole base with more stands (slots SlotsPerPlot+1 ..). It's built on whichever
-	plot your base is on, and a lift pad at the front takes anyone up and down (thieves too).
+	Upper floors (Config.Plots.UpperFloors): once the ground floor is fully expanded you can buy a
+	second floor, then a third, each a deck over your whole base with more stands (slots
+	SlotsPerPlot+1 ..). They're built on whichever plot your base is on, lift pads at the front take
+	anyone between floors (thieves too), and the building around the base (glass walls and a roof,
+	MapBuilder.BuildShell) grows with them.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -11550,8 +11709,8 @@ local playerPlots: { [Player]: number } = {}
 local baseWorlds: { [Player]: number } = {}
 local slotModels: { [Player]: { [number]: Model } } = {}
 local baseIncome: { [Player]: number } = {}
-local buildSecondFloor: (player: Player) -> ()
-local removeSecondFloor: (plot: Model) -> ()
+local buildUpperFloors: (player: Player) -> ()
+local removeUpperFloors: (plot: Model) -> ()
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -11635,6 +11794,15 @@ end
 --------------------------------------------------------------------------------
 -- Sign above the plot
 --------------------------------------------------------------------------------
+-- How far above its anchor the sign floats: over the roof of the building (or over the top deck
+-- when bases aren't enclosed), so it's always visible.
+local function signOffset(floors: number): Vector3
+	if Config.Plots.Building.Enclosed then
+		return Vector3.new(0, Layout.FloorY(floors + 1) - 8, 0)
+	end
+	return Vector3.new(0, if floors >= 2 then Layout.FloorY(floors) + 12 else 0, 0)
+end
+
 -- `away`: the owner's base is in another world right now (this plot stays reserved for them).
 local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, away: boolean?)
 	local plot = MapBuilder.GetPlot(plotIndex, worldId)
@@ -11657,6 +11825,7 @@ local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, 
 	local signGui = gui :: BillboardGui
 	local nameLabel = signGui:FindFirstChild("OwnerName") :: TextLabel
 	local incomeLabel = signGui:FindFirstChild("Income") :: TextLabel
+	signGui.StudsOffsetWorldSpace = signOffset(1)
 	if owner and away then
 		nameLabel.Text = `{owner.DisplayName}'s base`
 		nameLabel.TextColor3 = rgb(200, 200, 200)
@@ -11667,15 +11836,12 @@ local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, 
 		nameLabel.TextColor3 = rgb(255, 255, 255)
 		incomeLabel.TextColor3 = rgb(90, 255, 90)
 		local profile = DataService.Get(owner)
-		-- Above the second floor's deck when there is one
-		local tall = profile ~= nil and profile.Data.Floors >= 2
-		signGui.StudsOffsetWorldSpace = Vector3.new(0, if tall then Config.Plots.SecondFloor.Height + 12 else 0, 0)
+		signGui.StudsOffsetWorldSpace = signOffset(if profile then profile.Data.Floors else 1)
 		local mult = if profile then DataService.MoneyMultiplier(profile) else 1
 		local rebirths = if profile then profile.Data.Rebirths else 0
 		nameLabel.Text = if rebirths > 0 then `{owner.DisplayName}  🔄{rebirths}` else owner.DisplayName
 		incomeLabel.Text = Format.Money((baseIncome[owner] or 0) * mult) .. "/s"
 	else
-		signGui.StudsOffsetWorldSpace = Vector3.zero
 		nameLabel.Text = "Empty Base"
 		nameLabel.TextColor3 = rgb(200, 200, 200)
 		incomeLabel.Text = ""
@@ -12337,9 +12503,10 @@ function PlotService.ApplySkin(player: Player)
 end
 
 --------------------------------------------------------------------------------
--- Second floor
+-- Upper floors (2nd, 3rd)
 --------------------------------------------------------------------------------
 local liftCooldown: { [Player]: number } = {}
+local FLOOR_NAMES = { "GROUND FLOOR", "2ND FLOOR", "3RD FLOOR" }
 
 -- A glowing lift pad: step on it and you're taken to `target`.
 local function liftPad(parent: Instance, cf: CFrame, text: string, target: CFrame)
@@ -12376,10 +12543,12 @@ local function liftPad(parent: Instance, cf: CFrame, text: string, target: CFram
 	end)
 end
 
-function removeSecondFloor(plot: Model)
-	local deck = plot:FindFirstChild("SecondFloor")
-	if deck then
-		deck:Destroy()
+function removeUpperFloors(plot: Model)
+	for _, child in plot:GetChildren() do
+		-- ("SecondFloor": the deck's name before there was a third floor)
+		if child.Name == "SecondFloor" or string.match(child.Name, "^Floor%d+$") then
+			child:Destroy()
+		end
 	end
 	local slots = plot:FindFirstChild("Slots")
 	if slots then
@@ -12392,108 +12561,117 @@ function removeSecondFloor(plot: Model)
 	end
 end
 
--- Build the owner's second floor on the plot their base is on (or clear it if they have none).
-function buildSecondFloor(player: Player)
+-- Build the owner's upper floors (and the building around them) on the plot their base is on.
+function buildUpperFloors(player: Player)
 	local profile = DataService.Get(player)
 	local plot = PlotService.GetPlotModel(player)
 	local index = playerPlots[player]
 	if not plot or not index then
 		return
 	end
-	removeSecondFloor(plot)
-	if not profile or profile.Data.Floors < 2 then
-		return
-	end
+	removeUpperFloors(plot)
+	local floors = if profile then math.clamp(profile.Data.Floors, 1, Layout.MaxFloors) else 1
+	MapBuilder.BuildShell(plot, floors)
 	local cf = Layout.PlotCFrame(index, PlotService.GetBaseWorld(player))
 	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
-	local height = Config.Plots.SecondFloor.Height
 	local classic = Config.Skins[1]
-	local deck = Instance.new("Model")
-	deck.Name = "SecondFloor"
+	local enclosed = Config.Plots.Building.Enclosed
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
-	local function skinned(role: string, props): BasePart
-		props.Parent = props.Parent or deck
-		local part = Build.Part(props)
-		part:SetAttribute("SkinRole", role)
-		return part
-	end
-	-- Deck (checker tiles like the ground floor, so skins recolour it too)
-	local tile = 14
-	for ix = 0, w / tile - 1 do
-		for iz = 0, d / tile - 1 do
-			local role = if (ix + iz) % 2 == 0 then "Floor" else "FloorAlt"
-			skinned(role, { Name = "Tile", Size = Vector3.new(tile, fh + 0.5, tile), CFrame = at(-w / 2 + tile / 2 + ix * tile, height + (fh - 0.5) / 2, -d / 2 + tile / 2 + iz * tile), Color = if role == "Floor" then classic.Floor else classic.FloorAlt, Material = classic.FloorMaterial })
+	for floor = 2, floors do
+		local height = Layout.FloorY(floor)
+		local below = Layout.FloorY(floor - 1)
+		local deck = Instance.new("Model")
+		deck.Name = "Floor" .. floor
+		local function skinned(role: string, props): BasePart
+			props.Parent = props.Parent or deck
+			local part = Build.Part(props)
+			part:SetAttribute("SkinRole", role)
+			return part
 		end
-	end
-	-- Pillars holding it up
-	for _, x in { -w / 2 + 1.5, w / 2 - 1.5 } do
-		for _, z in { -d / 2 + 1.5, 0, d / 2 - 1.5 } do
-			skinned("Trim", { Name = "Pillar", Size = Vector3.new(2.4, height, 2.4), CFrame = at(x, height / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
+		-- Deck (checker tiles like the ground floor, so skins recolour it too)
+		local tile = 14
+		for ix = 0, w / tile - 1 do
+			for iz = 0, d / tile - 1 do
+				local role = if (ix + iz) % 2 == 0 then "Floor" else "FloorAlt"
+				skinned(role, { Name = "Tile", Size = Vector3.new(tile, fh + 0.5, tile), CFrame = at(-w / 2 + tile / 2 + ix * tile, height + (fh - 0.5) / 2, -d / 2 + tile / 2 + iz * tile), Color = if role == "Floor" then classic.Floor else classic.FloorAlt, Material = classic.FloorMaterial })
+			end
 		end
-	end
-	-- Railing all the way round
-	local railHeight = 4
-	local function rail(from: Vector3, to: Vector3)
-		local length = (to - from).Magnitude
-		local mid = (from + to) / 2
-		local line = CFrame.lookAt(Vector3.new(mid.X, 0, mid.Z), Vector3.new(to.X, 0, to.Z))
-		skinned("Fence", { Name = "Rail", Size = Vector3.new(0.6, railHeight, length), CFrame = cf * line * CFrame.new(0, height + fh + railHeight / 2, 0), Color = classic.Fence, Material = classic.FenceMaterial, Transparency = 0.4 })
-		skinned("Trim", { Name = "RailCap", Size = Vector3.new(0.9, 0.4, length), CFrame = cf * line * CFrame.new(0, height + fh + railHeight + 0.2, 0), Color = classic.Trim, Material = classic.TrimMaterial })
-	end
-	local hw, hd = w / 2 - 0.3, d / 2 - 0.3
-	rail(Vector3.new(-hw, 0, -hd), Vector3.new(hw, 0, -hd))
-	rail(Vector3.new(-hw, 0, hd), Vector3.new(hw, 0, hd))
-	rail(Vector3.new(-hw, 0, -hd), Vector3.new(-hw, 0, hd))
-	rail(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd))
-	-- Lift pads, one above the other (so a carried donut never "teleports" sideways)
-	local lift = Layout.LiftOffset
-	local step = Vector3.new(0, 0, 7) -- step off the pad towards the stands
-	liftPad(deck, at(lift.X, fh + 0.2, lift.Z), "⬆ 2ND FLOOR", at(lift.X + step.X, height + fh + 3, lift.Z + step.Z))
-	liftPad(deck, at(lift.X, height + fh + 0.2, lift.Z), "⬇ GROUND FLOOR", at(lift.X + step.X, fh + 3, lift.Z + step.Z))
-	-- The stands (in the plot's Slots folder, like the ground floor's)
-	local slots = plot:FindFirstChild("Slots")
-	if slots then
-		for slotIndex = Config.Plots.SlotsPerPlot + 1, Layout.MaxSlots do
-			local offset = Layout.SlotOffset(slotIndex)
-			local pedestal = Build.Part({
-				Parent = slots, Name = "Slot" .. slotIndex,
-				Shape = Enum.PartType.Cylinder,
-				Size = Vector3.new(1, 7.5, 7.5),
-				CFrame = cf * CFrame.new(offset.X, offset.Y + fh + 0.5, offset.Z) * CFrame.Angles(0, 0, math.pi / 2),
-				Color = classic.Pedestal, Material = classic.PedestalMaterial,
-			})
-			pedestal:SetAttribute("SkinRole", "Pedestal")
-			pedestal:SetAttribute("SlotIndex", slotIndex)
-			pedestal:SetAttribute("Surface", cf * CFrame.new(offset.X, offset.Y + fh + 1, offset.Z))
+		-- Pillars holding it up (from the floor below)
+		local pillarHeight = height - below
+		for _, x in { -w / 2 + 1.5, w / 2 - 1.5 } do
+			for _, z in { -d / 2 + 1.5, 0, d / 2 - 1.5 } do
+				skinned("Trim", { Name = "Pillar", Size = Vector3.new(2.4, pillarHeight, 2.4), CFrame = at(x, below + pillarHeight / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
+			end
 		end
+		-- Railing round the edge (the building's glass walls do that job when bases are enclosed)
+		if not enclosed then
+			local railHeight = 4
+			local function rail(from: Vector3, to: Vector3)
+				local length = (to - from).Magnitude
+				local mid = (from + to) / 2
+				local line = CFrame.lookAt(Vector3.new(mid.X, 0, mid.Z), Vector3.new(to.X, 0, to.Z))
+				skinned("Fence", { Name = "Rail", Size = Vector3.new(0.6, railHeight, length), CFrame = cf * line * CFrame.new(0, height + fh + railHeight / 2, 0), Color = classic.Fence, Material = classic.FenceMaterial, Transparency = 0.4 })
+				skinned("Trim", { Name = "RailCap", Size = Vector3.new(0.9, 0.4, length), CFrame = cf * line * CFrame.new(0, height + fh + railHeight + 0.2, 0), Color = classic.Trim, Material = classic.TrimMaterial })
+			end
+			local hw, hd = w / 2 - 0.3, d / 2 - 0.3
+			rail(Vector3.new(-hw, 0, -hd), Vector3.new(hw, 0, -hd))
+			rail(Vector3.new(-hw, 0, hd), Vector3.new(hw, 0, hd))
+			rail(Vector3.new(-hw, 0, -hd), Vector3.new(-hw, 0, hd))
+			rail(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd))
+		end
+		-- Lift pads between this floor and the one below, exactly above each other (so a carried
+		-- donut never "teleports" sideways)
+		local lift = Layout.LiftOffsets[floor - 1]
+		local step = Vector3.new(0, 0, 7) -- step off the pad towards the stands
+		liftPad(deck, at(lift.X, below + fh + 0.2, lift.Z), "⬆ " .. FLOOR_NAMES[floor], at(lift.X + step.X, height + fh + 3, lift.Z + step.Z))
+		liftPad(deck, at(lift.X, height + fh + 0.2, lift.Z), "⬇ " .. FLOOR_NAMES[floor - 1], at(lift.X + step.X, below + fh + 3, lift.Z + step.Z))
+		-- This floor's stands (in the plot's Slots folder, like the ground floor's)
+		local slots = plot:FindFirstChild("Slots")
+		if slots then
+			local first = Config.Plots.SlotsPerPlot + (floor - 2) * Config.Plots.UpperFloors.Slots + 1
+			for slotIndex = first, first + Config.Plots.UpperFloors.Slots - 1 do
+				local offset = Layout.SlotOffset(slotIndex)
+				local pedestal = Build.Part({
+					Parent = slots, Name = "Slot" .. slotIndex,
+					Shape = Enum.PartType.Cylinder,
+					Size = Vector3.new(1, 7.5, 7.5),
+					CFrame = cf * CFrame.new(offset.X, offset.Y + fh + 0.5, offset.Z) * CFrame.Angles(0, 0, math.pi / 2),
+					Color = classic.Pedestal, Material = classic.PedestalMaterial,
+				})
+				pedestal:SetAttribute("SkinRole", "Pedestal")
+				pedestal:SetAttribute("SlotIndex", slotIndex)
+				pedestal:SetAttribute("Surface", cf * CFrame.new(offset.X, offset.Y + fh + 1, offset.Z))
+			end
+		end
+		deck.Parent = plot
 	end
-	deck.Parent = plot
 end
 
--- Buy the second floor (after the ground floor is fully expanded).
-function PlotService.BuySecondFloor(player: Player): boolean
+-- Buy the next floor (the 2nd once the ground floor is fully expanded, then the 3rd).
+function PlotService.BuyFloor(player: Player): boolean
 	local profile = DataService.Get(player)
 	if not profile then
 		return false
 	end
-	local cost = Economy.SecondFloorCost(profile.Data.Expansions, profile.Data.Floors)
+	local cost = Economy.NextFloorCost(profile.Data.Expansions, profile.Data.Floors)
 	if not cost then
-		notify(player, if profile.Data.Floors >= 2 then "You already have a second floor!" else "Fully expand your base first!", "error")
+		notify(player, if profile.Data.Floors >= Layout.MaxFloors then "Your base already has every floor!" else "Fully expand your base first!", "error")
 		return false
 	end
 	if not DataService.TrySpend(player, cost) then
 		notify(player, "Not enough money! Need " .. Format.Money(cost), "error")
 		return false
 	end
-	profile.Data.Floors = 2
-	player:SetAttribute("Floors", 2)
-	buildSecondFloor(player)
+	profile.Data.Floors = math.min(profile.Data.Floors + 1, Layout.MaxFloors)
+	player:SetAttribute("Floors", profile.Data.Floors)
+	buildUpperFloors(player)
 	PlotService.RefreshLocks(player)
 	PlotService.ApplySkin(player)
 	PlotService.RefreshSign(player)
-	notify(player, `🏢 SECOND FLOOR built! +{Config.Plots.SecondFloor.Slots} stands ({PlotService.GetSlotCount(player)} total). Take the lift pad at the front of your base.`, "success")
+	local name = string.lower(FLOOR_NAMES[profile.Data.Floors] or "floor")
+	notify(player, `🏢 {string.upper(name)} built! +{Config.Plots.UpperFloors.Slots} stands ({PlotService.GetSlotCount(player)} total). Take the lift pad at the front of your base.`, "success")
 	return true
 end
 
@@ -12511,7 +12689,7 @@ local function showBase(player: Player)
 	MapBuilder.GetPlot(index, worldId):SetAttribute("OwnerUserId", player.UserId)
 	player:SetAttribute("BaseWorld", worldId)
 	if profile then
-		buildSecondFloor(player) -- (its stands must exist before the donuts go on them)
+		buildUpperFloors(player) -- (their stands must exist before the donuts go on them)
 		for i = 1, Layout.MaxSlots do
 			spawnSlotModel(player, i)
 		end
@@ -12537,7 +12715,8 @@ local function hideBase(player: Player, worldId: number, away: boolean)
 	slotModels[player] = {}
 	local plot = MapBuilder.GetPlot(index, worldId)
 	plot:SetAttribute("OwnerUserId", nil)
-	removeSecondFloor(plot)
+	removeUpperFloors(plot)
+	MapBuilder.BuildShell(plot, 1)
 	local podium = plot:FindFirstChild("Podium")
 	if podium then
 		podium:Destroy()
@@ -13064,7 +13243,7 @@ return RaidService
 	ShopService
 	===========
 	Handles every client request that costs money, Speed or Robux, plus a few small player actions:
-	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion, BuySecondFloor   (in-game money)
+	  BuySpeedMultiplier, BuyTreadmill, BuyExpansion, BuyFloor (2nd / 3rd floor)   (in-game money)
 	  BuyIncubatorUpgrade "Speed" | "Size"                            (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
 	  BuyPass <key>                                    (Robux game passes)
@@ -13235,8 +13414,8 @@ function Actions.BuyExpansion(player: Player, _profile: DataService.Profile)
 	PlotService.Expand(player)
 end
 
-function Actions.BuySecondFloor(player: Player, _profile: DataService.Profile)
-	PlotService.BuySecondFloor(player)
+function Actions.BuyFloor(player: Player, _profile: DataService.Profile)
+	PlotService.BuyFloor(player)
 end
 
 function Actions.BuyIncubatorUpgrade(player: Player, _profile: DataService.Profile, kind: any)
@@ -14592,7 +14771,7 @@ local function hubSpots(x0: number, rng: Random, count: number): { Vector3 }
 	local spots = {}
 	for _ = 1, count do
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
-		table.insert(spots, Vector3.new(x0 + side * rng:NextNumber(20, 92), 0, rng:NextNumber(-250, -120)))
+		table.insert(spots, Vector3.new(x0 + side * rng:NextNumber(20, 92), 0, rng:NextNumber(-(map.HubDepth - 40), -120)))
 	end
 	return spots
 end
@@ -14615,7 +14794,7 @@ local function islands(folder: Instance, world: Areas.World, rng: Random)
 	end
 	local stripes = { rgb(255, 80, 80), rgb(255, 210, 50), rgb(60, 170, 255), rgb(255, 130, 200) }
 	for n = 1, 6 do
-		local pos = Vector3.new(x0 + (if n % 2 == 0 then 1 else -1) * rng:NextNumber(30, 85), 0, rng:NextNumber(-240, -130))
+		local pos = Vector3.new(x0 + (if n % 2 == 0 then 1 else -1) * rng:NextNumber(30, 85), 0, rng:NextNumber(-(map.HubDepth - 50), -130))
 		Build.Pillar(folder, pos, 8, 0.4, rgb(240, 240, 240))
 		Build.Decor({ Parent = folder, Name = "Umbrella", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 9, 9), CFrame = CFrame.new(pos + Vector3.new(0, 8, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = stripes[(n - 1) % #stripes + 1], Material = Enum.Material.Fabric })
 	end
@@ -14650,10 +14829,10 @@ local function dream(folder: Instance, world: Areas.World, rng: Random)
 	end
 	-- Pastel clouds at every height over the hub
 	for _ = 1, 22 do
-		cloud(folder, Vector3.new(x0 + rng:NextNumber(-260, 260), rng:NextNumber(45, 150), rng:NextNumber(-300, 60)), rng:NextNumber(5, 11), rng, pastel[rng:NextInteger(1, #pastel)])
+		cloud(folder, Vector3.new(x0 + rng:NextNumber(-260, 260), rng:NextNumber(45, 150), rng:NextNumber(-(map.HubDepth + 40), 60)), rng:NextNumber(5, 11), rng, pastel[rng:NextInteger(1, #pastel)])
 	end
 	-- A crescent moon and a giant floating donut above the hub
-	local moon = Vector3.new(x0 + 140, 170, -320)
+	local moon = Vector3.new(x0 + 140, 170, -(map.HubDepth + 60))
 	Build.Ball(folder, moon, 60, rgb(255, 250, 225), Enum.Material.Neon)
 	Build.Ball(folder, moon + Vector3.new(-18, 8, 14), 56, rgb(40, 30, 70), Enum.Material.SmoothPlastic)
 	local donut = Decor.GiantDonut(folder, CFrame.new(x0 - 120, 110, -200) * CFrame.Angles(0, 0.6, 0), 14, 10, rgb(255, 225, 150), rgb(255, 170, 230), { rgb(255, 255, 255), rgb(120, 220, 255), rgb(255, 230, 120) })
@@ -14707,17 +14886,17 @@ end
 local function cyber(folder: Instance, world: Areas.World, rng: Random)
 	local x0 = world.OffsetX
 	-- A skyline all around the hub (outside its walls)
-	for z = -300, 40, 34 do
+	for z = -(map.HubDepth + 40), 40, 34 do
 		for _, side in { -1, 1 } do
 			tower(folder, Vector3.new(x0 + side * rng:NextNumber(255, 300), 0, z), rng)
 		end
 	end
 	for x = x0 - 240, x0 + 240, 36 do
-		tower(folder, Vector3.new(x, 0, rng:NextNumber(-320, -290)), rng)
+		tower(folder, Vector3.new(x, 0, rng:NextNumber(-(map.HubDepth + 60), -(map.HubDepth + 30))), rng)
 	end
 	-- Flying cars and holo donuts over the hub
 	for _ = 1, 14 do
-		flyingCar(folder, Vector3.new(x0 + rng:NextNumber(-220, 220), rng:NextNumber(50, 110), rng:NextNumber(-280, 20)), rng)
+		flyingCar(folder, Vector3.new(x0 + rng:NextNumber(-220, 220), rng:NextNumber(50, 110), rng:NextNumber(-(map.HubDepth + 20), 20)), rng)
 	end
 	for n = 1, 3 do
 		local c = CFrame.new(x0 + (n - 2) * 70, 70, -200)
@@ -17932,17 +18111,17 @@ local function build()
 	button(speed, "+1 Rebirth", Theme.Colors.Yellow, function()
 		command("Rebirth")
 	end)
-	button(speed, "+Expansion / 2nd floor", Theme.Colors.Blue, function()
+	button(speed, "+Expansion / floor", Theme.Colors.Blue, function()
 		command("Expand")
 	end)
 
 	-- Your base
 	local base = section("🏠 Your base", 170)
-	local lock = button(base, "👑 🔒 Permanent lock", Theme.Colors.Red, function()
+	local lock = button(base, "🔒 Permanent lock", Theme.Colors.Red, function()
 		command("PermaLock")
 	end)
 	State.Changed:Connect(function()
-		Theme.SetButtonText(lock, if State.Data.PermaLock then "👑 🔓 Unlock base" else "👑 🔒 Permanent lock")
+		Theme.SetButtonText(lock, if State.Data.PermaLock then "🔓 Unlock base" else "🔒 Permanent lock")
 		Theme.SetButtonColor(lock, if State.Data.PermaLock then Theme.Colors.Green else Theme.Colors.Red)
 	end)
 	button(base, "💸 Reset money", Theme.Colors.Gray, function()
@@ -20948,8 +21127,10 @@ return Rebirth
 	Settings window + background music player.
 	Music on/off and volume are saved per player. Tracks come from Config.Music.Tracks.
 
-	Songs that fail to load (a private asset, a deleted asset, or a typo in the ID) are skipped
-	automatically, and a warning with the ID is printed to the Output window so you can fix it.
+	The music never stops on its own: a single song loops, several songs play one after another
+	(and start over), and a watchdog restarts playback if Roblox ever drops it. Songs that fail to
+	load (a private asset, a deleted asset, or a typo in the ID) are skipped with a warning in the
+	Output window; if none of them load, it keeps retrying (a slow connection while the map loads).
 ]]
 
 local SoundService = game:GetService("SoundService")
@@ -20979,6 +21160,9 @@ local refresh: () -> () = function() end
 local status = "" -- shown under "Now playing" when something is wrong
 local playToken = 0
 local failed: { [number]: boolean } = {}
+local LOAD_TIMEOUT = 25 -- seconds a song may take to load before it's skipped
+local RETRY_DELAY = 30 -- seconds before trying again when no song could be loaded
+local retryPending = false
 
 local tracks = Config.Music.Tracks
 
@@ -21003,9 +21187,18 @@ playTrack = function(index: number)
 		return
 	end
 	if workingTracks() == 0 then
+		-- Nothing loaded (yet): try every song again in a while instead of going silent for good.
 		sound:Stop()
-		status = "Couldn't load any songs - check the IDs in Config.Music.Tracks"
+		status = "Couldn't load the music - trying again soon"
 		refresh()
+		if not retryPending then
+			retryPending = true
+			task.delay(RETRY_DELAY, function()
+				retryPending = false
+				table.clear(failed)
+				playTrack(trackIndex)
+			end)
+		end
 		return
 	end
 	-- Skip songs that already failed
@@ -21020,13 +21213,15 @@ playTrack = function(index: number)
 	local token = playToken
 	local track = tracks[trackIndex]
 	sound:Stop()
+	-- One song: let Roblox loop it seamlessly. Several: play them in turn (Ended / the watchdog).
+	sound.Looped = workingTracks() <= 1
 	sound.SoundId = "rbxassetid://" .. tostring(track.Id)
 	sound.TimePosition = 0
 	sound:Play()
 	status = ""
 	refresh()
-	-- A song that never loads (private/deleted asset) never fires Ended: skip it after a while.
-	task.delay(10, function()
+	-- A song that never loads (private/deleted asset) never plays: skip it after a while.
+	task.delay(LOAD_TIMEOUT, function()
 		if token ~= playToken then
 			return
 		end
@@ -21068,7 +21263,19 @@ function Settings.Init()
 	sound.Parent = SoundService
 	applyVolume()
 	sound.Ended:Connect(function()
-		playTrack(trackIndex + 1)
+		if not sound.Looped then
+			playTrack(trackIndex + 1)
+		end
+	end)
+	-- Watchdog: if the music ever stops by itself (a missed Ended event, the engine dropping the
+	-- sound...), start the next song. "Music off" only turns the volume down, so this never fights it.
+	task.spawn(function()
+		while true do
+			task.wait(3)
+			if #tracks > 0 and not retryPending and sound.IsLoaded and not sound.IsPlaying then
+				playTrack(if sound.Looped then trackIndex else trackIndex + 1)
+			end
+		end
 	end)
 
 	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 360))
@@ -21261,8 +21468,8 @@ local function buildUpgrades(page: ScrollingFrame)
 		local expansions = State.Number("Expansions")
 		if Economy.ExpansionCost(expansions) then
 			State.Action("BuyExpansion")
-		elseif Economy.SecondFloorCost(expansions, math.max(1, State.Number("Floors"))) then
-			State.Action("BuySecondFloor")
+		elseif Economy.NextFloorCost(expansions, math.max(1, State.Number("Floors"))) then
+			State.Action("BuyFloor")
 		end
 	end)
 
@@ -21329,21 +21536,21 @@ local function buildUpgrades(page: ScrollingFrame)
 		local floors = math.max(1, State.Number("Floors"))
 		local slots = Economy.SlotCount(expansions, floors)
 		local expandCost = Economy.ExpansionCost(expansions)
-		local floorCost = Economy.SecondFloorCost(expansions, floors)
+		local floorCost = Economy.NextFloorCost(expansions, floors)
 		if expandCost then
 			expandTitle.Text = "🏗 BASE EXPANSION"
 			expandInfo.Text = `{slots} → {slots + Config.Plots.ExpansionSlots} donut stands\nKept forever, even when you rebirth`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(expandCost))
 			Theme.SetButtonColor(expandButton, if money >= expandCost then Theme.Colors.Green else Theme.Colors.Gray)
 		elseif floorCost then
-			-- Ground floor full: the next step is a whole second floor
-			expandTitle.Text = "🏢 SECOND FLOOR"
-			expandInfo.Text = `{slots} → {slots + Config.Plots.SecondFloor.Slots} donut stands on a new floor\nKept forever, even when you rebirth`
+			-- Ground floor full: the next step is a whole new floor
+			expandTitle.Text = if floors >= 2 then "🏢 THIRD FLOOR" else "🏢 SECOND FLOOR"
+			expandInfo.Text = `{slots} → {slots + Config.Plots.UpperFloors.Slots} donut stands on a new floor\nKept forever, even when you rebirth`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(floorCost))
 			Theme.SetButtonColor(expandButton, if money >= floorCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
 			expandTitle.Text = "🏢 BASE"
-			expandInfo.Text = `{slots} donut stands on 2 floors - fully built!`
+			expandInfo.Text = `{slots} donut stands on {floors} floors - fully built!`
 			Theme.SetButtonText(expandButton, "MAXED")
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
 		end

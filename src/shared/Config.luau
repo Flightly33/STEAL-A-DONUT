@@ -106,7 +106,7 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe hub (bases, shop, leaderboards)
 	HubHalfWidth = 230,
-	HubDepth = 260,
+	HubDepth = 400, -- deep enough for 4 rows of bases Layout.PlotRowSpacing apart (every world's hub)
 	HubWallHeight = 40,
 
 	DonutSpawnsPerArea = 7,
@@ -122,13 +122,26 @@ Config.Plots = {
 	-- Each expansion adds one row of 4 stands. Bought with money in the Shop, kept through rebirths.
 	ExpansionSlots = 4,
 	ExpansionCosts = { 50_000, 250_000_000, 1_000_000_000_000, 5_000_000_000_000_000 },
-	-- Second floor: once all SlotsPerPlot stands are unlocked, buy a second floor with Slots more
-	-- stands (same layout, Height studs up - above even a Giant donut). A lift pad at the front of
-	-- the base takes you up and down. Kept through rebirths, like expansions.
-	SecondFloor = {
-		Cost = 10_000_000_000_000_000_000, -- $10Qn: 2000x the last expansion (bots get it around Rebirth 2)
-		Slots = 24, -- at most SlotsPerPlot
+	-- Upper floors: once all SlotsPerPlot stands are unlocked, buy a second floor, then a third,
+	-- each with Slots more stands (same layout, Height studs up - above even a Giant donut). Lift
+	-- pads at the front of the base take you between floors. Kept through rebirths, like expansions.
+	UpperFloors = {
+		Costs = {
+			1e19, -- 2nd floor: $10Qn, 2000x the last expansion (bots get it around Rebirth 2)
+			1e23, -- 3rd floor: $100Sx, 10,000x the 2nd floor (around Rebirth 3)
+		},
+		Slots = 24, -- per floor (at most SlotsPerPlot)
 		Height = 26,
+	},
+	-- Every base is a building: glass windows from the top of its low walls up to a roof above its
+	-- top floor, so you can see the donuts inside. The front stays open (that's the way in), and a
+	-- thief can only get in there, not over the sides.
+	-- Enclosed = false: no glass walls (low walls you can hop over from the side, and no roof).
+	Building = {
+		Enclosed = true,
+		GlassColor = Color3.fromRGB(170, 225, 255),
+		GlassTransparency = 0.55,
+		EntranceHeight = 12, -- the open gap at the front of the ground floor (studs)
 	},
 	DonutScale = 1.1,
 	PodiumDonutScale = 1.7,
@@ -358,9 +371,10 @@ Config.Donations = {
 -- (server/AdminService.luau, ADMIN_CODE) so exploiters can't read it out of this shared module.
 -- AllowAnyone = true: EVERY player who types the code gets the panel (money, speed, donuts, flying...).
 -- The commands that give away things you sell for Robux (OwnerOnlyCommands: Luck Event, crates) or
--- change the game for everyone in the server (starting server events, a permanent Base Lock that
--- would make one base unraidable forever) still only work for the owner: the game's owner (for a group game, the group's owner), anyone testing in
--- Studio, and the UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }).
+-- change the game for everyone in the server (starting server events) still only work for the
+-- owner: the game's owner (for a group game, the group's owner), anyone testing in Studio, and the
+-- UserIds in AllowedUserIds (e.g. friends: { 12345678, 87654321 }). Everything else - including the
+-- permanent Base Lock - works for everyone who has the panel.
 -- AllowAnyone = false: only those owners can open the panel at all.
 -- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
 -- scores stay meaningful.
@@ -368,7 +382,7 @@ Config.Donations = {
 Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
-	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event", "PermaLock" },
+	OwnerOnlyCommands = { "Luck", "OpenCrate", "SpawnCrate", "Event" },
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = true,
 }

@@ -43,7 +43,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 4
+local MAP_VERSION = 5
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -372,11 +372,8 @@ local function buildLeaderboards(parent: Instance)
 	end
 end
 
-local function buildHub(parent: Folder)
-	local hub = Instance.new("Folder")
-	hub.Name = "Hub"
-	hub.Parent = parent
-
+-- The hub's floor and outer walls (sized by Config.Map.HubHalfWidth / HubDepth).
+local function buildHubGround(hub: Instance)
 	local hw, depth, z0 = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ
 	Build.CheckerFloor(hub, -hw, hw, z0 - depth, z0, map.TileSize, HUB_GREEN, Enum.Material.Plastic)
 
@@ -398,6 +395,14 @@ local function buildHub(parent: Folder)
 	} do
 		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(100, 200, 60), Material = Enum.Material.Grass })
 	end
+end
+
+local function buildHub(parent: Folder)
+	local hub = Instance.new("Folder")
+	hub.Name = "Hub"
+	hub.Parent = parent
+	local z0 = map.SafeZoneZ
+	buildHubGround(hub)
 
 	buildSafeZoneLine(hub)
 	buildEntranceGate(hub)
@@ -648,8 +653,9 @@ local function buildSlots(plot: Model, plotIndex: number, worldId: number)
 	end
 end
 
--- Walls between neighbouring bases (the plot's left and right sides): solid, but low enough
--- (PLOT_WALL_HEIGHT) to hop over, so thieves can jump in from the side.
+-- Low solid walls on the plot's left and right sides (PLOT_WALL_HEIGHT). With the building on
+-- (Config.Plots.Building.Enclosed) glass rises from their top to the roof; without it they're low
+-- enough to hop over, so thieves can jump in from the side.
 local PLOT_WALL_HEIGHT = 6
 local function addPlotWalls(plot: Instance, cf: CFrame)
 	if plot:FindFirstChild("SideWalls") then
@@ -676,6 +682,86 @@ local function addPlotWalls(plot: Instance, cf: CFrame)
 		cap:SetAttribute("SkinRole", "Trim")
 	end
 	folder.Parent = plot
+end
+
+-- A base as a building (Config.Plots.Building): glass windows from the top of the low walls up
+-- to a roof above the top floor, so the donuts inside stay in view. The front is open below
+-- EntranceHeight (the way in); the sides and back are closed, so nobody hops in over a wall.
+-- Rebuilt by PlotService whenever the number of floors changes (floors = 1, 2 or 3).
+function MapBuilder.BuildShell(plot: Model, floors: number)
+	local old = plot:FindFirstChild("Building")
+	if old then
+		old:Destroy()
+	end
+	local settings = Config.Plots.Building
+	if not settings.Enclosed then
+		return
+	end
+	local cf = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number, (plot:GetAttribute("WorldId") :: number?) or 1)
+	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
+	local classic = Config.Skins[1]
+	local top = Layout.FloorY(floors + 1) + fh -- underside of the roof
+	local wallHeight = PLOT_WALL_HEIGHT
+	local entrance = settings.EntranceHeight
+	local ex, ez = w / 2 + 0.9, d / 2 + 0.9 -- the wall lines (the side walls stand on them too)
+	local building = Instance.new("Model")
+	building.Name = "Building"
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
+	end
+	local function glass(name: string, size: Vector3, position: CFrame)
+		local pane = Build.Part({
+			Parent = building, Name = name, Size = size, CFrame = position,
+			Color = settings.GlassColor, Material = Enum.Material.Glass, Transparency = settings.GlassTransparency,
+		})
+		pane.CastShadow = false
+	end
+	local function trim(name: string, size: Vector3, position: CFrame)
+		local part = Build.Part({ Parent = building, Name = name, Size = size, CFrame = position, Color = classic.Trim, Material = classic.TrimMaterial })
+		part:SetAttribute("SkinRole", "Trim")
+	end
+	-- Glass: both sides and the back from the top of the low walls, the front above the entrance
+	local glassHeight = top - wallHeight
+	for _, side in { -1, 1 } do
+		glass("SideGlass", Vector3.new(0.6, glassHeight, ez * 2), at(side * ex, wallHeight + glassHeight / 2, 0))
+	end
+	glass("BackGlass", Vector3.new(ex * 2, glassHeight, 0.6), at(0, wallHeight + glassHeight / 2, ez))
+	glass("FrontGlass", Vector3.new(ex * 2, top - entrance, 0.6), at(0, entrance + (top - entrance) / 2, -ez))
+	-- A low solid wall along the back, like the side walls
+	local back = Build.Part({ Parent = building, Name = "BackWall", Size = Vector3.new(ex * 2 + 1.4, wallHeight, 1.4), CFrame = at(0, wallHeight / 2, ez), Color = classic.Fence, Material = classic.FenceMaterial })
+	back:SetAttribute("SkinRole", "Fence")
+	-- Frame: corner pillars, window bars, a beam over the entrance and a band at every floor
+	for _, x in { -ex, ex } do
+		for _, z in { -ez, ez } do
+			trim("Pillar", Vector3.new(1.8, top, 1.8), at(x, top / 2, z))
+		end
+	end
+	for z = -d / 2 + 14, d / 2 - 13, 14 do
+		for _, side in { -1, 1 } do
+			trim("WindowBar", Vector3.new(0.5, glassHeight, 0.9), at(side * (ex + 0.4), wallHeight + glassHeight / 2, z))
+		end
+	end
+	for x = -14, 14, 14 do
+		trim("WindowBar", Vector3.new(0.9, glassHeight, 0.5), at(x, wallHeight + glassHeight / 2, ez + 0.4))
+		trim("WindowBar", Vector3.new(0.9, top - entrance, 0.5), at(x, entrance + (top - entrance) / 2, -ez - 0.4))
+	end
+	trim("EntranceBeam", Vector3.new(ex * 2, 1, 1.2), at(0, entrance, -ez))
+	for floor = 2, floors do
+		local y = Layout.FloorY(floor) + fh
+		trim("FloorBand", Vector3.new(ex * 2, 0.8, 1), at(0, y, -ez - 0.2))
+		trim("FloorBand", Vector3.new(ex * 2, 0.8, 1), at(0, y, ez + 0.2))
+		for _, side in { -1, 1 } do
+			trim("FloorBand", Vector3.new(1, 0.8, ez * 2), at(side * (ex + 0.2), y, 0))
+		end
+	end
+	-- Roof: a frame with a big glass skylight
+	local roofW, roofD = ex * 2 + 3, ez * 2 + 3
+	glass("Skylight", Vector3.new(roofW - 12, 0.6, roofD - 12), at(0, top + 0.3, 0))
+	for _, side in { -1, 1 } do
+		trim("RoofEdge", Vector3.new(6, 1.2, roofD), at(side * (roofW / 2 - 3), top + 0.6, 0))
+		trim("RoofEdge", Vector3.new(roofW - 12, 1.2, 6), at(0, top + 0.6, side * (roofD / 2 - 3)))
+	end
+	building.Parent = plot
 end
 
 function buildPlot(parent: Instance, plotIndex: number, worldId: number)
@@ -759,6 +845,7 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	skinFx.Parent = plot
 
 	plot.PrimaryPart = plot:FindFirstChild("Spawn") :: BasePart
+	MapBuilder.BuildShell(plot, 1)
 	plot.Parent = parent
 end
 
@@ -849,6 +936,27 @@ function MapBuilder.Build(): Folder
 				portals:Destroy()
 			end
 		end
+		if version < 5 then
+			-- Version 5: bases are much further apart (Layout.PlotRowSpacing), so every hub is deeper
+			-- (Config.Map.HubDepth), and every base is a building (BuildShell). Rebuild the bases, the
+			-- world hubs, and the main hub's floor and outer walls; the shop, boards, portals and the
+			-- spawn in the middle of the hub are kept as they are.
+			for _, name in { "Plots", "Worlds" } do
+				local old = existing:FindFirstChild(name)
+				if old then
+					old:Destroy()
+				end
+			end
+			if hub then
+				for _, name in { "Floor", "Walls" } do
+					local old = hub:FindFirstChild(name)
+					if old then
+						old:Destroy()
+					end
+				end
+				buildHubGround(hub)
+			end
+		end
 		if hub then
 			local shop = hub:FindFirstChild("ShopStall")
 			if shop and shop:GetAttribute("ShopTab") == nil then
@@ -935,6 +1043,9 @@ function MapBuilder.Build(): Folder
 			end
 		end
 		buildLane(existing) -- adds any areas that are missing (new worlds)
+		if not existing:FindFirstChild("Plots") then
+			buildPlots(existing)
+		end
 		if not existing:FindFirstChild("Worlds") then
 			buildWorlds(existing)
 		end

@@ -134,14 +134,17 @@ Layout.PortalRadius = 6
 --------------------------------------------------------------------------------
 Layout.PlotWidth = 56
 Layout.PlotDepth = 98
-Layout.PlotRowSpacing = 60
+-- Bases in a row are this far apart (centre to centre): 44 studs of open ground between two bases,
+-- so a thief has a real run from someone's base to their own.
+Layout.PlotRowSpacing = 100
+Layout.PlotFirstRowZ = 40 -- the first row's centre, this far behind the safe-zone line
 Layout.PlotFloorHeight = 0.4
 
 function Layout.PlotCFrame(plotIndex: number, worldId: number?): CFrame
 	local side = if plotIndex % 2 == 1 then -1 else 1
 	local row = (plotIndex - 1) // 2
 	local x = Layout.WorldOffset(worldId or 1) + side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 2)
-	local z = map.SafeZoneZ - 34 - row * Layout.PlotRowSpacing
+	local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
 	local center = Vector3.new(x, 0, z)
 	-- LookVector points out of the plot's open side, towards the plaza.
 	return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
@@ -151,19 +154,36 @@ end
 -- first stands you own are the ones everybody walks past.
 Layout.SlotColumns = { -19.5, -6.5, 6.5, 19.5 }
 Layout.SlotRows = { -26, -12, 2, 16, 30, 42 }
--- Stands SlotsPerPlot+1 .. MaxSlots are on the second floor (same layout, SecondFloor.Height up).
-Layout.MaxSlots = Config.Plots.SlotsPerPlot + Config.Plots.SecondFloor.Slots
--- Lift pad between the floors (plot space): front-left, clear of the entrance and the stands.
-Layout.LiftOffset = Vector3.new(-18, 0, -40)
+-- Floors: the ground floor has SlotsPerPlot stands, every upper floor UpperFloors.Slots more
+-- (stands SlotsPerPlot+1 .. are upstairs, same layout, UpperFloors.Height studs per floor).
+Layout.MaxFloors = 1 + #Config.Plots.UpperFloors.Costs
+Layout.MaxSlots = Config.Plots.SlotsPerPlot + Config.Plots.UpperFloors.Slots * (Layout.MaxFloors - 1)
+-- Lift pads (plot space) at the front of the base, clear of the entrance and the stands:
+-- LiftOffsets[k] joins floor k and floor k + 1 (pads stacked exactly above each other).
+Layout.LiftOffsets = { Vector3.new(-18, 0, -40), Vector3.new(18, 0, -40) }
+
+-- Height of a floor's surface above the plot's floor (floor 1 = ground = 0).
+function Layout.FloorY(floor: number): number
+	return (floor - 1) * Config.Plots.UpperFloors.Height
+end
+
+-- Which floor (1 = ground) a stand is on.
+function Layout.SlotFloor(slotIndex: number): number
+	local ground = Config.Plots.SlotsPerPlot
+	if slotIndex <= ground then
+		return 1
+	end
+	return 2 + (slotIndex - ground - 1) // Config.Plots.UpperFloors.Slots
+end
 
 function Layout.SlotOffset(slotIndex: number): Vector3
-	local perFloor = Config.Plots.SlotsPerPlot
-	local floor = (slotIndex - 1) // perFloor
-	local index = (slotIndex - 1) % perFloor + 1
+	local floor = Layout.SlotFloor(slotIndex)
+	local ground = Config.Plots.SlotsPerPlot
+	local index = if floor == 1 then slotIndex else (slotIndex - ground - 1) % Config.Plots.UpperFloors.Slots + 1
 	local columns = #Layout.SlotColumns
 	local row = (index - 1) // columns + 1
 	local column = (index - 1) % columns + 1
-	return Vector3.new(Layout.SlotColumns[column], floor * Config.Plots.SecondFloor.Height, Layout.SlotRows[row])
+	return Vector3.new(Layout.SlotColumns[column], Layout.FloorY(floor), Layout.SlotRows[row])
 end
 
 -- Is `position` inside the plot's fenced area?
@@ -172,7 +192,7 @@ function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?)
 	return math.abs(localPos.X) <= Layout.PlotWidth / 2
 		and math.abs(localPos.Z) <= Layout.PlotDepth / 2
 		and localPos.Y > -5
-		and localPos.Y < Config.Plots.SecondFloor.Height + 20
+		and localPos.Y < Layout.FloorY(Layout.MaxFloors) + Config.Plots.UpperFloors.Height + 10
 end
 
 return Layout

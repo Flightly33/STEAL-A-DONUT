@@ -282,7 +282,10 @@ local function startLock(player: Player, duration: number?): boolean
 	end
 	ItemService.StopLock(player)
 	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
-	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, LOCK_HEIGHT
+	-- (well above the roof, however many floors the base has)
+	local profile = DataService.Get(player)
+	local floors = if profile then profile.Data.Floors else 1
+	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, math.max(LOCK_HEIGHT, Layout.FloorY(floors + 1) + 30)
 	local field = Instance.new("Model")
 	field.Name = "LockLaser"
 	type Side = { Offset: CFrame, Size: Vector3 }

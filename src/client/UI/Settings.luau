@@ -2,8 +2,10 @@
 	Settings window + background music player.
 	Music on/off and volume are saved per player. Tracks come from Config.Music.Tracks.
 
-	Songs that fail to load (a private asset, a deleted asset, or a typo in the ID) are skipped
-	automatically, and a warning with the ID is printed to the Output window so you can fix it.
+	The music never stops on its own: a single song loops, several songs play one after another
+	(and start over), and a watchdog restarts playback if Roblox ever drops it. Songs that fail to
+	load (a private asset, a deleted asset, or a typo in the ID) are skipped with a warning in the
+	Output window; if none of them load, it keeps retrying (a slow connection while the map loads).
 ]]
 
 local SoundService = game:GetService("SoundService")
@@ -33,6 +35,9 @@ local refresh: () -> () = function() end
 local status = "" -- shown under "Now playing" when something is wrong
 local playToken = 0
 local failed: { [number]: boolean } = {}
+local LOAD_TIMEOUT = 25 -- seconds a song may take to load before it's skipped
+local RETRY_DELAY = 30 -- seconds before trying again when no song could be loaded
+local retryPending = false
 
 local tracks = Config.Music.Tracks
 
@@ -57,9 +62,18 @@ playTrack = function(index: number)
 		return
 	end
 	if workingTracks() == 0 then
+		-- Nothing loaded (yet): try every song again in a while instead of going silent for good.
 		sound:Stop()
-		status = "Couldn't load any songs - check the IDs in Config.Music.Tracks"
+		status = "Couldn't load the music - trying again soon"
 		refresh()
+		if not retryPending then
+			retryPending = true
+			task.delay(RETRY_DELAY, function()
+				retryPending = false
+				table.clear(failed)
+				playTrack(trackIndex)
+			end)
+		end
 		return
 	end
 	-- Skip songs that already failed
@@ -74,13 +88,15 @@ playTrack = function(index: number)
 	local token = playToken
 	local track = tracks[trackIndex]
 	sound:Stop()
+	-- One song: let Roblox loop it seamlessly. Several: play them in turn (Ended / the watchdog).
+	sound.Looped = workingTracks() <= 1
 	sound.SoundId = "rbxassetid://" .. tostring(track.Id)
 	sound.TimePosition = 0
 	sound:Play()
 	status = ""
 	refresh()
-	-- A song that never loads (private/deleted asset) never fires Ended: skip it after a while.
-	task.delay(10, function()
+	-- A song that never loads (private/deleted asset) never plays: skip it after a while.
+	task.delay(LOAD_TIMEOUT, function()
 		if token ~= playToken then
 			return
 		end
@@ -122,7 +138,19 @@ function Settings.Init()
 	sound.Parent = SoundService
 	applyVolume()
 	sound.Ended:Connect(function()
-		playTrack(trackIndex + 1)
+		if not sound.Looped then
+			playTrack(trackIndex + 1)
+		end
+	end)
+	-- Watchdog: if the music ever stops by itself (a missed Ended event, the engine dropping the
+	-- sound...), start the next song. "Music off" only turns the volume down, so this never fights it.
+	task.spawn(function()
+		while true do
+			task.wait(3)
+			if #tracks > 0 and not retryPending and sound.IsLoaded and not sound.IsPlaying then
+				playTrack(if sound.Looped then trackIndex else trackIndex + 1)
+			end
+		end
 	end)
 
 	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 360))

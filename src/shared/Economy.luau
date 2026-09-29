@@ -224,7 +224,12 @@ end
 function Economy.SlotCount(expansions: number, floors: number?): number
 	local p = Config.Plots
 	local ground = math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
-	return ground + (if (floors or 1) >= 2 then p.SecondFloor.Slots else 0)
+	local upper = math.clamp((floors or 1) - 1, 0, #p.UpperFloors.Costs)
+	return ground + p.UpperFloors.Slots * upper
+end
+
+function Economy.MaxFloors(): number
+	return 1 + #Config.Plots.UpperFloors.Costs
 end
 
 -- Incubator upgrades: hatch speed multiplier, egg capacity, and the price of the next level.
@@ -241,12 +246,13 @@ function Economy.IncubatorUpgradeCost(kind: string, level: number): number?
 	return upgrade.Costs[level + 1]
 end
 
--- Price of the second floor: nil until the ground floor is fully expanded, or once you own it.
-function Economy.SecondFloorCost(expansions: number, floors: number): number?
-	if floors >= 2 or Economy.SlotCount(expansions, 1) < Config.Plots.SlotsPerPlot then
+-- Price of the next floor (2nd, then 3rd): nil until the ground floor is fully expanded, or once
+-- every floor is built.
+function Economy.NextFloorCost(expansions: number, floors: number): number?
+	if floors >= Economy.MaxFloors() or Economy.SlotCount(expansions, 1) < Config.Plots.SlotsPerPlot then
 		return nil
 	end
-	return Config.Plots.SecondFloor.Cost
+	return Config.Plots.UpperFloors.Costs[math.max(floors, 1)]
 end
 
 -- Price of the next expansion (nil when fully expanded).

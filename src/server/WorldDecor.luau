@@ -112,7 +112,7 @@ local function hubSpots(x0: number, rng: Random, count: number): { Vector3 }
 	local spots = {}
 	for _ = 1, count do
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
-		table.insert(spots, Vector3.new(x0 + side * rng:NextNumber(20, 92), 0, rng:NextNumber(-250, -120)))
+		table.insert(spots, Vector3.new(x0 + side * rng:NextNumber(20, 92), 0, rng:NextNumber(-(map.HubDepth - 40), -120)))
 	end
 	return spots
 end
@@ -135,7 +135,7 @@ local function islands(folder: Instance, world: Areas.World, rng: Random)
 	end
 	local stripes = { rgb(255, 80, 80), rgb(255, 210, 50), rgb(60, 170, 255), rgb(255, 130, 200) }
 	for n = 1, 6 do
-		local pos = Vector3.new(x0 + (if n % 2 == 0 then 1 else -1) * rng:NextNumber(30, 85), 0, rng:NextNumber(-240, -130))
+		local pos = Vector3.new(x0 + (if n % 2 == 0 then 1 else -1) * rng:NextNumber(30, 85), 0, rng:NextNumber(-(map.HubDepth - 50), -130))
 		Build.Pillar(folder, pos, 8, 0.4, rgb(240, 240, 240))
 		Build.Decor({ Parent = folder, Name = "Umbrella", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 9, 9), CFrame = CFrame.new(pos + Vector3.new(0, 8, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = stripes[(n - 1) % #stripes + 1], Material = Enum.Material.Fabric })
 	end
@@ -170,10 +170,10 @@ local function dream(folder: Instance, world: Areas.World, rng: Random)
 	end
 	-- Pastel clouds at every height over the hub
 	for _ = 1, 22 do
-		cloud(folder, Vector3.new(x0 + rng:NextNumber(-260, 260), rng:NextNumber(45, 150), rng:NextNumber(-300, 60)), rng:NextNumber(5, 11), rng, pastel[rng:NextInteger(1, #pastel)])
+		cloud(folder, Vector3.new(x0 + rng:NextNumber(-260, 260), rng:NextNumber(45, 150), rng:NextNumber(-(map.HubDepth + 40), 60)), rng:NextNumber(5, 11), rng, pastel[rng:NextInteger(1, #pastel)])
 	end
 	-- A crescent moon and a giant floating donut above the hub
-	local moon = Vector3.new(x0 + 140, 170, -320)
+	local moon = Vector3.new(x0 + 140, 170, -(map.HubDepth + 60))
 	Build.Ball(folder, moon, 60, rgb(255, 250, 225), Enum.Material.Neon)
 	Build.Ball(folder, moon + Vector3.new(-18, 8, 14), 56, rgb(40, 30, 70), Enum.Material.SmoothPlastic)
 	local donut = Decor.GiantDonut(folder, CFrame.new(x0 - 120, 110, -200) * CFrame.Angles(0, 0.6, 0), 14, 10, rgb(255, 225, 150), rgb(255, 170, 230), { rgb(255, 255, 255), rgb(120, 220, 255), rgb(255, 230, 120) })
@@ -227,17 +227,17 @@ end
 local function cyber(folder: Instance, world: Areas.World, rng: Random)
 	local x0 = world.OffsetX
 	-- A skyline all around the hub (outside its walls)
-	for z = -300, 40, 34 do
+	for z = -(map.HubDepth + 40), 40, 34 do
 		for _, side in { -1, 1 } do
 			tower(folder, Vector3.new(x0 + side * rng:NextNumber(255, 300), 0, z), rng)
 		end
 	end
 	for x = x0 - 240, x0 + 240, 36 do
-		tower(folder, Vector3.new(x, 0, rng:NextNumber(-320, -290)), rng)
+		tower(folder, Vector3.new(x, 0, rng:NextNumber(-(map.HubDepth + 60), -(map.HubDepth + 30))), rng)
 	end
 	-- Flying cars and holo donuts over the hub
 	for _ = 1, 14 do
-		flyingCar(folder, Vector3.new(x0 + rng:NextNumber(-220, 220), rng:NextNumber(50, 110), rng:NextNumber(-280, 20)), rng)
+		flyingCar(folder, Vector3.new(x0 + rng:NextNumber(-220, 220), rng:NextNumber(50, 110), rng:NextNumber(-(map.HubDepth + 20), 20)), rng)
 	end
 	for n = 1, 3 do
 		local c = CFrame.new(x0 + (n - 2) * 70, 70, -200)

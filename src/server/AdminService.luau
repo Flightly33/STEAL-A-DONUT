@@ -131,16 +131,19 @@ function Commands.Rebirth(player: Player, profile: DataService.Profile)
 	end
 end
 
--- Next base expansion, then the second floor (free)
+-- Next base expansion, then the next floor (free)
 function Commands.Expand(player: Player, profile: DataService.Profile)
 	if Economy.ExpansionCost(profile.Data.Expansions) then
 		profile.Data.Expansions += 1
 		player:SetAttribute("Expansions", profile.Data.Expansions)
 		PlotService.RefreshLocks(player)
 		PlotService.ApplySkin(player)
-	elseif Economy.SecondFloorCost(profile.Data.Expansions, profile.Data.Floors) then
-		DataService.AddMoney(player, Config.Plots.SecondFloor.Cost, false)
-		PlotService.BuySecondFloor(player)
+	else
+		local floorCost = Economy.NextFloorCost(profile.Data.Expansions, profile.Data.Floors)
+		if floorCost then
+			DataService.AddMoney(player, floorCost, false)
+			PlotService.BuyFloor(player)
+		end
 	end
 end
 
