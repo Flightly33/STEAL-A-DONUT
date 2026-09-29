@@ -1,6 +1,6 @@
 // Renders the ad pages (ad1.html ...) to 1920x1080 PNGs with Playwright's Chromium.
-//   cd branding/ads/source && node render.js ad1.html ad2.html ad3.html
-// Edit the text/art in adN.html (shared drawing helpers are in art.js). Fonts: Luckiest Guy
+//   cd branding/ads/source && node render.js thumb1.html thumb2.html thumb3.html
+// Edit the text/art in thumbN.html (drawing helpers are in art.js and art2.js). Fonts: Luckiest Guy
 // (Apache 2.0) and Fredoka (SIL OFL), both from Google Fonts.
 const { chromium } = require("playwright");
 const path = require("path");

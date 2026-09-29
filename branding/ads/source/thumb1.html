@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "Luckiest Guy"; src: url(LuckiestGuy-400.woff2) format("woff2"); }
+@font-face { font-family: "Fredoka"; src: url(Fredoka-700.woff2) format("woff2"); font-weight: 300 700; }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #8fd8ff; }
+</style>
+<script src="art.js"></script>
+<script src="art2.js"></script>
+</head><body>
+<script>
+seed = 31;
+let s = "";
+s += `<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4ab8ff"/><stop offset="0.7" stop-color="#bfeaff"/></linearGradient>
+  <linearGradient id="sand" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6d28a"/><stop offset="1" stop-color="#d99a4e"/></linearGradient>
+  <linearGradient id="sand2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe2a3"/><stop offset="1" stop-color="#eab369"/></linearGradient>
+</defs>`;
+s += `<rect width="1920" height="1080" fill="url(#sky)"/>`;
+s += sunburst(1480, 470, "#ffffff", 0.18);
+// dunes
+s += `<path d="M0 700 C 300 640 600 690 900 660 C 1200 630 1500 690 1920 650 L 1920 1080 L 0 1080 Z" fill="url(#sand2)"/>`;
+s += `<path d="M0 760 C 400 730 800 790 1200 760 C 1500 740 1700 780 1920 760 L 1920 1080 L 0 1080 Z" fill="url(#sand)"/>`;
+for (let i = 0; i < 40; i++) s += `<ellipse cx="${rnd() * 1920}" cy="${790 + rnd() * 280}" rx="${6 + rnd() * 10}" ry="${2 + rnd() * 3}" fill="#c98a45" opacity="0.35"/>`;
+
+// the sleeping guard
+s += sleepingGuard(200, 560, 1.0);
+s += title("z", { x: 370, y: 585, size: 64, fill: "#ffffff", stroke: "#1b3a8a", rotate: -10, sw: 12 });
+s += title("Z", { x: 440, y: 520, size: 88, fill: "#ffffff", stroke: "#1b3a8a", rotate: -14, sw: 14 });
+s += title("Z", { x: 530, y: 445, size: 112, fill: "#ffffff", stroke: "#1b3a8a", rotate: -18, sw: 16 });
+s += title("SNOOORE...", { x: 620, y: 540, size: 66, fill: "#ffffff", stroke: "#1b0b2e", sw: 12, anchor: "start", rotate: -4 });
+
+// the giant donut, lifted by a tiny player
+const dx = 1480, dy = 400, R = 330;
+s += `<ellipse cx="${dx}" cy="1052" rx="120" ry="20" fill="#000" opacity="0.25" filter="url(#blur8)"/>`;
+s += avatar({ x: dx, y: 1045, s: 1.45, face: "angry", colors: { head: "#ffd23a", torso: "#1f1f2a", arms: "#ffd23a", legs: "#3a5bd9" }, pose: { armFront: 178, armBack: -178, legBack: 10, legFront: -10 } });
+s += frontDonut({ x: dx, y: dy, R, frosting: "#ff86c4", glow: "#ff5fb0" });
+for (const [ox, oy, sz] of [[-360, -300, 30], [370, -250, 24], [390, 180, 20], [-400, 150, 18]]) s += sparkle(dx + ox, dy + oy, sz, "#fff");
+
+// title, money, arrow, bangs
+s += rainbowTitle("GIANT DONUT", { x: 60, y: 175, size: 150 });
+s += moneyText("$4,200,000/s", { x: 78, y: 305, size: 112, sw: 20 });
+s += curvedArrow(1010, 120, 1150, 300, -120, 34);
+s += bangs(1800, 185, 160, 14);
+page(s);
+</script>
+</body></html>

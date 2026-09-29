@@ -1,0 +1,62 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "Luckiest Guy"; src: url(LuckiestGuy-400.woff2) format("woff2"); }
+html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; background: #6fd0ff; }
+</style>
+<script src="art.js"></script>
+<script src="art2.js"></script>
+</head><body>
+<script>
+seed = 53;
+let s = "";
+s += `<defs>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2fa8ff"/><stop offset="0.8" stop-color="#c4efff"/></linearGradient>
+  <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7ee85a"/><stop offset="1" stop-color="#34a238"/></linearGradient>
+  <linearGradient id="grass2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a3f27a"/><stop offset="1" stop-color="#5cc84a"/></linearGradient>
+</defs>`;
+s += `<rect width="1920" height="1080" fill="url(#sky)"/>`;
+s += sunburst(760, 460, "#ffffff", 0.16);
+const cloud = (x, y, k) => `<g><ellipse cx="${x}" cy="${y}" rx="${120 * k}" ry="${46 * k}" fill="#fff"/><circle cx="${x - 50 * k}" cy="${y - 26 * k}" r="${48 * k}" fill="#fff"/><circle cx="${x + 28 * k}" cy="${y - 42 * k}" r="${62 * k}" fill="#fff"/></g>`;
+s += cloud(1250, 520, 0.9) + cloud(1700, 420, 0.7) + cloud(250, 560, 0.6);
+// hills and ground
+s += `<path d="M0 720 C 300 660 600 700 960 680 C 1300 660 1600 700 1920 670 L 1920 1080 L 0 1080 Z" fill="url(#grass2)"/>`;
+s += `<path d="M0 800 C 500 770 1200 800 1920 780 L 1920 1080 L 0 1080 Z" fill="url(#grass)"/>`;
+// the friend's base behind: fence + stands with donuts
+for (let i = 0; i <= 12; i++) s += `<rect x="${1080 + i * 64}" y="700" width="14" height="70" fill="#fff" stroke="#6b4a2a" stroke-width="4"/>`;
+s += `<rect x="1080" y="716" width="782" height="12" fill="#fff" stroke="#6b4a2a" stroke-width="3"/>`;
+for (const [x, c] of [[1230, "#6fd0ff"], [1700, "#b36bff"]]) {
+  s += `<rect x="${x - 40}" y="760" width="80" height="50" fill="#fff" stroke="#6b4a2a" stroke-width="5"/><ellipse cx="${x}" cy="760" rx="40" ry="11" fill="#ffe7ff" stroke="#6b4a2a" stroke-width="5"/>`;
+  s += donut({ x, y: 712, r: 48, frosting: c, eyes: "shock", mouth: "o" });
+}
+// speed lines behind the thief
+for (let i = 0; i < 14; i++) {
+  const y = 760 + rnd() * 260, x = 900 + rnd() * 260, l = 110 + rnd() * 200;
+  s += `<path d="M${x} ${y} h ${l}" stroke="#fff" stroke-width="${5 + rnd() * 6}" stroke-linecap="round" opacity="0.8"/>`;
+}
+// the thief running off with a giant donut
+const tx = 760, ty = 1020;
+s += `<ellipse cx="${tx}" cy="${ty + 8}" rx="120" ry="20" fill="#000" opacity="0.25" filter="url(#blur8)"/>`;
+s += avatar({ x: tx, y: ty, s: 1.6, flip: true, face: "evil", colors: { head: "#f2c29a", torso: "#24222e", arms: "#f2c29a", legs: "#3c3a4a" }, pose: { legBack: 40, legFront: -40, armFront: 176, armBack: -176, lean: -6 } });
+s += frontDonut({ x: tx, y: ty - 585, R: 245, frosting: "#57c8ff", glow: "#ffe14d" });
+// the friend, chasing with a giant slap hand
+const ox = 1480, oy = 1030;
+s += `<ellipse cx="${ox}" cy="${oy + 6}" rx="120" ry="20" fill="#000" opacity="0.25" filter="url(#blur8)"/>`;
+s += avatar({ x: ox, y: oy, s: 1.75, flip: true, face: "angry", colors: { head: "#ffd23a", torso: "#ff3d6e", arms: "#ffd23a", legs: "#2f7bff" }, pose: { legBack: 30, legFront: -34, armFront: 150, armBack: -20, lean: -10 } });
+const hx = ox - 90, hy = oy - 420;
+s += `<g transform="rotate(-25 ${hx} ${hy}) scale(0.85) translate(${hx * 0.1765} ${hy * 0.1765})">
+  <rect x="${hx - 70}" y="${hy - 40}" width="140" height="150" rx="50" fill="#ff4a4a" stroke="#5a0000" stroke-width="8"/>
+  ${[-52, -18, 18, 52].map((dx) => `<rect x="${hx + dx - 18}" y="${hy - 135 + Math.abs(dx) * 0.4}" width="36" height="120" rx="18" fill="#ff4a4a" stroke="#5a0000" stroke-width="8"/>`).join("")}
+  <rect x="${hx + 50}" y="${hy + 10}" width="100" height="36" rx="18" fill="#ff4a4a" stroke="#5a0000" stroke-width="8" transform="rotate(-35 ${hx + 60} ${hy + 28})"/>
+  <rect x="${hx - 72}" y="${hy + 95}" width="144" height="42" rx="12" fill="#fff" stroke="#5a0000" stroke-width="8"/>
+</g>`;
+s += title("SLAP!", { x: 1590, y: 500, size: 92, fill: "#fff", stroke: "#b00000", sw: 16, rotate: 12 });
+
+// text, arrow, bangs
+s += rainbowTitle("RAID FRIENDS!", { x: 60, y: 175, size: 140 });
+s += moneyText("$1.1T/s", { x: 78, y: 305, size: 112, sw: 20 });
+s += curvedArrow(470, 390, 500, 560, 90, 30);
+s += bangs(1810, 190, 160, 14);
+page(s);
+</script>
+</body></html>

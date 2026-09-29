@@ -170,6 +170,10 @@ function avatar(o) {
     g += `<path d="M${fx - 18 * s} ${fy - 12 * s} l ${11 * s} ${6 * s} M${fx + 18 * s} ${fy - 12 * s} l ${-11 * s} ${6 * s}" stroke="${c.outline}" stroke-width="${3.5 * s}" stroke-linecap="round"/>`;
     g += `<circle cx="${fx - 10 * s}" cy="${fy - 1 * s}" r="${4 * s}" fill="${c.outline}"/><circle cx="${fx + 10 * s}" cy="${fy - 1 * s}" r="${4 * s}" fill="${c.outline}"/>`;
     g += `<path d="M${fx - 13 * s} ${fy + 9 * s} q ${13 * s} ${12 * s} ${26 * s} 0 z" fill="${c.outline}"/>`;
+  } else if (face === "shock") {
+    g += `<circle cx="${fx - 11 * s}" cy="${fy - 5 * s}" r="${7 * s}" fill="#fff" stroke="${c.outline}" stroke-width="${2.5 * s}"/><circle cx="${fx + 11 * s}" cy="${fy - 5 * s}" r="${7 * s}" fill="#fff" stroke="${c.outline}" stroke-width="${2.5 * s}"/>`;
+    g += `<circle cx="${fx - 11 * s}" cy="${fy - 7 * s}" r="${3 * s}" fill="${c.outline}"/><circle cx="${fx + 11 * s}" cy="${fy - 7 * s}" r="${3 * s}" fill="${c.outline}"/>`;
+    g += `<ellipse cx="${fx}" cy="${fy + 13 * s}" rx="${6 * s}" ry="${8 * s}" fill="${c.outline}"/>`;
   } else if (face === "angry") {
     g += `<path d="M${fx - 18 * s} ${fy - 14 * s} l ${12 * s} ${7 * s} M${fx + 18 * s} ${fy - 14 * s} l ${-12 * s} ${7 * s}" stroke="${c.outline}" stroke-width="${4 * s}" stroke-linecap="round"/>`;
     g += `<circle cx="${fx - 10 * s}" cy="${fy - 1 * s}" r="${4.5 * s}" fill="${c.outline}"/><circle cx="${fx + 10 * s}" cy="${fy - 1 * s}" r="${4.5 * s}" fill="${c.outline}"/>`;
