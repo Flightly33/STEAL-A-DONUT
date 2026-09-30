@@ -44,6 +44,33 @@ end
 
 UpdateNotes.List = {
 	{
+		Version = 4,
+		Name = "Faster Rebirths",
+		Date = "Oct 1, 2026",
+		Color = Color3.fromRGB(30, 110, 60),
+		Accent = Color3.fromRGB(255, 220, 90),
+		Sections = {
+			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
+				"Rebirths need half the Speed and far less money",
+				"Every rebirth now gives +50% treadmill speed (was +25%)",
+				"Reaching each new world takes about half as long",
+			} },
+			{ Title = "New Tutorial", Tag = "NEW", Lines = {
+				"Follow the red arrow to learn the game step by step",
+				"Finish it to claim a free egg!",
+			} },
+			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
+				"Rare donuts on bases glow softer, so every donut is easy to see",
+			} },
+			{ Title = "Purchases", Tag = "Fixes", Lines = {
+				"Boosts and Robux purchases are more reliable and never get lost",
+			} },
+		},
+		Sidebar = {
+			{ Title = "Free Tutorial Egg", Items = { { Kind = "Egg", Id = "Sprinkle" } } },
+		},
+	},
+	{
 		Version = 3,
 		Name = "The Underworld",
 		Date = "Oct 1, 2026",

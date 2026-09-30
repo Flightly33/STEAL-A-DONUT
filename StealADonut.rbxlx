@@ -662,11 +662,9 @@ Config.Speed = {
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
--- Balance (about 2x slower than before the Cyber City update): a simulated bot that plays well
--- (no passes, pets or Index bonus) needs ~16 min for Area 2, ~1.1 h for Area 5, ~2.3 h for Area 10,
--- ~3.2 h for Rebirth 1, ~9 h for Rebirth 2, ~22 h for Rebirth 3 and ~40 h for Rebirth 4.
--- Real players take longer (breaks, getting caught); a player who mostly trains and rarely swaps
--- donuts is faster (~2 h / 5 h / 9 h / 15 h for Rebirth 1-4).
+-- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 10 in
+-- ~1.8 h and rebirths at ~1.3 h, ~3 h, ~6 h and ~11 h (Config.Rebirth). Real players take longer
+-- (breaks, getting caught).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
@@ -733,19 +731,21 @@ Config.Spawns = {
 --------------------------------------------------------------------------------
 Config.Rebirth = {
 	MoneyBonus = 1, -- +100% money per rebirth (x2, x3, x4 ...)
-	SpeedBonus = 0.25, -- +25% treadmill speed per rebirth
-	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs)
+	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
+	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
+	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
+	-- a simulated good player (no passes or pets) rebirths at ~1.3 h, ~3 h, ~6 h and ~11 h.
 	Levels = {
-		{ Speed = 1_100, Cost = 2_500_000_000_000 }, -- end of World 1 -> unlocks The Underworld
-		{ Speed = 1_750, Cost = 200_000_000_000_000_000 }, -- end of World 2 -> unlocks Dream Dimension
-		{ Speed = 2_400, Cost = 2e22 }, -- end of World 3 -> unlocks Cyber City
-		{ Speed = 3_100, Cost = 2e28 }, -- end of World 4
-		{ Speed = 3_200, Cost = 2e29 },
-		{ Speed = 3_300, Cost = 2e30 },
-		{ Speed = 3_400, Cost = 2e31 },
-		{ Speed = 3_500, Cost = 2e32 },
-		{ Speed = 3_600, Cost = 2e33 },
-		{ Speed = 3_700, Cost = 2e34 },
+		{ Speed = 550, Cost = 25_000_000 }, -- about halfway through World 1 -> unlocks The Underworld
+		{ Speed = 875, Cost = 2_000_000_000_000 }, -- unlocks Dream Dimension
+		{ Speed = 1_200, Cost = 2e17 }, -- unlocks Cyber City
+		{ Speed = 1_550, Cost = 2e23 },
+		{ Speed = 1_600, Cost = 2e24 },
+		{ Speed = 1_650, Cost = 2e25 },
+		{ Speed = 1_700, Cost = 2e26 },
+		{ Speed = 1_750, Cost = 2e27 },
+		{ Speed = 1_800, Cost = 2e28 },
+		{ Speed = 1_850, Cost = 2e29 },
 	},
 }
 
@@ -6006,6 +6006,33 @@ local function donuts(ids: { string }): { Item }
 end
 
 UpdateNotes.List = {
+	{
+		Version = 4,
+		Name = "Faster Rebirths",
+		Date = "Oct 1, 2026",
+		Color = Color3.fromRGB(30, 110, 60),
+		Accent = Color3.fromRGB(255, 220, 90),
+		Sections = {
+			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
+				"Rebirths need half the Speed and far less money",
+				"Every rebirth now gives +50% treadmill speed (was +25%)",
+				"Reaching each new world takes about half as long",
+			} },
+			{ Title = "New Tutorial", Tag = "NEW", Lines = {
+				"Follow the red arrow to learn the game step by step",
+				"Finish it to claim a free egg!",
+			} },
+			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
+				"Rare donuts on bases glow softer, so every donut is easy to see",
+			} },
+			{ Title = "Purchases", Tag = "Fixes", Lines = {
+				"Boosts and Robux purchases are more reliable and never get lost",
+			} },
+		},
+		Sidebar = {
+			{ Title = "Free Tutorial Egg", Items = { { Kind = "Egg", Id = "Sprinkle" } } },
+		},
+	},
 	{
 		Version = 3,
 		Name = "The Underworld",
