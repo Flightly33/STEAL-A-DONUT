@@ -226,6 +226,31 @@ end
 
 local function cyber(folder: Instance, world: Areas.World, rng: Random)
 	local x0 = world.OffsetX
+	-- Dark city ground under the whole skyline, so the towers stand on something instead of floating
+	-- in the void (it sits just under the floors, outside the walls)
+	local function ground(xMin: number, xMax: number, zMin: number, zMax: number)
+		local z = zMin
+		while z < zMax - 0.01 do
+			local length = math.min(2000, zMax - z)
+			Build.Decor({ Parent = folder, Name = "CityGround", Size = Vector3.new(xMax - xMin, 1, length), Position = Vector3.new((xMin + xMax) / 2, -0.8, z + length / 2), Color = rgb(16, 14, 30), Material = Enum.Material.SmoothPlastic })
+			z += length
+		end
+	end
+	local hubBack, hubSide = -(map.HubDepth + 80), map.HubHalfWidth + 4
+	for _, side in { -1, 1 } do
+		local function strip(inner: number, outer: number, zMin: number, zMax: number)
+			ground(math.min(x0 + side * inner, x0 + side * outer), math.max(x0 + side * inner, x0 + side * outer), zMin, zMax)
+		end
+		strip(hubSide, 340, hubBack, 60) -- beside the hub
+		local laneWall = map.LaneHalfWidth + 4
+		local firstArea = Layout.AreaStart(Areas.ByWorld[world.Id][1].Id)
+		strip(laneWall, 240, 0, firstArea) -- beside the bridge
+		for _, area in Areas.ByWorld[world.Id] do
+			local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
+			strip(Layout.AreaHalfWidth(area.Id) + 4, 240, zs, if area.Index == #Areas.ByWorld[world.Id] then ze + 20 else ze)
+		end
+	end
+	ground(x0 - 340, x0 + 340, hubBack, -(map.HubDepth + 4)) -- behind the hub
 	-- A skyline all around the hub (outside its walls)
 	for z = -(map.HubDepth + 40), 40, 34 do
 		for _, side in { -1, 1 } do

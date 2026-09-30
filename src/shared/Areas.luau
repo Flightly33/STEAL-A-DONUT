@@ -342,7 +342,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(24, 22, 40), Color3.fromRGB(32, 30, 52) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 40, 200), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 40, 200), Pants = Color3.fromRGB(30, 30, 50), Aura = "Neon", Title = "Street", Hat = "Visor" },
-		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(235, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(200, 60, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(235, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(200, 60, 255), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		Id = 28, Name = "Hologram Mall", Theme = "Hologram",
@@ -351,7 +351,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(60, 70, 100), Color3.fromRGB(70, 80, 115) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(0, 230, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(0, 200, 255), Pants = Color3.fromRGB(240, 240, 255), Aura = "Neon", Title = "Holo", Hat = "Goggles" },
-		Ambience = ambience({ ClockTime = 20.5, Tint = Color3.fromRGB(215, 240, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 200, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 20.5, Tint = Color3.fromRGB(215, 240, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 200, 255), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		Id = 29, Name = "Robot Factory", Theme = "RobotFactory",
@@ -360,7 +360,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(60, 62, 70), Color3.fromRGB(50, 52, 60) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 190, 0), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 190, 0), Pants = Color3.fromRGB(60, 60, 70), Aura = "Fire", Title = "Robo", Hat = "Helmet" },
-		Ambience = ambience({ ClockTime = 19, Tint = Color3.fromRGB(255, 235, 210), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 170, 60), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 19, Tint = Color3.fromRGB(255, 235, 210), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 170, 60), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		Id = 30, Name = "Data Highway", Theme = "DataHighway",
@@ -369,7 +369,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(10, 20, 30), Color3.fromRGB(15, 28, 42) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(40, 255, 120), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(40, 255, 120), Pants = Color3.fromRGB(10, 30, 20), Aura = "Neon", Title = "Data", Hat = "Visor" },
-		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(210, 255, 225), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(40, 255, 140), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(210, 255, 225), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(40, 255, 140), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		Id = 31, Name = "Firewall Fortress", Theme = "Firewall",
@@ -378,7 +378,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(40, 15, 15), Color3.fromRGB(55, 20, 20) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 50, 30), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 60, 40), Pants = Color3.fromRGB(40, 10, 10), Aura = "Fire", Title = "Firewall", Hat = "Helmet" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 205), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 60, 40), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(255, 215, 205), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 60, 40), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		Id = 32, Name = "Glitch Zone", Theme = "Glitch",
@@ -387,7 +387,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(255, 0, 200), Color3.fromRGB(0, 255, 220) }, WallMaterial = Enum.Material.Neon,
 		Trim = Color3.fromRGB(255, 255, 0), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(0, 0, 0), Pants = Color3.fromRGB(255, 0, 200), Aura = "Cosmic", Title = "Glitched", Hat = "Gears" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(240, 220, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 0, 200), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(240, 220, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 0, 200), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		Id = 33, Name = "The Mainframe", Theme = "Mainframe",
@@ -396,7 +396,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(8, 10, 25), Color3.fromRGB(14, 18, 40) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(80, 160, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(40, 90, 255), Aura = "Cosmic", Title = "Mainframe", Hat = "Halo" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(215, 230, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 140, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(215, 230, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 140, 255), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
 		-- The end of Cyber City: bigger and wider than any other area. A pit on its right-hand side
@@ -409,7 +409,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(20, 20, 30), Pants = Color3.fromRGB(120, 60, 255), Aura = "Cosmic", Title = "Event Horizon", Hat = "Halo" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(230, 215, 255), Saturation = 0.35, Contrast = 0.32, Ambient = Color3.fromRGB(70, 50, 130), AtmosphereColor = Color3.fromRGB(90, 50, 200), AtmosphereDensity = 0.28, Haze = 0.6, Bloom = 0.7 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(230, 215, 255), Saturation = 0.35, Contrast = 0.32, Ambient = Color3.fromRGB(70, 50, 130), AtmosphereColor = Color3.fromRGB(90, 50, 200), AtmosphereDensity = 0.36, Haze = 1.2, Bloom = 0.7 }),
 	},
 } :: { Area }
 

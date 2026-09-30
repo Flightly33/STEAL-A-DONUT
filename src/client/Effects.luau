@@ -274,7 +274,9 @@ local function startAmbience()
 			TweenService:Create(tint, info, { TintColor = amb.Tint, Saturation = amb.Saturation + look.SaturationBoost, Contrast = amb.Contrast + look.ContrastBoost }):Play()
 		end
 		if atmosphere then
-			TweenService:Create(atmosphere, info, { Color = amb.AtmosphereColor, Density = amb.AtmosphereDensity, Haze = amb.Haze }):Play()
+			-- Decay is the colour far-away things fade to: match it to the area's air, so distant
+			-- scenery melts into a coloured fog instead of ending against grey
+			TweenService:Create(atmosphere, info, { Color = amb.AtmosphereColor, Decay = amb.AtmosphereColor:Lerp(Color3.new(0, 0, 0), 0.45), Density = amb.AtmosphereDensity, Haze = amb.Haze }):Play()
 		end
 		if bloom then
 			TweenService:Create(bloom, info, { Intensity = amb.Bloom + look.BloomBoost }):Play()
