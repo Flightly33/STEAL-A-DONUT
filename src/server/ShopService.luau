@@ -24,6 +24,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
+local UpdateNotes = require(Shared.UpdateNotes)
 local Donuts = require(Shared.Donuts)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
@@ -346,6 +347,21 @@ end
 
 function Actions.SeenTutorial(_player: Player, profile: DataService.Profile)
 	profile.Data.SeenTutorial = true
+end
+
+-- The update notes were shown (UpdateNotes): remember the newest Version seen.
+function Actions.SeenUpdate(_player: Player, profile: DataService.Profile, version: any)
+	if type(version) == "number" and version == version then
+		profile.Data.SeenUpdate = math.clamp(math.floor(version), profile.Data.SeenUpdate, UpdateNotes.Latest)
+	end
+end
+
+-- The Update Log's "Shown on login / Hidden on login" switch.
+function Actions.NotesOnLogin(player: Player, profile: DataService.Profile, on: any)
+	if type(on) == "boolean" then
+		profile.Data.NotesOnLogin = on
+		DataService.PushState(player)
+	end
 end
 
 function Actions.ToggleHotbar(player: Player, _profile: DataService.Profile, itemId: any)

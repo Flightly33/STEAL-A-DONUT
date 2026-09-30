@@ -32,6 +32,8 @@ export type Snapshot = {
 	HiddenItems: { [string]: boolean }?, -- items taken off the hotbar
 	PermaLock: boolean?, -- admin: permanent Base Lock
 	SeenTutorial: boolean?,
+	SeenUpdate: number?,
+	NotesOnLogin: boolean?,
 	Admin: boolean?,
 	GodMode: boolean?,
 }

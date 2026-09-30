@@ -12,6 +12,9 @@
 	* Flying and the magic carpet: the server sets the "FlyMode" attribute, the client flies.
 	* Anyone who used the admin panel is kept off the global leaderboards
 	  (Config.Admin.HideFromLeaderboards) so the boards stay fair for everyone else.
+	* The game's owner (Studio, the creator / group owner, or Config.Admin.AllowedUserIds) has the
+	  panel from the moment they join, without the code, and can take anyone else's admin away
+	  (saved: the code stops working for them) or give it back.
 	* Every command is checked on the server: the client only asks.
 ]]
 
@@ -80,20 +83,30 @@ local function allowed(player: Player): boolean
 	return Config.Admin.AllowAnyone or isOwner(player)
 end
 
-local function unlock(player: Player)
+-- Give a player the admin panel. `quietly` (the owner joining, or the owner giving it back) doesn't
+-- pop the panel open: it just says the 🛠 ADMIN button is there.
+local function unlock(player: Player, quietly: string?)
 	local profile = DataService.Get(player)
 	if not profile or not allowed(player) then
 		return
 	end
+	if profile.Data.AdminRevoked and not isOwner(player) then
+		notify(player, "🚫 The game's owner took your admin access away.", "error")
+		return
+	end
 	if not profile.Session.Admin then
 		profile.Session.Admin = true
-		profile.Data.UsedAdmin = true
+		if not quietly then
+			profile.Data.UsedAdmin = true
+		end
 		player:SetAttribute("Admin", true)
 		DataService.PushState(player)
-		notify(player, "🛠 Admin panel unlocked! (Admin players don't show up on the global leaderboards)", "success")
+		notify(player, quietly or "🛠 Admin panel unlocked! (Admin players don't show up on the global leaderboards)", "success")
 	end
 	player:SetAttribute("AdminOwner", isOwner(player))
-	Remotes.Event("AdminPanel"):FireClient(player)
+	if not quietly then
+		Remotes.Event("AdminPanel"):FireClient(player)
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -284,6 +297,60 @@ function Commands.HD(player: Player, _profile: DataService.Profile, arg: any)
 	HDAdmin.Run(player, arg)
 end
 
+-- Who an admin-access command is for: a player's UserId, or "others" / "all" (never yourself).
+local function adminTargets(caller: Player, target: any): { Player }
+	local list = {}
+	for _, other in Players:GetPlayers() do
+		if other ~= caller and (target == "all" or target == "others" or target == other.UserId) then
+			table.insert(list, other)
+		end
+	end
+	return list
+end
+
+-- Owner only: take someone's admin panel away. It's saved, so typing the code again doesn't work
+-- for them (in any server) until the owner gives it back. The owner can't lose theirs.
+function Commands.RevokeAdmin(player: Player, _profile: DataService.Profile, target: any)
+	if not isOwner(player) then
+		notify(player, "Only the game's owner can remove admins.", "error")
+		return
+	end
+	local count = 0
+	for _, other in adminTargets(player, target) do
+		local profile = DataService.Get(other)
+		if profile and not isOwner(other) then
+			profile.Data.AdminRevoked = true
+			profile.Session.Admin = false
+			profile.Session.GodMode = false
+			other:SetAttribute("Admin", false)
+			other:SetAttribute("AdminOwner", false)
+			other:SetAttribute("FlyMode", nil)
+			DataService.PushState(other)
+			notify(other, "🚫 The game's owner took your admin access away.", "error")
+			count += 1
+		end
+	end
+	notify(player, `🚫 Admin removed from {count} player{if count == 1 then "" else "s"}`, "success")
+end
+
+-- Owner only: give someone their admin panel back.
+function Commands.RestoreAdmin(player: Player, _profile: DataService.Profile, target: any)
+	if not isOwner(player) then
+		notify(player, "Only the game's owner can give admin back.", "error")
+		return
+	end
+	local count = 0
+	for _, other in adminTargets(player, target) do
+		local profile = DataService.Get(other)
+		if profile and profile.Data.AdminRevoked then
+			profile.Data.AdminRevoked = false
+			unlock(other, "🛠 The game's owner gave you admin! Press the 🛠 ADMIN button.")
+			count += 1
+		end
+	end
+	notify(player, `✅ Admin given back to {count} player{if count == 1 then "" else "s"}`, "success")
+end
+
 function Commands.ClearEggs(player: Player, profile: DataService.Profile)
 	profile.Data.Eggs = {}
 	PetService.OnPlayerReady(player)
@@ -322,7 +389,15 @@ function AdminService.Init()
 			return
 		end
 		if command then
+			profile.Data.UsedAdmin = true
 			command(player, profile, arg.Arg)
+		end
+	end)
+
+	-- The game's owner always has the admin panel, without typing the code
+	DataService.ProfileLoaded:Connect(function(player: Player)
+		if isOwner(player) then
+			unlock(player, "🛠 Welcome back, owner! Your admin panel is on the 🛠 ADMIN button.")
 		end
 	end)
 

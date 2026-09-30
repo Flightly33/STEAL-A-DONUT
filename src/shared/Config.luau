@@ -385,6 +385,10 @@ Config.Donations = {
 -- OwnerOnlyCommands to keep them for the owner: the game's owner (for a group game, the group's
 -- owner), anyone testing in Studio, and the UserIds in AllowedUserIds. The owner can never be
 -- kicked, banned, killed or jailed by other admins.
+-- The owner has the panel from the moment they join (no code needed), and can take anyone else's
+-- admin away from the panel's "Admin access" buttons (saved: the code stops working for them) or
+-- give it back. If the game is in a group, the group's owner counts; put your own UserId in
+-- AllowedUserIds too if you want to be sure.
 -- AllowAnyone = false: only those owners can open the panel at all.
 -- Cheating players are left off the global leaderboards (HideFromLeaderboards) so real players'
 -- scores stay meaningful.

@@ -68,6 +68,9 @@ export type Data = {
 	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
 	PermaLock: boolean,
 	SeenTutorial: boolean, -- the first-join "how to play" window -- admin: Base Lock that never runs out
+	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
+	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
+	AdminRevoked: boolean, -- the game's owner took their admin panel away (the chat code won't work)
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -124,6 +127,9 @@ local TEMPLATE: Data = {
 	HiddenItems = {},
 	PermaLock = false,
 	SeenTutorial = false,
+	SeenUpdate = 0,
+	NotesOnLogin = true,
+	AdminRevoked = false,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -504,6 +510,8 @@ function DataService.PushState(player: Player)
 		HiddenItems = profile.Data.HiddenItems,
 		PermaLock = profile.Data.PermaLock,
 		SeenTutorial = profile.Data.SeenTutorial,
+		SeenUpdate = profile.Data.SeenUpdate,
+		NotesOnLogin = profile.Data.NotesOnLogin,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})

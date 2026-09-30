@@ -90,7 +90,7 @@ local function buildHD()
 	local function run(action: string)
 		command("HD", { Action = action, Target = choices[choice].Target, Value = if valueBox.Text ~= "" then (tonumber(valueBox.Text) or valueBox.Text) else nil })
 	end
-	type Entry = { Text: string, Action: string, Color: Color3 }
+	type Entry = { Text: string, Action: string, Color: Color3, Cmd: string? }
 	local groups: { { Title: string, Entries: { Entry } } } = {
 		{ Title = "Health", Entries = {
 			{ Text = "💀 Kill", Action = "kill", Color = Theme.Colors.Red }, { Text = "🔄 Respawn", Action = "respawn", Color = Theme.Colors.Gray },
@@ -114,6 +114,10 @@ local function buildHD()
 			{ Text = "✨ Sparkles", Action = "sparkles", Color = Theme.Colors.Yellow }, { Text = "🔥 Fire", Action = "fire", Color = Theme.Colors.Orange },
 			{ Text = "💨 Smoke", Action = "smoke", Color = Theme.Colors.Gray }, { Text = "🧹 Remove effects", Action = "unfx", Color = Theme.Colors.Gray },
 		} },
+		{ Title = "🛡 Admin access (owner only; saved, the code stops working for them)", Entries = {
+			{ Text = "🚫 Remove admin", Action = "", Cmd = "RevokeAdmin", Color = Theme.Colors.Red },
+			{ Text = "✅ Give admin back", Action = "", Cmd = "RestoreAdmin", Color = Theme.Colors.Green },
+		} },
 		{ Title = "Moderation", Entries = {
 			{ Text = "👢 Kick", Action = "kick", Color = Theme.Colors.Red }, { Text = "⛔ Ban (this server)", Action = "ban", Color = Theme.Colors.Red },
 			{ Text = "✅ Unban all", Action = "unbanall", Color = Theme.Colors.Green },
@@ -127,7 +131,11 @@ local function buildHD()
 		local grid = section(group.Title, 150)
 		for _, entry in group.Entries do
 			button(grid, entry.Text, entry.Color, function()
-				run(entry.Action)
+				if entry.Cmd then
+					command(entry.Cmd, choices[choice].Target)
+				else
+					run(entry.Action)
+				end
 			end)
 		end
 	end
@@ -342,6 +350,12 @@ function Admin.Init()
 	end
 	Remotes.Event("AdminPanel").OnClientEvent:Connect(function()
 		modal:Open()
+	end)
+	-- Admin taken away: close the panel
+	State.OnAttribute("Admin", function(value)
+		if value ~= true and modal:IsOpen() then
+			modal:Close()
+		end
 	end)
 end
 
