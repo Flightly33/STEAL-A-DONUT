@@ -19,6 +19,7 @@
 	back home.
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -34,6 +35,7 @@ local DonutModel = require(Shared.DonutModel)
 local Build = require(script.Parent.Build)
 local WorldDecor = require(script.Parent.WorldDecor)
 local Decor = require(script.Parent.Decor)
+local BlackHoleModel = require(script.Parent.BlackHoleModel)
 
 local MapBuilder = {}
 
@@ -43,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 6
+local MAP_VERSION = 7
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -532,13 +534,11 @@ end
 -- black hole held in an experiment; the big red button on the lectern is the ULTIMATE REBIRTH
 -- (WorldService), and a pad in the corner takes you back up.
 --------------------------------------------------------------------------------
-local PIT_SIZE = 20
+local PIT_SIZE = Decor.LabPitSize
 local LAB_FLOOR, LAB_CEILING = -60, -32
 
--- Centre of the pit (x, z) in an area built around X = 0.
-local function labPit(zs: number): (number, number)
-	return 75, zs + 120
-end
+-- Centre of the pit (x, z) in an area built around X = 0 (The Black Hole's decor avoids it too).
+local labPit = Decor.LabPit
 
 local function buildLab(parent: Instance, zs: number)
 	local lab = Instance.new("Model")
@@ -561,14 +561,44 @@ local function buildLab(parent: Instance, zs: number)
 		light.Parent = bulb
 	end
 
-	-- The pit: a shaft from the floor down to the lab's ceiling, with a hazard rim and a hint
+	-- The pit: a shaft from the floor down to the lab's ceiling, with a striped hazard rim, bands of
+	-- light down the walls and a purple glow rising out of it
 	local depth = -LAB_CEILING
+	local rim = PIT_SIZE + 2.4
 	for _, side in { -1, 1 } do
 		solid("ShaftWall", Vector3.new(1, depth, PIT_SIZE + 2), CFrame.new(px + side * (h + 0.5), LAB_CEILING / 2, pz), dark)
 		solid("ShaftWall", Vector3.new(PIT_SIZE + 2, depth, 1), CFrame.new(px, LAB_CEILING / 2, pz + side * (h + 0.5)), dark)
-		glow("PitRim", Vector3.new(1.2, 0.3, PIT_SIZE + 2.4), CFrame.new(px + side * (h + 0.6), 0.15, pz), rgb(255, 210, 0))
-		glow("PitRim", Vector3.new(PIT_SIZE + 2.4, 0.3, 1.2), CFrame.new(px, 0.15, pz + side * (h + 0.6)), rgb(255, 210, 0))
+		for i = 0, 7 do
+			local along = (i - 3.5) * rim / 8
+			local color = if i % 2 == 0 then rgb(255, 210, 0) else rgb(22, 22, 26)
+			local material = if i % 2 == 0 then Enum.Material.Neon else Enum.Material.SmoothPlastic
+			Build.Decor({ Parent = lab, Name = "PitRim", Size = Vector3.new(1.2, 0.3, rim / 8), CFrame = CFrame.new(px + side * (h + 0.6), 0.15, pz + along), Color = color, Material = material })
+			Build.Decor({ Parent = lab, Name = "PitRim", Size = Vector3.new(rim / 8, 0.3, 1.2), CFrame = CFrame.new(px + along, 0.15, pz + side * (h + 0.6)), Color = color, Material = material })
+		end
+		for _, y in { -8, -16, -24 } do
+			glow("ShaftLight", Vector3.new(0.2, 0.5, PIT_SIZE), CFrame.new(px + side * (h - 0.1), y, pz), purple, 0.2)
+			glow("ShaftLight", Vector3.new(PIT_SIZE, 0.5, 0.2), CFrame.new(px, y, pz + side * (h - 0.1)), purple, 0.2)
+		end
 	end
+	local pitGlow = Build.Decor({ Parent = lab, Name = "PitGlow", Size = Vector3.new(PIT_SIZE - 2, 1, PIT_SIZE - 2), CFrame = CFrame.new(px, LAB_CEILING + 1.5, pz), Transparency = 1 })
+	local upLight = Instance.new("SpotLight")
+	upLight.Face = Enum.NormalId.Top
+	upLight.Color = purple
+	upLight.Range = 40
+	upLight.Angle = 70
+	upLight.Brightness = 3
+	upLight.Parent = pitGlow
+	local motes = Instance.new("ParticleEmitter")
+	motes.EmissionDirection = Enum.NormalId.Top
+	motes.Rate = 12
+	motes.Lifetime = NumberRange.new(4, 6)
+	motes.Speed = NumberRange.new(4, 7)
+	motes.SpreadAngle = Vector2.new(8, 8)
+	motes.Size = NumberSequence.new(0.35, 0)
+	motes.Color = ColorSequence.new(purple, rgb(255, 150, 70))
+	motes.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	motes.LightEmission = 1
+	motes.Parent = pitGlow
 	-- Guards can't follow you down (GuardService makes this lid solid for guards only)
 	local lid = Build.Part({ Parent = lab, Name = "GuardLid", Size = Vector3.new(PIT_SIZE, 1, PIT_SIZE), CFrame = CFrame.new(px, -0.5, pz), Transparency = 1, CanCollide = false, CanQuery = false })
 	lid:SetAttribute("GuardBlocker", true)
@@ -605,9 +635,28 @@ local function buildLab(parent: Instance, zs: number)
 		local far = if side < 0 then z0 else z1
 		solid("LabWall", Vector3.new(1, windowTop - windowBottom, math.abs(far - edge)), CFrame.new(x0 - 0.5, (windowBottom + windowTop) / 2, (edge + far) / 2), metal)
 	end
-	local glass = solid("Window", Vector3.new(0.6, windowTop - windowBottom, windowHalf * 2), CFrame.new(x0 - 0.5, (windowBottom + windowTop) / 2, pz), rgb(170, 220, 255), Enum.Material.Glass)
-	glass.Transparency = 0.45
+	-- Not Glass: at high graphics settings Glass hides everything see-through behind it (the beams,
+	-- sparks and glow that make up the black hole), so it's a clear pane with a little reflection.
+	local windowMid = (windowBottom + windowTop) / 2
+	local glass = solid("Window", Vector3.new(0.4, windowTop - windowBottom, windowHalf * 2), CFrame.new(x0 - 0.5, windowMid, pz), rgb(180, 220, 255), Enum.Material.SmoothPlastic)
+	glass.Transparency = 0.9
+	glass.Reflectance = 0.12
 	glass.CastShadow = false
+	for _, side in { -1, 1 } do
+		solid("Mullion", Vector3.new(0.8, windowTop - windowBottom, 0.8), CFrame.new(x0 - 0.3, windowMid, pz + side * windowHalf / 3), metal)
+	end
+	-- the black hole's light spilling into the lab, and a hazard stripe in front of the window
+	local spill = Build.Decor({ Parent = lab, Name = "HoleLight", Size = Vector3.new(0.2, 1, 1), CFrame = CFrame.new(x0 + 0.3, windowTop - 1, pz), Transparency = 1 })
+	local spillLight = Instance.new("SpotLight")
+	spillLight.Face = Enum.NormalId.Right
+	spillLight.Color = rgb(255, 170, 110)
+	spillLight.Range = 45
+	spillLight.Angle = 110
+	spillLight.Brightness = 1.6
+	spillLight.Parent = spill
+	for i = 0, 9 do
+		Build.Decor({ Parent = lab, Name = "FloorStripe", Size = Vector3.new(1.2, 0.06, windowHalf / 5), Position = Vector3.new(x0 + 2.5, LAB_FLOOR + 0.03, pz - windowHalf + (i + 0.5) * windowHalf / 5), Color = if i % 2 == 0 then rgb(255, 210, 0) else rgb(25, 25, 25), Material = Enum.Material.SmoothPlastic })
+	end
 	glow("WindowFrame", Vector3.new(0.8, 0.5, windowHalf * 2 + 1), CFrame.new(x0 - 0.2, windowBottom, pz), purple)
 	glow("WindowFrame", Vector3.new(0.8, 0.5, windowHalf * 2 + 1), CFrame.new(x0 - 0.2, windowTop, pz), purple)
 	-- sign over the window
@@ -662,7 +711,10 @@ local function buildLab(parent: Instance, zs: number)
 		gui.Face = Enum.NormalId.Left
 		gui.LightInfluence = 0
 		gui.Parent = screen
-		Build.Text(gui, text, { TextColor3 = if i == 3 then rgb(255, 70, 70) else rgb(80, 255, 170), Font = Enum.Font.Code })
+		local readout = Build.Text(gui, text, { TextColor3 = if i == 3 then rgb(255, 70, 70) else rgb(80, 255, 170), Font = Enum.Font.Code })
+		if i == 1 then
+			CollectionService:AddTag(readout, "LabReadout") -- BlackHoleFX makes the reading flicker
+		end
 	end
 	-- the way back up
 	local pad = Build.Part({ Parent = lab, Name = "ExitPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 8, 8), CFrame = CFrame.new(86, LAB_FLOOR + 0.2, pz + 19) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(80, 255, 120), Material = Enum.Material.Neon })
@@ -677,9 +729,12 @@ local function buildLab(parent: Instance, zs: number)
 	exit.RequiresLineOfSight = false
 	exit.Parent = pad
 
-	-- The experiment beyond the window: a dark chamber with the black hole held by four beams
-	local cx0, cx1, cz0, cz1, cy0, cy1 = -85, x0 - 1, pz - 62, pz + 62, -122, LAB_CEILING + 1
-	local chamber = rgb(12, 10, 20)
+	-- The experiment beyond the window: a tall, dark chamber full of stars. The black hole is held in
+	-- two spinning containment rings and fed by four pylons, and its jets hit plates in the ceiling
+	-- and floor.
+	local cx0, cx1, cz0, cz1, cy0, cy1 = -85, x0 - 1, pz - 62, pz + 62, -122, -3
+	local chamber = rgb(8, 6, 16)
+	local cyan = rgb(90, 220, 255)
 	local function shell(size: Vector3, position: Vector3)
 		Build.Decor({ Parent = lab, Name = "ChamberWall", Size = size, Position = position, Color = chamber, Material = Enum.Material.Metal })
 	end
@@ -689,28 +744,125 @@ local function buildLab(parent: Instance, zs: number)
 	for _, z in { cz0, cz1 } do
 		shell(Vector3.new(cx1 - cx0, cy1 - cy0, 1), Vector3.new((cx0 + cx1) / 2, (cy0 + cy1) / 2, z))
 	end
+	-- the lab's side of the chamber, round the room
+	shell(Vector3.new(1, LAB_FLOOR - 1 - cy0, cz1 - cz0), Vector3.new(x0 - 0.5, (cy0 + LAB_FLOOR - 1) / 2, pz))
+	shell(Vector3.new(1, cy1 - LAB_CEILING - 1, cz1 - cz0), Vector3.new(x0 - 0.5, (LAB_CEILING + 1 + cy1) / 2, pz))
+	for _, side in { -1, 1 } do
+		local edge, far = pz + side * 27, pz + side * 62
+		shell(Vector3.new(1, LAB_CEILING - LAB_FLOOR + 2, math.abs(far - edge)), Vector3.new(x0 - 0.5, (LAB_FLOOR + LAB_CEILING) / 2, (edge + far) / 2))
+	end
+	-- stars on the walls, so it looks like space in there
+	local starRng = Random.new(zs)
+	local starColors = { rgb(255, 255, 255), rgb(200, 220, 255), rgb(220, 190, 255), rgb(255, 230, 200) }
+	for _ = 1, 90 do
+		local wall = starRng:NextInteger(1, 4)
+		local y = starRng:NextNumber(cy0 + 2, cy1 - 2)
+		local at = if wall == 1 then Vector3.new(cx0 + 0.6, y, starRng:NextNumber(cz0 + 2, cz1 - 2))
+			elseif wall == 2 then Vector3.new(starRng:NextNumber(cx0 + 2, cx1 - 2), y, cz0 + 0.6)
+			elseif wall == 3 then Vector3.new(starRng:NextNumber(cx0 + 2, cx1 - 2), y, cz1 - 0.6)
+			else Vector3.new(starRng:NextNumber(cx0 + 2, cx1 - 2), cy1 - 0.6, starRng:NextNumber(cz0 + 2, cz1 - 2))
+		Build.Decor({ Parent = lab, Name = "Star", Shape = Enum.PartType.Ball, Size = Vector3.one * starRng:NextNumber(0.25, 0.7), Position = at, Color = starColors[starRng:NextInteger(1, #starColors)], Material = Enum.Material.Neon, Transparency = starRng:NextNumber(0, 0.4) })
+	end
+
 	local center = Vector3.new(-26, (windowBottom + windowTop) / 2 - 2, pz) -- right in the middle of the view
-	local hole = Decor.BlackHole(lab, center, 0.9)
+	local hole = Decor.BlackHole(lab, center, 0.8, { View = Vector3.new(1, -0.1, 0), Tilt = 12, Roll = 7, JetLength = 4.5 })
 	local core = hole.PrimaryPart :: BasePart
-	local coreAttachment = Instance.new("Attachment")
-	coreAttachment.Parent = core
+	local r = core.Size.X / 2
+
+	-- containment field rings on the floor, and plates catching the jets
+	local field = Build.Decor({ Parent = lab, Name = "FieldRings", Size = Vector3.one, Position = Vector3.new(center.X, cy0 + 1, center.Z), Transparency = 1 })
+	for i, radius in { 14, 23, 32 } do
+		BlackHoleModel.Ring(field, "Field" .. i .. "_", radius, 0.7, cyan, 0.25 + i * 0.12, 0.4)
+	end
+	for n, y in { cy1 - 1, cy0 + 1 } do
+		Build.Decor({ Parent = lab, Name = "JetCatcher", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 18, 18), CFrame = CFrame.new(center.X, y, center.Z) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(30, 28, 44), Material = Enum.Material.Metal })
+		local catcher = Build.Decor({ Parent = lab, Name = "CatcherRings", Size = Vector3.one, Position = Vector3.new(center.X, y + (if n == 1 then -0.6 else 0.6), center.Z), Transparency = 1 })
+		BlackHoleModel.Ring(catcher, "Catch", 8, 0.5, rgb(140, 120, 255), 0.1)
+		BlackHoleModel.Ring(catcher, "CatchIn", 4.5, 0.35, cyan, 0.2, 0.8)
+	end
+
+	-- two containment rings round it (BlackHoleFX spins them)
+	for i, tilt in { CFrame.Angles(0, 0, math.rad(72)), CFrame.Angles(math.rad(64), math.rad(40), 0) } do
+		local gyro = Instance.new("Model")
+		gyro.Name = "ContainmentRing"
+		local base = CFrame.new(center) * tilt
+		local hub = Build.Decor({ Parent = gyro, Name = "Hub", Size = Vector3.one, CFrame = base, Transparency = 1 })
+		local radius = r * (4.45 + i * 0.25)
+		local count = 28
+		local length = 2 * radius * math.tan(math.pi / count) + 0.2
+		for n = 0, count - 1 do
+			Build.Decor({ Parent = gyro, Name = "RingSegment", Size = Vector3.new(1.6, 2.4, length), CFrame = base * CFrame.Angles(0, n / count * math.pi * 2, 0) * CFrame.new(radius, 0, 0), Color = rgb(44, 46, 60), Material = Enum.Material.Metal })
+		end
+		for n = 0, 3 do
+			local node = Build.Decor({ Parent = gyro, Name = "RingNode", Shape = Enum.PartType.Ball, Size = Vector3.one * 3.2, CFrame = base * CFrame.Angles(0, (n + 0.5) * math.pi / 2, 0) * CFrame.new(radius, 0, 0), Color = cyan, Material = Enum.Material.Neon })
+			node.CastShadow = false
+		end
+		BlackHoleModel.Ring(hub, "Strip", radius - 1, 0.5, cyan, 0.15)
+		gyro.PrimaryPart = hub
+		gyro:SetAttribute("Spin", if i == 1 then 0.35 else -0.25)
+		gyro:SetAttribute("Precess", if i == 1 then 0.08 else -0.06)
+		CollectionService:AddTag(gyro, "GyroRing")
+		gyro.Parent = lab
+	end
+
+	-- four pylons feeding it energy
+	local feed = Instance.new("Attachment")
+	feed.Name = "Feed"
+	feed.CFrame = core.CFrame:ToObjectSpace(CFrame.new(center - Vector3.new(0, r * 1.15, 0)))
+	feed.Parent = core
 	for _, corner in { Vector3.new(-1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, -1), Vector3.new(1, 0, 1) } do
-		local base = Vector3.new(center.X + corner.X * 40, cy0, center.Z + corner.Z * 42)
-		local pylon = center.Y - 14 - cy0
-		Build.Pillar(lab, base, pylon, 4, metal, Enum.Material.Metal)
-		local tip = Build.Ball(lab, base + Vector3.new(0, pylon + 2, 0), 5, rgb(90, 220, 255), Enum.Material.Neon)
-		local tipAttachment = Instance.new("Attachment")
-		tipAttachment.Parent = tip
-		local beam = Instance.new("Beam")
-		beam.Attachment0 = tipAttachment
-		beam.Attachment1 = coreAttachment
-		beam.Width0 = 2.5
-		beam.Width1 = 1
-		beam.FaceCamera = true
-		beam.LightEmission = 1
-		beam.Color = ColorSequence.new(rgb(90, 220, 255), rgb(200, 150, 255))
-		beam.Transparency = NumberSequence.new(0.2, 0.5)
-		beam.Parent = tip
+		local base = Vector3.new(center.X + corner.X * 40, cy0 + 0.5, center.Z + corner.Z * 42)
+		local height = center.Y - 18 - cy0
+		Build.Decor({ Parent = lab, Name = "PylonBase", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 11, 11), CFrame = CFrame.new(base + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(36, 38, 50), Material = Enum.Material.Metal })
+		Build.Pillar(lab, base, height, 4, metal, Enum.Material.Metal)
+		for c = 1, 3 do
+			Build.Decor({ Parent = lab, Name = "Coil", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(base + Vector3.new(0, height - 2 - c * 2.4, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = cyan, Material = Enum.Material.Neon })
+		end
+		local tip = Build.Ball(lab, base + Vector3.new(0, height + 2, 0), 4, cyan, Enum.Material.Neon)
+		tip.Name = "PylonTip"
+		local shield = Build.Ball(lab, tip.Position, 6.5, cyan, Enum.Material.ForceField)
+		shield.Name = "PylonShield"
+		shield.Transparency = 0.2
+		local emitter = Instance.new("Attachment")
+		emitter.Name = "Emitter"
+		emitter.Parent = tip
+		for layer = 1, 2 do
+			local beam = Instance.new("Beam")
+			beam.Attachment0 = emitter
+			beam.Attachment1 = feed
+			beam:SetAttribute("From", emitter.Name)
+			beam:SetAttribute("To", feed.Name)
+			beam.FaceCamera = true
+			beam.LightEmission = 1
+			beam.LightInfluence = 0
+			beam.Segments = 12
+			beam.Texture = "rbxasset://textures/particles/smoke_main.dds"
+			beam.TextureMode = Enum.TextureMode.Wrap
+			if layer == 1 then
+				beam.Width0, beam.Width1 = 2.2, 0.8
+				beam.Color = ColorSequence.new(cyan, rgb(200, 150, 255))
+				beam.Transparency = NumberSequence.new(0.3, 0.55)
+				beam.TextureLength = 8
+				beam.TextureSpeed = 1.2
+			else
+				beam.Width0, beam.Width1 = 0.5, 0.25
+				beam.Color = ColorSequence.new(rgb(230, 250, 255), rgb(170, 230, 255))
+				beam.Transparency = NumberSequence.new(0, 0.2)
+				beam.TextureLength = 4
+				beam.TextureSpeed = 3
+			end
+			beam.Parent = tip
+		end
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Rate = 6
+		sparks.Lifetime = NumberRange.new(0.3, 0.6)
+		sparks.Speed = NumberRange.new(4, 8)
+		sparks.SpreadAngle = Vector2.new(180, 180)
+		sparks.Size = NumberSequence.new(0.5, 0)
+		sparks.Color = ColorSequence.new(rgb(220, 250, 255), cyan)
+		sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+		sparks.LightEmission = 1
+		sparks.Parent = tip
 	end
 	for _, z in { cz0 + 2, cz1 - 2 } do
 		for _, x in { cx0 + 20, (cx0 + cx1) / 2 + 10 } do
@@ -1136,23 +1288,52 @@ local function setupLighting()
 	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
 	sunRays.Intensity = Config.Graphics.SunRays
 	sunRays.Spread = 0.6
+	-- Roblox's own sky, with lots of stars for the night-time areas (World 2 swaps in the galaxy
+	-- skybox from Config.GalaxySky on the client)
+	local sky = ensure("Sky", "Sky") :: Sky
+	sky.StarCount = 5000
+	sky.CelestialBodiesShown = true
 end
 
 --------------------------------------------------------------------------------
 -- Public API
 --------------------------------------------------------------------------------
+-- Beams and trails keep their attachments' names ("From" / "To"), since a baked map can't keep the
+-- references: look on the part they're in, then anywhere in their model.
+local function reconnectAttachments(effect: any)
+	local function find(name: unknown): Attachment?
+		if type(name) ~= "string" then
+			return nil
+		end
+		local found = effect.Parent and effect.Parent:FindFirstChild(name)
+		local model = effect:FindFirstAncestorOfClass("Model")
+		if not found and model then
+			found = model:FindFirstChild(name, true)
+		end
+		return if found and found:IsA("Attachment") then found else nil
+	end
+	if not effect.Attachment0 then
+		effect.Attachment0 = find(effect:GetAttribute("From"))
+	end
+	if not effect.Attachment1 then
+		effect.Attachment1 = find(effect:GetAttribute("To"))
+	end
+end
+
 function MapBuilder.Build(): Folder
 	setupLighting()
 	local existing = workspace:FindFirstChild("Map")
 	if existing and existing:IsA("Folder") then
 		-- A baked map (saved in the place file) can't store model references, so reconnect them.
-		for _, model in existing:GetDescendants() do
-			local primaryName = model:GetAttribute("PrimaryPartName")
-			if model:IsA("Model") and not model.PrimaryPart and type(primaryName) == "string" then
-				local primary = model:FindFirstChild(primaryName)
+		for _, instance in existing:GetDescendants() do
+			local primaryName = instance:GetAttribute("PrimaryPartName")
+			if instance:IsA("Model") and not instance.PrimaryPart and type(primaryName) == "string" then
+				local primary = instance:FindFirstChild(primaryName)
 				if primary and primary:IsA("BasePart") then
-					model.PrimaryPart = primary
+					instance.PrimaryPart = primary
 				end
+			elseif instance:IsA("Beam") or instance:IsA("Trail") then
+				reconnectAttachments(instance)
 			end
 		end
 		-- Older saved maps: add things introduced later.
@@ -1191,6 +1372,29 @@ function MapBuilder.Build(): Folder
 					end
 				end
 				buildHubGround(hub)
+			end
+		end
+		if version < 7 then
+			-- Version 7: The Black Hole's black holes, lab chamber and decor were rebuilt.
+			local lane = existing:FindFirstChild("Lane")
+			local blackHole = lane and lane:FindFirstChild("Area34")
+			if blackHole then
+				blackHole:Destroy()
+			end
+		end
+		if version < 7 then
+			-- Version 7: World 2 is galactic (purple ground, galaxy over the hub), so rebuild its hub and lane.
+			local lane = existing:FindFirstChild("Lane")
+			for index = 1, 12 do
+				local area = lane and lane:FindFirstChild("Area" .. (Areas.CosmicOffset + index))
+				if area then
+					area:Destroy()
+				end
+			end
+			local worlds = existing:FindFirstChild("Worlds")
+			local ultimate = worlds and worlds:FindFirstChild("World" .. Areas.UltimateWorld)
+			if ultimate then
+				ultimate:Destroy()
 			end
 		end
 		if version < 6 then

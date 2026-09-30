@@ -14,6 +14,7 @@
 local CollectionService = game:GetService("CollectionService")
 
 local Build = require(script.Parent.Build)
+local BlackHoleModel = require(script.Parent.BlackHoleModel)
 
 local Decor = {}
 
@@ -1219,65 +1220,150 @@ function Themes.Mainframe(folder: Instance, zs: number, ze: number, rng: Random)
 	weather(folder, zs, ze, rgb(150, 200, 255), Enum.NormalId.Top, 60, 2, 0.3, 6)
 end
 
--- A black hole: a pitch-black core with a glowing event horizon, a burning accretion disk, rings
--- of light turning around it and matter pouring in. Used in The Black Hole's sky and in its lab.
-function Decor.BlackHole(parent: Instance, center: Vector3, scale: number): Model
-	local model = Instance.new("Model")
-	model.Name = "BlackHole"
-	local k = scale
-	local core = Build.Decor({ Parent = model, Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 22 * k, Position = center, Color = rgb(0, 0, 0), Material = Enum.Material.SmoothPlastic })
-	core.CastShadow = false
-	Build.Decor({ Parent = model, Name = "Horizon", Shape = Enum.PartType.Ball, Size = Vector3.one * 25 * k, Position = center, Color = rgb(150, 80, 255), Material = Enum.Material.Neon, Transparency = 0.75 })
-	local tilt = CFrame.new(center) * CFrame.Angles(math.rad(14), 0, math.rad(8))
-	-- Accretion disk (flat cylinders lie along X, so turn them to lie flat)
-	Build.Decor({ Parent = model, Name = "Disk", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 66 * k, 66 * k), CFrame = tilt * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 140, 40), Material = Enum.Material.Neon, Transparency = 0.45 })
-	Build.Decor({ Parent = model, Name = "InnerDisk", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.8, 44 * k, 44 * k), CFrame = tilt * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 230, 150), Material = Enum.Material.Neon, Transparency = 0.25 })
-	ringOfBalls(model, tilt * CFrame.Angles(math.pi / 2, 0, 0), 38 * k, 1.8 * k, rgb(170, 110, 255), 28, "SpinSlow")
-	ringOfBalls(model, tilt * CFrame.Angles(math.pi / 2, 0.5, 0.3), 46 * k, 1.4 * k, rgb(90, 220, 255), 32, "SpinSlow")
-	-- Matter pouring in
-	local inflow = Instance.new("ParticleEmitter")
-	inflow.Color = ColorSequence.new(rgb(255, 170, 80), rgb(170, 90, 255))
-	inflow.LightEmission = 1
-	inflow.Rate = 60
-	inflow.Lifetime = NumberRange.new(1.2, 1.6)
-	inflow.Speed = NumberRange.new(18 * k)
-	inflow.Size = NumberSequence.new(1.2 * k, 0)
-	inflow.Shape = Enum.ParticleEmitterShape.Sphere
-	inflow.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
-	inflow.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
-	inflow.Parent = Build.Decor({ Parent = model, Name = "Inflow", Size = Vector3.one * 50 * k, Position = center, Transparency = 1 })
-	local light = Instance.new("PointLight")
-	light.Color = rgb(170, 100, 255)
-	light.Range = 60
-	light.Brightness = 3
-	light.Parent = core
-	model.PrimaryPart = core
-	model.Parent = parent
-	return model
+-- The black hole model (see BlackHoleModel): used in The Black Hole's sky and in its lab.
+function Decor.BlackHole(parent: Instance, center: Vector3, scale: number, options: BlackHoleModel.Options?): Model
+	return BlackHoleModel.Build(parent, center, scale, options)
 end
 
--- The Black Hole: a wide, dark area under a black hole, with purple light pillars along the walls
--- and rocks floating off towards it (the lab under the floor is built by MapBuilder).
+-- Where the pit down to The Black Hole's secret lab is (x, z), and how wide it is.
+Decor.LabPitSize = 20
+function Decor.LabPit(zs: number): (number, number)
+	return 75, zs + 120
+end
+
+-- A glowing beam between two attachments on `holder`. A map baked to a file can't keep the
+-- references, so the attachments' names are stored too and MapBuilder reconnects them.
+local function glowBeam(holder: BasePart, from: CFrame, to: CFrame): Beam
+	local a0 = Instance.new("Attachment")
+	a0.Name = "BeamFrom"
+	a0.CFrame = from
+	a0.Parent = holder
+	local a1 = Instance.new("Attachment")
+	a1.Name = "BeamTo"
+	a1.CFrame = to
+	a1.Parent = holder
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = a0
+	beam.Attachment1 = a1
+	beam:SetAttribute("From", a0.Name)
+	beam:SetAttribute("To", a1.Name)
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Parent = holder
+	return beam
+end
+
+-- The Black Hole: a wide, dark area under a giant black hole that's tearing a star apart. The
+-- pillars along the walls bend towards it, rocks drift up and are pulled apart into streams of
+-- dust, sparks rise off the floor and a spacetime grid glows on it (MapBuilder builds the secret
+-- lab under the floor).
 function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
-	local purple = rgb(170, 90, 255)
-	local z = zs + 14
+	local purple, hot, dark = rgb(170, 90, 255), rgb(255, 150, 70), rgb(18, 12, 34)
+	local holeAt = Vector3.new(0, 175, ze + 90)
+
+	-- Spacetime grid on the tile edges (the lines stop at the pit)
+	local px, pz = Decor.LabPit(zs)
+	local pitHalf = Decor.LabPitSize / 2 + 1
+	local gridColor = rgb(130, 70, 255)
+	local function line(x0: number, x1: number, z0: number, z1: number)
+		if x1 - x0 > 0.5 or z1 - z0 > 0.5 then
+			Build.Decor({ Parent = folder, Name = "GridLine", Size = Vector3.new(math.max(0.3, x1 - x0), 0.1, math.max(0.3, z1 - z0)), Position = Vector3.new((x0 + x1) / 2, 0.06, (z0 + z1) / 2), Color = gridColor, Material = Enum.Material.Neon, Transparency = 0.55 })
+		end
+	end
+	local x = -75
+	while x < 95 do
+		if math.abs(x - px) <= pitHalf then
+			line(x, x, zs, pz - pitHalf)
+			line(x, x, pz + pitHalf, ze)
+		else
+			line(x, x, zs, ze)
+		end
+		x += 20
+	end
+	local z = zs + 20
+	while z < ze do
+		if math.abs(z - pz) <= pitHalf then
+			line(-95, px - pitHalf, z, z)
+			line(px + pitHalf, 95, z, z)
+		else
+			line(-95, 95, z, z)
+		end
+		z += 20
+	end
+
+	-- Pillars along the walls, bending towards the hole (harder the closer they are)
+	z = zs + 14
 	while z < ze - 10 do
+		local pull = (z - zs) / (ze - zs)
 		for _, side in { -1, 1 } do
-			local pos = Vector3.new(side * 86, 0, z)
-			Build.Pillar(folder, pos, 36, 3, rgb(18, 12, 34), Enum.Material.Glass)
-			Build.Decor({ Parent = folder, Name = "LightStrip", Size = Vector3.new(0.6, 36, 0.6), Position = pos + Vector3.new(-side * 1.6, 18, 0), Color = purple, Material = Enum.Material.Neon })
+			if side * 86 > px - pitHalf and math.abs(z - pz) < pitHalf + 3 then
+				continue -- not on the edge of the pit
+			end
+			local cf = CFrame.new(side * 86, 0, z)
+			for segment = 1, 3 do
+				cf *= CFrame.Angles(pull * 0.12, 0, side * pull * 0.04)
+				Build.Decor({ Parent = folder, Name = "Pillar", Shape = Enum.PartType.Cylinder, Size = Vector3.new(13, 3, 3), CFrame = cf * CFrame.new(0, 6.5, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = dark, Material = Enum.Material.Glass })
+				Build.Decor({ Parent = folder, Name = "LightStrip", Size = Vector3.new(0.6, 13, 0.6), CFrame = cf * CFrame.new(-side * 1.6, 6.5, 0), Color = purple, Material = Enum.Material.Neon })
+				if segment > 1 then
+					Build.Decor({ Parent = folder, Name = "PillarJoint", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.8, 3.8, 3.8), CFrame = cf * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(50, 40, 80), Material = Enum.Material.Metal })
+				end
+				cf *= CFrame.new(0, 13, 0)
+			end
+			Build.Ball(folder, cf.Position, 2.4, purple:Lerp(hot, pull), Enum.Material.Neon)
 		end
 		z += 26
 	end
-	-- Rocks drifting up towards the hole
-	for _ = 1, 16 do
-		local p = Vector3.new(rng:NextNumber(-80, 80), rng:NextNumber(18, 55), rng:NextNumber(zs + 10, ze - 10))
-		local rock = Build.Ball(folder, p, rng:NextNumber(2, 6), rgb(40, 34, 55), Enum.Material.Basalt)
+
+	-- Rocks drifting up towards the hole, stretched and shedding dust as they're pulled apart
+	for _ = 1, 18 do
+		local p = Vector3.new(rng:NextNumber(-85, 85), rng:NextNumber(16, 70), rng:NextNumber(zs + 10, ze - 10))
+		local pull = (p.Z - zs) / (ze - zs)
+		local toHole = (holeAt - p).Unit
+		local side = toHole:Cross(Vector3.yAxis).Unit
+		local facing = CFrame.fromMatrix(p, side, side:Cross(toHole), -toHole) * CFrame.Angles(0, 0, rng:NextNumber(0, math.pi))
+		local size = rng:NextNumber(2, 5.5)
+		local length = size * (1.1 + pull * 0.9)
+		local rock = Build.Decor({ Parent = folder, Name = "Rock", Size = Vector3.new(size, size * 0.8, length), CFrame = facing, Color = rgb(40, 34, 55), Material = Enum.Material.Basalt })
 		rock.CastShadow = false
+		Build.Decor({ Parent = folder, Name = "Rock", Size = Vector3.new(size * 0.7, size * 0.7, length * 0.7), CFrame = facing * CFrame.new(size * 0.2, size * 0.15, length * 0.1) * CFrame.Angles(0.5, 0.6, 0.4), Color = rgb(52, 44, 70), Material = Enum.Material.Basalt }).CastShadow = false
+		Build.Decor({ Parent = folder, Name = "RockCrack", Size = Vector3.new(0.25, size * 0.85, length * 0.9), CFrame = facing * CFrame.Angles(0, 0, 0.3), Color = purple:Lerp(hot, pull), Material = Enum.Material.Neon })
+		local dust = glowBeam(rock, CFrame.new(), CFrame.new(0, 0, -size * 9))
+		dust.Width0 = size * 0.8
+		dust.Width1 = size * 0.1
+		dust.Color = ColorSequence.new(purple, hot)
+		dust.Transparency = NumberSequence.new(0.35, 1)
+		dust.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		dust.TextureMode = Enum.TextureMode.Wrap
+		dust.TextureLength = size * 3
+		dust.TextureSpeed = 0.6
 	end
-	-- The black hole itself, hanging over the end of the area
-	Decor.BlackHole(folder, Vector3.new(0, 120, ze + 70), 2)
-	weather(folder, zs, ze, rgb(200, 170, 255), Enum.NormalId.Top, 50, 3, 0.35, 5)
+
+	-- Warning holograms
+	for n, text in { "⚠ GRAVITY WELL ⚠", "SPACETIME UNSTABLE", "EXPERIMENT BH-01" } do
+		local side = if n % 2 == 0 then 1 else -1
+		neonSign(folder, CFrame.new(side * 66, 26 + n * 5, zs + 30 + n * 55) * CFrame.Angles(0, side * math.pi / 2 + rng:NextNumber(-0.3, 0.3), rng:NextNumber(-0.12, 0.12)), text, if n == 1 then rgb(255, 210, 0) else purple, 24)
+	end
+
+	-- Sparks lifting off the floor and falling up into the hole
+	local sparksPart = Build.Decor({ Parent = folder, Name = "Debris", Size = Vector3.new(170, 1, ze - zs - 20), Position = Vector3.new(0, 1, (zs + ze) / 2), Transparency = 1 })
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.EmissionDirection = Enum.NormalId.Top
+	sparks.Rate = 30
+	sparks.Lifetime = NumberRange.new(6, 9)
+	sparks.Speed = NumberRange.new(2, 5)
+	sparks.Acceleration = Vector3.new(0, 5, 4)
+	sparks.SpreadAngle = Vector2.new(20, 20)
+	sparks.Size = NumberSequence.new(0.35, 0.1)
+	sparks.Color = ColorSequence.new(purple, hot)
+	sparks.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.15, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparks.LightEmission = 1
+	sparks.Parent = sparksPart
+
+	-- The black hole itself, over the end of the area, tearing a star apart
+	Decor.BlackHole(folder, holeAt, 3.2, { View = Vector3.new(0, -0.45, -1), Tilt = 13, Roll = 8, JetLength = 9, Star = true })
+	weather(folder, zs, ze, rgb(200, 170, 255), Enum.NormalId.Top, 30, 3, 0.3, 5)
 end
 
 function Decor.BuildTheme(theme: string, folder: Instance, zs: number, ze: number, rng: Random)

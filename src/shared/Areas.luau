@@ -409,7 +409,7 @@ Areas.List = {
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(20, 20, 30), Pants = Color3.fromRGB(120, 60, 255), Aura = "Cosmic", Title = "Event Horizon", Hat = "Halo" },
-		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(225, 215, 255), Saturation = 0.3, Contrast = 0.3, Ambient = Color3.fromRGB(70, 50, 130), AtmosphereColor = Color3.fromRGB(120, 60, 255), AtmosphereDensity = 0.4, Haze = 1.5, Bloom = 0.9 }),
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(230, 215, 255), Saturation = 0.35, Contrast = 0.32, Ambient = Color3.fromRGB(70, 50, 130), AtmosphereColor = Color3.fromRGB(90, 50, 200), AtmosphereDensity = 0.28, Haze = 0.6, Bloom = 0.7 }),
 	},
 } :: { Area }
 
@@ -423,10 +423,19 @@ for index = 1, 12 do
 	copy.Name = "Cosmic " .. source.Name
 	copy.World = 5
 	copy.Index = index
+	-- Galactic: a starry night, and the ground and walls turned deep cosmic purple
 	copy.Ambience = table.clone(source.Ambience)
+	copy.Ambience.ClockTime = 0
 	copy.Ambience.Tint = source.Ambience.Tint:Lerp(Color3.fromRGB(215, 200, 255), 0.5)
-	copy.Ambience.Bloom = source.Ambience.Bloom + 0.2
-	copy.Trim = source.Trim:Lerp(Color3.fromRGB(170, 120, 255), 0.4)
+	copy.Ambience.Ambient = Color3.fromRGB(120, 105, 175)
+	copy.Ambience.AtmosphereColor = Color3.fromRGB(80, 50, 160)
+	copy.Ambience.AtmosphereDensity = 0.22
+	copy.Ambience.Haze = 0.4
+	copy.Ambience.Bloom = source.Ambience.Bloom + 0.1
+	copy.Floor = { source.Floor[1]:Lerp(Color3.fromRGB(46, 30, 92), 0.7), source.Floor[2]:Lerp(Color3.fromRGB(36, 24, 76), 0.7) }
+	copy.Wall = { source.Wall[1]:Lerp(Color3.fromRGB(30, 22, 64), 0.75), source.Wall[2]:Lerp(Color3.fromRGB(24, 18, 52), 0.75) }
+	copy.Trim = source.Trim:Lerp(Color3.fromRGB(170, 120, 255), 0.6)
+	copy.TrimMaterial = Enum.Material.Neon
 	table.insert(Areas.List, copy)
 end
 

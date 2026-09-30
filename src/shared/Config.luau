@@ -582,13 +582,24 @@ Config.Items = {
 -- (Areas.luau Ambience), so turning these down makes the whole game calmer.
 --------------------------------------------------------------------------------
 Config.Graphics = {
-	SaturationBoost = 0.18, -- more vivid colours
-	ContrastBoost = 0.06,
-	BloomBoost = 0.55, -- stronger glow around bright things (neon, sparkles, the sun)
-	BloomThreshold = 1.4, -- how bright something must be to glow (lower = more glow)
-	BloomSize = 28,
-	SunRays = 0.09,
-	Brightness = 2.9, -- sunlight strength
+	SaturationBoost = 0.14, -- more vivid colours
+	ContrastBoost = 0.05,
+	BloomBoost = 0.15, -- glow around bright things (neon, sparkles, the sun)
+	BloomThreshold = 2.3, -- how bright something must be to glow (lower = more glow)
+	BloomSize = 20,
+	SunRays = 0.06,
+	Brightness = 2.3, -- sunlight strength
+}
+
+-- World 2's skybox. Paste the six image IDs of a galaxy skybox from the Creator Store here (e.g.
+-- "rbxassetid://123") and World 2 uses it; left empty, World 2 shows Roblox's starry night sky.
+Config.GalaxySky = {
+	SkyboxBk = "",
+	SkyboxDn = "",
+	SkyboxFt = "",
+	SkyboxLf = "",
+	SkyboxRt = "",
+	SkyboxUp = "",
 }
 
 -- ULTIMATE REBIRTH (The Black Hole's secret lab). The explosion uses Roblox's own explosion

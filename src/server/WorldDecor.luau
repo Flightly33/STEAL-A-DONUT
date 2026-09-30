@@ -270,7 +270,8 @@ local function cyber(folder: Instance, world: Areas.World, rng: Random)
 	end)
 end
 
--- World 2: Donut Land's layout under a night sky full of planets, with shooting-star sparkle.
+-- World 2: Donut Land's layout under a galactic night sky: planets, a spiral galaxy over the hub,
+-- nebulae, asteroids, star lamps and falling stardust.
 local function cosmos(folder: Instance, world: Areas.World, rng: Random)
 	local x0 = world.OffsetX
 	local colors = { rgb(255, 150, 90), rgb(120, 200, 255), rgb(200, 140, 255), rgb(255, 220, 120), rgb(120, 255, 190) }
@@ -303,6 +304,67 @@ local function cosmos(folder: Instance, world: Areas.World, rng: Random)
 	stars.Speed = NumberRange.new(0)
 	stars.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 1.6), NumberSequenceKeypoint.new(1, 0) })
 	stars.Parent = sky
+
+	-- A spiral galaxy hanging over the back of the hub: a bright core and two arms of stars
+	local galaxy = CFrame.new(x0 + 40, 230, -(map.HubDepth + 260)) * CFrame.Angles(math.rad(62), math.rad(-18), 0)
+	local core = Build.Ball(folder, galaxy.Position, 34, rgb(255, 236, 205), Enum.Material.Neon)
+	core.CastShadow = false
+	local halo = Build.Ball(folder, galaxy.Position, 70, rgb(255, 190, 150), Enum.Material.ForceField)
+	halo.Transparency = 0.35
+	Build.Decor({ Parent = folder, Name = "GalaxyDisk", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 420, 420), CFrame = galaxy * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(120, 80, 220), Material = Enum.Material.ForceField, Transparency = 0.45 })
+	local armColors = { rgb(150, 190, 255), rgb(210, 160, 255), rgb(255, 170, 220) }
+	for arm = 0, 1 do
+		for i = 1, 46 do
+			local f = i / 46
+			local angle = arm * math.pi + f * math.pi * 2.3
+			local radius = 24 + f * 190
+			local spread = rng:NextNumber(-1, 1) * (6 + f * 16)
+			local at = galaxy * CFrame.new(math.cos(angle) * (radius + spread), rng:NextNumber(-3, 3), math.sin(angle) * (radius + spread))
+			local star = Build.Ball(folder, at.Position, (1 - f) * 10 + rng:NextNumber(2, 5), armColors[rng:NextInteger(1, #armColors)], Enum.Material.Neon)
+			star.Transparency = f * 0.5
+			star.CastShadow = false
+		end
+	end
+	-- Nebula clouds far away, and asteroids drifting round the hub
+	local nebulae = { rgb(255, 90, 200), rgb(90, 150, 255), rgb(160, 90, 255), rgb(80, 220, 220) }
+	for n = 1, 7 do
+		local angle = n / 7 * math.pi * 2
+		local cloud = Build.Ball(folder, Vector3.new(x0 + math.cos(angle) * 520, rng:NextNumber(180, 320), -map.HubDepth / 2 + math.sin(angle) * 520), rng:NextNumber(140, 220), nebulae[(n - 1) % #nebulae + 1], Enum.Material.Neon)
+		cloud.Transparency = 0.9
+		cloud.CastShadow = false
+	end
+	for _ = 1, 14 do
+		local side = if rng:NextNumber() < 0.5 then -1 else 1
+		local at = Vector3.new(x0 + side * rng:NextNumber(map.HubHalfWidth + 30, map.HubHalfWidth + 140), rng:NextNumber(30, 110), rng:NextNumber(-map.HubDepth - 80, 40))
+		local rock = Build.Decor({ Parent = folder, Name = "Asteroid", Size = Vector3.new(rng:NextNumber(5, 14), rng:NextNumber(4, 10), rng:NextNumber(5, 14)), CFrame = CFrame.new(at) * CFrame.Angles(rng:NextNumber(0, 3), rng:NextNumber(0, 3), rng:NextNumber(0, 3)), Color = rgb(58, 50, 78), Material = Enum.Material.Basalt })
+		rock.CastShadow = false
+	end
+	-- Star lamps round the hub
+	for _, pos in hubSpots(x0, rng, 10) do
+		Build.Pillar(folder, pos, 12, 0.6, rgb(40, 34, 70), Enum.Material.Metal)
+		local bulb = Build.Ball(folder, pos + Vector3.new(0, 12.8, 0), 2, rgb(190, 160, 255), Enum.Material.Neon)
+		local shell = Build.Ball(folder, bulb.Position, 3.4, rgb(150, 110, 255), Enum.Material.ForceField)
+		shell.Transparency = 0.3
+		local light = Instance.new("PointLight")
+		light.Color = rgb(170, 140, 255)
+		light.Range = 20
+		light.Brightness = 1.2
+		light.Parent = bulb
+	end
+	-- Stardust drifting down over the hub
+	local dustPart = Build.Decor({ Parent = folder, Name = "Stardust", Size = Vector3.new(map.HubHalfWidth * 2, 1, map.HubDepth), Position = Vector3.new(x0, 50, -map.HubDepth / 2), Transparency = 1 })
+	local dust = Instance.new("ParticleEmitter")
+	dust.EmissionDirection = Enum.NormalId.Bottom
+	dust.Rate = 25
+	dust.Lifetime = NumberRange.new(8, 12)
+	dust.Speed = NumberRange.new(2, 4)
+	dust.SpreadAngle = Vector2.new(25, 25)
+	dust.Size = NumberSequence.new(0.35, 0.1)
+	dust.Color = ColorSequence.new(rgb(200, 180, 255), rgb(140, 200, 255))
+	dust.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.2, 0.3), NumberSequenceKeypoint.new(1, 1) })
+	dust.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	dust.LightEmission = 1
+	dust.Parent = dustPart
 end
 
 function WorldDecor.Build(parent: Instance, world: Areas.World)

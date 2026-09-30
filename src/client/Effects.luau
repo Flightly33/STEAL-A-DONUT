@@ -233,10 +233,34 @@ local function startAmbience()
 	local atmosphere = Lighting:WaitForChild("Atmosphere", 10) :: Atmosphere?
 	local bloom = Lighting:WaitForChild("Bloom", 10) :: BloomEffect?
 	local info = TweenInfo.new(2.5, Enum.EasingStyle.Sine)
+	-- World 2's galaxy skybox (Config.GalaxySky), put back to the normal sky everywhere else
+	local sky = Lighting:WaitForChild("Sky", 10) :: Sky?
+	local faces = { "SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp" }
+	local normalSky: { [string]: string } = {}
+	if sky then
+		for _, face in faces do
+			local ok, id = pcall(function()
+				return (sky :: any)[face]
+			end)
+			normalSky[face] = if ok and type(id) == "string" then id else ""
+		end
+	end
+	local function setSky(world: number)
+		local galaxy = world == Areas.UltimateWorld and Config.GalaxySky.SkyboxBk ~= ""
+		if sky then
+			for _, face in faces do
+				local id = if galaxy then (Config.GalaxySky :: any)[face] else normalSky[face]
+				if id ~= "" then
+					(sky :: any)[face] = id
+				end
+			end
+		end
+	end
 
 	local function apply(areaId: number)
 		-- In a world's safe hub, use that world's own look (its first area), not World 1's daylight
 		local world = math.max(1, State.Number("World"))
+		setSky(world)
 		local hubAmbience = if world > 1 and Areas.ByWorld[world] then Areas.ByWorld[world][1].Ambience else Areas.Hub
 		local amb = if areaId > 0 then Areas.List[areaId].Ambience else hubAmbience
 		-- Day -> night goes forwards through sunset (ClockTime wraps at 24) instead of rewinding the sun.
