@@ -3,8 +3,9 @@
 	never blocks players or the guard. The lane centre (|X| < ~44) is kept mostly clear.
 
 	Areas get more magical the further you go: plain grass -> desert -> candy -> caves -> ice ->
-	lava -> neon night city -> floating crystals -> a cosmic dimension. World 2 (Glaze Islands) goes
-	beach -> coral reef -> pirate cove -> jelly jungle -> volcano -> mango lagoon -> tsunami temple,
+	lava -> neon night city -> floating crystals -> a cosmic dimension. World 2 (The Underworld) goes
+	ember gates -> brimstone bakery -> magma rivers -> soul caverns -> obsidian forge -> inferno
+	spires -> the molten core,
 	World 3 (Dream Dimension) clouds -> toy factory -> haunted bakery -> clockwork void -> donut heaven
 	-> starfall garden -> aurora palace, and World 4 (Cyber City) neon streets -> hologram mall ->
 	robot factory -> data highway -> firewall fortress -> glitch zone -> the mainframe.
@@ -424,177 +425,6 @@ function Themes.Celestial(folder: Instance, zs: number, ze: number, rng: Random)
 end
 
 --------------------------------------------------------------------------------
--- World 2: Glaze Islands
---------------------------------------------------------------------------------
-local function palm(parent: Instance, pos: Vector3, rng: Random)
-	local height = rng:NextNumber(12, 18)
-	local lean = rng:NextNumber(-0.25, 0.25)
-	for i = 0, 5 do
-		local y = i * height / 6
-		Build.Decor({ Parent = parent, Name = "PalmTrunk", Size = Vector3.new(1.6 - i * 0.12, height / 6 + 0.2, 1.6 - i * 0.12), CFrame = CFrame.new(pos + Vector3.new(lean * y, y + height / 12, 0)), Color = if i % 2 == 0 then rgb(150, 105, 60) else rgb(130, 90, 50), Material = Enum.Material.Wood })
-	end
-	local top = pos + Vector3.new(lean * height, height, 0)
-	for n = 0, 5 do
-		local angle = n / 6 * math.pi * 2
-		Build.Decor({ Parent = parent, Name = "PalmLeaf", Size = Vector3.new(1.8, 0.3, 8), CFrame = CFrame.new(top) * CFrame.Angles(0, angle, 0) * CFrame.new(0, -0.8, -3.8) * CFrame.Angles(math.rad(-22), 0, 0), Color = rgb(60, 170, 60), Material = Enum.Material.Grass })
-	end
-	for n = 1, 3 do
-		Build.Ball(parent, top + Vector3.new(rng:NextNumber(-0.8, 0.8), -0.8, rng:NextNumber(-0.8, 0.8)), 1.1, rgb(120, 80, 40))
-	end
-end
-
-function Themes.Beach(folder: Instance, zs: number, ze: number, rng: Random)
-	alongEdges(zs, ze, 24, rng, function(pos)
-		palm(folder, pos, rng)
-	end)
-	-- Shallow sea along the right wall
-	Build.Decor({ Parent = folder, Name = "Sea", Size = Vector3.new(14, 0.3, ze - zs - 4), Position = Vector3.new(52, 0.12, (zs + ze) / 2), Color = rgb(60, 190, 240), Material = Enum.Material.Glass, Transparency = 0.2 })
-	Build.Decor({ Parent = folder, Name = "Foam", Size = Vector3.new(1.2, 0.32, ze - zs - 4), Position = Vector3.new(45, 0.13, (zs + ze) / 2), Color = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic })
-	-- Umbrellas and towels
-	local stripes = { rgb(255, 80, 80), rgb(255, 210, 50), rgb(60, 170, 255), rgb(255, 130, 200) }
-	for n = 1, 5 do
-		local pos = Vector3.new(rng:NextNumber(-44, -30), 0, zs + 15 + n * 26)
-		local color = stripes[(n - 1) % #stripes + 1]
-		Build.Pillar(folder, pos, 7, 0.35, rgb(240, 240, 240))
-		Build.Decor({ Parent = folder, Name = "Umbrella", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 8, 8), CFrame = CFrame.new(pos + Vector3.new(0, 7, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.Fabric })
-		Build.Decor({ Parent = folder, Name = "Towel", Size = Vector3.new(3.5, 0.12, 6), CFrame = CFrame.new(pos + Vector3.new(4, 0.06, 1)) * CFrame.Angles(0, 0.3, 0), Color = stripes[n % #stripes + 1], Material = Enum.Material.Fabric })
-	end
-	-- Sandcastle
-	local castle = Vector3.new(-38, 0, zs + 95)
-	Build.Decor({ Parent = folder, Name = "Sandcastle", Size = Vector3.new(10, 4, 10), Position = castle + Vector3.new(0, 2, 0), Color = rgb(225, 195, 130), Material = Enum.Material.Sand })
-	for _, corner in { Vector3.new(-5, 0, -5), Vector3.new(5, 0, -5), Vector3.new(-5, 0, 5), Vector3.new(5, 0, 5) } do
-		Build.Pillar(folder, castle + corner, 7, 3, rgb(225, 195, 130), Enum.Material.Sand)
-	end
-	-- An inflatable donut ring bobbing in the sea
-	Decor.GiantDonut(folder, CFrame.new(53, 1.2, zs + 60) * CFrame.Angles(math.pi / 2, 0, 0), 3, 2.6, rgb(255, 255, 255), rgb(255, 100, 150), nil)
-	weather(folder, zs, ze, rgb(255, 250, 220), Enum.NormalId.Top, 12, 1, 0.3, 6)
-end
-
-function Themes.Coral(folder: Instance, zs: number, ze: number, rng: Random)
-	local corals = { rgb(255, 110, 150), rgb(255, 160, 60), rgb(190, 110, 255), rgb(80, 220, 200) }
-	alongEdges(zs, ze, 14, rng, function(pos)
-		local color = corals[rng:NextInteger(1, #corals)]
-		local h = rng:NextNumber(4, 10)
-		for i = 0, 3 do
-			local y = i * h / 4
-			Build.Ball(folder, pos + Vector3.new(rng:NextNumber(-1, 1), y + 1, rng:NextNumber(-1, 1)), 2.6 - i * 0.35, color, Enum.Material.SmoothPlastic)
-		end
-		Build.Ball(folder, pos + Vector3.new(0, h + 1.5, 0), 1.2, color:Lerp(Color3.new(1, 1, 1), 0.4), Enum.Material.Neon)
-	end)
-	-- Swaying seaweed
-	scatter(zs, ze, 16, rng, function(pos)
-		local p = Vector3.new(math.sign(pos.X) * rng:NextNumber(30, 44), 0, pos.Z)
-		for i = 0, 3 do
-			Build.Decor({ Parent = folder, Name = "Seaweed", Size = Vector3.new(0.6, 2.2, 0.3), CFrame = CFrame.new(p + Vector3.new(math.sin(i) * 0.4, 1.1 + i * 2, 0)) * CFrame.Angles(0, 0, math.sin(i * 1.7) * 0.25), Color = rgb(40, 150, 80), Material = Enum.Material.Grass })
-		end
-	end)
-	-- Giant clams with glowing pearls
-	for _, pos in { Vector3.new(-40, 0, zs + 45), Vector3.new(40, 0, zs + 120) } do
-		Build.Decor({ Parent = folder, Name = "Clam", Shape = Enum.PartType.Ball, Size = Vector3.one * 7, Position = pos + Vector3.new(0, -1.5, 0), Color = rgb(240, 200, 220), Material = Enum.Material.SmoothPlastic })
-		Build.Decor({ Parent = folder, Name = "ClamTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 7, 7), CFrame = CFrame.new(pos + Vector3.new(0, 4, 2.5)) * CFrame.Angles(math.rad(-50), 0, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(240, 200, 220), Material = Enum.Material.SmoothPlastic })
-		local pearl = Build.Ball(folder, pos + Vector3.new(0, 2.6, 0), 2, rgb(255, 255, 255), Enum.Material.Neon)
-		local light = Instance.new("PointLight")
-		light.Color = rgb(200, 240, 255)
-		light.Range = 16
-		light.Parent = pearl
-	end
-	-- Schools of fish circling overhead
-	for n = 1, 3 do
-		ringOfBalls(folder, CFrame.new(rng:NextNumber(-30, 30), rng:NextNumber(18, 30), rng:NextNumber(zs + 20, ze - 20)) * CFrame.Angles(math.pi / 2, 0, 0), rng:NextNumber(5, 8), 1.2, corals[n], 10, "SpinSlow")
-	end
-	weather(folder, zs, ze, rgb(220, 245, 255), Enum.NormalId.Top, 45, 3, 0.5, 8)
-end
-
-function Themes.Pirate(folder: Instance, zs: number, ze: number, rng: Random)
-	-- Barrels and crates along the walls
-	alongEdges(zs, ze, 16, rng, function(pos)
-		if rng:NextNumber() < 0.5 then
-			Build.Pillar(folder, pos, 4, 3.2, rgb(140, 95, 50), Enum.Material.WoodPlanks)
-			Build.Decor({ Parent = folder, Name = "BarrelBand", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 3.3, 3.3), CFrame = CFrame.new(pos + Vector3.new(0, 2, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(70, 70, 75), Material = Enum.Material.Metal })
-		else
-			Build.Decor({ Parent = folder, Name = "Crate", Size = Vector3.new(4, 4, 4), CFrame = CFrame.new(pos + Vector3.new(0, 2, 0)) * CFrame.Angles(0, rng:NextNumber(0, 1), 0), Color = rgb(170, 120, 70), Material = Enum.Material.WoodPlanks })
-		end
-	end)
-	-- A pirate ship docked along the left wall
-	local ship = Vector3.new(-50, 0, zs + 80)
-	Build.Decor({ Parent = folder, Name = "Hull", Size = Vector3.new(12, 8, 60), Position = ship + Vector3.new(0, 4, 0), Color = rgb(90, 55, 30), Material = Enum.Material.WoodPlanks })
-	Build.Decor({ Parent = folder, Name = "Deck", Size = Vector3.new(12.4, 0.6, 60.4), Position = ship + Vector3.new(0, 8, 0), Color = rgb(150, 105, 60), Material = Enum.Material.WoodPlanks })
-	for i, z in { -14, 12 } do
-		Build.Pillar(folder, ship + Vector3.new(0, 8, z), 28 - i * 4, 1.2, rgb(110, 75, 45), Enum.Material.Wood)
-		Build.Decor({ Parent = folder, Name = "Sail", Size = Vector3.new(0.3, 14, 18), Position = ship + Vector3.new(1, 24 - i * 2, z), Color = rgb(245, 240, 225), Material = Enum.Material.Fabric })
-	end
-	Build.Decor({ Parent = folder, Name = "Flag", Size = Vector3.new(0.2, 3, 5), Position = ship + Vector3.new(0, 36, -14), Color = rgb(20, 20, 20), Material = Enum.Material.Fabric })
-	-- Treasure chests spilling gold
-	for _, pos in { Vector3.new(40, 0, zs + 40), Vector3.new(36, 0, zs + 130) } do
-		Build.Decor({ Parent = folder, Name = "Chest", Size = Vector3.new(6, 3.5, 4), Position = pos + Vector3.new(0, 1.75, 0), Color = rgb(130, 80, 40), Material = Enum.Material.WoodPlanks })
-		Build.Decor({ Parent = folder, Name = "ChestTrim", Size = Vector3.new(6.2, 0.5, 4.2), Position = pos + Vector3.new(0, 3.2, 0), Color = rgb(255, 205, 60), Material = Enum.Material.Foil })
-		for n = 1, 10 do
-			Build.Decor({ Parent = folder, Name = "Coin", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 1, 1), CFrame = CFrame.new(pos + Vector3.new(rng:NextNumber(-5, 5), 0.1, rng:NextNumber(-4, 4))) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 205, 60), Material = Enum.Material.Foil })
-		end
-	end
-	for z = zs + 25, ze - 10, 40 do
-		lamp(folder, Vector3.new(44, 0, z), rgb(255, 190, 90), 9)
-	end
-end
-
-function Themes.Jungle(folder: Instance, zs: number, ze: number, rng: Random)
-	local jelly = { rgb(255, 60, 160), rgb(80, 220, 255), rgb(255, 220, 60), rgb(160, 90, 255) }
-	alongEdges(zs, ze, 20, rng, function(pos)
-		tree(folder, pos, rgb(100, 70, 40), rgb(50, 150, 50), nil, rng)
-		-- Hanging vines
-		for n = 1, 3 do
-			Build.Decor({ Parent = folder, Name = "Vine", Size = Vector3.new(0.3, rng:NextNumber(6, 10), 0.3), Position = pos + Vector3.new(rng:NextNumber(-3, 3), 10, rng:NextNumber(-3, 3)), Color = rgb(60, 130, 40), Material = Enum.Material.Grass })
-		end
-	end)
-	-- Wobbly jelly blobs
-	scatter(zs, ze, 14, rng, function(pos)
-		local blob = Build.Ball(folder, pos + Vector3.new(0, 0.8, 0), rng:NextNumber(2, 3.5), jelly[rng:NextInteger(1, #jelly)], Enum.Material.Glass)
-		blob.Transparency = 0.25
-	end)
-	-- Big leaves
-	for n = 1, 10 do
-		local x = (if n % 2 == 0 then 1 else -1) * rng:NextNumber(38, 46)
-		Build.Decor({ Parent = folder, Name = "BigLeaf", Size = Vector3.new(5, 0.3, 9), CFrame = CFrame.new(x, 2, rng:NextNumber(zs + 10, ze - 10)) * CFrame.Angles(math.rad(35), rng:NextNumber(0, 6), 0), Color = rgb(70, 170, 60), Material = Enum.Material.Grass })
-	end
-	-- Jelly waterfall
-	local fall = Build.Decor({ Parent = folder, Name = "JellyFall", Size = Vector3.new(1, 58, 18), Position = Vector3.new(59.4, 29, zs + 90), Color = rgb(255, 90, 180), Material = Enum.Material.Glass, Transparency = 0.2 })
-	Build.Decor({ Parent = folder, Name = "JellyPool", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 22, 22), CFrame = CFrame.new(52, 0.2, zs + 90) * CFrame.Angles(0, 0, math.pi / 2), Color = fall.Color, Material = Enum.Material.Glass, Transparency = 0.15 })
-	weather(folder, zs, ze, rgb(210, 255, 120), Enum.NormalId.Top, 25, 1.5, 0.3, 6) -- fireflies
-end
-
-function Themes.Volcano(folder: Instance, zs: number, ze: number, rng: Random)
-	-- The volcano at the back of the island
-	local base = Vector3.new(0, 0, ze + 56)
-	for level = 0, 8 do
-		local d = 90 - level * 8.5
-		Build.Decor({ Parent = folder, Name = "Volcano", Shape = Enum.PartType.Cylinder, Size = Vector3.new(8, d, d), CFrame = CFrame.new(base + Vector3.new(0, 4 + level * 8, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = if level % 2 == 0 then rgb(70, 55, 50) else rgb(60, 45, 42), Material = Enum.Material.Basalt })
-	end
-	local crater = Build.Decor({ Parent = folder, Name = "Crater", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 18, 18), CFrame = CFrame.new(base + Vector3.new(0, 72.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 100, 0), Material = Enum.Material.Neon })
-	local fire = Instance.new("Fire")
-	fire.Size = 25
-	fire.Heat = 25
-	fire.Parent = crater
-	-- Tiki torches along the lane
-	alongEdges(zs, ze, 22, rng, function(pos)
-		Build.Pillar(folder, pos, 7, 0.8, rgb(120, 80, 45), Enum.Material.Wood)
-		local bowl = Build.Decor({ Parent = folder, Name = "TorchBowl", Size = Vector3.new(1.6, 1, 1.6), Position = pos + Vector3.new(0, 7.3, 0), Color = rgb(90, 60, 35), Material = Enum.Material.Wood })
-		local torch = Instance.new("Fire")
-		torch.Size = 3
-		torch.Heat = 6
-		torch.Parent = bowl
-	end)
-	-- Lava streams and obsidian rocks
-	for n = 1, 4 do
-		local x = (if n % 2 == 0 then 1 else -1) * rng:NextNumber(34, 44)
-		Build.Decor({ Parent = folder, Name = "LavaStream", Size = Vector3.new(4, 0.3, 30), Position = Vector3.new(x, 0.15, zs + n * 32), Color = rgb(255, 90, 0), Material = Enum.Material.Neon })
-	end
-	scatter(zs, ze, 10, rng, function(pos)
-		Build.Decor({ Parent = folder, Name = "Obsidian", Size = Vector3.new(2.5, rng:NextNumber(1.5, 3), 2.5), CFrame = CFrame.new(Vector3.new(math.sign(pos.X) * rng:NextNumber(30, 44), 1, pos.Z)) * CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(0, 3), 0), Color = rgb(30, 25, 40), Material = Enum.Material.Glass })
-	end)
-	weather(folder, zs, ze, rgb(255, 120, 30), Enum.NormalId.Top, 45, 6, 0.35, 5)
-end
-
---------------------------------------------------------------------------------
 -- World 3: Dream Dimension
 --------------------------------------------------------------------------------
 local function cloud(parent: Instance, center: Vector3, size: number, rng: Random, color: Color3?)
@@ -830,83 +660,6 @@ function Themes.Rainbow(folder: Instance, zs: number, ze: number, rng: Random)
 		cloud(folder, Vector3.new(rng:NextNumber(-45, 45), rng:NextNumber(30, 50), rng:NextNumber(zs + 10, ze - 10)), rng:NextNumber(3, 5), rng)
 	end
 	weather(folder, zs, ze, rgb(255, 255, 255), Enum.NormalId.Bottom, 90, 6, 0.4, 7)
-end
-
-function Themes.Lagoon(folder: Instance, zs: number, ze: number, rng: Random)
-	alongEdges(zs, ze, 20, rng, function(pos)
-		palm(folder, pos, rng)
-	end)
-	-- Lagoon pools with lily pads
-	for n = 0, 2 do
-		local center = Vector3.new((if n % 2 == 0 then -1 else 1) * 34, 0.12, zs + 30 + n * 45)
-		Build.Decor({ Parent = folder, Name = "Lagoon", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.25, 20, 20), CFrame = CFrame.new(center) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(40, 200, 200), Material = Enum.Material.Glass, Transparency = 0.2 })
-		for k = 1, 4 do
-			Build.Decor({ Parent = folder, Name = "LilyPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3, 3), CFrame = CFrame.new(center + Vector3.new(rng:NextNumber(-6, 6), 0.1, rng:NextNumber(-6, 6))) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(70, 180, 70), Material = Enum.Material.Grass })
-		end
-		-- A flamingo standing in it
-		local f = center + Vector3.new(4, 0, -3)
-		Build.Decor({ Parent = folder, Name = "FlamingoLeg", Size = Vector3.new(0.3, 5, 0.3), Position = f + Vector3.new(0, 2.5, 0), Color = rgb(255, 140, 170) })
-		Build.Ball(folder, f + Vector3.new(0, 5.5, 0), 2.4, rgb(255, 120, 170))
-		Build.Decor({ Parent = folder, Name = "FlamingoNeck", Size = Vector3.new(0.4, 3, 0.4), CFrame = CFrame.new(f + Vector3.new(0.6, 7.5, 0)) * CFrame.Angles(0, 0, -0.3), Color = rgb(255, 130, 170) })
-		Build.Ball(folder, f + Vector3.new(1.1, 9, 0), 1, rgb(255, 130, 170))
-	end
-	-- Tiki torches
-	for z = zs + 15, ze - 10, 30 do
-		for _, side in { -1, 1 } do
-			local pos = Vector3.new(side * 24, 0, z)
-			Build.Pillar(folder, pos, 6, 0.6, rgb(120, 80, 45), Enum.Material.Wood)
-			local top = Build.Ball(folder, pos + Vector3.new(0, 6.3, 0), 1, rgb(255, 150, 40), Enum.Material.Neon)
-			local fire = Instance.new("Fire")
-			fire.Size = 3
-			fire.Heat = 6
-			fire.Parent = top
-		end
-	end
-	-- Mangoes everywhere
-	scatter(zs, ze, 12, rng, function(pos)
-		Build.Ball(folder, Vector3.new(math.sign(pos.X) * rng:NextNumber(12, 40), 0.9, pos.Z), 1.8, rgb(255, 170, 40))
-	end)
-	weather(folder, zs, ze, rgb(255, 200, 120), Enum.NormalId.Top, 18, 1, 0.3, 6)
-end
-
-function Themes.Temple(folder: Instance, zs: number, ze: number, rng: Random)
-	local stone, moss = rgb(140, 145, 130), rgb(80, 130, 70)
-	-- Mossy temple pillars
-	alongEdges(zs, ze, 22, rng, function(pos)
-		local h = rng:NextNumber(18, 28)
-		Build.Pillar(folder, pos, h, 5, stone, Enum.Material.Cobblestone)
-		Build.Decor({ Parent = folder, Name = "Capital", Size = Vector3.new(7, 1.5, 7), Position = pos + Vector3.new(0, h + 0.75, 0), Color = stone, Material = Enum.Material.Cobblestone })
-		Build.Decor({ Parent = folder, Name = "Moss", Size = Vector3.new(5.4, h * 0.3, 5.4), Position = pos + Vector3.new(0, h * 0.15, 0), Color = moss, Material = Enum.Material.Grass, Transparency = 0.3 })
-	end)
-	-- Tiki statues
-	for n = 1, 4 do
-		local pos = Vector3.new((if n % 2 == 0 then 1 else -1) * 36, 0, zs + n * 32)
-		for i = 0, 2 do
-			Build.Decor({ Parent = folder, Name = "Tiki", Size = Vector3.new(4, 3.5, 4), Position = pos + Vector3.new(0, 1.75 + i * 3.5, 0), Color = if i % 2 == 0 then rgb(120, 85, 50) else rgb(150, 105, 60), Material = Enum.Material.Wood })
-			Build.Decor({ Parent = folder, Name = "TikiEyes", Size = Vector3.new(2.6, 0.6, 0.2), Position = pos + Vector3.new(0, 2.3 + i * 3.5, -2.05), Color = rgb(60, 220, 255), Material = Enum.Material.Neon })
-		end
-	end
-	-- Waterfalls pouring off the walls
-	for z = zs + 25, ze - 20, 55 do
-		for _, side in { -1, 1 } do
-			local fall = Build.Decor({ Parent = folder, Name = "Waterfall", Size = Vector3.new(1, 50, 12), Position = Vector3.new(side * 58, 25, z), Color = rgb(100, 200, 255), Material = Enum.Material.Neon, Transparency = 0.45 })
-			local splash = Instance.new("ParticleEmitter")
-			splash.Color = ColorSequence.new(rgb(220, 245, 255))
-			splash.Rate = 40
-			splash.Speed = NumberRange.new(5, 12)
-			splash.Lifetime = NumberRange.new(0.6, 1.2)
-			splash.Size = NumberSequence.new(1.2, 0)
-			splash.EmissionDirection = Enum.NormalId.Bottom
-			splash.Parent = fall
-			Build.Decor({ Parent = folder, Name = "Pool", Size = Vector3.new(8, 0.3, 16), Position = Vector3.new(side * 53, 0.15, z), Color = rgb(60, 180, 240), Material = Enum.Material.Glass, Transparency = 0.25 })
-		end
-	end
-	-- Broken arch over the lane
-	for _, side in { -1, 1 } do
-		Build.Decor({ Parent = folder, Name = "ArchPost", Size = Vector3.new(6, 30, 6), Position = Vector3.new(side * 30, 15, zs + 90), Color = stone, Material = Enum.Material.Cobblestone })
-	end
-	Build.Decor({ Parent = folder, Name = "ArchTop", Size = Vector3.new(40, 5, 6), CFrame = CFrame.new(-6, 32, zs + 90) * CFrame.Angles(0, 0, 0.08), Color = stone, Material = Enum.Material.Cobblestone })
-	weather(folder, zs, ze, rgb(170, 230, 255), Enum.NormalId.Top, 25, 2, 0.35, 6)
 end
 
 function Themes.Starfall(folder: Instance, zs: number, ze: number, rng: Random)
@@ -1365,6 +1118,442 @@ function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
 	Decor.BlackHole(folder, holeAt, 3.2, { View = Vector3.new(0, -0.45, -1), Tilt = 13, Roll = 8, JetLength = 9, Star = true })
 	weather(folder, zs, ze, rgb(200, 170, 255), Enum.NormalId.Top, 30, 3, 0.3, 5)
 end
+
+--------------------------------------------------------------------------------
+-- World 2: The Underworld - lava, fire and brimstone, lit like Molten Bakery:
+-- ember gates -> brimstone bakery -> magma rivers -> soul caverns -> obsidian forge ->
+-- inferno spires -> the molten core. Lava is tagged "Lava" and geysers "Geyser" so
+-- client/UnderworldFX can make the lava churn and the geysers erupt.
+--------------------------------------------------------------------------------
+local LAVA = rgb(255, 90, 0)
+local LAVA_HOT = rgb(255, 170, 40)
+local OBSIDIAN = rgb(22, 18, 26)
+local FIRE_TEXTURE = "rbxasset://textures/particles/fire_main.dds"
+local SMOKE_TEXTURE = "rbxasset://textures/particles/smoke_main.dds"
+local SPARK_TEXTURE = "rbxasset://textures/particles/sparkles_main.dds"
+
+-- Glowing lava (Neon, no shadow), tagged so the client can make it churn.
+local function lava(parent: Instance, props: Build.Props): BasePart
+	props.Parent = parent
+	props.Material = Enum.Material.Neon
+	props.Color = props.Color or LAVA
+	local part = Build.Decor(props)
+	part.CastShadow = false
+	CollectionService:AddTag(part, "Lava")
+	return part
+end
+
+local function flames(part: BasePart, size: number, color: Color3?, secondary: Color3?)
+	local fire = Instance.new("Fire")
+	fire.Size = size
+	fire.Heat = size * 1.5
+	if color then
+		fire.Color = color
+		fire.SecondaryColor = secondary or color
+	end
+	fire.Parent = part
+end
+
+local function glowLight(part: BasePart, color: Color3, range: number, brightness: number?)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = math.min(60, range)
+	light.Brightness = brightness or 1.5
+	light.Parent = part
+end
+
+-- A pool of lava ringed by basalt, flames licking up (like Molten Bakery's).
+local function lavaPool(folder: Instance, pos: Vector3, size: number, rng: Random): BasePart
+	local pool = lava(folder, { Name = "LavaPool", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, size, size), CFrame = CFrame.new(pos + Vector3.new(0, 0.15, 0)) * CFrame.Angles(0, 0, math.pi / 2) })
+	flames(pool, size * 0.6)
+	glowLight(pool, LAVA, size * 2)
+	for n = 1, 4 do
+		local angle = n / 4 * math.pi * 2 + rng:NextNumber(-0.4, 0.4)
+		local h = rng:NextNumber(1.5, 4)
+		Build.Decor({ Parent = folder, Name = "Basalt", Size = Vector3.new(rng:NextNumber(2, 3.5), h, rng:NextNumber(2, 3.5)), CFrame = CFrame.new(pos + Vector3.new(math.cos(angle) * size * 0.55, h / 2, math.sin(angle) * size * 0.55)) * CFrame.Angles(rng:NextNumber(-0.3, 0.3), rng:NextNumber(0, 3), 0), Color = rgb(40, 34, 34), Material = Enum.Material.Basalt })
+	end
+	return pool
+end
+
+-- A stone brazier with a fire in it (blue soul fire in Soul Caverns).
+local function brazier(folder: Instance, pos: Vector3, fire: Color3?, fire2: Color3?)
+	Build.Pillar(folder, pos, 5, 1.4, rgb(40, 34, 34), Enum.Material.Basalt)
+	Build.Decor({ Parent = folder, Name = "Brazier", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.4, 4.4, 4.4), CFrame = CFrame.new(pos + Vector3.new(0, 5.4, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(60, 50, 45), Material = Enum.Material.Metal })
+	local coals = lava(folder, { Name = "Coals", Shape = Enum.PartType.Ball, Size = Vector3.one * 3.4, CFrame = CFrame.new(pos + Vector3.new(0, 6, 0)), Color = fire or LAVA_HOT })
+	flames(coals, 6, fire, fire2)
+	glowLight(coals, fire or rgb(255, 140, 40), 26, 2)
+end
+
+-- Lava pouring over a basalt ledge at `top`: a glowing ribbon whose texture flows downwards,
+-- with a splash (and a pool, unless it falls into a river).
+local function lavaFall(folder: Instance, top: Vector3, height: number, width: number, rng: Random, pool: boolean?)
+	Build.Decor({ Parent = folder, Name = "LavaLedge", Size = Vector3.new(width + 3, 2.4, 5), Position = top + Vector3.new(0, 1.2, 0), Color = rgb(36, 28, 28), Material = Enum.Material.Basalt })
+	local holder = Build.Decor({ Parent = folder, Name = "LavaFall", Size = Vector3.one, Position = top, Transparency = 1 })
+	local fall = glowBeam(holder, CFrame.new(), CFrame.new(0, -height, 0))
+	fall.Width0 = width
+	fall.Width1 = width * 1.25
+	fall.Color = ColorSequence.new(rgb(255, 200, 80), rgb(255, 90, 0))
+	fall.Transparency = NumberSequence.new(0.05, 0.15)
+	fall.LightEmission = 0.8
+	fall.Texture = SMOKE_TEXTURE
+	fall.TextureMode = Enum.TextureMode.Wrap
+	fall.TextureLength = width * 1.5
+	fall.TextureSpeed = 1.3
+	fall.Segments = 6
+	local glow = fall:Clone()
+	glow.Width0 = width * 2.2
+	glow.Width1 = width * 2.8
+	glow.Color = ColorSequence.new(rgb(255, 130, 30))
+	glow.Transparency = NumberSequence.new(0.7, 0.85)
+	glow.TextureSpeed = 0.7
+	glow.Parent = holder
+	for _, beam in { fall, glow } do
+		pcall(function()
+			(beam :: any).Brightness = 1.4
+		end)
+	end
+	local bottom = top - Vector3.new(0, height, 0)
+	if pool ~= false then
+		lavaPool(folder, bottom, width * 2.2, rng)
+	end
+	local splash = Build.Decor({ Parent = folder, Name = "LavaSplash", Size = Vector3.new(width, 0.5, 2), Position = bottom + Vector3.new(0, 0.5, 0), Transparency = 1 })
+	local drops = Instance.new("ParticleEmitter")
+	drops.EmissionDirection = Enum.NormalId.Top
+	drops.Rate = 18
+	drops.Speed = NumberRange.new(6, 12)
+	drops.SpreadAngle = Vector2.new(40, 40)
+	drops.Lifetime = NumberRange.new(0.6, 1)
+	drops.Acceleration = Vector3.new(0, -30, 0)
+	drops.Size = NumberSequence.new(0.6, 0)
+	drops.Color = ColorSequence.new(rgb(255, 220, 90), rgb(255, 90, 0))
+	drops.LightEmission = 1
+	drops.Parent = splash
+end
+
+-- A tall obsidian spire (volcanic glass) with glowing cracks and a hot tip.
+local function spire(folder: Instance, pos: Vector3, height: number, rng: Random, crack: Color3?)
+	local base = math.max(4, height * 0.18)
+	local cf = CFrame.new(pos) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0) * CFrame.Angles(rng:NextNumber(-0.06, 0.06), 0, rng:NextNumber(-0.06, 0.06))
+	local steps = 4
+	for i = 0, steps - 1 do
+		local w = base * (1 - i / steps * 0.75)
+		local h = height / steps
+		local block = Build.Decor({ Parent = folder, Name = "Spire", Size = Vector3.new(w, h, w), CFrame = cf * CFrame.new(0, h * (i + 0.5), 0) * CFrame.Angles(0, i * 0.5, 0), Color = OBSIDIAN, Material = Enum.Material.Glass })
+		lava(folder, { Name = "LavaCrack", Size = Vector3.new(0.3, h * 0.85, 0.35), CFrame = block.CFrame * CFrame.new(w / 2 + 0.05, 0, rng:NextNumber(-0.25, 0.25) * w) * CFrame.Angles(rng:NextNumber(-0.25, 0.25), 0, 0), Color = crack or LAVA })
+	end
+	lava(folder, { Name = "SpireTip", Shape = Enum.PartType.Ball, Size = Vector3.one * base * 0.4, CFrame = cf * CFrame.new(0, height, 0), Color = crack or LAVA_HOT })
+end
+
+-- A chain of iron links from one point to another.
+local function chain(folder: Instance, from: Vector3, to: Vector3)
+	local length = (to - from).Magnitude
+	local links = math.max(2, math.floor(length / 1.5))
+	local along = (to - from).Unit
+	local side = along:Cross(Vector3.yAxis)
+	side = if side.Magnitude < 0.01 then Vector3.xAxis else side.Unit
+	for i = 0, links - 1 do
+		local at = from + along * (i + 0.5) * length / links
+		Build.Decor({ Parent = folder, Name = "ChainLink", Size = Vector3.new(0.9, 1.7, 0.3), CFrame = CFrame.fromMatrix(at, side, along) * CFrame.Angles(0, if i % 2 == 0 then 0 else math.pi / 2, 0), Color = rgb(55, 50, 55), Material = Enum.Material.Metal })
+	end
+end
+
+-- A lava geyser. It steams all the time and erupts now and then (UnderworldFX switches its
+-- "Eruption" emitter on for a moment).
+local function geyser(folder: Instance, pos: Vector3)
+	Build.Decor({ Parent = folder, Name = "GeyserRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 7, 7), CFrame = CFrame.new(pos + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(45, 36, 34), Material = Enum.Material.Basalt })
+	local vent = lava(folder, { Name = "GeyserVent", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.3, 4.5, 4.5), CFrame = CFrame.new(pos + Vector3.new(0, 0.62, 0)) * CFrame.Angles(0, 0, math.pi / 2) })
+	local steam = Instance.new("Smoke")
+	steam.Color = rgb(90, 70, 60)
+	steam.Opacity = 0.15
+	steam.RiseVelocity = 5
+	steam.Size = 2
+	steam.Parent = vent
+	local jet = Build.Decor({ Parent = folder, Name = "Geyser", Size = Vector3.new(3, 1, 3), Position = pos + Vector3.new(0, 1.4, 0), Transparency = 1 })
+	local burst = Instance.new("ParticleEmitter")
+	burst.Name = "Eruption"
+	burst.Enabled = false
+	burst.EmissionDirection = Enum.NormalId.Top
+	burst.Rate = 90
+	burst.Speed = NumberRange.new(34, 48)
+	burst.SpreadAngle = Vector2.new(9, 9)
+	burst.Acceleration = Vector3.new(0, -45, 0)
+	burst.Lifetime = NumberRange.new(1.3, 1.8)
+	burst.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.6), NumberSequenceKeypoint.new(1, 0.6) })
+	burst.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, rgb(255, 230, 120)), ColorSequenceKeypoint.new(0.4, rgb(255, 110, 20)), ColorSequenceKeypoint.new(1, rgb(90, 20, 10)) })
+	burst.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.8, 0.3), NumberSequenceKeypoint.new(1, 1) })
+	burst.Texture = FIRE_TEXTURE
+	burst.LightEmission = 1
+	burst.Parent = jet
+	CollectionService:AddTag(jet, "Geyser")
+end
+
+-- A brick bakery oven with a roaring fire, its mouth facing the lane.
+local function oven(folder: Instance, pos: Vector3, side: number)
+	local face = CFrame.new(pos) * CFrame.Angles(0, if side > 0 then math.pi / 2 else -math.pi / 2, 0)
+	Build.Decor({ Parent = folder, Name = "Oven", Size = Vector3.new(12, 11, 10), CFrame = face * CFrame.new(0, 5.5, 0), Color = rgb(75, 45, 38), Material = Enum.Material.Brick })
+	Build.Decor({ Parent = folder, Name = "OvenDome", Shape = Enum.PartType.Ball, Size = Vector3.one * 11, CFrame = face * CFrame.new(0, 11, 0), Color = rgb(70, 42, 36), Material = Enum.Material.Brick })
+	local mouth = lava(folder, { Name = "OvenFire", Size = Vector3.new(7, 4.5, 0.4), CFrame = face * CFrame.new(0, 3.5, -5.05), Color = rgb(255, 120, 20) })
+	flames(mouth, 5)
+	glowLight(mouth, rgb(255, 120, 30), 28, 2.5)
+	Build.Decor({ Parent = folder, Name = "OvenArch", Size = Vector3.new(8.4, 0.8, 0.8), CFrame = face * CFrame.new(0, 6.1, -5.2), Color = rgb(40, 30, 28), Material = Enum.Material.Metal })
+	local chimney = Build.Decor({ Parent = folder, Name = "Chimney", Size = Vector3.new(2.6, 9, 2.6), CFrame = face * CFrame.new(3, 17, 2), Color = rgb(60, 40, 36), Material = Enum.Material.Brick })
+	local smoke = Instance.new("Smoke")
+	smoke.Color = rgb(60, 50, 50)
+	smoke.RiseVelocity = 7
+	smoke.Size = 4
+	smoke.Opacity = 0.2
+	smoke.Parent = chimney
+end
+
+local function embers(folder: Instance, zs: number, ze: number, rate: number?)
+	weather(folder, zs, ze, rgb(255, 140, 30), Enum.NormalId.Top, rate or 45, 6, 0.35, 5)
+end
+
+-- Obsidian gates with a raised portcullis and a welcome sign, braziers and lava pools.
+function Themes.EmberGates(folder: Instance, zs: number, ze: number, rng: Random)
+	local gateZ = zs + 22
+	for _, side in { -1, 1 } do
+		local base = Vector3.new(side * 50, 0, gateZ)
+		Build.Decor({ Parent = folder, Name = "GateTower", Size = Vector3.new(10, 46, 10), Position = base + Vector3.new(0, 23, 0), Color = OBSIDIAN, Material = Enum.Material.Glass })
+		for y = 10, 40, 10 do
+			lava(folder, { Name = "GateBand", Size = Vector3.new(10.4, 0.6, 10.4), Position = base + Vector3.new(0, y, 0) })
+		end
+		brazier(folder, base + Vector3.new(0, 46, 0))
+		chain(folder, base + Vector3.new(-side * 5, 40, 3), Vector3.new(side * 60, 56, gateZ + 40))
+	end
+	Build.Decor({ Parent = folder, Name = "GateLintel", Size = Vector3.new(110, 6, 8), Position = Vector3.new(0, 49, gateZ), Color = OBSIDIAN, Material = Enum.Material.Glass })
+	lava(folder, { Name = "GateGlow", Size = Vector3.new(90, 0.6, 8.4), Position = Vector3.new(0, 45.9, gateZ) })
+	for x = -40, 40, 5 do
+		Build.Decor({ Parent = folder, Name = "Portcullis", Size = Vector3.new(0.8, 8, 0.8), Position = Vector3.new(x, 42, gateZ), Color = rgb(50, 46, 50), Material = Enum.Material.Metal })
+	end
+	neonSign(folder, CFrame.new(0, 54.5, gateZ), "WELCOME TO THE UNDERWORLD", rgb(255, 120, 30), 50)
+	alongEdges(zs + 40, ze, 30, rng, function(pos)
+		if rng:NextNumber() < 0.5 then
+			brazier(folder, pos)
+		else
+			lavaPool(folder, pos, rng:NextNumber(8, 12), rng)
+		end
+	end)
+	for n = 1, 6 do
+		spire(folder, Vector3.new((if n % 2 == 0 then 1 else -1) * rng:NextNumber(53, 57), 0, rng:NextNumber(zs + 50, ze - 10)), rng:NextNumber(18, 34), rng)
+	end
+	embers(folder, zs, ze)
+end
+
+-- Roaring ovens down both sides, burnt donuts, sulphur vents and a molten donut statue.
+function Themes.BrimstoneBakery(folder: Instance, zs: number, ze: number, rng: Random)
+	local z, i = zs + 25, 0
+	while z < ze - 15 do
+		i += 1
+		local side = if i % 2 == 0 then 1 else -1
+		oven(folder, Vector3.new(side * 52, 0, z), side)
+		-- across the lane: a burnt donut cooling, or a lava pool
+		if i % 2 == 0 then
+			Decor.GiantDonut(folder, CFrame.new(-side * 50, 3.2, z) * CFrame.Angles(0, math.pi / 2, 0), 2.2, 2, rgb(50, 32, 28), rgb(255, 100, 20), { rgb(255, 210, 60) }, Enum.Material.Neon)
+		else
+			lavaPool(folder, Vector3.new(-side * 51, 0, z), 10, rng)
+		end
+		z += 28
+	end
+	for _ = 1, 5 do
+		local side = if rng:NextNumber() < 0.5 then -1 else 1
+		local vent = Build.Decor({ Parent = folder, Name = "SulphurVent", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 4, 4), CFrame = CFrame.new(side * rng:NextNumber(55, 58), 0.5, rng:NextNumber(zs + 10, ze - 10)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(120, 110, 50), Material = Enum.Material.Basalt })
+		local fumes = Instance.new("Smoke")
+		fumes.Color = rgb(220, 200, 90)
+		fumes.Opacity = 0.15
+		fumes.RiseVelocity = 5
+		fumes.Size = 3
+		fumes.Parent = vent
+	end
+	Decor.DonutStatue(folder, Vector3.new(-48, 0, ze - 30), 5, rgb(60, 40, 35), rgb(255, 90, 0), { rgb(255, 220, 60) }, Enum.Material.Neon)
+	embers(folder, zs, ze)
+end
+
+-- A river of lava down each side, lava falling into it from the walls.
+function Themes.MagmaRivers(folder: Instance, zs: number, ze: number, rng: Random)
+	for _, side in { -1, 1 } do
+		local x = side * 51
+		lava(folder, { Name = "LavaRiver", Size = Vector3.new(10, 0.3, ze - zs), Position = Vector3.new(x, 0.15, (zs + ze) / 2), Color = rgb(255, 80, 0) })
+		Build.Decor({ Parent = folder, Name = "Bank", Size = Vector3.new(1.5, 1.2, ze - zs), Position = Vector3.new(x - side * 5.7, 0.6, (zs + ze) / 2), Color = rgb(36, 28, 28), Material = Enum.Material.Basalt })
+		for _ = 1, 8 do
+			Build.Decor({ Parent = folder, Name = "Crust", Size = Vector3.new(rng:NextNumber(2, 4), 0.4, rng:NextNumber(2, 5)), CFrame = CFrame.new(x + rng:NextNumber(-3, 3), 0.35, rng:NextNumber(zs + 5, ze - 5)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = rgb(40, 30, 28), Material = Enum.Material.Basalt })
+		end
+		-- bright blobs drifting downstream
+		local flow = Build.Decor({ Parent = folder, Name = "LavaFlow", Size = Vector3.new(8, 0.5, ze - zs), Position = Vector3.new(x, 0.6, (zs + ze) / 2), Transparency = 1 })
+		local blobs = Instance.new("ParticleEmitter")
+		blobs.EmissionDirection = Enum.NormalId.Top
+		blobs.Rate = 20
+		blobs.Speed = NumberRange.new(0.3, 0.8)
+		blobs.Acceleration = Vector3.new(0, 0, 4)
+		blobs.Lifetime = NumberRange.new(3, 5)
+		blobs.Size = NumberSequence.new(1.2, 0.4)
+		blobs.Color = ColorSequence.new(rgb(255, 230, 120), rgb(255, 110, 20))
+		blobs.Transparency = NumberSequence.new(0.2, 1)
+		blobs.LightEmission = 1
+		blobs.Parent = flow
+		for z = zs + 40, ze - 30, 70 do
+			lavaFall(folder, Vector3.new(side * 58, 44, z), 44, 5, rng, false)
+		end
+	end
+	for _ = 1, 4 do
+		spire(folder, Vector3.new((if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(57, 59), 0, rng:NextNumber(zs + 10, ze - 10)), rng:NextNumber(20, 30), rng)
+	end
+	embers(folder, zs, ze, 55)
+end
+
+-- A cave: rock arches with stalactites, blue soul fire, glowing crystals and wisps.
+function Themes.SoulCaverns(folder: Instance, zs: number, ze: number, rng: Random)
+	local soul, soulHot = rgb(70, 220, 255), rgb(200, 245, 255)
+	for z = zs + 30, ze - 20, 45 do
+		Build.Decor({ Parent = folder, Name = "CaveArch", Size = Vector3.new(124, 8, 10), Position = Vector3.new(0, 52, z), Color = rgb(30, 32, 42), Material = Enum.Material.Rock })
+		for _ = 1, 9 do
+			local x = rng:NextNumber(-55, 55)
+			local length = rng:NextNumber(6, 16)
+			Build.Decor({ Parent = folder, Name = "Stalactite", Size = Vector3.new(3, length * 0.6, 3), Position = Vector3.new(x, 48 - length * 0.3, z + rng:NextNumber(-3, 3)), Color = rgb(34, 36, 48), Material = Enum.Material.Rock })
+			Build.Decor({ Parent = folder, Name = "Stalactite", Size = Vector3.new(1.5, length * 0.4, 1.5), Position = Vector3.new(x, 48 - length * 0.8, z), Color = rgb(34, 36, 48), Material = Enum.Material.Rock })
+			lava(folder, { Name = "SoulDrip", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.8, CFrame = CFrame.new(x, 48 - length - 0.2, z), Color = soul })
+		end
+	end
+	alongEdges(zs + 10, ze, 32, rng, function(pos)
+		brazier(folder, pos, soul, soulHot)
+	end)
+	for n = 1, 10 do
+		local side = if n % 2 == 0 then 1 else -1
+		crystal(folder, Vector3.new(side * rng:NextNumber(52, 57), 0, rng:NextNumber(zs + 10, ze - 10)), if n % 3 == 0 then rgb(170, 110, 255) else soul, rng:NextNumber(4, 8), rng, n % 3 == 0)
+	end
+	for _ = 1, 5 do
+		ringOfBalls(folder, CFrame.new(rng:NextNumber(-35, 35), rng:NextNumber(18, 34), rng:NextNumber(zs + 20, ze - 20)) * CFrame.Angles(math.pi / 2, 0, 0), rng:NextNumber(3, 5), 0.9, soulHot, 6, "SpinSlow")
+	end
+	weather(folder, zs, ze, soul, Enum.NormalId.Top, 35, 2, 0.3, 7)
+end
+
+-- Forges full of glowing coals, anvils throwing sparks, hammers hanging on chains.
+function Themes.ObsidianForge(folder: Instance, zs: number, ze: number, rng: Random)
+	local z, i = zs + 20, 0
+	while z < ze - 15 do
+		i += 1
+		local side = if i % 2 == 0 then 1 else -1
+		local pos = Vector3.new(side * 51, 0, z)
+		Build.Decor({ Parent = folder, Name = "Hearth", Size = Vector3.new(9, 3, 12), Position = pos + Vector3.new(0, 1.5, 0), Color = rgb(50, 44, 48), Material = Enum.Material.Cobblestone })
+		local coals = lava(folder, { Name = "ForgeCoals", Size = Vector3.new(7, 0.6, 10), Position = pos + Vector3.new(0, 3.2, 0) })
+		flames(coals, 6)
+		glowLight(coals, rgb(255, 130, 40), 26, 2.5)
+		Build.Decor({ Parent = folder, Name = "ForgeHood", Size = Vector3.new(8, 6, 8), Position = pos + Vector3.new(0, 14, 0), Color = rgb(40, 36, 40), Material = Enum.Material.Metal })
+		local chimney = Build.Decor({ Parent = folder, Name = "ForgeChimney", Size = Vector3.new(3, 30, 3), Position = pos + Vector3.new(0, 32, 0), Color = rgb(34, 30, 34), Material = Enum.Material.Metal })
+		local smoke = Instance.new("Smoke")
+		smoke.Color = rgb(50, 45, 45)
+		smoke.Opacity = 0.2
+		smoke.RiseVelocity = 8
+		smoke.Parent = chimney
+		-- an anvil with a glowing bar that throws sparks
+		local anvil = pos + Vector3.new(-side * 7, 0, 5)
+		Build.Decor({ Parent = folder, Name = "Anvil", Size = Vector3.new(2.4, 2.5, 2.4), Position = anvil + Vector3.new(0, 1.25, 0), Color = rgb(45, 45, 50), Material = Enum.Material.Metal })
+		Build.Decor({ Parent = folder, Name = "Anvil", Size = Vector3.new(1.4, 1, 1.4), Position = anvil + Vector3.new(0, 3, 0), Color = rgb(45, 45, 50), Material = Enum.Material.Metal })
+		Build.Decor({ Parent = folder, Name = "Anvil", Size = Vector3.new(2.2, 1.4, 5), Position = anvil + Vector3.new(0, 4.2, 0), Color = rgb(55, 55, 60), Material = Enum.Material.Metal })
+		local bar = lava(folder, { Name = "HotBar", Size = Vector3.new(0.5, 0.5, 3), Position = anvil + Vector3.new(0, 5.15, 0), Color = LAVA_HOT })
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Rate = 8
+		sparks.Speed = NumberRange.new(6, 12)
+		sparks.SpreadAngle = Vector2.new(70, 70)
+		sparks.Lifetime = NumberRange.new(0.4, 0.8)
+		sparks.Acceleration = Vector3.new(0, -30, 0)
+		sparks.Size = NumberSequence.new(0.25, 0)
+		sparks.Color = ColorSequence.new(rgb(255, 240, 150), rgb(255, 140, 30))
+		sparks.Texture = SPARK_TEXTURE
+		sparks.LightEmission = 1
+		sparks.Parent = bar
+		-- a great hammer hanging from the wall on a chain
+		chain(folder, Vector3.new(side * 59, 58, z + 9), Vector3.new(side * 53, 32, z + 9))
+		Build.Decor({ Parent = folder, Name = "HammerHandle", Size = Vector3.new(0.8, 5, 0.8), Position = Vector3.new(side * 53, 29.5, z + 9), Color = rgb(70, 50, 35), Material = Enum.Material.Wood })
+		Build.Decor({ Parent = folder, Name = "HammerHead", Size = Vector3.new(2.6, 3, 5.5), Position = Vector3.new(side * 53, 25.5, z + 9), Color = rgb(40, 40, 46), Material = Enum.Material.Metal })
+		z += 34
+	end
+	for _, side in { -1, 1 } do
+		lava(folder, { Name = "MoltenChannel", Size = Vector3.new(1.6, 0.25, ze - zs - 10), Position = Vector3.new(side * 57.5, 0.13, (zs + ze) / 2), Color = LAVA_HOT })
+	end
+	for _ = 1, 4 do
+		spire(folder, Vector3.new((if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(55, 58), 0, rng:NextNumber(zs + 10, ze - 10)), rng:NextNumber(18, 28), rng)
+	end
+	weather(folder, zs, ze, rgb(255, 200, 80), Enum.NormalId.Top, 50, 9, 0.25, 3)
+end
+
+-- Towering spires with red-hot cracks, fire tornadoes, geysers and meteors.
+function Themes.InfernoSpires(folder: Instance, zs: number, ze: number, rng: Random)
+	local red = rgb(255, 60, 20)
+	for z = zs + 12, ze - 8, 22 do
+		for _, side in { -1, 1 } do
+			spire(folder, Vector3.new(side * rng:NextNumber(52, 56), 0, z + rng:NextNumber(-5, 5)), rng:NextNumber(30, 55), rng, red)
+		end
+	end
+	for n = 1, 3 do
+		local pos = Vector3.new(if n % 2 == 0 then 49 else -49, 0, zs + n * (ze - zs) / 4)
+		lavaPool(folder, pos, 9, rng)
+		local column = Build.Decor({ Parent = folder, Name = "FireTornado", Size = Vector3.new(5, 1, 5), Position = pos + Vector3.new(0, 1, 0), Transparency = 1 })
+		local swirl = Instance.new("ParticleEmitter")
+		swirl.EmissionDirection = Enum.NormalId.Top
+		swirl.Rate = 40
+		swirl.Speed = NumberRange.new(14, 20)
+		swirl.SpreadAngle = Vector2.new(6, 6)
+		swirl.Lifetime = NumberRange.new(1.6, 2.2)
+		swirl.Rotation = NumberRange.new(0, 360)
+		swirl.RotSpeed = NumberRange.new(200, 300)
+		swirl.Size = NumberSequence.new(3, 7)
+		swirl.Texture = FIRE_TEXTURE
+		swirl.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, rgb(255, 230, 120)), ColorSequenceKeypoint.new(0.5, rgb(255, 90, 20)), ColorSequenceKeypoint.new(1, rgb(80, 20, 15)) })
+		swirl.Transparency = NumberSequence.new(0.2, 1)
+		swirl.LightEmission = 1
+		swirl.Parent = column
+	end
+	for n = 1, 4 do
+		geyser(folder, Vector3.new(if n % 2 == 0 then 50 else -50, 0, zs + 20 + n * (ze - zs - 40) / 5))
+	end
+	local sky = Build.Decor({ Parent = folder, Name = "Meteors", Size = Vector3.new(120, 1, ze - zs), Position = Vector3.new(0, 90, (zs + ze) / 2), Transparency = 1 })
+	local meteors = Instance.new("ParticleEmitter")
+	meteors.EmissionDirection = Enum.NormalId.Bottom
+	meteors.Rate = 3
+	meteors.Speed = NumberRange.new(40, 60)
+	meteors.SpreadAngle = Vector2.new(20, 20)
+	meteors.Lifetime = NumberRange.new(1.2, 1.8)
+	meteors.Orientation = Enum.ParticleOrientation.VelocityParallel
+	meteors.Size = NumberSequence.new(2, 1)
+	meteors.Texture = FIRE_TEXTURE
+	meteors.Color = ColorSequence.new(rgb(255, 200, 90), rgb(255, 60, 10))
+	meteors.LightEmission = 1
+	meteors.Parent = sky
+	embers(folder, zs, ze, 55)
+end
+
+-- The heart of the Underworld: a huge molten core chained over the end of the lane, ringed by
+-- fire, with lava lakes, geysers and lava falls below it.
+function Themes.MoltenCore(folder: Instance, zs: number, ze: number, rng: Random)
+	local center = CFrame.new(0, 58, ze - 14)
+	local core = lava(folder, { Name = "MoltenCore", Shape = Enum.PartType.Ball, Size = Vector3.one * 30, CFrame = center, Color = LAVA_HOT })
+	Build.Decor({ Parent = folder, Name = "CoreHeat", Shape = Enum.PartType.Ball, Size = Vector3.one * 38, CFrame = center, Color = rgb(255, 90, 20), Material = Enum.Material.ForceField, Transparency = 0.25 })
+	flames(core, 20)
+	glowLight(core, rgb(255, 130, 40), 60, 3)
+	for i = 1, 3 do
+		ringOfBalls(folder, center * CFrame.Angles(i * 0.9, i * 0.6, 0), 22 + i * 4, 2, if i == 2 then rgb(255, 220, 80) else rgb(255, 90, 20), 24, "SpinSlow")
+	end
+	for _, side in { -1, 1 } do
+		chain(folder, Vector3.new(side * 60, 60, ze - 40), center.Position + Vector3.new(side * 14, 0, -8))
+		lava(folder, { Name = "LavaLake", Size = Vector3.new(12, 0.3, ze - zs - 20), Position = Vector3.new(side * 52, 0.15, (zs + ze) / 2) })
+		for n = 1, 3 do
+			geyser(folder, Vector3.new(side * 52, 0, zs + n * (ze - zs) / 4 + side * 10))
+		end
+		lavaFall(folder, Vector3.new(side * 58, 44, zs + (if side < 0 then 50 else 110)), 44, 6, rng, false)
+	end
+	alongEdges(zs + 15, ze - 20, 40, rng, function(pos)
+		brazier(folder, Vector3.new(math.sign(pos.X) * 44, 0, pos.Z)) -- on the lake shore
+	end)
+	Decor.DonutStatue(folder, Vector3.new(-44, 0, ze - 45), 6, rgb(70, 30, 20), rgb(255, 170, 40), { rgb(255, 230, 120) }, Enum.Material.Neon)
+	weather(folder, zs, ze, rgb(255, 150, 40), Enum.NormalId.Top, 70, 7, 0.4, 5)
+end
+
+-- Shared with WorldDecor (The Underworld's hub and the lane's sides)
+Decor.Spire = spire
+Decor.LavaFall = lavaFall
+Decor.Brazier = brazier
+Decor.Lava = lava
 
 function Decor.BuildTheme(theme: string, folder: Instance, zs: number, ze: number, rng: Random)
 	local builder = Themes[theme]

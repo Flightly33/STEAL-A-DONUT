@@ -3,8 +3,8 @@
 	Everything is cosmetic and non-collidable, and kept out of the way of the bases, treadmills,
 	portals and the lane entrance.
 
-	  World 2 Glaze Islands: palm trees, beach umbrellas, a lighthouse, and green floating islands
-	                         and clouds in the sky along the whole lane.
+	  World 2 The Underworld: a sea of lava round the hub and along the lane, obsidian spires,
+	                         lava falls from floating rocks, braziers and embers.
 	  World 3 Dream Dimension: cotton-candy trees, pastel clouds at every height, floating islands
 	                         with waterfalls and rainbows, giant floating donuts, star rings and a
 	                         crescent moon.
@@ -34,20 +34,6 @@ local map = Config.Map
 local function cloud(parent: Instance, center: Vector3, size: number, rng: Random, color: Color3?)
 	for _ = 1, 5 do
 		Build.Ball(parent, center + Vector3.new(rng:NextNumber(-1, 1) * size, rng:NextNumber(-0.3, 0.4) * size, rng:NextNumber(-0.6, 0.6) * size), size * rng:NextNumber(0.9, 1.4), color or rgb(255, 255, 255), Enum.Material.SmoothPlastic)
-	end
-end
-
-local function palm(parent: Instance, pos: Vector3, rng: Random)
-	local height = rng:NextNumber(14, 22)
-	local lean = rng:NextNumber(-0.25, 0.25)
-	for i = 0, 5 do
-		local y = i * height / 6
-		Build.Decor({ Parent = parent, Name = "PalmTrunk", Size = Vector3.new(1.8 - i * 0.12, height / 6 + 0.2, 1.8 - i * 0.12), CFrame = CFrame.new(pos + Vector3.new(lean * y, y + height / 12, 0)), Color = if i % 2 == 0 then rgb(150, 105, 60) else rgb(130, 90, 50), Material = Enum.Material.Wood })
-	end
-	local top = pos + Vector3.new(lean * height, height, 0)
-	for n = 0, 6 do
-		local angle = n / 7 * math.pi * 2
-		Build.Decor({ Parent = parent, Name = "PalmLeaf", Size = Vector3.new(2, 0.3, 9), CFrame = CFrame.new(top) * CFrame.Angles(0, angle, 0) * CFrame.new(0, -0.8, -4.2) * CFrame.Angles(math.rad(-22), 0, 0), Color = rgb(60, 170, 60), Material = Enum.Material.Grass })
 	end
 end
 
@@ -127,38 +113,73 @@ local function alongLane(world: Areas.World, step: number, fn: (x: number, z: nu
 	end
 end
 
-local function islands(folder: Instance, world: Areas.World, rng: Random)
+-- World 2: The Underworld. A sea of lava all round the hub and along the whole lane (just under
+-- the floors, outside the walls), with a crust of basalt drifting on it, obsidian spires rising out
+-- of it, lava pouring from floating rocks, braziers in the hub and embers in the air.
+local function underworld(folder: Instance, world: Areas.World, rng: Random)
 	local x0 = world.OffsetX
-	-- Palm trees and beach umbrellas in the hub, and a lighthouse by the back wall
-	for _, pos in hubSpots(x0, rng, 12) do
-		palm(folder, pos, rng)
-	end
-	local stripes = { rgb(255, 80, 80), rgb(255, 210, 50), rgb(60, 170, 255), rgb(255, 130, 200) }
-	for n = 1, 6 do
-		local pos = Vector3.new(x0 + (if n % 2 == 0 then 1 else -1) * rng:NextNumber(30, 85), 0, rng:NextNumber(-(map.HubDepth - 50), -130))
-		Build.Pillar(folder, pos, 8, 0.4, rgb(240, 240, 240))
-		Build.Decor({ Parent = folder, Name = "Umbrella", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 9, 9), CFrame = CFrame.new(pos + Vector3.new(0, 8, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = stripes[(n - 1) % #stripes + 1], Material = Enum.Material.Fabric })
-	end
-	local light = Vector3.new(x0 - 60, 0, -235)
-	for i = 0, 7 do
-		Build.Decor({ Parent = folder, Name = "Lighthouse", Shape = Enum.PartType.Cylinder, Size = Vector3.new(6, 9 - i * 0.4, 9 - i * 0.4), CFrame = CFrame.new(light + Vector3.new(0, 3 + i * 6, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = if i % 2 == 0 then rgb(245, 245, 245) else rgb(230, 50, 50), Material = Enum.Material.SmoothPlastic })
-	end
-	local lamp = Build.Ball(folder, light + Vector3.new(0, 52, 0), 5, rgb(255, 240, 160), Enum.Material.Neon)
-	local glow = Instance.new("PointLight")
-	glow.Color = rgb(255, 240, 160)
-	glow.Range = 60
-	glow.Brightness = 2
-	glow.Parent = lamp
-	-- Floating islands and clouds along the whole lane
-	alongLane(world, 170, function(x, z, _side)
-		if rng:NextNumber() < 0.55 then
-			floatingIsland(folder, Vector3.new(x + rng:NextNumber(-40, 60) * math.sign(x - world.OffsetX), rng:NextNumber(55, 110), z + rng:NextNumber(-40, 40)), rng:NextNumber(16, 30), rng, rgb(90, 190, 70), rgb(150, 120, 90), function(topPos)
-				palm(folder, topPos, rng)
-			end)
-		else
-			cloud(folder, Vector3.new(x + rng:NextNumber(0, 80) * math.sign(x - world.OffsetX), rng:NextNumber(70, 130), z), rng:NextNumber(6, 10), rng)
+	local function lavaSea(xMin: number, xMax: number, zMin: number, zMax: number)
+		local z = zMin
+		while z < zMax - 0.01 do
+			local length = math.min(2000, zMax - z)
+			Decor.Lava(folder, { Name = "LavaSea", Size = Vector3.new(xMax - xMin, 1, length), Position = Vector3.new((xMin + xMax) / 2, -2.5, z + length / 2), Color = rgb(190, 50, 8) })
+			for _ = 1, math.clamp(math.floor((xMax - xMin) * length / 3000), 2, 30) do
+				Build.Decor({ Parent = folder, Name = "Crust", Size = Vector3.new(rng:NextNumber(6, 16), 1, rng:NextNumber(6, 16)), CFrame = CFrame.new(rng:NextNumber(xMin, xMax), -1.8, rng:NextNumber(z, z + length)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = rgb(36, 28, 28), Material = Enum.Material.Basalt })
+			end
+			z += length
 		end
+	end
+	local hubBack, hubSide = -(map.HubDepth + 120), map.HubHalfWidth + 4
+	for _, side in { -1, 1 } do
+		local function strip(inner: number, outer: number, zMin: number, zMax: number)
+			lavaSea(math.min(x0 + side * inner, x0 + side * outer), math.max(x0 + side * inner, x0 + side * outer), zMin, zMax)
+		end
+		strip(hubSide, 420, hubBack, 60) -- beside the hub
+		strip(map.LaneHalfWidth + 4, 300, 0, Layout.AreaStart(Areas.ByWorld[world.Id][1].Id)) -- beside the bridge
+		for _, area in Areas.ByWorld[world.Id] do
+			local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
+			strip(Layout.AreaHalfWidth(area.Id) + 4, 300, zs, if area.Index == #Areas.ByWorld[world.Id] then ze + 60 else ze)
+		end
+	end
+	lavaSea(x0 - 420, x0 + 420, hubBack, -(map.HubDepth + 4)) -- behind the hub
+	-- Obsidian spires rising out of the lava round the hub and all along the lane
+	for _ = 1, 16 do
+		local side = if rng:NextNumber() < 0.5 then -1 else 1
+		Decor.Spire(folder, Vector3.new(x0 + side * rng:NextNumber(260, 400), -2, rng:NextNumber(-(map.HubDepth + 100), 40)), rng:NextNumber(60, 140), rng)
+	end
+	for _ = 1, 6 do
+		Decor.Spire(folder, Vector3.new(x0 + rng:NextNumber(-380, 380), -2, rng:NextNumber(hubBack, -(map.HubDepth + 20))), rng:NextNumber(70, 150), rng)
+	end
+	alongLane(world, 110, function(x, z, side)
+		Decor.Spire(folder, Vector3.new(x + side * rng:NextNumber(0, 70), -2, z + rng:NextNumber(-30, 30)), rng:NextNumber(40, 100), rng)
 	end)
+	-- Floating rocks pouring lava into the sea
+	for n = 1, 4 do
+		local side = if n % 2 == 0 then 1 else -1
+		local top = Vector3.new(x0 + side * rng:NextNumber(270, 360), rng:NextNumber(80, 110), rng:NextNumber(-(map.HubDepth + 40), -60))
+		for i = 0, 2 do
+			local size = 26 - i * 7
+			Build.Decor({ Parent = folder, Name = "FloatingRock", Size = Vector3.new(size, 7, size), CFrame = CFrame.new(top + Vector3.new(0, 4 - i * 6, 0)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = rgb(40, 32, 32), Material = Enum.Material.Basalt })
+		end
+		Decor.LavaFall(folder, top + Vector3.new(0, -12, 0), top.Y - 10, 8, rng, false)
+	end
+	-- Braziers round the hub
+	for _, pos in hubSpots(x0, rng, 12) do
+		Decor.Brazier(folder, pos)
+	end
+	-- Embers drifting up over the hub
+	local air = Build.Decor({ Parent = folder, Name = "Embers", Size = Vector3.new(map.HubHalfWidth * 2, 1, map.HubDepth), Position = Vector3.new(x0, 2, -map.HubDepth / 2), Transparency = 1 })
+	local sparks = Instance.new("ParticleEmitter")
+	sparks.EmissionDirection = Enum.NormalId.Top
+	sparks.Rate = 40
+	sparks.Lifetime = NumberRange.new(6, 9)
+	sparks.Speed = NumberRange.new(3, 6)
+	sparks.SpreadAngle = Vector2.new(20, 20)
+	sparks.Size = NumberSequence.new(0.35, 0.1)
+	sparks.Color = ColorSequence.new(rgb(255, 200, 80), rgb(255, 80, 20))
+	sparks.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.15, 0.2), NumberSequenceKeypoint.new(1, 1) })
+	sparks.LightEmission = 1
+	sparks.Parent = air
 end
 
 local function dream(folder: Instance, world: Areas.World, rng: Random)
@@ -398,7 +419,7 @@ function WorldDecor.Build(parent: Instance, world: Areas.World)
 	folder.Parent = parent
 	local rng = Random.new(world.Id * 7717)
 	if world.Id == 2 then
-		islands(folder, world, rng)
+		underworld(folder, world, rng)
 	elseif world.Id == 3 then
 		dream(folder, world, rng)
 	elseif world.Id == 4 then

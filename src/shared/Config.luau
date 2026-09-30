@@ -237,7 +237,7 @@ Config.Rebirth = {
 	SpeedBonus = 0.25, -- +25% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs)
 	Levels = {
-		{ Speed = 1_100, Cost = 2_500_000_000_000 }, -- end of World 1 -> unlocks Glaze Islands
+		{ Speed = 1_100, Cost = 2_500_000_000_000 }, -- end of World 1 -> unlocks The Underworld
 		{ Speed = 1_750, Cost = 200_000_000_000_000_000 }, -- end of World 2 -> unlocks Dream Dimension
 		{ Speed = 2_400, Cost = 2e22 }, -- end of World 3 -> unlocks Cyber City
 		{ Speed = 3_100, Cost = 2e28 }, -- end of World 4

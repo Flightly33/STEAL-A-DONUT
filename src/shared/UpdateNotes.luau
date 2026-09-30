@@ -44,6 +44,34 @@ end
 
 UpdateNotes.List = {
 	{
+		Version = 3,
+		Name = "The Underworld",
+		Date = "Oct 1, 2026",
+		Color = Color3.fromRGB(120, 25, 10),
+		Accent = Color3.fromRGB(255, 170, 50),
+		Sections = {
+			{ Title = "The Underworld", Tag = "NEW World", Lines = {
+				"Glaze Islands is gone: World 2 is now The Underworld!",
+				"Cross a basalt bridge over a sea of lava to get there",
+			} },
+			{ Title = "7 Fiery Levels", Tag = "NEW Levels", Lines = {
+				"Ember Gates, Brimstone Bakery, Magma Rivers and Soul Caverns",
+				"Obsidian Forge, Inferno Spires and The Molten Core",
+			} },
+			{ Title = "Living Lava", Tag = "NEW Effects", Lines = {
+				"Lava glows and churns, geysers erupt and lava pours down the walls",
+				"Warm, flickering firelight all through The Underworld",
+			} },
+			{ Title = "Underworld Donuts", Tag = "New Looks", Lines = {
+				"Every World 2 donut got a fiery new look and name, even the ones you already own",
+				"The World 2 Secret is now Hadesnut Supremo!",
+			} },
+		},
+		Sidebar = {
+			{ Title = "Underworld Donuts", Items = donuts({ "poseidonut", "templeking", "lagunamax", "junglejelly", "crabbo", "pufferino" }) },
+		},
+	},
+	{
 		Version = 2,
 		Name = "The Black Hole",
 		Date = "Sep 30, 2026",

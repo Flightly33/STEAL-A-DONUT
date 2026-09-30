@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 7
+local MAP_VERSION = 8
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -137,8 +137,9 @@ local function buildBridge(parent: Instance, world: Areas.World)
 	local first = Areas.ByWorld[world.Id][1]
 	local dream = world.Id == 3
 	local cyber = world.Id == 4
-	local floorColors = if dream then { rgb(250, 245, 255), rgb(255, 225, 245) } elseif cyber then { rgb(28, 28, 40), rgb(36, 36, 52) } else { rgb(214, 176, 120), rgb(200, 162, 108) }
-	local floorMaterial = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.WoodPlanks
+	-- (World 2, The Underworld: a basalt bridge over a sea of lava)
+	local floorColors = if dream then { rgb(250, 245, 255), rgb(255, 225, 245) } elseif cyber then { rgb(28, 28, 40), rgb(36, 36, 52) } else { rgb(56, 42, 38), rgb(68, 50, 44) }
+	local floorMaterial = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.Basalt
 	local segment = 80
 	local i = 0
 	for z = z0, z0 + length - segment, segment do
@@ -150,13 +151,18 @@ local function buildBridge(parent: Instance, world: Areas.World)
 		for _, x in { -half + 3, half - 3 } do
 			Build.Decor({ Parent = bridge, Name = "NeonLine", Size = Vector3.new(0.8, 0.05, length), Position = Vector3.new(x0 + x, 0.03, z0 + length / 2), Color = if x < 0 then rgb(255, 40, 200) else rgb(0, 230, 255), Material = Enum.Material.Neon })
 		end
+	elseif not dream then
+		-- Lava glowing through cracks along the bridge
+		for _, x in { -half + 3, half - 3 } do
+			Decor.Lava(bridge, { Name = "LavaSeam", Size = Vector3.new(0.8, 0.05, length), Position = Vector3.new(x0 + x, 0.03, z0 + length / 2) })
+		end
 	end
 	local t, h = 4, 14
 	for _, side in { -1, 1 } do
 		Build.Part({ Parent = bridge, Name = "BridgeWall", Size = Vector3.new(t, h, length), Position = Vector3.new(x0 + side * (half + t / 2), h / 2, z0 + length / 2), Color = first.Wall[1], Material = first.WallMaterial })
 		Build.Part({ Parent = bridge, Name = "BridgeRail", Size = Vector3.new(t + 1, 1.5, length), Position = Vector3.new(x0 + side * (half + t / 2), h + 0.75, z0 + length / 2), Color = first.Trim, Material = first.TrimMaterial })
-		-- Water (islands), clouds (dream) or the glowing city floor (cyber) far below the bridge
-		Build.Decor({ Parent = bridge, Name = if dream then "CloudSea" elseif cyber then "CityFloor" else "Sea", Size = Vector3.new(400, 1, length), Position = Vector3.new(x0 + side * (half + t + 200), -18, z0 + length / 2), Color = if dream then rgb(255, 240, 250) elseif cyber then rgb(20, 16, 40) else rgb(60, 170, 230), Material = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.Glass, Transparency = if dream or cyber then 0 else 0.15 })
+		-- Clouds (dream), the glowing city floor (cyber) or lava (the Underworld) far below the bridge
+		Build.Decor({ Parent = bridge, Name = if dream then "CloudSea" elseif cyber then "CityFloor" else "LavaSea", Size = Vector3.new(400, 1, length), Position = Vector3.new(x0 + side * (half + t + 200), -18, z0 + length / 2), Color = if dream then rgb(255, 240, 250) elseif cyber then rgb(20, 16, 40) else rgb(170, 40, 6), Material = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.Neon })
 	end
 	-- Props along the edges
 	local rng = Random.new(world.Id * 31)
@@ -175,12 +181,17 @@ local function buildBridge(parent: Instance, world: Areas.World)
 					Build.Ball(bridge, pos + Vector3.new(rng:NextNumber(-3, 3), 2 + rng:NextNumber(0, 2), rng:NextNumber(-3, 3)), rng:NextNumber(3, 5), if n % 2 == 0 then rgb(255, 210, 240) else rgb(255, 255, 255))
 				end
 			else
-				Build.Pillar(bridge, pos, 9, 1, rgb(90, 60, 35), Enum.Material.Wood)
-				local lampBall = Build.Ball(bridge, pos + Vector3.new(0, 9.6, 0), 1.6, rgb(255, 220, 140), Enum.Material.Neon)
+				-- fire torches
+				Build.Pillar(bridge, pos, 9, 1, rgb(45, 36, 34), Enum.Material.Basalt)
+				local flame = Build.Ball(bridge, pos + Vector3.new(0, 9.6, 0), 1.6, rgb(255, 150, 40), Enum.Material.Neon)
+				local fire = Instance.new("Fire")
+				fire.Size = 4
+				fire.Heat = 6
+				fire.Parent = flame
 				local light = Instance.new("PointLight")
-				light.Color = rgb(255, 210, 140)
+				light.Color = rgb(255, 140, 50)
 				light.Range = 18
-				light.Parent = lampBall
+				light.Parent = flame
 			end
 		end
 	end
@@ -913,7 +924,10 @@ local function buildSpawns(parent: Instance, areaId: number, zs: number, ze: num
 		-- The nest/plate/pad the donut sits on gets fancier in later areas.
 		local color, material, rim
 		local fancy = if area.World == 1 then areaId else area.Index + 3
-		if fancy <= 3 then
+		if area.World == 2 then
+			-- The Underworld: basalt stands with a glowing rim
+			color, material, rim, fancy = rgb(42, 32, 30), Enum.Material.Basalt, area.Trim, 7
+		elseif fancy <= 3 then
 			color, material = rgb(170, 120, 65), Enum.Material.Grass
 		elseif fancy <= 6 then
 			color, material, rim = rgb(250, 250, 250), Enum.Material.SmoothPlastic, area.Trim
@@ -1372,6 +1386,21 @@ function MapBuilder.Build(): Folder
 					end
 				end
 				buildHubGround(hub)
+			end
+		end
+		if version < 8 then
+			-- Version 8: World 2 is now The Underworld, so rebuild its hub, bridge and lane.
+			local lane = existing:FindFirstChild("Lane")
+			for _, area in Areas.ByWorld[2] do
+				local old = lane and lane:FindFirstChild("Area" .. area.Id)
+				if old then
+					old:Destroy()
+				end
+			end
+			local worlds = existing:FindFirstChild("Worlds")
+			local world2 = worlds and worlds:FindFirstChild("World2")
+			if world2 then
+				world2:Destroy()
 			end
 		end
 		if version < 7 then
