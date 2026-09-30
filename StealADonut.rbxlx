@@ -7566,6 +7566,7 @@ return CrateService
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -7902,19 +7903,22 @@ end
 --------------------------------------------------------------------------------
 -- Saving
 --------------------------------------------------------------------------------
-function DataService.Save(player: Player, release: boolean?)
+-- Returns true once the data is safely stored (or saving is off, e.g. Studio without API access).
+function DataService.Save(player: Player, release: boolean?): boolean
 	local profile = profiles[player]
 	if not profile or profile.NoSave or not store then
-		return
+		return profile ~= nil
 	end
 	if saving[player] and not release then
-		return
+		return false
 	end
 	saving[player] = true
 	local data = profile.Data
 	data.LastOnline = os.time()
 	local ds = store :: DataStore
+	local saved = false
 	for attempt = 1, 3 do
+		local written = false
 		local ok, err = pcall(function()
 			ds:UpdateAsync(keyFor(player), function(old: any)
 				-- If another server took over this player's data, never overwrite it.
@@ -7922,26 +7926,47 @@ function DataService.Save(player: Player, release: boolean?)
 					return nil
 				end
 				data.SessionLock = if release then nil else { JobId = game.JobId, Time = os.time() }
+				written = true
 				return data
 			end)
 		end)
 		if ok then
+			saved = written
 			break
 		end
 		warn(`[DataService] Save attempt {attempt} failed for {player.Name}: {err}`)
 		task.wait(1)
 	end
 	saving[player] = nil
+	return saved
 end
 
 -- Save right now, even if an autosave is already running (waits for it, then saves again).
 -- Used after granting a Robux purchase so the receipt is on disk before it's confirmed.
-function DataService.SaveNow(player: Player)
+-- Returns true if the data was stored.
+function DataService.SaveNow(player: Player): boolean
 	local started = os.clock()
 	while saving[player] and os.clock() - started < 15 do
 		task.wait(0.2)
 	end
-	DataService.Save(player)
+	return DataService.Save(player)
+end
+
+-- The player's profile once they've fully joined (data loaded, base assigned), waiting up to
+-- `timeout` seconds for it. Used by purchases, which Roblox can deliver while someone is joining.
+function DataService.WaitForReady(userId: number, timeout: number): (Player?, Profile?)
+	local deadline = os.clock() + timeout
+	while true do
+		local player = Players:GetPlayerByUserId(userId)
+		local profile = if player then profiles[player] else nil
+		if player and profile and profile.Session.Ready then
+			return player, profile
+		end
+		if os.clock() >= deadline then
+			return nil, nil
+		end
+		task.wait(0.5)
+	end
 end
 
 function DataService.Release(player: Player)
@@ -15737,14 +15762,16 @@ local function grant(player: Player, productId: number, paid: number?): boolean
 end
 
 local function processReceipt(receipt: { PlayerId: number, ProductId: number, PurchaseId: string, CurrencySpent: number? }): Enum.ProductPurchaseDecision
-	local player = Players:GetPlayerByUserId(receipt.PlayerId)
-	local profile = if player then DataService.Get(player) else nil
-	if not player or not profile or not profile.Session.Ready then
+	-- Roblox hands over unfinished purchases as the player joins, before their data is ready:
+	-- wait for it rather than putting the purchase off until they rejoin.
+	local player, profile = DataService.WaitForReady(receipt.PlayerId, 60)
+	if not player or not profile then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- Roblox tries again when they're back
 	end
 	local receipts = profile.Data.Purchases
 	if table.find(receipts, receipt.PurchaseId) then
-		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted
+		-- already granted: confirm it once it's safely saved
+		return if DataService.SaveNow(player) then Enum.ProductPurchaseDecision.PurchaseGranted else Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	local ok, granted = pcall(grant, player, receipt.ProductId, receipt.CurrencySpent)
 	if not ok then
@@ -15758,7 +15785,13 @@ local function processReceipt(receipt: { PlayerId: number, ProductId: number, Pu
 	while #receipts > MAX_RECEIPTS do
 		table.remove(receipts, 1)
 	end
-	pcall(DataService.SaveNow, player) -- remember the receipt before telling Roblox it's done
+	-- Remember the receipt before telling Roblox it's done. If saving fails, say "not yet": Roblox
+	-- asks again later, and the receipt (kept above) stops it being granted twice.
+	local stored, saved = pcall(DataService.SaveNow, player)
+	if not stored or not saved then
+		warn(`[Products] Couldn't save {player.Name}'s purchase yet; Roblox will retry`)
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 
@@ -16092,35 +16125,60 @@ function ShopService.RefreshMultipliers(player: Player)
 	DataService.PushState(player)
 end
 
+-- Give a pass's perks. `persist` also records it in the save, so it's never lost if Roblox's
+-- ownership check fails or lags later (never for Studio test purchases, which aren't real).
 local function grantPass(player: Player, pass: Config.GamePass, persist: boolean)
 	local profile = DataService.Get(player)
 	if not profile then
 		return
 	end
+	local already = profile.Passes[pass.Key] == true
 	profile.Passes[pass.Key] = true
-	if persist then
+	if persist and not RunService:IsStudio() then
 		profile.Data.CachedPasses[pass.Key] = true
 	end
 	ShopService.RefreshMultipliers(player)
-	notify(player, `🎉 {pass.Name} unlocked! Thank you!`, "success")
+	if not already then
+		notify(player, `🎉 {pass.Name} unlocked! Thank you!`, "success")
+	end
+end
+
+local function ownsOnRoblox(player: Player, pass: Config.GamePass): boolean?
+	local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.GamePassId)
+	return if ok then owns == true else nil
 end
 
 -- Called once per player after their data loads. Yields (web requests).
+-- A pass counts as owned if Roblox says so, or if we recorded buying it: Roblox's check can lag
+-- behind a purchase for a while, so a "no" from it never takes away a pass we saw being bought.
+-- If the check fails outright it's retried in the background.
 function ShopService.LoadOwnership(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
 		return
 	end
+	local retry: { Config.GamePass } = {}
 	for _, pass in Config.GamePasses do
 		if pass.GamePassId > 0 then
-			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.GamePassId)
-			if ok then
-				profile.Passes[pass.Key] = owns or nil
-				profile.Data.CachedPasses[pass.Key] = owns or nil
+			local owns = ownsOnRoblox(player, pass)
+			if owns then
+				profile.Passes[pass.Key] = true
+				profile.Data.CachedPasses[pass.Key] = true
 			elseif profile.Data.CachedPasses[pass.Key] then
-				profile.Passes[pass.Key] = true -- API failed: trust our saved record
+				profile.Passes[pass.Key] = true
+			elseif owns == nil then
+				table.insert(retry, pass)
 			end
 		end
+	end
+	if #retry > 0 then
+		task.delay(10, function()
+			for _, pass in retry do
+				if player.Parent and DataService.Get(player) and ownsOnRoblox(player, pass) then
+					grantPass(player, pass, true)
+				end
+			end
+		end)
 	end
 	if not ownsSkin(profile, profile.Data.EquippedSkin) then
 		profile.Data.EquippedSkin = "Classic"
@@ -16501,11 +16559,19 @@ function ShopService.Init()
 	end)
 
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Player, passId: number, purchased: boolean)
-		if not purchased then
+		local pass = findPass(nil, passId)
+		if not pass then
 			return
 		end
-		local pass = findPass(nil, passId)
-		if pass then
+		-- (the purchase can finish while they're still joining: wait for their data)
+		local _, profile = DataService.WaitForReady(player.UserId, 60)
+		if not profile then
+			return -- they left: the pass is picked up when they join again
+		end
+		if purchased then
+			grantPass(player, pass, true)
+		elseif not profile.Passes[pass.Key] and ownsOnRoblox(player, pass) then
+			-- Roblox said "you already own this" (our check at join must have failed): give it now
 			grantPass(player, pass, true)
 		end
 	end)
@@ -25210,6 +25276,7 @@ local pages: { [string]: ScrollingFrame } = {}
 local selectTab: (string) -> ()
 local refreshers: { () -> () } = {}
 local robuxPrices: { [number]: number } = {}
+local priceFailed: { [number]: boolean } = {}
 local buildItems: (ScrollingFrame) -> ()
 
 local function refreshAll()
@@ -25418,7 +25485,7 @@ local function robuxText(passId: number, suggested: number): string
 		return `R$ {suggested}`
 	end
 	local price = robuxPrices[passId]
-	return if price then `R$ {price}` else "R$ ..."
+	return if price then `R$ {price}` elseif priceFailed[passId] then "BUY" else "R$ ..."
 end
 
 local function fetchPrice(passId: number, infoType: Enum.InfoType?)
@@ -25426,11 +25493,17 @@ local function fetchPrice(passId: number, infoType: Enum.InfoType?)
 		return
 	end
 	task.spawn(function()
-		local ok, info = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, passId, infoType or Enum.InfoType.GamePass)
-		if ok and info and info.PriceInRobux then
-			robuxPrices[passId] = info.PriceInRobux
-			refreshAll()
+		for attempt = 1, 3 do
+			local ok, info = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, passId, infoType or Enum.InfoType.GamePass)
+			if ok and info and info.PriceInRobux then
+				robuxPrices[passId] = info.PriceInRobux
+				refreshAll()
+				return
+			end
+			task.wait(attempt * 3)
 		end
+		priceFailed[passId] = true -- still buyable: the button just says BUY
+		refreshAll()
 	end)
 end
 

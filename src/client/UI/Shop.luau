@@ -35,6 +35,7 @@ local pages: { [string]: ScrollingFrame } = {}
 local selectTab: (string) -> ()
 local refreshers: { () -> () } = {}
 local robuxPrices: { [number]: number } = {}
+local priceFailed: { [number]: boolean } = {}
 local buildItems: (ScrollingFrame) -> ()
 
 local function refreshAll()
@@ -243,7 +244,7 @@ local function robuxText(passId: number, suggested: number): string
 		return `R$ {suggested}`
 	end
 	local price = robuxPrices[passId]
-	return if price then `R$ {price}` else "R$ ..."
+	return if price then `R$ {price}` elseif priceFailed[passId] then "BUY" else "R$ ..."
 end
 
 local function fetchPrice(passId: number, infoType: Enum.InfoType?)
@@ -251,11 +252,17 @@ local function fetchPrice(passId: number, infoType: Enum.InfoType?)
 		return
 	end
 	task.spawn(function()
-		local ok, info = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, passId, infoType or Enum.InfoType.GamePass)
-		if ok and info and info.PriceInRobux then
-			robuxPrices[passId] = info.PriceInRobux
-			refreshAll()
+		for attempt = 1, 3 do
+			local ok, info = pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, passId, infoType or Enum.InfoType.GamePass)
+			if ok and info and info.PriceInRobux then
+				robuxPrices[passId] = info.PriceInRobux
+				refreshAll()
+				return
+			end
+			task.wait(attempt * 3)
 		end
+		priceFailed[passId] = true -- still buyable: the button just says BUY
+		refreshAll()
 	end)
 end
 

@@ -167,14 +167,16 @@ local function grant(player: Player, productId: number, paid: number?): boolean
 end
 
 local function processReceipt(receipt: { PlayerId: number, ProductId: number, PurchaseId: string, CurrencySpent: number? }): Enum.ProductPurchaseDecision
-	local player = Players:GetPlayerByUserId(receipt.PlayerId)
-	local profile = if player then DataService.Get(player) else nil
-	if not player or not profile or not profile.Session.Ready then
+	-- Roblox hands over unfinished purchases as the player joins, before their data is ready:
+	-- wait for it rather than putting the purchase off until they rejoin.
+	local player, profile = DataService.WaitForReady(receipt.PlayerId, 60)
+	if not player or not profile then
 		return Enum.ProductPurchaseDecision.NotProcessedYet -- Roblox tries again when they're back
 	end
 	local receipts = profile.Data.Purchases
 	if table.find(receipts, receipt.PurchaseId) then
-		return Enum.ProductPurchaseDecision.PurchaseGranted -- already granted
+		-- already granted: confirm it once it's safely saved
+		return if DataService.SaveNow(player) then Enum.ProductPurchaseDecision.PurchaseGranted else Enum.ProductPurchaseDecision.NotProcessedYet
 	end
 	local ok, granted = pcall(grant, player, receipt.ProductId, receipt.CurrencySpent)
 	if not ok then
@@ -188,7 +190,13 @@ local function processReceipt(receipt: { PlayerId: number, ProductId: number, Pu
 	while #receipts > MAX_RECEIPTS do
 		table.remove(receipts, 1)
 	end
-	pcall(DataService.SaveNow, player) -- remember the receipt before telling Roblox it's done
+	-- Remember the receipt before telling Roblox it's done. If saving fails, say "not yet": Roblox
+	-- asks again later, and the receipt (kept above) stops it being granted twice.
+	local stored, saved = pcall(DataService.SaveNow, player)
+	if not stored or not saved then
+		warn(`[Products] Couldn't save {player.Name}'s purchase yet; Roblox will retry`)
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
 	return Enum.ProductPurchaseDecision.PurchaseGranted
 end
 

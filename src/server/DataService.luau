@@ -11,6 +11,7 @@
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -347,19 +348,22 @@ end
 --------------------------------------------------------------------------------
 -- Saving
 --------------------------------------------------------------------------------
-function DataService.Save(player: Player, release: boolean?)
+-- Returns true once the data is safely stored (or saving is off, e.g. Studio without API access).
+function DataService.Save(player: Player, release: boolean?): boolean
 	local profile = profiles[player]
 	if not profile or profile.NoSave or not store then
-		return
+		return profile ~= nil
 	end
 	if saving[player] and not release then
-		return
+		return false
 	end
 	saving[player] = true
 	local data = profile.Data
 	data.LastOnline = os.time()
 	local ds = store :: DataStore
+	local saved = false
 	for attempt = 1, 3 do
+		local written = false
 		local ok, err = pcall(function()
 			ds:UpdateAsync(keyFor(player), function(old: any)
 				-- If another server took over this player's data, never overwrite it.
@@ -367,26 +371,47 @@ function DataService.Save(player: Player, release: boolean?)
 					return nil
 				end
 				data.SessionLock = if release then nil else { JobId = game.JobId, Time = os.time() }
+				written = true
 				return data
 			end)
 		end)
 		if ok then
+			saved = written
 			break
 		end
 		warn(`[DataService] Save attempt {attempt} failed for {player.Name}: {err}`)
 		task.wait(1)
 	end
 	saving[player] = nil
+	return saved
 end
 
 -- Save right now, even if an autosave is already running (waits for it, then saves again).
 -- Used after granting a Robux purchase so the receipt is on disk before it's confirmed.
-function DataService.SaveNow(player: Player)
+-- Returns true if the data was stored.
+function DataService.SaveNow(player: Player): boolean
 	local started = os.clock()
 	while saving[player] and os.clock() - started < 15 do
 		task.wait(0.2)
 	end
-	DataService.Save(player)
+	return DataService.Save(player)
+end
+
+-- The player's profile once they've fully joined (data loaded, base assigned), waiting up to
+-- `timeout` seconds for it. Used by purchases, which Roblox can deliver while someone is joining.
+function DataService.WaitForReady(userId: number, timeout: number): (Player?, Profile?)
+	local deadline = os.clock() + timeout
+	while true do
+		local player = Players:GetPlayerByUserId(userId)
+		local profile = if player then profiles[player] else nil
+		if player and profile and profile.Session.Ready then
+			return player, profile
+		end
+		if os.clock() >= deadline then
+			return nil, nil
+		end
+		task.wait(0.5)
+	end
 end
 
 function DataService.Release(player: Player)

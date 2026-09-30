@@ -90,35 +90,60 @@ function ShopService.RefreshMultipliers(player: Player)
 	DataService.PushState(player)
 end
 
+-- Give a pass's perks. `persist` also records it in the save, so it's never lost if Roblox's
+-- ownership check fails or lags later (never for Studio test purchases, which aren't real).
 local function grantPass(player: Player, pass: Config.GamePass, persist: boolean)
 	local profile = DataService.Get(player)
 	if not profile then
 		return
 	end
+	local already = profile.Passes[pass.Key] == true
 	profile.Passes[pass.Key] = true
-	if persist then
+	if persist and not RunService:IsStudio() then
 		profile.Data.CachedPasses[pass.Key] = true
 	end
 	ShopService.RefreshMultipliers(player)
-	notify(player, `🎉 {pass.Name} unlocked! Thank you!`, "success")
+	if not already then
+		notify(player, `🎉 {pass.Name} unlocked! Thank you!`, "success")
+	end
+end
+
+local function ownsOnRoblox(player: Player, pass: Config.GamePass): boolean?
+	local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.GamePassId)
+	return if ok then owns == true else nil
 end
 
 -- Called once per player after their data loads. Yields (web requests).
+-- A pass counts as owned if Roblox says so, or if we recorded buying it: Roblox's check can lag
+-- behind a purchase for a while, so a "no" from it never takes away a pass we saw being bought.
+-- If the check fails outright it's retried in the background.
 function ShopService.LoadOwnership(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
 		return
 	end
+	local retry: { Config.GamePass } = {}
 	for _, pass in Config.GamePasses do
 		if pass.GamePassId > 0 then
-			local ok, owns = pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, pass.GamePassId)
-			if ok then
-				profile.Passes[pass.Key] = owns or nil
-				profile.Data.CachedPasses[pass.Key] = owns or nil
+			local owns = ownsOnRoblox(player, pass)
+			if owns then
+				profile.Passes[pass.Key] = true
+				profile.Data.CachedPasses[pass.Key] = true
 			elseif profile.Data.CachedPasses[pass.Key] then
-				profile.Passes[pass.Key] = true -- API failed: trust our saved record
+				profile.Passes[pass.Key] = true
+			elseif owns == nil then
+				table.insert(retry, pass)
 			end
 		end
+	end
+	if #retry > 0 then
+		task.delay(10, function()
+			for _, pass in retry do
+				if player.Parent and DataService.Get(player) and ownsOnRoblox(player, pass) then
+					grantPass(player, pass, true)
+				end
+			end
+		end)
 	end
 	if not ownsSkin(profile, profile.Data.EquippedSkin) then
 		profile.Data.EquippedSkin = "Classic"
@@ -499,11 +524,19 @@ function ShopService.Init()
 	end)
 
 	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player: Player, passId: number, purchased: boolean)
-		if not purchased then
+		local pass = findPass(nil, passId)
+		if not pass then
 			return
 		end
-		local pass = findPass(nil, passId)
-		if pass then
+		-- (the purchase can finish while they're still joining: wait for their data)
+		local _, profile = DataService.WaitForReady(player.UserId, 60)
+		if not profile then
+			return -- they left: the pass is picked up when they join again
+		end
+		if purchased then
+			grantPass(player, pass, true)
+		elseif not profile.Passes[pass.Key] and ownsOnRoblox(player, pass) then
+			-- Roblox said "you already own this" (our check at join must have failed): give it now
 			grantPass(player, pass, true)
 		end
 	end)
