@@ -322,7 +322,7 @@ function PlotService.RefreshPodium(player: Player)
 	gui.Parent = labelHolder
 
 	if slot and donut then
-		local model = DonutModel.Build(donut, { Scale = Config.Plots.PodiumDonutScale, Mutation = slot.Mutation })
+		local model = DonutModel.Build(donut, { Scale = Config.Plots.PodiumDonutScale, Mutation = slot.Mutation, Calm = true })
 		DonutModel.PlaceOn(model, top.CFrame * CFrame.new(0, 0.1, 0))
 		CollectionService:AddTag(model, "PodiumSpin")
 		model.Parent = showcase
@@ -417,7 +417,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 		return
 	end
 
-	local model = DonutModel.Build(donut, { Scale = Config.Plots.DonutScale, Mutation = slot.Mutation, Size = slot.Size })
+	local model = DonutModel.Build(donut, { Scale = Config.Plots.DonutScale, Mutation = slot.Mutation, Size = slot.Size, Calm = true })
 	local surface = pedestal:GetAttribute("Surface") :: CFrame
 	DonutModel.PlaceOn(model, surface)
 	model.Name = "SlotDonut" .. slotIndex

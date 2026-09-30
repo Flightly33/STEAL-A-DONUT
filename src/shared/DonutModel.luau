@@ -50,6 +50,7 @@ export type BuildOptions = {
 	Scale: number?,
 	Pillar: boolean?, -- tall light pillar (rare lane donuts, so players can spot them from afar)
 	NoEffects: boolean?, -- skip lights/particles (viewport previews)
+	Calm: boolean?, -- softer effects (donuts on bases: lots of them side by side would glare)
 	Mutation: string?,
 	Size: string?,
 }
@@ -942,6 +943,24 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				if build then
 					build(theme)
 				end
+			end
+		end
+	end
+
+	-- On a base many rare donuts stand side by side, and their effects add up to a white glare:
+	-- fewer, dimmer particles, softer beams and lights, so every donut stays easy to see.
+	if opts.Calm then
+		for _, effect in model:GetDescendants() do
+			if effect:IsA("ParticleEmitter") then
+				effect.Rate *= 0.35
+				effect.Brightness = math.min(effect.Brightness, 1)
+				effect.LightEmission *= 0.6
+			elseif effect:IsA("Beam") then
+				effect.Brightness = math.min(effect.Brightness, 0.8)
+				effect.LightEmission *= 0.6
+			elseif effect:IsA("PointLight") then
+				effect.Brightness *= 0.45
+				effect.Range *= 0.6
 			end
 		end
 	end

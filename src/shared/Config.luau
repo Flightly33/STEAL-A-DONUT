@@ -586,13 +586,13 @@ Config.Items = {
 -- (Areas.luau Ambience), so turning these down makes the whole game calmer.
 --------------------------------------------------------------------------------
 Config.Graphics = {
-	SaturationBoost = 0.14, -- more vivid colours
+	SaturationBoost = 0.1, -- more vivid colours
 	ContrastBoost = 0.05,
-	BloomBoost = 0.15, -- glow around bright things (neon, sparkles, the sun)
-	BloomThreshold = 2.3, -- how bright something must be to glow (lower = more glow)
+	BloomBoost = 0.05, -- glow around bright things (neon, sparkles, the sun)
+	BloomThreshold = 2.6, -- how bright something must be to glow (lower = more glow)
 	BloomSize = 20,
 	SunRays = 0.06,
-	Brightness = 2.3, -- sunlight strength
+	Brightness = 2.1, -- sunlight strength
 }
 
 -- World 2's skybox. Paste the six image IDs of a galaxy skybox from the Creator Store here (e.g.
