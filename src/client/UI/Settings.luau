@@ -153,7 +153,7 @@ function Settings.Init()
 		end
 	end)
 
-	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 360))
+	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 420))
 	local body = modal.Body
 
 	Theme.Label({ Text = "🎵 MUSIC", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Parent = body })
@@ -167,6 +167,10 @@ function Settings.Init()
 	local bar = Theme.new("Frame", { Size = UDim2.fromOffset(300, 26), Position = UDim2.fromOffset(62, 195), BackgroundColor3 = Theme.Colors.Outline, Parent = body }, { Theme.Corner(8), Theme.Stroke(2) })
 	local fill = Theme.new("Frame", { Size = UDim2.fromScale(volume, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
 	local plus = Theme.Button({ Text = "+", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(372, 182), Parent = body })
+	local help = Theme.Button({ Text = "❓ HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 256), Parent = body })
+	help.Activated:Connect(function()
+		require(script.Parent.Tutorial).Open()
+	end)
 	local percent = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.fromOffset(60, 30), Position = UDim2.fromOffset(430, 193), StrokeThickness = 1.5, Parent = body })
 
 	refresh = function()

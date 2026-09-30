@@ -65,7 +65,8 @@ export type Data = {
 	IncubatorSize: number,
 	DonorTier: number, -- the biggest tip bought (Config.Donations.Products[].Amount): gives a title
 	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
-	PermaLock: boolean, -- admin: Base Lock that never runs out
+	PermaLock: boolean,
+	SeenTutorial: boolean, -- the first-join "how to play" window -- admin: Base Lock that never runs out
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -120,6 +121,7 @@ local TEMPLATE: Data = {
 	DonorTier = 0,
 	HiddenItems = {},
 	PermaLock = false,
+	SeenTutorial = false,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -498,6 +500,7 @@ function DataService.PushState(player: Player)
 		Donated = profile.Data.Donated + profile.Session.TestDonated,
 		HiddenItems = profile.Data.HiddenItems,
 		PermaLock = profile.Data.PermaLock,
+		SeenTutorial = profile.Data.SeenTutorial,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})

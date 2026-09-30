@@ -309,6 +309,10 @@ function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: 
 	ItemService.Buy(player, itemId)
 end
 
+function Actions.SeenTutorial(_player: Player, profile: DataService.Profile)
+	profile.Data.SeenTutorial = true
+end
+
 function Actions.ToggleHotbar(player: Player, _profile: DataService.Profile, itemId: any)
 	ItemService.ToggleHotbar(player, itemId)
 end

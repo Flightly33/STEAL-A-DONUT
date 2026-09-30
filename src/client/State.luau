@@ -31,6 +31,7 @@ export type Snapshot = {
 	Donated: number?,
 	HiddenItems: { [string]: boolean }?, -- items taken off the hotbar
 	PermaLock: boolean?, -- admin: permanent Base Lock
+	SeenTutorial: boolean?,
 	Admin: boolean?,
 	GodMode: boolean?,
 }
