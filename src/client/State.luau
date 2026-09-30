@@ -34,6 +34,7 @@ export type Snapshot = {
 	SeenTutorial: boolean?,
 	SeenUpdate: number?,
 	NotesOnLogin: boolean?,
+	TutorialEggClaimed: boolean?,
 	Admin: boolean?,
 	GodMode: boolean?,
 }

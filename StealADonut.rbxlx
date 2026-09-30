@@ -1094,6 +1094,11 @@ Config.Graphics = {
 	Brightness = 2.1, -- sunlight strength
 }
 
+-- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).
+Config.Tutorial = {
+	FreeEgg = "Sprinkle",
+}
+
 -- World 2's skybox. Paste the six image IDs of a galaxy skybox from the Creator Store here (e.g.
 -- "rbxassetid://123") and World 2 uses it; left empty, World 2 shows Roblox's starry night sky.
 Config.GalaxySky = {
@@ -7620,6 +7625,7 @@ export type Data = {
 	SeenTutorial: boolean, -- the first-join "how to play" window -- admin: Base Lock that never runs out
 	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
+	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
 	AdminRevoked: boolean, -- the game's owner took their admin panel away (the chat code won't work)
 	SessionLock: { JobId: string, Time: number }?,
 }
@@ -7679,6 +7685,7 @@ local TEMPLATE: Data = {
 	SeenTutorial = false,
 	SeenUpdate = 0,
 	NotesOnLogin = true,
+	TutorialEggClaimed = false,
 	AdminRevoked = false,
 }
 
@@ -8062,6 +8069,7 @@ function DataService.PushState(player: Player)
 		SeenTutorial = profile.Data.SeenTutorial,
 		SeenUpdate = profile.Data.SeenUpdate,
 		NotesOnLogin = profile.Data.NotesOnLogin,
+		TutorialEggClaimed = profile.Data.TutorialEggClaimed,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})
@@ -15018,6 +15026,7 @@ function PlotService.UpgradeSlot(player: Player, slotIndex: number)
 		return
 	end
 	slot.Level += 1
+	player:SetAttribute("DonutUpgrades", ((player:GetAttribute("DonutUpgrades") :: number?) or 0) + 1) -- (the tutorial watches this)
 	updateSlotLabels(player, slotIndex)
 	afterSlotsChanged(player)
 	notify(player, `Upgraded to Lv. {slot.Level}!`, "success")
@@ -16338,8 +16347,21 @@ function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: 
 	ItemService.Buy(player, itemId)
 end
 
-function Actions.SeenTutorial(_player: Player, profile: DataService.Profile)
+function Actions.SeenTutorial(player: Player, profile: DataService.Profile)
 	profile.Data.SeenTutorial = true
+	DataService.PushState(player)
+end
+
+-- The free egg at the end of the tutorial: once per player, ever.
+function Actions.ClaimTutorialEgg(player: Player, profile: DataService.Profile)
+	profile.Data.SeenTutorial = true
+	if profile.Data.TutorialEggClaimed then
+		Remotes.Event("Notify"):FireClient(player, "You already claimed your free egg.", "info")
+	elseif PetService.AddEgg(player, Config.Tutorial.FreeEgg, true) then
+		profile.Data.TutorialEggClaimed = true
+		Remotes.Event("Notify"):FireClient(player, "Free egg added to your incubator! It hatches into a pet.", "success")
+	end
+	DataService.PushState(player)
 end
 
 -- The update notes were shown (UpdateNotes): remember the newest Version seen.
@@ -21085,6 +21107,7 @@ export type Snapshot = {
 	SeenTutorial: boolean?,
 	SeenUpdate: number?,
 	NotesOnLogin: boolean?,
+	TutorialEggClaimed: boolean?,
 	Admin: boolean?,
 	GodMode: boolean?,
 }
@@ -25080,6 +25103,7 @@ function Settings.Init()
 	local plus = Theme.Button({ Text = "+", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(372, 182), Parent = body })
 	local help = Theme.Button({ Text = "❓ HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 256), Parent = body })
 	help.Activated:Connect(function()
+		modal:Close()
 		require(script.Parent.Tutorial).Open()
 	end)
 	local notes = Theme.Button({ Text = "📰 UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(230, 256), Parent = body })
@@ -26115,191 +26139,333 @@ return Theme
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[--[[
-	Tutorial: a short "how to play" window, shown once on a player's first join (saved as
-	SeenTutorial) and any time from Settings > How to play.
-
-	Four pages, each with a coloured picture card (a spinning 3D donut / Domer, or a big icon) and one
-	or two lines of text, plus progress dots, Back / Next and Skip.
+	Tutorial: a guided first game. A small line of text at the top of the screen says what to do
+	next, with a Skip Tutorial button beside it, and a red arrow floating over your head points the
+	way (a second red arrow bobs over the target):
+	  1. follow the arrow to the donut lane
+	  2. steal a donut (walk up to one and press E)
+	  3. run back to your base before the guard catches you (caught? steal another one)
+	  4. upgrade the donut on your base (press E on it when you have enough money)
+	  5. run on your treadmill to get faster
+	Then a Claim button gives you a free egg (once ever; the server checks).
+	It starts on your first join and keeps coming back until you finish or skip it; Settings >
+	How to play starts it again.
 ]]
 
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local Donuts = require(Shared.Donuts)
-local DonutModel = require(Shared.DonutModel)
-local GuardModel = require(Shared.GuardModel)
+local Areas = require(Shared.Areas)
+local Layout = require(Shared.Layout)
+local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.Theme)
-local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
+local AreaTracker = require(script.Parent.Parent.AreaTracker)
+local Bases = require(script.Parent.Parent.Bases)
 
 local Tutorial = {}
 
-type Page = { Icon: string, Title: string, Text: string, Color: Color3, Model: string? }
-
-local PAGES: { Page } = {
-	{ Icon = "🍩", Title = "GRAB DONUTS", Text = "Run into the donut lane, walk up to a donut and press Steal to grab it.", Color = Theme.Colors.Pink, Model = "Donut" },
-	{ Icon = "🏃", Title = "RUN HOME!", Text = `{Config.Guard.Name} wakes up and chases you! Get the donut back to your base before he catches you.`, Color = Theme.Colors.Red, Model = "Guard" },
-	{ Icon = "💰", Title = "GET RICH", Text = "Donuts on your base make money every second. Run on your treadmill to get faster, then go for rarer donuts!", Color = Theme.Colors.Green },
-	{ Icon = "😈", Title = "STEAL & DEFEND", Text = "Sneak into other bases and steal their donuts. Use a Base Lock to keep yours safe!", Color = Theme.Colors.Purple },
+local player = Players.LocalPlayer :: Player
+local RED = Color3.fromRGB(235, 40, 40)
+local STEPS = { "Lane", "Steal", "RunHome", "Upgrade", "Treadmill" }
+local TEXT: { [string]: string } = {
+	Lane = "Follow the red arrow to the donut lane",
+	Steal = "Walk up to a donut and press E to steal it",
+	RunHome = `Run back to your base before {Config.Guard.Name} catches you`,
+	Caught = `{Config.Guard.Name} caught you! Steal another donut and try again`,
+	Upgrade = "Your donut makes money. When you have enough, press E on it to upgrade it",
+	Treadmill = "Run on your treadmill to get faster",
+	Done = "Tutorial complete! Claim your free egg",
+	Claimed = "Tutorial complete!",
 }
 
-local modal: Modal.Modal
-local page = 1
-local render: () -> ()
+local step: string? = nil -- nil while the tutorial isn't running
+local caught = false
+local upgradesAtStart = 0
+local speedAtStart = 0
+local refresh: () -> ()
 
-function Tutorial.Open()
-	page = 1
-	render()
-	modal:Open()
+local function number(name: string): number
+	local value = player:GetAttribute(name)
+	return if type(value) == "number" then value else 0
 end
 
--- A 3D model in a ViewportFrame (hidden until its page is shown); returns its camera.
-local function showcase(parent: Instance, model: Model, distance: number, height: number): (Camera, ViewportFrame)
-	local viewport = Theme.new("ViewportFrame", {
-		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 1),
-		Ambient = Color3.fromRGB(180, 180, 190),
-		LightColor = Color3.fromRGB(255, 255, 255),
-		LightDirection = Vector3.new(-0.5, -1, 0.8),
-		Visible = false,
-		Parent = parent,
-	})
-	model.Parent = viewport
-	local camera = Instance.new("Camera")
-	camera.FieldOfView = 35
-	camera.CFrame = CFrame.lookAt(Vector3.new(0, height, -distance), Vector3.new(0, height, 0))
-	camera.Parent = viewport
-	viewport.CurrentCamera = camera
-	return camera, viewport
+local function go(nextStep: string?)
+	step = nextStep
+	if nextStep == "Upgrade" then
+		upgradesAtStart = number("DonutUpgrades")
+	elseif nextStep == "Treadmill" then
+		speedAtStart = number("Speed")
+	end
+	refresh()
 end
 
-function Tutorial.Init()
-	modal = Modal.new("❓ HOW TO PLAY", Theme.Colors.Blue, Vector2.new(500, 440))
-	local body = modal.Body
+function Tutorial.Start()
+	caught = false
+	go("Lane")
+end
+Tutorial.Open = Tutorial.Start -- Settings > How to play
 
-	-- Picture card: the 3D model or a big icon on the page's colour
-	local card = Theme.new("Frame", {
-		Size = UDim2.new(1, 0, 0, 170),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		Parent = body,
-	}, { Theme.Corner(14), Theme.Stroke(3) })
-	local cardGradient = Theme.new("UIGradient", { Rotation = 90, Parent = card })
-	local icon = Theme.Label({ Text = "", Font = Enum.Font.GothamBold, TextScaled = false, TextSize = 96, Size = UDim2.fromScale(1, 1), Parent = card })
+function Tutorial.IsRunning(): boolean
+	return step ~= nil
+end
 
-	local donutCamera: Camera? = nil
-	local donutView: ViewportFrame? = nil
-	local guardView: ViewportFrame? = nil
-	local guardCamera: Camera? = nil
-	local guardDistance, guardHeight = 10, 3
-	local showcaseDonut = Donuts.ById["sprinkolini"] or Donuts.List[1]
-	local okDonut, donutModel = pcall(DonutModel.Build, showcaseDonut, { NoEffects = true })
-	if okDonut then
-		donutCamera, donutView = showcase(card, donutModel, 12, 0.3)
+--------------------------------------------------------------------------------
+-- The red arrows: one over your head pointing the way, one bobbing over the target
+--------------------------------------------------------------------------------
+type Arrow = { Parts: { BasePart }, Offsets: { CFrame } }
+
+local function newArrow(parent: Instance, scale: number): Arrow
+	local arrow: Arrow = { Parts = {}, Offsets = {} }
+	local function piece(size: Vector3, offset: CFrame)
+		local part = Instance.new("Part")
+		part.Name = "TutorialArrow"
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Material = Enum.Material.Neon
+		part.Color = RED
+		part.Size = size * scale
+		part.Parent = parent
+		table.insert(arrow.Parts, part)
+		table.insert(arrow.Offsets, CFrame.new(offset.Position * scale) * offset.Rotation)
 	end
-	local okGuard, guardModel = pcall(function(): Model
-		local model = GuardModel.Build(1, {})
-		return model
-	end)
-	if okGuard then
-		local model = guardModel :: Model
-		local box, size = model:GetBoundingBox()
-		model:PivotTo(model:GetPivot() - box.Position) -- centre him on the origin
-		guardDistance, guardHeight = size.Y * 1.7, 0
-		guardCamera, guardView = showcase(card, model, guardDistance, guardHeight)
+	-- points along -Z: a shaft and a chevron at the tip
+	piece(Vector3.new(0.7, 0.7, 5), CFrame.new(0, 0, 0.5))
+	for _, side in { -1, 1 } do
+		piece(Vector3.new(0.7, 0.7, 2.8), CFrame.new(side * 0.9, 0, -2.13) * CFrame.Angles(0, side * math.rad(40), 0))
 	end
+	return arrow
+end
 
-	local title = Theme.Label({ Text = "", Size = UDim2.new(1, 0, 0, 42), Position = UDim2.fromOffset(0, 180), StrokeThickness = 3.5, Parent = body })
-	local text = Theme.Label({ Text = "", Font = Theme.Font, TextScaled = false, TextSize = 21, TextWrapped = true, Size = UDim2.new(1, -24, 0, 64), Position = UDim2.fromOffset(12, 224), StrokeThickness = 2, Parent = body })
-
-	-- Progress dots (the current page is a longer yellow pill)
-	local dots = Theme.new("Frame", { BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 294), Size = UDim2.fromOffset(160, 14), Parent = body }, {
-		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
-	})
-	local dotFrames: { Frame } = {}
-	for i = 1, #PAGES do
-		table.insert(dotFrames, Theme.new("Frame", { Size = UDim2.fromOffset(14, 14), BackgroundColor3 = Theme.Colors.Gray, LayoutOrder = i, Parent = dots }, { Theme.new("UICorner", { CornerRadius = UDim.new(1, 0) }), Theme.Stroke(2) }))
-	end
-
-	local back = Theme.Button({ Text = "◀ BACK", Color = Theme.Colors.Gray, Size = UDim2.new(0.3, -6, 0, 50), AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Parent = body })
-	local skip = Theme.Button({ Text = "Skip", Color = Theme.Colors.Gray, Size = UDim2.new(0.22, -6, 0, 50), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.41, 0, 1, 0), Parent = body })
-	local nextButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(0.46, -6, 0, 50), AnchorPoint = Vector2.new(1, 1), Position = UDim2.fromScale(1, 1), Parent = body })
-	local pop = Theme.new("UIScale", { Name = "Pop", Parent = card })
-
-	render = function()
-		local p = PAGES[page]
-		title.Text = p.Title
-		title.TextColor3 = p.Color:Lerp(Color3.new(1, 1, 1), 0.35)
-		text.Text = p.Text
-		cardGradient.Color = ColorSequence.new(p.Color:Lerp(Color3.new(1, 1, 1), 0.35), p.Color:Lerp(Color3.new(0, 0, 0), 0.25))
-		-- the 3D model if this page has one, otherwise the big icon
-		local showDonut = p.Model == "Donut" and donutView ~= nil
-		local showGuard = p.Model == "Guard" and guardView ~= nil
-		if donutView then
-			donutView.Visible = showDonut
-		end
-		if guardView then
-			guardView.Visible = showGuard
-		end
-		icon.Visible = not (showDonut or showGuard)
-		icon.Text = p.Icon
-		for i, dot in dotFrames do
-			dot.BackgroundColor3 = if i == page then Theme.Colors.Yellow else Theme.Colors.Gray
-			dot.Size = if i == page then UDim2.fromOffset(28, 14) else UDim2.fromOffset(14, 14)
-		end
-		back.Visible = page > 1
-		skip.Visible = page < #PAGES
-		Theme.SetButtonText(nextButton, if page < #PAGES then "NEXT ▶" else "LET'S GO! 🍩")
-		pop.Scale = 0.92
-		TweenService:Create(pop, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	end
-
-	back.Activated:Connect(function()
-		page = math.max(1, page - 1)
-		render()
-	end)
-	skip.Activated:Connect(function()
-		modal:Close()
-	end)
-	nextButton.Activated:Connect(function()
-		if page < #PAGES then
-			page += 1
-			render()
+local function place(arrow: Arrow, cf: CFrame?)
+	for i, part in arrow.Parts do
+		if cf then
+			part.CFrame = cf * arrow.Offsets[i]
+			part.Transparency = 0
 		else
-			modal:Close()
+			part.Transparency = 1
 		end
-	end)
+	end
+end
 
-	-- Turn the 3D models slowly while the window is open
-	RunService.RenderStepped:Connect(function()
-		if not modal:IsOpen() then
+-- Where the arrows should point for the current step.
+local nearestDonut: Vector3? = nil
+local lastScan = 0
+local function laneStart(): Vector3
+	local world = math.max(1, State.Number("World"))
+	local first = Areas.ByWorld[world] and Areas.ByWorld[world][1]
+	local z = if first then Layout.AreaStart(first.Id) + 15 else 0
+	return Vector3.new(Layout.WorldOffset(world), 0, z)
+end
+
+local function findDonut(from: Vector3): Vector3?
+	local area = AreaTracker.Current
+	local map = workspace:FindFirstChild("Map")
+	local lane = map and map:FindFirstChild("Lane")
+	local folder = lane and lane:FindFirstChild("Area" .. area)
+	if area <= 0 or not folder then
+		return nil
+	end
+	local best, bestDistance = nil, math.huge
+	for _, prompt in folder:GetDescendants() do
+		if prompt:IsA("ProximityPrompt") and prompt.Name == "StealPrompt" and prompt.Enabled then
+			local holder = prompt.Parent
+			if holder and holder:IsA("BasePart") then
+				local distance = (holder.Position - from).Magnitude
+				if distance < bestDistance then
+					best, bestDistance = holder.Position, distance
+				end
+			end
+		end
+	end
+	return best
+end
+
+local function target(from: Vector3): Vector3?
+	local plot = Bases.Mine()
+	if step == "Lane" then
+		return laneStart()
+	elseif step == "Steal" then
+		local now = os.clock()
+		if now - lastScan > 0.75 then
+			lastScan = now
+			nearestDonut = findDonut(from)
+		end
+		return nearestDonut or laneStart()
+	elseif step == "RunHome" then
+		return if plot then plot:GetPivot().Position else nil
+	elseif step == "Upgrade" and plot then
+		for _, child in plot:GetChildren() do
+			if child:IsA("Model") and string.sub(child.Name, 1, 9) == "SlotDonut" then
+				return child:GetPivot().Position
+			end
+		end
+		return plot:GetPivot().Position
+	elseif step == "Treadmill" and plot then
+		local treadmill = plot:FindFirstChild("Treadmill")
+		local belt = treadmill and treadmill:FindFirstChild("Belt")
+		return if belt and belt:IsA("BasePart") then belt.Position else plot:GetPivot().Position
+	end
+	return nil
+end
+
+--------------------------------------------------------------------------------
+-- Init
+--------------------------------------------------------------------------------
+function Tutorial.Init()
+	-- The line of text at the top, with Skip / Claim beside it
+	local gui = Theme.ScreenGui("Tutorial", 6)
+	local strip = Theme.new("Frame", {
+		Name = "Strip",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 48),
+		Size = UDim2.fromOffset(0, 40),
+		AutomaticSize = Enum.AutomaticSize.X,
+		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
+		BackgroundTransparency = 0.45,
+		Visible = false,
+		Parent = gui,
+	}, {
+		Theme.Corner(10),
+		Theme.Stroke(2),
+		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 6) }),
+	})
+	Theme.AutoScale(strip)
+	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 16, TextColor3 = Color3.fromRGB(255, 120, 120), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28), StrokeThickness = 1.5, LayoutOrder = 1, Parent = strip })
+	local label = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 18, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28), StrokeThickness = 1.5, LayoutOrder = 2, Parent = strip })
+	local skip = Theme.Button({ Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(130, 30), Parent = strip })
+	skip.Name = "Skip"
+	skip.LayoutOrder = 3
+	local claim = Theme.Button({ Text = "Claim", Color = Theme.Colors.Green, Size = UDim2.fromOffset(110, 30), Parent = strip })
+	claim.Name = "Claim"
+	claim.LayoutOrder = 4
+	local close = Theme.Button({ Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(90, 30), Parent = strip })
+	close.Name = "Close"
+	close.LayoutOrder = 5
+
+	local arrows = Instance.new("Folder")
+	arrows.Name = "TutorialArrows"
+	arrows.Parent = workspace
+	local guide = newArrow(arrows, 1)
+	local marker = newArrow(arrows, 1.4)
+	place(guide, nil)
+	place(marker, nil)
+
+	refresh = function()
+		strip.Visible = step ~= nil
+		if not step then
 			return
 		end
-		local angle = os.clock() * 0.9
-		if donutCamera then
-			donutCamera.CFrame = CFrame.lookAt(Vector3.new(math.sin(angle) * 12, 0.8, -math.cos(angle) * 12), Vector3.new(0, 0.3, 0))
+		local index = table.find(STEPS, step)
+		counter.Text = if index then `{index}/{#STEPS}` else ""
+		counter.Visible = index ~= nil
+		local claimed = State.Data.TutorialEggClaimed == true
+		if step == "Done" then
+			label.Text = if claimed then TEXT.Claimed else TEXT.Done
+		else
+			label.Text = if step == "Steal" and caught then TEXT.Caught else TEXT[step]
 		end
-		if guardCamera then
-			local a = angle * 0.6
-			guardCamera.CFrame = CFrame.lookAt(Vector3.new(math.sin(a) * guardDistance, guardHeight, -math.cos(a) * guardDistance), Vector3.new(0, guardHeight, 0))
+		skip.Visible = step ~= "Done"
+		claim.Visible = step == "Done" and not claimed
+		close.Visible = step == "Done" and claimed
+	end
+
+	skip.Activated:Connect(function()
+		State.Action("SeenTutorial")
+		go(nil)
+	end)
+	claim.Activated:Connect(function()
+		State.Action("ClaimTutorialEgg")
+		label.Text = TEXT.Claimed
+		claim.Visible = false
+		task.delay(2.5, function()
+			if step == "Done" then
+				go(nil)
+			end
+		end)
+	end)
+	close.Activated:Connect(function()
+		State.Action("SeenTutorial")
+		go(nil)
+	end)
+
+	-- Stealing, getting caught and bringing donuts home
+	Remotes.Event("ChaseEnded").OnClientEvent:Connect(function(info: any)
+		if type(info) ~= "table" or info.Kind == "Egg" then
+			return
+		end
+		if step == "RunHome" or step == "Steal" then
+			if info.Result == "Deposited" then
+				go("Upgrade")
+			elseif info.Result == "Caught" or info.Result == "Lost" then
+				caught = true
+				go("Steal")
+			end
 		end
 	end)
 
-	-- First join: show it once the saved data arrives, and remember it's been seen
+	RunService.RenderStepped:Connect(function()
+		if not step then
+			place(guide, nil)
+			place(marker, nil)
+			return
+		end
+		-- move on when the step is done
+		if step == "Lane" and AreaTracker.Current > 0 then
+			go("Steal")
+		elseif step == "Steal" and player:GetAttribute("CarryingDonut") then
+			caught = false
+			go("RunHome")
+		elseif step == "Upgrade" and number("DonutUpgrades") > upgradesAtStart then
+			go("Treadmill")
+		elseif step == "Treadmill" and number("Speed") >= speedAtStart + 3 then
+			go("Done")
+		end
+		-- point the way
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local goal = if root and step ~= "Done" then target(root.Position) else nil
+		if not root or not goal then
+			place(guide, nil)
+			place(marker, nil)
+			return
+		end
+		local t = os.clock()
+		local bob = math.sin(t * 3) * 0.4
+		local here = root.Position + Vector3.new(0, 6.5 + bob, 0)
+		local flat = Vector3.new(goal.X - here.X, 0, goal.Z - here.Z)
+		if flat.Magnitude > 4 then
+			local ahead = flat.Unit
+			local right = Vector3.yAxis:Cross(-ahead)
+			place(guide, CFrame.fromMatrix(here, right, Vector3.yAxis, -ahead))
+		else
+			place(guide, nil)
+		end
+		-- pointing straight down over the target, turning slowly
+		local over = goal + Vector3.new(0, 10 + math.sin(t * 2.5) * 1.2, 0)
+		place(marker, CFrame.fromMatrix(over, Vector3.xAxis, Vector3.new(0, 0, -1), Vector3.yAxis) * CFrame.Angles(0, 0, t * 1.5))
+	end)
+
+	-- First join: start it (it keeps coming back until finished or skipped)
 	local checked = false
 	State.Changed:Connect(function(snapshot)
-		if checked then
-			return
-		end
-		checked = true
-		if snapshot.SeenTutorial == false then
-			State.Action("SeenTutorial")
-			Tutorial.Open()
+		if not checked then
+			checked = true
+			if snapshot.SeenTutorial == false then
+				Tutorial.Start()
+			end
+		elseif step == "Done" then
+			refresh() -- the claim went through
 		end
 	end)
-	render()
+	refresh()
 end
 
 return Tutorial

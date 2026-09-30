@@ -345,8 +345,21 @@ function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: 
 	ItemService.Buy(player, itemId)
 end
 
-function Actions.SeenTutorial(_player: Player, profile: DataService.Profile)
+function Actions.SeenTutorial(player: Player, profile: DataService.Profile)
 	profile.Data.SeenTutorial = true
+	DataService.PushState(player)
+end
+
+-- The free egg at the end of the tutorial: once per player, ever.
+function Actions.ClaimTutorialEgg(player: Player, profile: DataService.Profile)
+	profile.Data.SeenTutorial = true
+	if profile.Data.TutorialEggClaimed then
+		Remotes.Event("Notify"):FireClient(player, "You already claimed your free egg.", "info")
+	elseif PetService.AddEgg(player, Config.Tutorial.FreeEgg, true) then
+		profile.Data.TutorialEggClaimed = true
+		Remotes.Event("Notify"):FireClient(player, "Free egg added to your incubator! It hatches into a pet.", "success")
+	end
+	DataService.PushState(player)
 end
 
 -- The update notes were shown (UpdateNotes): remember the newest Version seen.

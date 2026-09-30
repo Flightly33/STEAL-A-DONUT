@@ -595,6 +595,11 @@ Config.Graphics = {
 	Brightness = 2.1, -- sunlight strength
 }
 
+-- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).
+Config.Tutorial = {
+	FreeEgg = "Sprinkle",
+}
+
 -- World 2's skybox. Paste the six image IDs of a galaxy skybox from the Creator Store here (e.g.
 -- "rbxassetid://123") and World 2 uses it; left empty, World 2 shows Roblox's starry night sky.
 Config.GalaxySky = {

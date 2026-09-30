@@ -620,6 +620,7 @@ function PlotService.UpgradeSlot(player: Player, slotIndex: number)
 		return
 	end
 	slot.Level += 1
+	player:SetAttribute("DonutUpgrades", ((player:GetAttribute("DonutUpgrades") :: number?) or 0) + 1) -- (the tutorial watches this)
 	updateSlotLabels(player, slotIndex)
 	afterSlotsChanged(player)
 	notify(player, `Upgraded to Lv. {slot.Level}!`, "success")

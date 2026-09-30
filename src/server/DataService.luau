@@ -70,6 +70,7 @@ export type Data = {
 	SeenTutorial: boolean, -- the first-join "how to play" window -- admin: Base Lock that never runs out
 	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
+	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
 	AdminRevoked: boolean, -- the game's owner took their admin panel away (the chat code won't work)
 	SessionLock: { JobId: string, Time: number }?,
 }
@@ -129,6 +130,7 @@ local TEMPLATE: Data = {
 	SeenTutorial = false,
 	SeenUpdate = 0,
 	NotesOnLogin = true,
+	TutorialEggClaimed = false,
 	AdminRevoked = false,
 }
 
@@ -512,6 +514,7 @@ function DataService.PushState(player: Player)
 		SeenTutorial = profile.Data.SeenTutorial,
 		SeenUpdate = profile.Data.SeenUpdate,
 		NotesOnLogin = profile.Data.NotesOnLogin,
+		TutorialEggClaimed = profile.Data.TutorialEggClaimed,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})
