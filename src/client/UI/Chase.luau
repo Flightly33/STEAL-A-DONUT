@@ -171,6 +171,7 @@ local function onChaseStarted(info: ChaseInfo)
 	end
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
+	Theme.PlaySound("Grab")
 	Theme.PlaySound("Steal")
 	if kind == "Egg" then
 		local egg = Pets.EggById[info.DonutId]
@@ -245,9 +246,11 @@ local function flingSelf(velocity: Vector3?)
 		return
 	end
 	h:ChangeState(Enum.HumanoidStateType.FallingDown)
-	root.AssemblyLinearVelocity = velocity or Vector3.new(math.random(-20, 20), 55, -35)
-	root.AssemblyAngularVelocity = Vector3.new(math.random(-8, 8), math.random(-8, 8), math.random(-8, 8))
-	task.delay(1.2, function()
+	-- Caught: launched high and far back towards the hub, spinning (like getting bonked in Steal an Egg)
+	root.AssemblyLinearVelocity = velocity or Vector3.new(math.random(-25, 25), 95, -130)
+	root.AssemblyAngularVelocity = Vector3.new(math.random(-12, 12), math.random(-12, 12), math.random(-12, 12))
+	Theme.PlaySound("Fling")
+	task.delay(if velocity then 1.2 else 1.9, function()
 		if h.Parent then
 			h:ChangeState(Enum.HumanoidStateType.GettingUp)
 		end

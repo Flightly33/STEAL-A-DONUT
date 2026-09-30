@@ -270,6 +270,41 @@ local function cyber(folder: Instance, world: Areas.World, rng: Random)
 	end)
 end
 
+-- World 2: Donut Land's layout under a night sky full of planets, with shooting-star sparkle.
+local function cosmos(folder: Instance, world: Areas.World, rng: Random)
+	local x0 = world.OffsetX
+	local colors = { rgb(255, 150, 90), rgb(120, 200, 255), rgb(200, 140, 255), rgb(255, 220, 120), rgb(120, 255, 190) }
+	local function planet(position: Vector3, size: number)
+		local color = colors[rng:NextInteger(1, #colors)]
+		local ball = Build.Ball(folder, position, size, color, Enum.Material.SmoothPlastic)
+		ball.CastShadow = false
+		if rng:NextNumber() < 0.5 then
+			Build.Decor({
+				Parent = folder, Name = "PlanetRing", Shape = Enum.PartType.Cylinder,
+				Size = Vector3.new(0.4, size * 1.9, size * 1.9),
+				CFrame = CFrame.new(position) * CFrame.Angles(rng:NextNumber(-0.5, 0.5), 0, math.pi / 2 + rng:NextNumber(-0.4, 0.4)),
+				Color = color:Lerp(Color3.new(1, 1, 1), 0.4), Material = Enum.Material.Neon, Transparency = 0.4,
+			})
+		end
+	end
+	for _ = 1, 6 do
+		planet(Vector3.new(x0 + rng:NextNumber(-250, 250), rng:NextNumber(80, 160), rng:NextNumber(-(map.HubDepth + 60), -40)), rng:NextNumber(14, 34))
+	end
+	alongLane(world, 150, function(x, z, side)
+		planet(Vector3.new(x + side * rng:NextNumber(20, 80), rng:NextNumber(70, 140), z + rng:NextNumber(-30, 30)), rng:NextNumber(12, 30))
+	end)
+	-- Twinkling stars over the whole world
+	local sky = Build.Decor({ Parent = folder, Name = "Stars", Size = Vector3.new(700, 1, Layout.LaneEnd(world.Id) + map.HubDepth + 200), Position = Vector3.new(x0, 170, (Layout.LaneEnd(world.Id) - map.HubDepth) / 2), Transparency = 1 })
+	local stars = Instance.new("ParticleEmitter")
+	stars.Color = ColorSequence.new(rgb(255, 255, 255), rgb(190, 170, 255))
+	stars.LightEmission = 1
+	stars.Rate = 60
+	stars.Lifetime = NumberRange.new(3, 5)
+	stars.Speed = NumberRange.new(0)
+	stars.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 1.6), NumberSequenceKeypoint.new(1, 0) })
+	stars.Parent = sky
+end
+
 function WorldDecor.Build(parent: Instance, world: Areas.World)
 	local folder = Instance.new("Folder")
 	folder.Name = "Scenery"
@@ -281,6 +316,8 @@ function WorldDecor.Build(parent: Instance, world: Areas.World)
 		dream(folder, world, rng)
 	elseif world.Id == 4 then
 		cyber(folder, world, rng)
+	elseif world.Id == Areas.UltimateWorld then
+		cosmos(folder, world, rng)
 	end
 end
 

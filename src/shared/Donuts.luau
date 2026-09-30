@@ -18,6 +18,7 @@
 ]]
 
 local Rarities = require(script.Parent.Rarities)
+local Areas = require(script.Parent.Areas)
 
 export type Donut = {
 	Id: string,
@@ -284,7 +285,45 @@ Donuts.List = {
 	D("overclockus", "Overclockus Maximus", "Secret", 33, 4.75e26, 0.015, rgb(10, 10, 30), rgb(80, 160, 255), NEON, { "Wings", "Crown", "Flames", "Gears", "Orbit" }),
 	D("singularity", "The Singularity Donut", "Secret", 33, 1.43e27, 0.006, rgb(0, 0, 0), rgb(20, 20, 20), STARS, { "Wings", "Halo", "Crown", "Orbit", "Cape", "Flames" }),
 	D("rootaccess", "Root Access Admino", "Admin", 33, 1.19e28, 0.004, rgb(15, 15, 20), rgb(255, 30, 40), ADMIN, { "Crown", "Sunglasses", "Cape", "Wings", "Halo", "Orbit", "Antenna" }),
+
+	---------------------------------------------------------------- Area 34: The Black Hole
+	D("singularino", "Singularino Spaghettino", "Celestial", 34, 4.75e25, 50, rgb(20, 14, 40), rgb(150, 90, 255), STARS, { "Legs", "Orbit" }),
+	D("eventhorizonte", "Event Horizonte", "Celestial", 34, 8.6e25, 28, rgb(10, 8, 20), rgb(255, 150, 60), STARS, { "Legs", "Arms", "Halo" }),
+	D("gravitoni", "Gravitoni Glazoni", "Celestial", 34, 1.66e26, 14, rgb(30, 20, 60), rgb(90, 200, 255), NEON, { "Legs", "Wings", "Orbit" }),
+	D("quasarino", "Quasarino Crullero", "Celestial", 34, 3.33e26, 4, rgb(15, 10, 30), rgb(255, 255, 255), STARS, { "Legs", "Arms", "Visor", "Halo" }),
+	D("supermassivo", "Supermassivo Sprinklo", "Celestial", 34, 7.1e26, 1, rgb(5, 5, 10), rgb(120, 60, 255), RAINBOW, { "Wings", "Crown", "Cape", "Orbit", "Halo" }),
+	D("wormholio", "Wormholio Infinitoni", "Secret", 34, 2.9e27, 0.012, rgb(0, 0, 0), rgb(170, 90, 255), STARS, { "Wings", "Halo", "Crown", "Orbit", "Tentacles" }),
+	-- The first ICON donut: rarer than Admin (about 1 in 70,000 spawns in The Black Hole)
+	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
 } :: { Donut }
+
+-- World 2 (reached by an ULTIMATE REBIRTH): every Donut Land donut again as a rarer "Cosmic"
+-- version, two rarities higher, earning 2x as much, in the matching World 2 area.
+local COSMIC_RARITY: { [string]: string } = {
+	Common = "Epic",
+	Uncommon = "Epic",
+	Rare = "Legendary",
+	Epic = "Legendary",
+	Legendary = "Celestial",
+	Celestial = "Secret",
+}
+for _, donut in table.clone(Donuts.List) do
+	local area = Areas.List[donut.Area]
+	if area and area.World == 1 then
+		table.insert(Donuts.List, D(
+			"cosmic_" .. donut.Id,
+			"Cosmic " .. donut.Name,
+			COSMIC_RARITY[donut.Rarity] or donut.Rarity,
+			Areas.CosmicOffset + area.Index,
+			donut.Income * 2,
+			donut.Weight,
+			donut.Dough:Lerp(rgb(60, 40, 120), 0.45),
+			donut.Frosting,
+			donut.Sprinkles or STARS,
+			donut.Parts
+		))
+	end
+end
 
 Donuts.ById = {} :: { [string]: Donut }
 Donuts.ByArea = {} :: { [number]: { Donut } }

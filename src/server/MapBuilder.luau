@@ -43,7 +43,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 5
+local MAP_VERSION = 6
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -90,8 +90,10 @@ local function buildPortal(parent: Instance, name: string, cf: CFrame, color: Co
 end
 
 local function portalSubtitle(world: Areas.World): string
-	local rebirths = if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
-	return `🔒 Needs {rebirths}  •  Everyone is x{world.WalkMultiplier} faster`
+	if (world.RequiredUltimate or 0) > 0 then
+		return "🔒 Needs an ULTIMATE REBIRTH  •  Rarer donuts, 2x money"
+	end
+	return `🔒 Needs {Economy.WorldRequirementText(world.Id)}  •  Everyone is x{world.WalkMultiplier} faster`
 end
 
 local function buildHubPortals(hub: Instance)
@@ -249,12 +251,20 @@ local function buildWorldLanding(parent: Instance, world: Areas.World)
 	folder.Parent = parent
 end
 
+-- The hubs of worlds 2+ (only the missing ones, so a saved map gets new worlds added).
 local function buildWorlds(parent: Folder)
-	local worlds = Instance.new("Folder")
-	worlds.Name = "Worlds"
-	worlds.Parent = parent
+	local worlds: Instance
+	local found = parent:FindFirstChild("Worlds")
+	if found then
+		worlds = found
+	else
+		local folder = Instance.new("Folder")
+		folder.Name = "Worlds"
+		folder.Parent = parent
+		worlds = folder
+	end
 	for _, world in Areas.Worlds do
-		if world.Id > 1 then
+		if world.Id > 1 and not worlds:FindFirstChild("World" .. world.Id) then
 			buildWorldLanding(worlds, world)
 		end
 	end
@@ -352,7 +362,7 @@ local function buildLeaderboards(parent: Instance)
 	local count = #Config.Leaderboards.Boards
 	for index, board in Config.Leaderboards.Boards do
 		local x = (index - (count + 1) / 2) * 33
-		local z = -250
+		local z = Layout.LeaderboardZ()
 		local model = Instance.new("Model")
 		model.Name = "Board_" .. board.Id
 		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31, 40, 1.5), Position = Vector3.new(x, 21, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
@@ -438,7 +448,7 @@ local function guardInfoText(area: Areas.Area): string
 end
 
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
-	local half = map.LaneHalfWidth
+	local half = Layout.AreaHalfWidth(area.Id)
 	local arch = Instance.new("Model")
 	arch.Name = "Arch"
 	for _, side in { -1, 1 } do
@@ -516,6 +526,206 @@ local function buildGuardBed(parent: Instance, areaId: number)
 	bed.Parent = parent
 end
 
+--------------------------------------------------------------------------------
+-- The secret lab under The Black Hole (Areas[].Lab)
+-- A pit on the right of the area drops you into a lab under the floor. Its window looks out on a
+-- black hole held in an experiment; the big red button on the lectern is the ULTIMATE REBIRTH
+-- (WorldService), and a pad in the corner takes you back up.
+--------------------------------------------------------------------------------
+local PIT_SIZE = 20
+local LAB_FLOOR, LAB_CEILING = -60, -32
+
+-- Centre of the pit (x, z) in an area built around X = 0.
+local function labPit(zs: number): (number, number)
+	return 75, zs + 120
+end
+
+local function buildLab(parent: Instance, zs: number)
+	local lab = Instance.new("Model")
+	lab.Name = "SecretLab"
+	local px, pz = labPit(zs)
+	local h = PIT_SIZE / 2
+	local purple, dark, metal = rgb(170, 90, 255), rgb(24, 22, 32), rgb(60, 62, 74)
+	local function solid(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?): BasePart
+		return Build.Part({ Parent = lab, Name = name, Size = size, CFrame = cf, Color = color, Material = material or Enum.Material.Metal })
+	end
+	local function glow(name: string, size: Vector3, cf: CFrame, color: Color3, transparency: number?): BasePart
+		return Build.Decor({ Parent = lab, Name = name, Size = size, CFrame = cf, Color = color, Material = Enum.Material.Neon, Transparency = transparency or 0 })
+	end
+	local function lamp(position: Vector3, color: Color3, range: number)
+		local bulb = glow("Lamp", Vector3.new(6, 0.4, 1.2), CFrame.new(position), color)
+		local light = Instance.new("PointLight")
+		light.Color = color
+		light.Range = range
+		light.Brightness = 2
+		light.Parent = bulb
+	end
+
+	-- The pit: a shaft from the floor down to the lab's ceiling, with a hazard rim and a hint
+	local depth = -LAB_CEILING
+	for _, side in { -1, 1 } do
+		solid("ShaftWall", Vector3.new(1, depth, PIT_SIZE + 2), CFrame.new(px + side * (h + 0.5), LAB_CEILING / 2, pz), dark)
+		solid("ShaftWall", Vector3.new(PIT_SIZE + 2, depth, 1), CFrame.new(px, LAB_CEILING / 2, pz + side * (h + 0.5)), dark)
+		glow("PitRim", Vector3.new(1.2, 0.3, PIT_SIZE + 2.4), CFrame.new(px + side * (h + 0.6), 0.15, pz), rgb(255, 210, 0))
+		glow("PitRim", Vector3.new(PIT_SIZE + 2.4, 0.3, 1.2), CFrame.new(px, 0.15, pz + side * (h + 0.6)), rgb(255, 210, 0))
+	end
+	-- Guards can't follow you down (GuardService makes this lid solid for guards only)
+	local lid = Build.Part({ Parent = lab, Name = "GuardLid", Size = Vector3.new(PIT_SIZE, 1, PIT_SIZE), CFrame = CFrame.new(px, -0.5, pz), Transparency = 1, CanCollide = false, CanQuery = false })
+	lid:SetAttribute("GuardBlocker", true)
+	local hint = Instance.new("BillboardGui")
+	hint.Size = UDim2.fromScale(16, 4)
+	hint.StudsOffsetWorldSpace = Vector3.new(0, 7, 0)
+	hint.LightInfluence = 0
+	hint.MaxDistance = 120
+	hint.Parent = lid
+	Build.Text(hint, "⚠ KEEP OUT ⚠", { Size = UDim2.fromScale(1, 0.6), TextColor3 = rgb(255, 210, 0), TextStrokeColor3 = rgb(40, 20, 0) })
+	Build.Text(hint, "restricted experiment below", { Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.6), TextColor3 = rgb(220, 200, 255), Font = Enum.Font.FredokaOne })
+
+	-- The lab room: x 35..92, one wall is a big window onto the experiment
+	local x0, x1, z0, z1 = 35, 92, pz - 26, pz + 26
+	local roomHeight = LAB_CEILING - LAB_FLOOR
+	local midY = (LAB_CEILING + LAB_FLOOR) / 2
+	Build.CheckerFloor(lab, x0, x1, z0, z1, 8, { rgb(235, 235, 242), rgb(205, 205, 218) }, Enum.Material.SmoothPlastic, LAB_FLOOR)
+	-- ceiling around the shaft
+	solid("Ceiling", Vector3.new(x1 - x0, 1, (pz - h) - z0), CFrame.new((x0 + x1) / 2, LAB_CEILING + 0.5, (z0 + pz - h) / 2), metal)
+	solid("Ceiling", Vector3.new(x1 - x0, 1, z1 - (pz + h)), CFrame.new((x0 + x1) / 2, LAB_CEILING + 0.5, (pz + h + z1) / 2), metal)
+	solid("Ceiling", Vector3.new((px - h) - x0, 1, PIT_SIZE), CFrame.new((x0 + px - h) / 2, LAB_CEILING + 0.5, pz), metal)
+	solid("Ceiling", Vector3.new(x1 - (px + h), 1, PIT_SIZE), CFrame.new((px + h + x1) / 2, LAB_CEILING + 0.5, pz), metal)
+	-- walls
+	solid("LabWall", Vector3.new(1, roomHeight, z1 - z0 + 2), CFrame.new(x1 + 0.5, midY, pz), rgb(215, 218, 228), Enum.Material.SmoothPlastic)
+	for _, z in { z0 - 0.5, z1 + 0.5 } do
+		solid("LabWall", Vector3.new(x1 - x0 + 2, roomHeight, 1), CFrame.new((x0 + x1) / 2, midY, z), rgb(215, 218, 228), Enum.Material.SmoothPlastic)
+	end
+	-- the window wall (x = x0): glass in the middle, wall around it
+	local windowHalf, windowBottom, windowTop = 19, LAB_FLOOR + 5, LAB_CEILING - 4
+	solid("LabWall", Vector3.new(1, windowBottom - LAB_FLOOR, z1 - z0), CFrame.new(x0 - 0.5, (LAB_FLOOR + windowBottom) / 2, pz), metal)
+	solid("LabWall", Vector3.new(1, LAB_CEILING - windowTop, z1 - z0), CFrame.new(x0 - 0.5, (windowTop + LAB_CEILING) / 2, pz), metal)
+	for _, side in { -1, 1 } do
+		local edge = pz + side * windowHalf
+		local far = if side < 0 then z0 else z1
+		solid("LabWall", Vector3.new(1, windowTop - windowBottom, math.abs(far - edge)), CFrame.new(x0 - 0.5, (windowBottom + windowTop) / 2, (edge + far) / 2), metal)
+	end
+	local glass = solid("Window", Vector3.new(0.6, windowTop - windowBottom, windowHalf * 2), CFrame.new(x0 - 0.5, (windowBottom + windowTop) / 2, pz), rgb(170, 220, 255), Enum.Material.Glass)
+	glass.Transparency = 0.45
+	glass.CastShadow = false
+	glow("WindowFrame", Vector3.new(0.8, 0.5, windowHalf * 2 + 1), CFrame.new(x0 - 0.2, windowBottom, pz), purple)
+	glow("WindowFrame", Vector3.new(0.8, 0.5, windowHalf * 2 + 1), CFrame.new(x0 - 0.2, windowTop, pz), purple)
+	-- sign over the window
+	local sign = solid("ExperimentSign", Vector3.new(0.4, 3, 22), CFrame.new(x0 + 0.2, LAB_CEILING - 2, pz), rgb(20, 20, 28))
+	local signGui = Instance.new("SurfaceGui")
+	signGui.Face = Enum.NormalId.Right
+	signGui.LightInfluence = 0
+	signGui.Parent = sign
+	Build.Text(signGui, "⚠ EXPERIMENT BH-01: CONTAINED BLACK HOLE ⚠", { TextColor3 = rgb(255, 210, 0), TextStrokeColor3 = rgb(0, 0, 0) })
+	-- lights
+	for _, z in { pz - 16, pz + 16 } do
+		lamp(Vector3.new(80, LAB_CEILING - 0.3, z), rgb(235, 240, 255), 40)
+	end
+	lamp(Vector3.new(50, LAB_CEILING - 0.3, pz), rgb(200, 170, 255), 36)
+
+	-- The lectern in front of the window, with the big red button
+	local lx = x0 + 9
+	solid("Lectern", Vector3.new(3, 4.5, 6), CFrame.new(lx, LAB_FLOOR + 2.25, pz), metal)
+	local top = solid("LecternTop", Vector3.new(4.6, 0.6, 7.4), CFrame.new(lx + 0.3, LAB_FLOOR + 4.8, pz) * CFrame.Angles(0, 0, math.rad(-14)), rgb(40, 42, 52))
+	local topCf = top.CFrame * CFrame.new(0, 0.3, 0)
+	local ring = Build.Part({ Parent = lab, Name = "ButtonRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3.4, 3.4), CFrame = topCf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 210, 0), Material = Enum.Material.SmoothPlastic })
+	ring.CanCollide = false
+	local button = Build.Part({ Parent = lab, Name = "UltimateButton", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.9, 2.6, 2.6), CFrame = topCf * CFrame.new(0, 0.55, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(230, 20, 30), Material = Enum.Material.Neon })
+	button.CanCollide = false
+	button:SetAttribute("UltimateButton", true)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "UltimatePrompt"
+	prompt.ActionText = "ULTIMATE REBIRTH"
+	prompt.ObjectText = "⚠ Do NOT press"
+	prompt.HoldDuration = 1.2
+	prompt.MaxActivationDistance = 10
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = button
+	local label = Instance.new("BillboardGui")
+	label.Name = "ButtonLabel"
+	label.Size = UDim2.fromScale(14, 4.5)
+	label.StudsOffsetWorldSpace = Vector3.new(0, 4.5, 0)
+	label.LightInfluence = 0
+	label.MaxDistance = 80
+	label.Parent = button
+	Build.Text(label, "ULTIMATE REBIRTH", { Size = UDim2.fromScale(1, 0.72), TextColor3 = rgb(255, 40, 40), TextStrokeColor3 = rgb(255, 255, 255) })
+	Build.Text(label, "resets you... and takes you to WORLD 2", { Size = UDim2.fromScale(1, 0.28), Position = UDim2.fromScale(0, 0.72), TextColor3 = rgb(255, 230, 120), Font = Enum.Font.FredokaOne })
+	-- smaller buttons and blinking lights on the lectern
+	for i, color in { rgb(60, 220, 90), rgb(255, 210, 0), rgb(60, 150, 255), rgb(255, 120, 200) } do
+		local small = Build.Decor({ Parent = lab, Name = "SmallButton", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 0.8, 0.8), CFrame = topCf * CFrame.new(-1.3, 0.2, -3 + (i - 1) * 2) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.Neon })
+		small.CastShadow = false
+	end
+	-- monitors on the back wall
+	for i, text in { "CONTAINMENT FIELD: 99.7%", "GRAVITY: ∞  •  TIME: ???", "DO NOT PRESS THE RED BUTTON" } do
+		local screen = solid("Monitor", Vector3.new(0.4, 5, 9), CFrame.new(x1 - 0.2, LAB_FLOOR + 9, pz - 13 + (i - 1) * 13), rgb(10, 20, 30), Enum.Material.SmoothPlastic)
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = Enum.NormalId.Left
+		gui.LightInfluence = 0
+		gui.Parent = screen
+		Build.Text(gui, text, { TextColor3 = if i == 3 then rgb(255, 70, 70) else rgb(80, 255, 170), Font = Enum.Font.Code })
+	end
+	-- the way back up
+	local pad = Build.Part({ Parent = lab, Name = "ExitPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 8, 8), CFrame = CFrame.new(86, LAB_FLOOR + 0.2, pz + 19) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(80, 255, 120), Material = Enum.Material.Neon })
+	pad.CanCollide = false
+	pad:SetAttribute("LabExit", true)
+	local exit = Instance.new("ProximityPrompt")
+	exit.Name = "ExitPrompt"
+	exit.ActionText = "Go back up"
+	exit.ObjectText = "⬆ Lift"
+	exit.HoldDuration = 0.3
+	exit.MaxActivationDistance = 10
+	exit.RequiresLineOfSight = false
+	exit.Parent = pad
+
+	-- The experiment beyond the window: a dark chamber with the black hole held by four beams
+	local cx0, cx1, cz0, cz1, cy0, cy1 = -85, x0 - 1, pz - 62, pz + 62, -122, LAB_CEILING + 1
+	local chamber = rgb(12, 10, 20)
+	local function shell(size: Vector3, position: Vector3)
+		Build.Decor({ Parent = lab, Name = "ChamberWall", Size = size, Position = position, Color = chamber, Material = Enum.Material.Metal })
+	end
+	shell(Vector3.new(cx1 - cx0, 1, cz1 - cz0), Vector3.new((cx0 + cx1) / 2, cy0, pz))
+	shell(Vector3.new(cx1 - cx0, 1, cz1 - cz0), Vector3.new((cx0 + cx1) / 2, cy1, pz))
+	shell(Vector3.new(1, cy1 - cy0, cz1 - cz0), Vector3.new(cx0, (cy0 + cy1) / 2, pz))
+	for _, z in { cz0, cz1 } do
+		shell(Vector3.new(cx1 - cx0, cy1 - cy0, 1), Vector3.new((cx0 + cx1) / 2, (cy0 + cy1) / 2, z))
+	end
+	local center = Vector3.new(-26, (windowBottom + windowTop) / 2 - 2, pz) -- right in the middle of the view
+	local hole = Decor.BlackHole(lab, center, 0.9)
+	local core = hole.PrimaryPart :: BasePart
+	local coreAttachment = Instance.new("Attachment")
+	coreAttachment.Parent = core
+	for _, corner in { Vector3.new(-1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, -1), Vector3.new(1, 0, 1) } do
+		local base = Vector3.new(center.X + corner.X * 40, cy0, center.Z + corner.Z * 42)
+		local pylon = center.Y - 14 - cy0
+		Build.Pillar(lab, base, pylon, 4, metal, Enum.Material.Metal)
+		local tip = Build.Ball(lab, base + Vector3.new(0, pylon + 2, 0), 5, rgb(90, 220, 255), Enum.Material.Neon)
+		local tipAttachment = Instance.new("Attachment")
+		tipAttachment.Parent = tip
+		local beam = Instance.new("Beam")
+		beam.Attachment0 = tipAttachment
+		beam.Attachment1 = coreAttachment
+		beam.Width0 = 2.5
+		beam.Width1 = 1
+		beam.FaceCamera = true
+		beam.LightEmission = 1
+		beam.Color = ColorSequence.new(rgb(90, 220, 255), rgb(200, 150, 255))
+		beam.Transparency = NumberSequence.new(0.2, 0.5)
+		beam.Parent = tip
+	end
+	for _, z in { cz0 + 2, cz1 - 2 } do
+		for _, x in { cx0 + 20, (cx0 + cx1) / 2 + 10 } do
+			local warning = glow("WarningLight", Vector3.new(3, 3, 1), CFrame.new(x, cy1 - 8, z), rgb(255, 40, 40))
+			local light = Instance.new("PointLight")
+			light.Color = rgb(255, 40, 40)
+			light.Range = 30
+			light.Brightness = 1.5
+			light.Parent = warning
+		end
+	end
+	lab.PrimaryPart = button
+	lab.Parent = parent
+end
+
 local function buildSpawns(parent: Instance, areaId: number, zs: number, ze: number)
 	local folder = Instance.new("Folder")
 	folder.Name = "Spawns"
@@ -527,8 +737,14 @@ local function buildSpawns(parent: Instance, areaId: number, zs: number, ze: num
 	while #points < map.DonutSpawnsPerArea and attempts < 2000 do
 		attempts += 1
 		-- Donuts spawn between the hub and the guard, at least 18 studs in front of him.
-		local candidate = Vector3.new(rng:NextNumber(-42, 42), 0, rng:NextNumber(zs + Layout.SpawnStartMargin, ze - Layout.GuardBackOffset - Layout.SpawnGuardMargin))
+		local spread = Layout.AreaHalfWidth(areaId) - 18
+		local candidate = Vector3.new(rng:NextNumber(-spread, spread), 0, rng:NextNumber(zs + Layout.SpawnStartMargin, ze - Layout.GuardBackOffset - Layout.SpawnGuardMargin))
 		local ok = (candidate - home).Magnitude > 18
+		if Areas.List[areaId].Lab then
+			-- not on the edge of the pit down to the lab
+			local px, pz = labPit(zs)
+			ok = ok and (candidate - Vector3.new(px, 0, pz)).Magnitude > 20
+		end
 		for _, other in points do
 			if (candidate - other).Magnitude < 17 then
 				ok = false
@@ -564,15 +780,35 @@ end
 
 local function buildArea(parent: Instance, area: Areas.Area)
 	local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
-	local half = map.LaneHalfWidth
+	local half = Layout.AreaHalfWidth(area.Id)
 	local folder = Instance.new("Folder")
 	folder.Name = "Area" .. area.Id
 	folder:SetAttribute("AreaId", area.Id)
 	folder.Parent = parent
 
-	Build.CheckerFloor(folder, -half, half, zs, ze, map.TileSize, area.Floor, area.FloorMaterial)
+	if area.Lab then
+		-- floor with a hole for the pit down to the lab
+		local px, pz = labPit(zs)
+		local hx0, hx1, hz0, hz1 = px - PIT_SIZE / 2, px + PIT_SIZE / 2, pz - PIT_SIZE / 2, pz + PIT_SIZE / 2
+		Build.CheckerFloor(folder, -half, half, zs, hz0, map.TileSize, area.Floor, area.FloorMaterial)
+		Build.CheckerFloor(folder, -half, half, hz1, ze, map.TileSize, area.Floor, area.FloorMaterial)
+		Build.CheckerFloor(folder, -half, hx0, hz0, hz1, map.TileSize, area.Floor, area.FloorMaterial)
+		Build.CheckerFloor(folder, hx1, half, hz0, hz1, map.TileSize, area.Floor, area.FloorMaterial)
+		buildLab(folder, zs)
+	else
+		Build.CheckerFloor(folder, -half, half, zs, ze, map.TileSize, area.Floor, area.FloorMaterial)
+	end
 
 	local t, h = 4, map.LaneWallHeight
+	-- Wider than the area before it: close the gap between the two lanes' walls
+	local before = if area.Index > 1 then Areas.ByWorld[area.World][area.Index - 1] else nil
+	local beforeHalf = if before then Layout.AreaHalfWidth(before.Id) else half
+	if half > beforeHalf then
+		for _, side in { -1, 1 } do
+			local from = if side < 0 then -(half + t) else beforeHalf + t
+			Build.CheckerWall(folder, Vector3.new(from, 0, zs + t / 2), Vector3.new(1, 0, 0), half - beforeHalf, h, t, area.Wall, area.WallMaterial, 20)
+		end
+	end
 	for _, side in { -1, 1 } do
 		Build.CheckerWall(folder, Vector3.new(side * (half + t / 2), 0, zs), Vector3.new(0, 0, 1), ze - zs, h, t, area.Wall, area.WallMaterial, 20)
 		Build.Part({ Parent = folder, Name = "WallTop", Size = Vector3.new(t + 1, 2, ze - zs), Position = Vector3.new(side * (half + t / 2), h + 1, (zs + ze) / 2), Color = area.Trim, Material = area.TrimMaterial })
@@ -875,11 +1111,11 @@ local function setupLighting()
 	-- Bright, clean daylight like the reference: high sun, clear sky, no fog, vivid colours.
 	Lighting.GlobalShadows = true
 	Lighting.ClockTime = 13.5
-	Lighting.Brightness = 2.5
+	Lighting.Brightness = Config.Graphics.Brightness
 	Lighting.ExposureCompensation = 0
 	Lighting.ShadowSoftness = 0.5
 	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 0.5
+	Lighting.EnvironmentSpecularScale = 1 -- shiny plastic catches the light
 	Lighting.OutdoorAmbient = rgb(170, 170, 180)
 	Lighting.Ambient = rgb(150, 150, 160)
 	local atmosphere = ensure("Atmosphere", "Atmosphere") :: Atmosphere
@@ -890,16 +1126,16 @@ local function setupLighting()
 	atmosphere.Decay = rgb(106, 112, 125)
 	local tint = ensure("ColorCorrectionEffect", "AreaTint") :: ColorCorrectionEffect
 	tint.Brightness = 0.02
-	tint.Saturation = 0.12
-	tint.Contrast = 0.04
+	tint.Saturation = 0.12 + Config.Graphics.SaturationBoost
+	tint.Contrast = 0.04 + Config.Graphics.ContrastBoost
 	tint.TintColor = rgb(255, 255, 255)
 	local bloom = ensure("BloomEffect", "Bloom") :: BloomEffect
-	bloom.Intensity = 0.1
-	bloom.Size = 18
-	bloom.Threshold = 2.2
+	bloom.Intensity = 0.1 + Config.Graphics.BloomBoost
+	bloom.Size = Config.Graphics.BloomSize
+	bloom.Threshold = Config.Graphics.BloomThreshold
 	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
-	sunRays.Intensity = 0.02
-	sunRays.Spread = 0.5
+	sunRays.Intensity = Config.Graphics.SunRays
+	sunRays.Spread = 0.6
 end
 
 --------------------------------------------------------------------------------
@@ -955,6 +1191,21 @@ function MapBuilder.Build(): Folder
 					end
 				end
 				buildHubGround(hub)
+			end
+		end
+		if version < 6 then
+			-- Version 6: The Black Hole comes after The Mainframe, so rebuild The Mainframe without
+			-- its end wall; the hub's portals and leaderboards moved to the back of the hub.
+			local lane = existing:FindFirstChild("Lane")
+			local mainframe = lane and lane:FindFirstChild("Area33")
+			if mainframe then
+				mainframe:Destroy()
+			end
+			for _, name in { "Portals", "Leaderboards" } do
+				local old = hub and hub:FindFirstChild(name)
+				if old then
+					old:Destroy()
+				end
 			end
 		end
 		if hub then
@@ -1046,9 +1297,7 @@ function MapBuilder.Build(): Folder
 		if not existing:FindFirstChild("Plots") then
 			buildPlots(existing)
 		end
-		if not existing:FindFirstChild("Worlds") then
-			buildWorlds(existing)
-		end
+		buildWorlds(existing) -- adds any world hubs that are missing
 		mapFolder = existing
 		return existing
 	end

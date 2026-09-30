@@ -14,6 +14,8 @@
 		EggHatched(info)                   { EggId, PetId, Uid } - play the hatch animation
 		AdminPanel()                       open the admin panel (you typed the code)
 		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
+		UltimateAsk()                      you pressed the ULTIMATE REBIRTH button: ask "are you sure?"
+		UltimateRebirth(worldName)         it happened: white flash, explosion, "WORLD 2"
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, speed slider, teleport home...
@@ -29,7 +31,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened", "UltimateAsk", "UltimateRebirth" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats" }
 
 local Remotes = {}

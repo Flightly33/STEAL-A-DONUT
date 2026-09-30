@@ -43,7 +43,7 @@ local function bestArea(player: Player): number?
 	local walk = Economy.WalkSpeedFromStat(profile.Data.Speed)
 	local best = nil
 	for _, area in Areas.List do
-		if Economy.WorldUnlocked(area.World, profile.Data.Rebirths) and walk + 0.01 >= Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
+		if Economy.WorldUnlocked(area.World, profile.Data.Rebirths, profile.Data.UltimateRebirths) and walk + 0.01 >= Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
 			best = area.Id
 		end
 	end
@@ -105,7 +105,7 @@ local function rareRain(myToken: number)
 			local name = Rarities.DisplayName(donut.Name, record.Mutation, record.Size)
 			for _, player in Players:GetPlayers() do
 				local profile = DataService.Get(player)
-				if profile and Economy.WorldUnlocked(area.World, profile.Data.Rebirths) then
+				if profile and Economy.WorldUnlocked(area.World, profile.Data.Rebirths, profile.Data.UltimateRebirths) then
 					Remotes.Event("Notify"):FireClient(player, `☄️ A {string.upper(rarity.Id)} donut crashed into {area.Name}: {name}!`, "rare")
 				end
 			end

@@ -42,13 +42,9 @@ local function warnOnce(player: Player, text: string)
 	notify(player, text, "error")
 end
 
-local function rebirthsText(count: number): string
-	return if count == 1 then "1 Rebirth" else `{count} Rebirths`
-end
-
 function WorldService.CanEnterWorld(player: Player, worldId: number): boolean
 	local profile = DataService.Get(player)
-	return profile ~= nil and Economy.WorldUnlocked(worldId, profile.Data.Rebirths)
+	return profile ~= nil and Economy.WorldUnlocked(worldId, profile.Data.Rebirths, profile.Data.UltimateRebirths)
 end
 
 local function setWorld(player: Player, worldId: number)
@@ -66,6 +62,60 @@ local function arrive(player: Player, worldId: number)
 	local world = Areas.World(worldId)
 	if worldId > 1 then
 		notify(player, `{world.Icon} Welcome to {world.Name}! Everyone is x{world.WalkMultiplier} faster here.`, "success")
+	end
+end
+
+-- Send a player to a world's landing (their base moves there too).
+function WorldService.SendToWorld(player: Player, worldId: number)
+	arrive(player, worldId)
+end
+
+--------------------------------------------------------------------------------
+-- The Black Hole's secret lab: the ULTIMATE REBIRTH button and the lift back up
+--------------------------------------------------------------------------------
+local ultimateButtons: { BasePart } = {}
+
+-- Is the player standing at the ULTIMATE REBIRTH button?
+function WorldService.NearUltimateButton(player: Player): boolean
+	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not root then
+		return false
+	end
+	for _, button in ultimateButtons do
+		if (button.Position - root.Position).Magnitude <= 16 then
+			return true
+		end
+	end
+	return false
+end
+
+local function setUpLab()
+	for _, part in MapBuilder.Get():GetDescendants() do
+		if part:IsA("BasePart") and part:GetAttribute("UltimateButton") then
+			table.insert(ultimateButtons, part)
+			local prompt = part:FindFirstChildOfClass("ProximityPrompt")
+			if prompt then
+				prompt.Triggered:Connect(function(player: Player)
+					if StealService.IsCarrying(player) then
+						notify(player, "Bring your donut home first!", "error")
+					elseif WorldService.NearUltimateButton(player) then
+						Remotes.Event("UltimateAsk"):FireClient(player)
+					end
+				end)
+			end
+		elseif part:IsA("BasePart") and part:GetAttribute("LabExit") then
+			local prompt = part:FindFirstChildOfClass("ProximityPrompt")
+			local pad = part
+			if prompt then
+				prompt.Triggered:Connect(function(player: Player)
+					local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+					if root and (root.Position - pad.Position).Magnitude < 16 then
+						-- straight up the lift shaft, onto the floor next to the pit
+						StealService.Teleport(player, CFrame.new(pad.Position.X, 4, pad.Position.Z))
+					end
+				end)
+			end
+		end
 	end
 end
 
@@ -96,7 +146,7 @@ local function usePortal(player: Player, trigger: BasePart)
 		return
 	end
 	if not WorldService.CanEnterWorld(player, worldId) then
-		warnOnce(player, `🔒 {Areas.World(worldId).Name} needs {rebirthsText(Areas.World(worldId).RequiredRebirths)}. Rebirth from the menu!`)
+		warnOnce(player, `🔒 {Areas.World(worldId).Name} needs {Economy.WorldRequirementText(worldId)}!`)
 		return
 	end
 	lastPortal[player] = now
@@ -141,7 +191,7 @@ function WorldService.TeleportToWorld(player: Player, worldId: any)
 		return
 	end
 	if not WorldService.CanEnterWorld(player, worldId) then
-		notify(player, `🔒 {Areas.World(worldId).Name} needs {rebirthsText(Areas.World(worldId).RequiredRebirths)}.`, "error")
+		notify(player, `🔒 {Areas.World(worldId).Name} needs {Economy.WorldRequirementText(worldId)}.`, "error")
 		return
 	end
 	if canTeleport(player) then
@@ -156,7 +206,7 @@ function WorldService.TeleportToArea(player: Player, areaId: any)
 	end
 	local area = Areas.List[areaId]
 	if not WorldService.CanEnterWorld(player, area.World) then
-		notify(player, `🔒 {Areas.World(area.World).Name} needs {rebirthsText(Areas.World(area.World).RequiredRebirths)}.`, "error")
+		notify(player, `🔒 {Areas.World(area.World).Name} needs {Economy.WorldRequirementText(area.World)}.`, "error")
 		return
 	end
 	if Economy.WalkSpeedFromStat(profile.Data.Speed) + 0.01 < Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
@@ -175,6 +225,7 @@ function WorldService.OnPlayerRemoving(player: Player)
 end
 
 function WorldService.Init()
+	setUpLab()
 	local triggers = MapBuilder.GetPortals()
 	task.spawn(function()
 		while true do

@@ -106,6 +106,11 @@ function Modal.Toggle(self: Modal)
 	end
 end
 
+-- Is any window open right now?
+function Modal.AnyOpen(): boolean
+	return current ~= nil and current.Frame.Visible
+end
+
 function Modal.IsOpen(self: Modal): boolean
 	return self.Frame.Visible
 end

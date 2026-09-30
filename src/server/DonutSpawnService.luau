@@ -143,7 +143,9 @@ local function spawnDonut(record: SpawnRecord, announce: boolean, forced: Forced
 	if announce and rarity.Order >= Config.Spawns.AnnounceRarity then
 		local area = Areas.List[record.AreaId]
 		local name = Rarities.DisplayName(donut.Name, mutation.Id, size.Id)
-		local text = if rarity.Id == "Admin"
+		local text = if rarity.Id == "Icon"
+			then `💎 AN ICON DONUT APPEARED IN {string.upper(area.Name)}: {name}! 💎`
+			elseif rarity.Id == "Admin"
 			then `🚨 AN ADMIN DONUT APPEARED IN {string.upper(area.Name)}: {name}! 🚨`
 			else `A {string.upper(rarity.Id)} donut appeared in {area.Name}: {name}!`
 		Remotes.Event("AreaAnnouncement"):FireAllClients(text, rarity.Color)

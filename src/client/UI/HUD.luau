@@ -1,8 +1,9 @@
 --[[
-	HUD: always-on screen UI. Kept small and away from Roblox's own UI (chat top-left, player list
-	top-right, hotbar bottom-centre):
-	  left   - Shop / Pets / Index / Rebirth buttons + the speed slider (middle of the screen)
-	  right  - Home / Worlds / Passes / Skins / Donate / Music on-off / Settings (+ Admin) squares
+	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
+	(chat top-left, player list top-right, hotbar bottom-centre):
+	  left   - big Shop / Index / Pets / Rebirth buttons + the speed slider (middle of the screen)
+	  right  - a grid of square buttons: Home / Worlds / Boosts / Skins / Donate / Music / Settings
+	           (+ Admin), centred on the right edge
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
@@ -65,20 +66,21 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local left = Theme.new("Frame", {
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 10, 0.58, 0),
-		Size = UDim2.fromOffset(160, 300),
+		Position = UDim2.new(0, 12, 0.5, 0),
+		Size = UDim2.fromOffset(196, 340),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 7), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 9), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	Theme.AutoScale(left)
 
-	local size = UDim2.fromOffset(150, 46)
-	local shop = Theme.Button({ Text = "Shop", Icon = "🛒", Color = Theme.Colors.Green, Size = size, LayoutOrder = 1, Parent = left })
-	local pets = Theme.Button({ Text = "Pets", Icon = "🐾", Color = Theme.Colors.Pink, Size = size, LayoutOrder = 2, Parent = left })
-	local index = Theme.Button({ Text = "Index", Icon = "📖", Color = Theme.Colors.Blue, Size = size, LayoutOrder = 3, Parent = left })
-	local rebirth = Theme.Button({ Text = "Rebirth", Icon = "🔄", Color = Theme.Colors.Yellow, Size = size, LayoutOrder = 5, Parent = left })
+	-- Shop and Index are the big ones; Pets and Rebirth a bit smaller underneath
+	local big, small = UDim2.fromOffset(190, 64), UDim2.fromOffset(190, 50)
+	local shop = Theme.Button({ Text = "Shop", Icon = "🛒", Color = Theme.Colors.Green, Size = big, LayoutOrder = 1, Parent = left })
+	local index = Theme.Button({ Text = "Index", Icon = "📖", Color = Theme.Colors.Blue, Size = big, LayoutOrder = 2, Parent = left })
+	local pets = Theme.Button({ Text = "Pets", Icon = "🐾", Color = Theme.Colors.Pink, Size = small, LayoutOrder = 3, Parent = left })
+	local rebirth = Theme.Button({ Text = "Rebirth", Icon = "🔄", Color = Theme.Colors.Yellow, Size = small, LayoutOrder = 5, Parent = left })
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
@@ -113,7 +115,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 
 	-- Speed slider: anything from normal walking speed (16) up to your full speed. Handy on your
 	-- base or on the treadmill when you're very fast.
-	local sliderRow = Theme.new("Frame", { Name = "SpeedSlider", BackgroundTransparency = 1, Size = UDim2.fromOffset(160, 48), LayoutOrder = 6, Parent = left })
+	local sliderRow = Theme.new("Frame", { Name = "SpeedSlider", BackgroundTransparency = 1, Size = UDim2.fromOffset(196, 52), LayoutOrder = 6, Parent = left })
 	local sliderLabel = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = sliderRow })
 	local bar = Theme.new("TextButton", { Text = "", AutoButtonColor = false, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 26), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = sliderRow }, { Theme.Corner(8), Theme.Stroke(2.5) })
 	local fill = Theme.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
@@ -172,20 +174,26 @@ end
 local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	local right = Theme.new("Frame", {
 		Name = "RightButtons",
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -10, 1, -104),
-		Size = UDim2.fromOffset(64, 470),
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -12, 0.5, 0),
+		Size = UDim2.fromOffset(160, 330),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Right, VerticalAlignment = Enum.VerticalAlignment.Bottom }),
+		Theme.new("UIGridLayout", {
+			CellSize = UDim2.fromOffset(74, 74),
+			CellPadding = UDim2.fromOffset(9, 9),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+			HorizontalAlignment = Enum.HorizontalAlignment.Right,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+		}),
 	})
 	Theme.AutoScale(right)
 
 	local function square(icon: string, caption: string, color: Color3, order: number, onClick: () -> ()): TextButton
-		local button = Theme.Button({ Text = "", Color = color, Size = UDim2.fromOffset(60, 60), LayoutOrder = order, Parent = right })
-		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.6, 0), Position = UDim2.fromScale(0, 0.07), Parent = button })
-		Theme.Label({ Name = "Caption", Text = caption, Font = Theme.Font, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 1.6, Parent = button })
+		local button = Theme.Button({ Text = "", Color = color, Size = UDim2.fromOffset(74, 74), LayoutOrder = order, Parent = right })
+		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.62, 0), Position = UDim2.fromScale(0, 0.06), Parent = button })
+		Theme.Label({ Name = "Caption", Text = caption, Font = Theme.Title, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 2, Parent = button })
 		button.Activated:Connect(onClick)
 		return button
 	end
@@ -195,7 +203,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		State.Action("TeleportHome")
 	end)
 	square("🌀", "WORLDS", Theme.Colors.Blue, 2, callbacks.OpenWorlds)
-	square("🎟️", "PASSES", Theme.Colors.Orange, 3, function()
+	square("🚀", "BOOSTS", Theme.Colors.Orange, 3, function()
 		callbacks.OpenShop("Passes")
 	end)
 	square("🎨", "SKINS", Theme.Colors.Purple, 4, function()
@@ -230,29 +238,30 @@ local function buildStats(gui: ScreenGui)
 		Name = "Stats",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(1, 0) else Vector2.new(0, 1),
 		Position = if Theme.IsTouch then UDim2.new(1, -10, 0, 4) else UDim2.new(0, 10, 1, -10),
-		Size = UDim2.fromOffset(330, 116),
+		Size = UDim2.fromOffset(380, 136),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
 	Theme.AutoScale(stats)
 	local align = if Theme.IsTouch then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left
 
+	-- Big outlined numbers with an icon, like the reference game
 	local function row(icon: string, color: Color3, y: number): TextLabel
-		local holder = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 44), Position = UDim2.fromOffset(0, y), Parent = stats })
-		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(42, 42), Position = if Theme.IsTouch then UDim2.new(1, -42, 0, 0) else UDim2.new(), Parent = holder })
+		local holder = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 52), Position = UDim2.fromOffset(0, y), Parent = stats })
+		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(50, 50), Position = if Theme.IsTouch then UDim2.new(1, -50, 0, 0) else UDim2.new(), Parent = holder })
 		return Theme.Label({
 			Text = "0",
 			TextColor3 = color,
-			Size = UDim2.new(1, -50, 1, 0),
-			Position = if Theme.IsTouch then UDim2.new() else UDim2.fromOffset(48, 0),
+			Size = UDim2.new(1, -58, 1, 0),
+			Position = if Theme.IsTouch then UDim2.new() else UDim2.fromOffset(56, 0),
 			TextXAlignment = align,
-			StrokeThickness = 3,
+			StrokeThickness = 4,
 			Parent = holder,
 		})
 	end
 	local speedLabel = row("👟", Theme.Colors.Speed, 0)
-	local moneyLabel = row("💵", Theme.Colors.Money, 44)
-	local incomeLabel = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 255, 190), Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 91), TextXAlignment = align, StrokeThickness = 2, Parent = stats })
+	local moneyLabel = row("💵", Theme.Colors.Money, 52)
+	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 106), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
 
 	local function updateSpeed()
 		local walk = State.Number("WalkSpeed")

@@ -2,7 +2,7 @@
 	Rarities, Mutations and Sizes.
 
 	Every donut that spawns has:
-	  * a base RARITY (from Donuts.luau)       Common ... Secret, Admin
+	  * a base RARITY (from Donuts.luau)       Common ... Secret, Admin, Icon
 	  * a MUTATION (rolled on spawn, rare)     None / Gold / Diamond / Mythic / Divine / Rainbow
 	  * a SIZE (rolled on spawn)               Small / Normal / Big / Huge / Giant
 
@@ -79,6 +79,8 @@ Rarities.List = {
 	{ Id = "Secret", Order = 7, Color = Color3.fromRGB(255, 255, 255), Shine = true, Light = 16, Particles = 40, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 3600, Speed = 8 } },
 	-- Rarer than Secret: one per world, a fraction of a percent of a percent per spawn.
 	{ Id = "Admin", Order = 8, Color = Color3.fromRGB(255, 40, 40), Shine = true, Light = 22, Particles = 60, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 7200, Speed = 15 } },
+	-- The rarest of all: a handful of legendary one-offs (the first is Fake Kar, in The Black Hole).
+	{ Id = "Icon", Order = 9, Color = Color3.fromRGB(40, 140, 255), Shine = true, Light = 26, Particles = 80, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 14400, Speed = 25 } },
 } :: { Rarity }
 
 --------------------------------------------------------------------------------

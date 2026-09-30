@@ -245,14 +245,15 @@ local function startAmbience()
 			clock += 24
 		end
 		TweenService:Create(Lighting, info, { ClockTime = clock, Ambient = amb.Ambient, OutdoorAmbient = amb.Ambient:Lerp(Color3.new(1, 1, 1), 0.2) }):Play()
+		local look = Config.Graphics
 		if tint then
-			TweenService:Create(tint, info, { TintColor = amb.Tint, Saturation = amb.Saturation, Contrast = amb.Contrast }):Play()
+			TweenService:Create(tint, info, { TintColor = amb.Tint, Saturation = amb.Saturation + look.SaturationBoost, Contrast = amb.Contrast + look.ContrastBoost }):Play()
 		end
 		if atmosphere then
 			TweenService:Create(atmosphere, info, { Color = amb.AtmosphereColor, Density = amb.AtmosphereDensity, Haze = amb.Haze }):Play()
 		end
 		if bloom then
-			TweenService:Create(bloom, info, { Intensity = amb.Bloom }):Play()
+			TweenService:Create(bloom, info, { Intensity = amb.Bloom + look.BloomBoost }):Play()
 		end
 	end
 	AreaTracker.Changed:Connect(apply)

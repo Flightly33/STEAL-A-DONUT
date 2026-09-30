@@ -53,6 +53,9 @@ export type Area = {
 	Ambience: Ambience,
 	World: number, -- which world this area belongs to
 	Index: number, -- position inside its world's lane (1 = next to the safe zone)
+	Length: number?, -- studs along the lane (default Config.Map.AreaLength)
+	HalfWidth: number?, -- half the lane's width here (default Config.Map.LaneHalfWidth)
+	Lab: boolean?, -- The Black Hole: a pit down to the secret lab with the ULTIMATE REBIRTH button
 }
 
 export type World = {
@@ -61,6 +64,7 @@ export type World = {
 	OffsetX: number, -- the world's lane runs along Z at this X
 	BridgeLength: number, -- studs between the world's safe zone and its first area
 	RequiredRebirths: number,
+	RequiredUltimate: number?, -- Ultimate Rebirths needed (World 2 is reached through The Black Hole)
 	WalkMultiplier: number, -- everyone (players AND guards) is this much faster in this world
 	Color: Color3,
 	Icon: string,
@@ -394,14 +398,48 @@ Areas.List = {
 		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(255, 255, 255), Pants = Color3.fromRGB(40, 90, 255), Aura = "Cosmic", Title = "Mainframe", Hat = "Halo" },
 		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(215, 230, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(80, 140, 255), AtmosphereDensity = 0.35, Haze = 1.2, Bloom = 0.7 }),
 	},
+	{
+		-- The end of Cyber City: bigger and wider than any other area. A pit on its right-hand side
+		-- drops into the secret lab, where a black hole is held in an experiment behind a glass
+		-- window, and the big red ULTIMATE REBIRTH button sends you to World 2.
+		Id = 34, Name = "The Black Hole", Theme = "BlackHole",
+		RecommendedSpeed = 2_970, GuardSpeedBonus = 11, WakeDelay = 0.59, World = 4, Index = 8,
+		Length = 240, HalfWidth = 95, Lab = true,
+		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
+		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
+		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
+		Guard = { Skin = Color3.fromRGB(0, 255, 220), Shirt = Color3.fromRGB(20, 20, 30), Pants = Color3.fromRGB(120, 60, 255), Aura = "Cosmic", Title = "Event Horizon", Hat = "Halo" },
+		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(225, 215, 255), Saturation = 0.3, Contrast = 0.3, Ambient = Color3.fromRGB(70, 50, 130), AtmosphereColor = Color3.fromRGB(120, 60, 255), AtmosphereDensity = 0.4, Haze = 1.5, Bloom = 0.9 }),
+	},
 } :: { Area }
+
+-- World 2 (after an ULTIMATE REBIRTH): Donut Land's twelve areas again, under a starry sky, with
+-- rarer cosmic donuts (Donuts.luau makes them from Donut Land's).
+Areas.CosmicOffset = #Areas.List -- World 2's area N is area CosmicOffset + N (35..46)
+for index = 1, 12 do
+	local source = Areas.List[index]
+	local copy = table.clone(source)
+	copy.Id = Areas.CosmicOffset + index
+	copy.Name = "Cosmic " .. source.Name
+	copy.World = 5
+	copy.Index = index
+	copy.Ambience = table.clone(source.Ambience)
+	copy.Ambience.Tint = source.Ambience.Tint:Lerp(Color3.fromRGB(215, 200, 255), 0.5)
+	copy.Ambience.Bloom = source.Ambience.Bloom + 0.2
+	copy.Trim = source.Trim:Lerp(Color3.fromRGB(170, 120, 255), 0.4)
+	table.insert(Areas.List, copy)
+end
 
 Areas.Worlds = {
 	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, RequiredRebirths = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
 	{ Id = 2, Name = "Glaze Islands", OffsetX = 2600, BridgeLength = 1920, RequiredRebirths = 1, WalkMultiplier = 1.2, Color = Color3.fromRGB(80, 200, 255), Icon = "🏝️" },
 	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 3040, RequiredRebirths = 2, WalkMultiplier = 1.3, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
 	{ Id = 4, Name = "Cyber City", OffsetX = 5200, BridgeLength = 4160, RequiredRebirths = 3, WalkMultiplier = 1.45, Color = Color3.fromRGB(255, 40, 200), Icon = "🌆" },
+	-- Reached by pressing ULTIMATE REBIRTH in The Black Hole's secret lab (no rebirths needed after).
+	{ Id = 5, Name = "World 2", OffsetX = -5200, BridgeLength = 0, RequiredRebirths = 0, RequiredUltimate = 1, WalkMultiplier = 1, Color = Color3.fromRGB(90, 120, 255), Icon = "🌌" },
 } :: { World }
+
+Areas.UltimateWorld = 5 -- "World 2": where the ULTIMATE REBIRTH sends you
 
 Areas.ByWorld = {} :: { [number]: { Area } }
 for _, area in Areas.List do

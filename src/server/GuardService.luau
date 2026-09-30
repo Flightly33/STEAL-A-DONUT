@@ -318,6 +318,18 @@ function GuardService.Init()
 	end)
 	PhysicsService:CollisionGroupSetCollidable("Guards", "Players", false)
 	PhysicsService:CollisionGroupSetCollidable("Guards", "Guards", false)
+	-- Invisible lids only guards bump into (the pit down to The Black Hole's lab)
+	pcall(function()
+		PhysicsService:RegisterCollisionGroup("GuardBlock")
+	end)
+	PhysicsService:CollisionGroupSetCollidable("GuardBlock", "Players", false)
+	PhysicsService:CollisionGroupSetCollidable("GuardBlock", "Default", false)
+	for _, part in workspace:GetDescendants() do
+		if part:IsA("BasePart") and part:GetAttribute("GuardBlocker") then
+			part.CollisionGroup = "GuardBlock"
+			part.CanCollide = true
+		end
+	end
 
 	folder = Instance.new("Folder")
 	folder.Name = "Guards"

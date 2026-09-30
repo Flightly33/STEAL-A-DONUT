@@ -1,7 +1,7 @@
 --[[
 	Shop window with five tabs:
 	  Upgrades  - Speed Multiplier, Treadmill tiers, Base Expansions and Incubator upgrades (money)
-	  Passes    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
+	  Boosts    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
 	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
 	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
 	              paid random items rules). Hidden purchase for players whose region blocks them.
@@ -568,7 +568,7 @@ function Shop.Init()
 	local body = modal.Body
 	selectTab = Modal.Tabs(body, {
 		{ Name = "Upgrades", Text = "⚡ Upgrades", Color = Theme.Colors.Purple },
-		{ Name = "Passes", Text = "🎟️ Passes", Color = Theme.Colors.Orange },
+		{ Name = "Passes", Text = "🚀 Boosts", Color = Theme.Colors.Orange },
 		{ Name = "Crates", Text = "🎁 Crates", Color = Theme.Colors.Yellow },
 		{ Name = "Items", Text = "⚔️ Items", Color = Theme.Colors.Red },
 		{ Name = "Skins", Text = "🎨 Skins", Color = Theme.Colors.Pink },

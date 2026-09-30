@@ -147,8 +147,18 @@ function Economy.MaxRebirths(): number
 	return #Config.Rebirth.Levels
 end
 
-function Economy.WorldUnlocked(worldId: number, rebirths: number): boolean
-	return rebirths >= Areas.World(worldId).RequiredRebirths
+function Economy.WorldUnlocked(worldId: number, rebirths: number, ultimate: number?): boolean
+	local world = Areas.World(worldId)
+	return rebirths >= world.RequiredRebirths and (ultimate or 0) >= (world.RequiredUltimate or 0)
+end
+
+-- What a world needs, for messages: "2 Rebirths" / "an ULTIMATE REBIRTH".
+function Economy.WorldRequirementText(worldId: number): string
+	local world = Areas.World(worldId)
+	if (world.RequiredUltimate or 0) > 0 then
+		return "an ULTIMATE REBIRTH (find it in The Black Hole)"
+	end
+	return if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
 end
 
 -- Speed gained per second on the treadmill.
@@ -199,10 +209,11 @@ end
 -- Base expansions
 --------------------------------------------------------------------------------
 -- The furthest area a player is fast enough for (in a world they've unlocked).
-function Economy.BestAreaFor(speed: number, rebirths: number): number
+function Economy.BestAreaFor(speed: number, rebirths: number, ultimate: number?): number
 	local best = 1
 	for _, area in Areas.List do
-		if Economy.WorldUnlocked(area.World, rebirths) and speed >= Economy.RecommendedSpeed(area.Id) then
+		-- (World 2's areas copy Donut Land's speeds; "furthest" means the most valuable donuts)
+		if Economy.WorldUnlocked(area.World, rebirths, ultimate) and speed >= Economy.RecommendedSpeed(area.Id) and area.World ~= 5 then
 			best = math.max(best, area.Id)
 		end
 	end
@@ -214,7 +225,7 @@ end
 function Economy.CrateCoins(seconds: number, speed: number, rebirths: number): number
 	local best = 0
 	for _, donut in Donuts.ByArea[Economy.BestAreaFor(speed, rebirths)] do
-		if donut.Rarity ~= "Secret" and donut.Rarity ~= "Admin" then
+		if donut.Rarity ~= "Secret" and donut.Rarity ~= "Admin" and donut.Rarity ~= "Icon" then
 			best = math.max(best, donut.Income)
 		end
 	end

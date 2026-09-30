@@ -26,19 +26,40 @@ function Layout.WorldOffset(worldId: number): number
 	return Areas.World(worldId).OffsetX
 end
 
+-- How long (along Z) and how wide an area is: most use Config.Map, The Black Hole is bigger.
+function Layout.AreaLength(areaId: number): number
+	return Areas.List[areaId].Length or map.AreaLength
+end
+
+function Layout.AreaHalfWidth(areaId: number): number
+	return Areas.List[areaId].HalfWidth or map.LaneHalfWidth
+end
+
 -- Z where an area starts / ends (its position inside its own world's lane, after the bridge).
+local startCache: { [number]: number } = {}
 function Layout.AreaStart(areaId: number): number
+	local cached = startCache[areaId]
+	if cached then
+		return cached
+	end
 	local area = Areas.List[areaId]
-	return map.SafeZoneZ + Areas.World(area.World).BridgeLength + (area.Index - 1) * map.AreaLength
+	local z = map.SafeZoneZ + Areas.World(area.World).BridgeLength
+	for _, other in Areas.ByWorld[area.World] do
+		if other.Index < area.Index then
+			z += Layout.AreaLength(other.Id)
+		end
+	end
+	startCache[areaId] = z
+	return z
 end
 
 function Layout.AreaEnd(areaId: number): number
-	return Layout.AreaStart(areaId) + map.AreaLength
+	return Layout.AreaStart(areaId) + Layout.AreaLength(areaId)
 end
 
 function Layout.LaneEnd(worldId: number?): number
-	local world = Areas.World(worldId or 1)
-	return map.SafeZoneZ + world.BridgeLength + #Areas.ByWorld[world.Id] * map.AreaLength
+	local list = Areas.ByWorld[Areas.World(worldId or 1).Id]
+	return Layout.AreaEnd(list[#list].Id)
 end
 
 -- Which world a position is in (the nearest lane along X).
@@ -60,9 +81,13 @@ function Layout.AreaAt(position: Vector3): number
 	end
 	local world = Areas.World(Layout.WorldAt(position))
 	local list = Areas.ByWorld[world.Id]
-	-- (the bridge in front of a world's first area counts as that area)
-	local index = math.clamp(math.floor((position.Z - map.SafeZoneZ - world.BridgeLength) / map.AreaLength) + 1, 1, #list)
-	return list[index].Id
+	-- (the bridge in front of a world's first area counts as that area, and past the end is the last)
+	for _, area in list do
+		if position.Z < Layout.AreaEnd(area.Id) then
+			return area.Id
+		end
+	end
+	return list[#list].Id
 end
 
 function Layout.IsSafe(position: Vector3): boolean
@@ -72,7 +97,7 @@ end
 -- X range a guard may chase in (the lane minus the wall decorations).
 function Layout.LaneLimits(areaId: number): (number, number)
 	local x = Layout.WorldOffset(Areas.List[areaId].World)
-	local limit = map.LaneHalfWidth - 8
+	local limit = Layout.AreaHalfWidth(areaId) - 8
 	return x - limit, x + limit
 end
 
@@ -114,16 +139,23 @@ function Layout.PortalCFrame(worldId: number, home: boolean?): CFrame
 		local position = Vector3.new(x, 0, map.SafeZoneZ - Layout.LandingDepth + 14)
 		return CFrame.lookAt(position, position + Vector3.new(0, 0, 1))
 	end
-	local side = if Layout.WorldOffset(worldId) >= 0 then 1 else -1
-	-- Worlds on the same side of the hub stand one behind the other
-	local before = 0
+	-- Hub portals: a row at the back of the hub (out of the way), facing the spawn, in world order
+	local count, slot = 0, 0
 	for _, world in Areas.Worlds do
-		if world.Id > 1 and world.Id < worldId and (if world.OffsetX >= 0 then 1 else -1) == side then
-			before += 1
+		if world.Id > 1 then
+			count += 1
+			if world.Id == worldId then
+				slot = count
+			end
 		end
 	end
-	local position = Vector3.new(side * 96, 0, map.SafeZoneZ - 112 - before * 62)
-	return CFrame.lookAt(position, position + Vector3.new(-side, 0, 0))
+	local position = Vector3.new((slot - (count + 1) / 2) * 48, 0, map.SafeZoneZ - map.HubDepth + 70)
+	return CFrame.lookAt(position, position + Vector3.new(0, 0, 1))
+end
+
+-- Where the hub's leaderboards stand: along the back wall, behind the portals.
+function Layout.LeaderboardZ(): number
+	return map.SafeZoneZ - map.HubDepth + 8
 end
 
 Layout.PortalRadius = 6

@@ -82,13 +82,15 @@ function Worlds.Init()
 		table.insert(refreshers, function()
 			local rebirths = State.Number("Rebirths")
 			local hasPass = State.Data.Passes.Teleporter == true
-			local unlocked = Economy.WorldUnlocked(world.Id, rebirths)
+			local unlocked = Economy.WorldUnlocked(world.Id, rebirths, State.Number("UltimateRebirths"))
 			local walk = Economy.WalkSpeedFromStat(State.Number("Speed"))
 			if unlocked then
 				status.Text = if world.Id == 1 then "Your home world" else `Unlocked! Everyone is x{world.WalkMultiplier} faster here`
 				status.TextColor3 = Color3.fromRGB(150, 255, 150)
 			else
-				status.Text = `🔒 Needs {world.RequiredRebirths} rebirth{if world.RequiredRebirths == 1 then "" else "s"} (you have {rebirths})`
+				status.Text = if (world.RequiredUltimate or 0) > 0
+					then "🔒 Needs an ULTIMATE REBIRTH (in The Black Hole)"
+					else `🔒 Needs {world.RequiredRebirths} rebirth{if world.RequiredRebirths == 1 then "" else "s"} (you have {rebirths})`
 				status.TextColor3 = Color3.fromRGB(255, 150, 150)
 			end
 			Theme.SetButtonText(go, if not unlocked then "🔒 LOCKED" elseif hasPass then "🌀 GO" else "🌀 PASS")

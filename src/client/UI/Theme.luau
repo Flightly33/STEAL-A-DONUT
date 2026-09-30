@@ -36,32 +36,57 @@ Theme.IsTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardE
 -- Sound effects: quiet and soft by default. Id = any sound (paste "rbxassetid://123" from the
 -- Creator Store to use your own), Volume 0-1, Pitch 1 = normal (lower = deeper/softer).
 -- Set Id = "" to turn a sound off.
+-- Notes = { pitch, ... } plays the sound once per note, one after the other (a little jingle).
 local PING = "rbxasset://sounds/electronicpingshort.wav"
+local WHOOSH = "rbxasset://sounds/Rocket whoosh 01.wav"
+local THUD = "rbxasset://sounds/action_jump_land.mp3"
+export type SoundDef = { Id: string, Volume: number, Pitch: number, Notes: { number }?, Gap: number? }
 Theme.Sounds = {
 	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.12, Pitch = 1.15 },
-	Steal = { Id = PING, Volume = 0.18, Pitch = 1.25 },
+	-- Stealing: a quick "swipe", a rising "got it!" jingle, then the chase starts
+	Grab = { Id = WHOOSH, Volume = 0.35, Pitch = 1.8 },
+	Steal = { Id = PING, Volume = 0.2, Pitch = 1, Notes = { 1, 1.26, 1.5 }, Gap = 0.07 },
 	Hatch = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 1.6 },
-	Crack = { Id = "rbxasset://sounds/action_jump_land.mp3", Volume = 0.4, Pitch = 1.8 },
-	Deposit = { Id = PING, Volume = 0.22, Pitch = 0.85 },
+	Crack = { Id = THUD, Volume = 0.4, Pitch = 1.8 },
+	-- Home safe: a bright "cha-ching" arpeggio
+	Deposit = { Id = PING, Volume = 0.24, Pitch = 1, Notes = { 1, 1.26, 1.5, 2 }, Gap = 0.08 },
 	Collect = { Id = PING, Volume = 0.2, Pitch = 1 },
 	Announce = { Id = PING, Volume = 0.12, Pitch = 0.7 },
-	Caught = { Id = PING, Volume = 0.2, Pitch = 0.5 }, -- low "bwomp" instead of the old harsh yell
+	-- Caught: a big BONK and a whoosh as you go flying
+	Caught = { Id = THUD, Volume = 0.8, Pitch = 0.55 },
+	Fling = { Id = WHOOSH, Volume = 0.5, Pitch = 0.8 },
 	Error = { Id = "", Volume = 0, Pitch = 1 },
-}
+} :: { [string]: SoundDef }
+
+local function playOnce(id: string, volume: number, pitch: number)
+	local sound = Instance.new("Sound")
+	sound.SoundId = id
+	sound.Volume = volume
+	sound.PlaybackSpeed = pitch
+	SoundService:PlayLocalSound(sound)
+	task.delay(3, function()
+		sound:Destroy()
+	end)
+end
 
 function Theme.PlaySound(name: string, _volume: number?)
 	local def = Theme.Sounds[name]
 	if not def or def.Id == "" then
 		return
 	end
-	local sound = Instance.new("Sound")
-	sound.SoundId = def.Id
-	sound.Volume = def.Volume
-	sound.PlaybackSpeed = def.Pitch
-	SoundService:PlayLocalSound(sound)
-	task.delay(3, function()
-		sound:Destroy()
-	end)
+	local notes = def.Notes
+	if notes then
+		task.spawn(function()
+			for i, note in notes do
+				playOnce(def.Id, def.Volume, def.Pitch * note)
+				if i < #notes then
+					task.wait(def.Gap or 0.08)
+				end
+			end
+		end)
+	else
+		playOnce(def.Id, def.Volume, def.Pitch)
+	end
 end
 
 -- Instance.new with a property table and optional children.
@@ -178,9 +203,9 @@ function Theme.Button(props: {
 		AnchorPoint = props.AnchorPoint or Vector2.zero,
 		LayoutOrder = props.LayoutOrder or 0,
 	}, {
-		Theme.Corner(10),
-		Theme.Stroke(3),
-		Theme.Gradient(lighten(props.Color, 0.25), darken(props.Color, 0.1)),
+		Theme.Corner(9),
+		Theme.Stroke(3.5),
+		Theme.Gradient(lighten(props.Color, 0.3), darken(props.Color, 0.12)),
 	})
 	button:SetAttribute("BaseColor", props.Color)
 	local textX = 0

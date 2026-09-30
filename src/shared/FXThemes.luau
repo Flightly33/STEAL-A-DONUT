@@ -48,6 +48,16 @@ FXThemes.ById = {
 		Outline = true,
 		Tint = "Galaxy",
 	},
+	Nova = {
+		Id = "Nova",
+		Colors = { rgb(40, 140, 255), rgb(140, 220, 255), rgb(255, 255, 255) },
+		Lightning = { Min = 0.4, Max = 1.2, Mode = "Strike" },
+		Runes = true,
+		Wisps = 6,
+		Shockwave = { Min = 2, Max = 3.5 },
+		Pulse = "Shimmer",
+		Outline = true,
+	},
 	-- Mutations
 	Treasure = { Id = "Treasure", Colors = { rgb(255, 215, 60), rgb(255, 250, 200) }, Pulse = "Glow" },
 	Glitter = { Id = "Glitter", Colors = { rgb(160, 240, 255), rgb(255, 255, 255) }, Wisps = 3, Pulse = "Shimmer" },
@@ -82,7 +92,7 @@ FXThemes.ById = {
 	},
 } :: { [string]: Theme }
 
-local BY_RARITY: { [string]: string } = { Legendary = "Radiance", Celestial = "Starlight", Secret = "Void" }
+local BY_RARITY: { [string]: string } = { Legendary = "Radiance", Celestial = "Starlight", Secret = "Void", Icon = "Nova" }
 local BY_MUTATION: { [string]: string } = { Gold = "Treasure", Diamond = "Glitter", Mythic = "Hellfire", Divine = "Holy", Rainbow = "Prism" }
 
 -- The effect themes of a donut (rarity theme first, then its mutation's).

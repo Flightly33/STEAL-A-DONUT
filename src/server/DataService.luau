@@ -41,6 +41,7 @@ export type Data = {
 	BestDonutScore: number,
 	BestSpeed: number,
 	Rebirths: number,
+	UltimateRebirths: number, -- times pressed ULTIMATE REBIRTH (unlocks World 2)
 	Expansions: number,
 	PlayTime: number,
 	LastOnline: number,
@@ -96,6 +97,7 @@ local TEMPLATE: Data = {
 	BestDonutScore = 0,
 	BestSpeed = 0,
 	Rebirths = 0,
+	UltimateRebirths = 0,
 	Expansions = 0,
 	PlayTime = 0,
 	LastOnline = 0,
@@ -416,6 +418,7 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("IncubatorSpeed", data.IncubatorSpeed)
 	player:SetAttribute("IncubatorSize", data.IncubatorSize)
 	player:SetAttribute("Rebirths", data.Rebirths)
+	player:SetAttribute("UltimateRebirths", data.UltimateRebirths)
 	player:SetAttribute("Expansions", data.Expansions)
 	player:SetAttribute("Floors", data.Floors)
 	player:SetAttribute("BestSpeed", data.BestSpeed)

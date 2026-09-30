@@ -23,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Areas = require(Shared.Areas)
 local Donuts = require(Shared.Donuts)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
@@ -268,6 +269,40 @@ function Actions.Rebirth(player: Player, profile: DataService.Profile)
 		StealService.Teleport(player, spawnCf)
 	end
 	notify(player, `🔄 REBIRTH {data.Rebirths}! Money x{Format.Multiplier(Economy.RebirthMoneyMultiplier(data.Rebirths))} and treadmill speed x{Format.Multiplier(Economy.RebirthSpeedMultiplier(data.Rebirths))} forever!`, "success")
+	DataService.Save(player)
+end
+
+-- ULTIMATE REBIRTH: the big red button in The Black Hole's secret lab. Like a rebirth, but your
+-- rebirths reset too and you're sent to World 2 (rarer donuts, worth 2x Donut Land's). Pets,
+-- passes, items, base expansions and your Index stay. The client plays the white flash.
+function Actions.UltimateRebirth(player: Player, profile: DataService.Profile)
+	if StealService.IsCarrying(player) then
+		notify(player, "Bring your donut home first!", "error")
+		return
+	end
+	if not WorldService.NearUltimateButton(player) then
+		return
+	end
+	local data = profile.Data
+	data.Money = 0
+	data.Speed = 0
+	data.TreadmillLevel = 1
+	data.SpeedMultLevel = 0
+	PlotService.ClearAll(player)
+	data.Rebirths = 0
+	data.UltimateRebirths += 1
+	DataService.SyncAttributes(player)
+	TreadmillService.Build(player)
+	ShopService.RefreshMultipliers(player)
+	local world = Areas.World(Areas.UltimateWorld)
+	Remotes.Event("UltimateRebirth"):FireClient(player, world.Name)
+	Remotes.Event("AreaAnnouncement"):FireAllClients(`💥 {player.DisplayName} pressed the ULTIMATE REBIRTH and vanished into {string.upper(world.Name)}!`, world.Color)
+	-- arrive while the screen is white
+	task.delay(1.4, function()
+		if player.Parent then
+			WorldService.SendToWorld(player, world.Id)
+		end
+	end)
 	DataService.Save(player)
 end
 

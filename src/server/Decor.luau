@@ -1219,6 +1219,67 @@ function Themes.Mainframe(folder: Instance, zs: number, ze: number, rng: Random)
 	weather(folder, zs, ze, rgb(150, 200, 255), Enum.NormalId.Top, 60, 2, 0.3, 6)
 end
 
+-- A black hole: a pitch-black core with a glowing event horizon, a burning accretion disk, rings
+-- of light turning around it and matter pouring in. Used in The Black Hole's sky and in its lab.
+function Decor.BlackHole(parent: Instance, center: Vector3, scale: number): Model
+	local model = Instance.new("Model")
+	model.Name = "BlackHole"
+	local k = scale
+	local core = Build.Decor({ Parent = model, Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 22 * k, Position = center, Color = rgb(0, 0, 0), Material = Enum.Material.SmoothPlastic })
+	core.CastShadow = false
+	Build.Decor({ Parent = model, Name = "Horizon", Shape = Enum.PartType.Ball, Size = Vector3.one * 25 * k, Position = center, Color = rgb(150, 80, 255), Material = Enum.Material.Neon, Transparency = 0.75 })
+	local tilt = CFrame.new(center) * CFrame.Angles(math.rad(14), 0, math.rad(8))
+	-- Accretion disk (flat cylinders lie along X, so turn them to lie flat)
+	Build.Decor({ Parent = model, Name = "Disk", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 66 * k, 66 * k), CFrame = tilt * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 140, 40), Material = Enum.Material.Neon, Transparency = 0.45 })
+	Build.Decor({ Parent = model, Name = "InnerDisk", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.8, 44 * k, 44 * k), CFrame = tilt * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 230, 150), Material = Enum.Material.Neon, Transparency = 0.25 })
+	ringOfBalls(model, tilt * CFrame.Angles(math.pi / 2, 0, 0), 38 * k, 1.8 * k, rgb(170, 110, 255), 28, "SpinSlow")
+	ringOfBalls(model, tilt * CFrame.Angles(math.pi / 2, 0.5, 0.3), 46 * k, 1.4 * k, rgb(90, 220, 255), 32, "SpinSlow")
+	-- Matter pouring in
+	local inflow = Instance.new("ParticleEmitter")
+	inflow.Color = ColorSequence.new(rgb(255, 170, 80), rgb(170, 90, 255))
+	inflow.LightEmission = 1
+	inflow.Rate = 60
+	inflow.Lifetime = NumberRange.new(1.2, 1.6)
+	inflow.Speed = NumberRange.new(18 * k)
+	inflow.Size = NumberSequence.new(1.2 * k, 0)
+	inflow.Shape = Enum.ParticleEmitterShape.Sphere
+	inflow.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	inflow.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+	inflow.Parent = Build.Decor({ Parent = model, Name = "Inflow", Size = Vector3.one * 50 * k, Position = center, Transparency = 1 })
+	local light = Instance.new("PointLight")
+	light.Color = rgb(170, 100, 255)
+	light.Range = 60
+	light.Brightness = 3
+	light.Parent = core
+	model.PrimaryPart = core
+	model.Parent = parent
+	return model
+end
+
+-- The Black Hole: a wide, dark area under a black hole, with purple light pillars along the walls
+-- and rocks floating off towards it (the lab under the floor is built by MapBuilder).
+function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
+	local purple = rgb(170, 90, 255)
+	local z = zs + 14
+	while z < ze - 10 do
+		for _, side in { -1, 1 } do
+			local pos = Vector3.new(side * 86, 0, z)
+			Build.Pillar(folder, pos, 36, 3, rgb(18, 12, 34), Enum.Material.Glass)
+			Build.Decor({ Parent = folder, Name = "LightStrip", Size = Vector3.new(0.6, 36, 0.6), Position = pos + Vector3.new(-side * 1.6, 18, 0), Color = purple, Material = Enum.Material.Neon })
+		end
+		z += 26
+	end
+	-- Rocks drifting up towards the hole
+	for _ = 1, 16 do
+		local p = Vector3.new(rng:NextNumber(-80, 80), rng:NextNumber(18, 55), rng:NextNumber(zs + 10, ze - 10))
+		local rock = Build.Ball(folder, p, rng:NextNumber(2, 6), rgb(40, 34, 55), Enum.Material.Basalt)
+		rock.CastShadow = false
+	end
+	-- The black hole itself, hanging over the end of the area
+	Decor.BlackHole(folder, Vector3.new(0, 120, ze + 70), 2)
+	weather(folder, zs, ze, rgb(200, 170, 255), Enum.NormalId.Top, 50, 3, 0.35, 5)
+end
+
 function Decor.BuildTheme(theme: string, folder: Instance, zs: number, ze: number, rng: Random)
 	local builder = Themes[theme]
 	if builder then

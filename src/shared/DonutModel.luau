@@ -587,6 +587,46 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 	end
 
+	function accessories.Kart()
+		-- A little go-kart: the donut sits in it (a "Fake Kar")
+		local paint, stripe, black = rgb(40, 140, 255), WHITE, rgb(25, 25, 30)
+		block(Vector3.new(4.2, 0.8, 5.2), paint, at(0, -TOP + 0.25, 0), Enum.Material.SmoothPlastic, "KartBody").Reflectance = 0.15
+		block(Vector3.new(4.24, 0.2, 5.24), stripe, at(0, -TOP + 0.5, 0), Enum.Material.SmoothPlastic, "KartStripe")
+		block(Vector3.new(3.6, 1.6, 0.4), paint, at(0, -TOP + 1.2, 1.9) * CFrame.Angles(math.rad(-12), 0, 0), Enum.Material.SmoothPlastic, "KartSeat")
+		-- front nose and bumper
+		wedge(Vector3.new(3.4, 0.7, 1.4), paint, at(0, -TOP + 0.2, -3.2) * CFrame.Angles(0, math.pi, 0))
+		local bumper = Instance.new("Part")
+		bumper.Shape = Enum.PartType.Cylinder
+		bumper.Size = Vector3.new(4, 0.35, 0.35) * s
+		bumper.Name = "KartBumper"
+		add(bumper, at(0, -TOP - 0.05, -3.95), black)
+		for _, side in { -1, 1 } do
+			ball(0.4, rgb(255, 240, 150), at(side * 1.3, -TOP + 0.45, -3.4), Enum.Material.Neon, "Headlight")
+			for _, z in { -1.8, 1.8 } do
+				local wheel = Instance.new("Part")
+				wheel.Shape = Enum.PartType.Cylinder
+				wheel.Size = Vector3.new(0.7, 1.4, 1.4) * s
+				wheel.Name = "Wheel"
+				add(wheel, at(side * 2.35, -TOP - 0.35, z), black)
+				local hub = Instance.new("Part")
+				hub.Shape = Enum.PartType.Cylinder
+				hub.Size = Vector3.new(0.74, 0.6, 0.6) * s
+				hub.Name = "Hubcap"
+				add(hub, at(side * 2.36, -TOP - 0.35, z), rgb(200, 205, 215), Enum.Material.Metal)
+			end
+		end
+		-- steering wheel in front of the donut, and a spoiler on the back
+		local steering = Instance.new("Part")
+		steering.Shape = Enum.PartType.Cylinder
+		steering.Size = Vector3.new(0.15, 1.1, 1.1) * s
+		steering.Name = "SteeringWheel"
+		add(steering, at(0, -TOP + 1.1, -1.9) * CFrame.Angles(0, math.pi / 2, math.rad(-30)), black)
+		for _, side in { -1, 1 } do
+			block(Vector3.new(0.2, 0.9, 0.2), black, at(side * 1.4, -TOP + 1.2, 2.5), Enum.Material.Metal, "SpoilerPost")
+		end
+		block(Vector3.new(4, 0.2, 0.9), paint, at(0, -TOP + 1.7, 2.6) * CFrame.Angles(math.rad(10), 0, 0), Enum.Material.SmoothPlastic, "Spoiler")
+	end
+
 	function accessories.Bow()
 		local pink = rgb(255, 110, 180)
 		for _, side in { -1, 1 } do
@@ -783,6 +823,13 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		motes.Brightness = 3
 	end
 
+	function themeParts.Nova(_theme: FXThemes.Theme)
+		-- A blue star of light rays behind it and a shell of stars bursting out
+		burst(12, 5.6, { rgb(40, 140, 255), rgb(140, 220, 255), rgb(255, 255, 255) }, 0.45)
+		shell(3.2, false, ColorSequence.new(rgb(140, 220, 255), rgb(40, 110, 255)), 30, 0.28, 3.5)
+		twinkles(4.4, ColorSequence.new(rgb(255, 255, 255), rgb(120, 190, 255)), 20, 0.55)
+	end
+
 	function themeParts.Prism(_theme: FXThemes.Theme)
 		burst(10, 4.6, { rgb(255, 70, 70), rgb(255, 170, 40), rgb(255, 240, 60), rgb(80, 240, 110), rgb(70, 170, 255), rgb(190, 90, 255) }, 0.6)
 		shell(2.8, false, RAINBOW_SEQUENCE, 18, 0.22, 3)
@@ -837,6 +884,46 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			glow.Size = Vector3.new(0.15, 6 * s, 6 * s)
 			add(glow, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
 			glow.Transparency = 0.5
+		end
+		-- The rarest donuts glow: a haze of light rising around them (the bloom makes it shine), and
+		-- Celestial and up stand in a ring of glowing crystals
+		local auraColor = if mutation.Order >= 3 then mutation.Color else rarity.Color
+		if rarity.Order >= 5 or mutation.Order >= 3 then
+			local aura = holder("GlowAura", Vector3.new(4, 0.5, 4) * s, at(0, -TOP * 0.7, 0))
+			local mist = Instance.new("ParticleEmitter")
+			mist.Name = "GlowMist"
+			mist.Texture = "rbxasset://textures/particles/smoke_main.dds"
+			mist.Color = ColorSequence.new(auraColor, auraColor:Lerp(WHITE, 0.5))
+			mist.LightEmission = 1
+			mist.LightInfluence = 0
+			mist.Rate = 5 + math.max(rarity.Order, mutation.Order + 2) * 1.5
+			mist.Lifetime = NumberRange.new(1.6, 2.6)
+			mist.Speed = NumberRange.new(1.5 * s, 3 * s)
+			mist.SpreadAngle = Vector2.new(25, 25)
+			mist.EmissionDirection = Enum.NormalId.Top
+			mist.Rotation = NumberRange.new(0, 360)
+			mist.RotSpeed = NumberRange.new(-25, 25)
+			mist.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * s), NumberSequenceKeypoint.new(1, 5 * s) })
+			mist.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.55), NumberSequenceKeypoint.new(1, 1) })
+			mist.Parent = aura
+		end
+		if rarity.Order >= 6 then
+			-- glowing shards leaning out from under it, like a crystal bloom
+			for i = 0, 4 do
+				local angle = i / 5 * TAU + 0.3
+				local height = 1.5 + (i % 3) * 0.4
+				local radius = R + 0.6
+				local crystal = ellipsoid(
+					Vector3.new(0.55, height, 0.55),
+					auraColor:Lerp(WHITE, 0.3),
+					CFrame.new(math.cos(angle) * radius * s, bottom + height * 0.35 * s, math.sin(angle) * radius * s)
+						* CFrame.Angles(0, -angle, 0)
+						* CFrame.Angles(0, 0, math.rad(-28)),
+					Enum.Material.Neon,
+					"Crystal"
+				)
+				crystal.Transparency = 0.2
+			end
 		end
 		if rarity.Float or mutation.Order >= 2 then
 			CollectionService:AddTag(model, "DonutFloat")

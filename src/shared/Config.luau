@@ -83,7 +83,7 @@ Config.Guard = {
 	InterpolationDelay = 0.1,
 	MaxRewind = 0.35,
 	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before teleporting home
-	StunTime = 1.6, -- seconds a caught player is frozen before being sent home
+	StunTime = 2.3, -- seconds after being caught (and flung) before being sent home
 
 	-- Footsteps + screen shake while he's close (client side, only for your own guard).
 	FootstepRange = 110, -- studs: you start hearing him
@@ -187,6 +187,8 @@ Config.Treadmill = {
 		{ Name = "Magma", Rate = 0.35, Cost = 1_500_000_000_000_000, RequiredRebirths = 1, Base = rgb(50, 30, 30), Accent = rgb(255, 110, 0), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true, Halo = true },
 		{ Name = "Dream", Rate = 0.4, Cost = 100_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(245, 235, 255), Accent = rgb(255, 150, 230), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
 		{ Name = "Infinity", Rate = 0.455, Cost = 4_000_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(255, 215, 90), Accent = rgb(255, 255, 255), Material = Enum.Material.Foil, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Cyber", Rate = 0.52, Cost = 2e23, RequiredRebirths = 3, Base = rgb(15, 15, 25), Accent = rgb(255, 40, 200), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
+		{ Name = "Singularity", Rate = 0.6, Cost = 1e26, RequiredRebirths = 3, Base = rgb(5, 5, 10), Accent = rgb(120, 170, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
 	} :: { TreadmillTier },
 }
 
@@ -305,6 +307,14 @@ Config.GamePasses = {
 	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 1999581396, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
 } :: { GamePass }
 
+-- A one-time offer for new players: during their first FirstMinutes of play (in total), this pass
+-- pops up once per session, DelaySeconds after they join (never mid-chase, never over a window).
+Config.PassOffer = {
+	PassKey = "Money1_5",
+	FirstMinutes = 60,
+	DelaySeconds = 180,
+}
+
 --------------------------------------------------------------------------------
 -- Luck Event (Robux). Makes every donut that spawns in THIS server better for 10 minutes: rare
 -- donuts show up more often, mutations are more likely and sizes run bigger. Buying it while it
@@ -384,7 +394,7 @@ Config.Admin = {
 	AllowAnyone = true,
 	OwnerOnlyCommands = {} :: { string }, -- e.g. { "Luck", "OpenCrate", "SpawnCrate", "Event" }
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
-	HideFromLeaderboards = true,
+	HideFromLeaderboards = false, -- admin-panel users show up on the global boards too
 }
 
 --------------------------------------------------------------------------------
@@ -567,10 +577,35 @@ Config.Items = {
 -- music in the Creator Store (Toolbox > Audio). Paste the number from "rbxassetid://NUMBER".
 --------------------------------------------------------------------------------
 -- The player skips songs that fail to load and prints which ID failed to the Output window.
+--------------------------------------------------------------------------------
+-- Graphics: the bright, glowy "Steal an Egg" look. Added on top of every area's own look
+-- (Areas.luau Ambience), so turning these down makes the whole game calmer.
+--------------------------------------------------------------------------------
+Config.Graphics = {
+	SaturationBoost = 0.18, -- more vivid colours
+	ContrastBoost = 0.06,
+	BloomBoost = 0.55, -- stronger glow around bright things (neon, sparkles, the sun)
+	BloomThreshold = 1.4, -- how bright something must be to glow (lower = more glow)
+	BloomSize = 28,
+	SunRays = 0.09,
+	Brightness = 2.9, -- sunlight strength
+}
+
+-- ULTIMATE REBIRTH (The Black Hole's secret lab). The explosion uses Roblox's own explosion
+-- sound; paste a Creator Store sound here ("rbxassetid://123...") to play that one as well.
+Config.UltimateRebirth = {
+	ExplosionSoundId = "",
+	ExplosionVolume = 1,
+}
+
 Config.Music = {
 	DefaultVolume = 0.3, -- 0 to 1 (players change it in Settings; the 🎵 button turns it off)
 	Tracks = {
-		{ Name = "Relaxed Scene", Id = 1848354536 }, -- Roblox's licensed music (Creator Store)
+		{ Name = "Morning Mood", Id = 1846088038 }, -- Grieg, Peer Gynt (Roblox's licensed music)
+	} :: { { Name: string, Id: number } },
+	-- Played only if none of the Tracks above can be loaded (a deleted or private audio id).
+	Fallback = {
+		{ Name = "Relaxed Scene", Id = 1848354536 },
 	} :: { { Name: string, Id: number } },
 }
 

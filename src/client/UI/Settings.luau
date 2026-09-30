@@ -40,6 +40,7 @@ local RETRY_DELAY = 30 -- seconds before trying again when no song could be load
 local retryPending = false
 
 local tracks = Config.Music.Tracks
+local usingFallback = false
 
 local function applyVolume()
 	sound.Volume = if musicOn then volume else 0
@@ -59,6 +60,14 @@ local playTrack: (index: number) -> ()
 
 playTrack = function(index: number)
 	if #tracks == 0 then
+		return
+	end
+	if workingTracks() == 0 and not usingFallback and #Config.Music.Fallback > 0 then
+		-- None of the chosen songs loads: play the backup song(s) instead
+		usingFallback = true
+		tracks = Config.Music.Fallback
+		table.clear(failed)
+		playTrack(1)
 		return
 	end
 	if workingTracks() == 0 then
