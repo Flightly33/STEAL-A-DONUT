@@ -1334,6 +1334,45 @@ local function reconnectAttachments(effect: any)
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Performance pass (runs once when the server starts): small, glowing and see-through parts
+-- don't cast shadows (the shadow pass draws every caster again, ~half the map was casting), and
+-- decorations can't be touched or hit by raycasts (less physics work). Decorations' particle
+-- emitters are capped so one busy area can't flood the screen.
+--------------------------------------------------------------------------------
+local MAX_DECOR_PARTICLE_RATE = 30
+local NO_SHADOW_MATERIALS = {
+	[Enum.Material.Neon] = true,
+	[Enum.Material.Glass] = true,
+	[Enum.Material.ForceField] = true,
+}
+local function optimize(root: Instance)
+	local decorFolders: { Instance } = {}
+	for _, child in root:GetDescendants() do
+		if (child.Name == "Decor" or child.Name == "Scenery") and (child:IsA("Folder") or child:IsA("Model")) then
+			table.insert(decorFolders, child)
+		end
+	end
+	for _, part in root:GetDescendants() do
+		if part:IsA("BasePart") then
+			local size = part.Size
+			if NO_SHADOW_MATERIALS[part.Material] or part.Transparency >= 0.2 or size.X * size.Y * size.Z < 24 then
+				part.CastShadow = false
+			end
+		end
+	end
+	for _, folder in decorFolders do
+		for _, item in folder:GetDescendants() do
+			if item:IsA("BasePart") then
+				item.CanTouch = false
+				item.CanQuery = false
+			elseif item:IsA("ParticleEmitter") and item.Rate > MAX_DECOR_PARTICLE_RATE then
+				item.Rate = MAX_DECOR_PARTICLE_RATE
+			end
+		end
+	end
+end
+
 function MapBuilder.Build(): Folder
 	setupLighting()
 	local existing = workspace:FindFirstChild("Map")
@@ -1531,6 +1570,7 @@ function MapBuilder.Build(): Folder
 			buildPlots(existing)
 		end
 		buildWorlds(existing) -- adds any world hubs that are missing
+		optimize(existing)
 		mapFolder = existing
 		return existing
 	end
@@ -1547,6 +1587,7 @@ function MapBuilder.Build(): Folder
 			model:SetAttribute("PrimaryPartName", model.PrimaryPart.Name)
 		end
 	end
+	optimize(folder)
 	folder.Parent = workspace
 	mapFolder = folder
 	return folder

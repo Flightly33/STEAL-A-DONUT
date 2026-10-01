@@ -22,6 +22,7 @@ local Areas = require(Shared.Areas)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.Theme)
+local UpdateNotes = require(script.Parent.UpdateNotes)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
 local Bases = require(script.Parent.Parent.Bases)
@@ -319,7 +320,12 @@ function Tutorial.Init()
 		if not checked then
 			checked = true
 			if snapshot.SeenTutorial == false then
-				Tutorial.Start()
+				-- after the Update Log that opens on joining has been closed
+				UpdateNotes.AfterJoinLog(function()
+					if not Tutorial.IsRunning() then
+						Tutorial.Start()
+					end
+				end)
 			end
 		elseif step == "Done" then
 			refresh() -- the claim went through

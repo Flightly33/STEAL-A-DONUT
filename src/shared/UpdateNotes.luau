@@ -2,9 +2,8 @@
 	UpdateNotes: the Update Log that pops up every time a player joins (UI/UpdateNotes).
 
 	PUBLISHING AN UPDATE? Add a new entry at the TOP of UpdateNotes.List with the next Version number.
-	It shows on every join. Players can switch it to "Hidden on login", and then it only pops up once
-	for each new update (their save remembers the last Version they saw). Brand-new players get the
-	tutorial instead on their first visit. The 📰 button in Settings shows every update any time.
+	It shows on every join (a brand-new player's tutorial starts once they close it). The 📰 UPDATES
+	button on the side shows every update any time.
 
 	  Version  - goes up by one every update (1, 2, 3...)
 	  Name     - the update's name, big under the game's logo
@@ -79,6 +78,12 @@ UpdateNotes.List = {
 			{ Title = "New Update Log", Tag = "NEW", Lines = {
 				"Shows every time you join, themed to each update",
 				"Hover any card on the right (tap on phones) to see its stats, odds and how to get it",
+			} },
+			{ Title = "Less Lag", Tag = "Performance", Lines = {
+				"Far-away areas, worlds and bases aren't drawn until you get close",
+				"Far-away donuts on bases skip their tiniest details",
+				"Half as many shadows, lighter lighting and calmer particles",
+				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
 			{ Title = "Softer Sounds", Tag = "Improvements", Lines = {
 				"Buttons click like a soft mechanical keyboard",

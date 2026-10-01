@@ -37,6 +37,7 @@ local Followers = require(script.Followers)
 local PetFX = require(script.PetFX)
 local Flight = require(script.Flight)
 local ChatTags = require(script.ChatTags)
+local Culling = require(script.Culling)
 
 Notifications.Init()
 Shop.Init()
@@ -83,6 +84,7 @@ DonutIdle.Init()
 Followers.Init()
 PetFX.Init()
 Flight.Init()
+Culling.Init() -- last: everything else has seen the whole map first
 
 -- Tell the server the UI is listening (it then sends the welcome-back popup, etc.)
 require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Remotes")).Event("ClientReady"):FireServer()

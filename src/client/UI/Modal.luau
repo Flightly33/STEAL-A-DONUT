@@ -14,6 +14,7 @@ export type Modal = {
 	Body: Frame,
 	Title: TextLabel,
 	OnOpen: (() -> ())?,
+	OnClose: (() -> ())?,
 	Open: (self: Modal) -> (),
 	Close: (self: Modal) -> (),
 	Toggle: (self: Modal) -> (),
@@ -69,7 +70,7 @@ function Modal.new(title: string, color: Color3, size: Vector2): Modal
 		Parent = holder,
 	})
 
-	local self = setmetatable({ Frame = holder, Body = body, Title = titleLabel, OnOpen = nil }, Modal) :: any
+	local self = setmetatable({ Frame = holder, Body = body, Title = titleLabel, OnOpen = nil, OnClose = nil }, Modal) :: any
 	close.Activated:Connect(function()
 		self:Close()
 	end)
@@ -95,9 +96,13 @@ function Modal.Open(self: Modal)
 end
 
 function Modal.Close(self: Modal)
+	local wasOpen = self.Frame.Visible
 	self.Frame.Visible = false
 	if current == self then
 		current = nil
+	end
+	if wasOpen and self.OnClose then
+		task.spawn(self.OnClose)
 	end
 end
 

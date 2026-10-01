@@ -2,7 +2,7 @@
 	UpdateNotes: the Update Log window (the notes themselves are in Shared/UpdateNotes).
 
 	  * the corner emblem: a 3D donut in the update's colours on a turning wheel (UpdateDecor), a
-	    ribbon tab "Update Log", a "Shown on login / Hidden on login" switch, an "Update N" picker
+	    ribbon tab "Update Log", an "Update N" picker
 	    and a round close button along the top
 	  * left: the game's logo, the update's name, "Update N Patch Notes", a box listing everything new,
 	    then each section (heading, tag and bullet lines) with a gem divider between them, over a big
@@ -12,9 +12,9 @@
 	    on a phone) for its details card (ItemCard).
 	Everything (window border, ribbon, panels, emblem, decorations) takes the update's own colours.
 
-	It opens every time a player joins, unless they set it to "Hidden on login": then it only opens
-	once for each new update. Brand-new players get the tutorial instead on their first visit.
-	Settings > Update Log opens it any time.
+	It opens every time a player joins (after the "Welcome back" window if there is one). On a
+	player's first visit the tutorial starts once they close it. The UPDATES button on the side and
+	Settings > Update Log open it any time.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -39,6 +39,31 @@ type Spinner = { Camera: Camera, Distance: number, Height: number, Phase: number
 
 local modal: Modal.Modal
 local show: (version: number) -> ()
+
+-- The log that opens on joining: things that wait for it to be closed (the first-join tutorial)
+local joinShown = false
+local joinDone = false
+local joinWaiters: { () -> () } = {}
+local function finishJoin()
+	if joinDone then
+		return
+	end
+	joinDone = true
+	for _, waiter in joinWaiters do
+		task.spawn(waiter)
+	end
+	table.clear(joinWaiters)
+end
+
+-- Runs `callback` once the Update Log that opened on joining has been closed (right away if it
+-- already was).
+function UpdateNotes.AfterJoinLog(callback: () -> ())
+	if joinDone then
+		task.spawn(callback)
+	else
+		table.insert(joinWaiters, callback)
+	end
+end
 
 function UpdateNotes.Open(version: number?)
 	show(version or Notes.Latest)
@@ -207,7 +232,6 @@ function UpdateNotes.Init()
 		modal:Close()
 	end)
 	local versionButton = Theme.Button({ Text = "", Color = rgb(55, 55, 70), Size = UDim2.fromOffset(170, 42), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -52, 0, 8), Parent = body })
-	local loginButton = Theme.Button({ Text = "", Color = rgb(55, 55, 70), Size = UDim2.fromOffset(230, 42), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -232, 0, 8), Parent = body })
 
 	-- "Update N" picker: a little menu of every update
 	local menu = Theme.new("Frame", {
@@ -233,18 +257,6 @@ function UpdateNotes.Init()
 	versionButton.Activated:Connect(function()
 		menu.Visible = not menu.Visible
 	end)
-
-	-- "Shown on login" switch (saved)
-	local function showLogin()
-		Theme.SetButtonText(loginButton, if State.Get("NotesOnLogin") == false then "▼ Hidden on login" else "▼ Shown on login")
-	end
-	loginButton.Activated:Connect(function()
-		local on = State.Get("NotesOnLogin") == false
-		State.Action("NotesOnLogin", on)
-		Theme.SetButtonText(loginButton, if on then "▼ Shown on login" else "▼ Hidden on login")
-	end)
-	State.Changed:Connect(showLogin)
-	showLogin()
 
 	local spinners: { Spinner } = {}
 	local steps: { UpdateDecor.Step } = {}
@@ -280,7 +292,6 @@ function UpdateNotes.Init()
 			ColorSequenceKeypoint.new(1, accent),
 		})
 		Theme.SetButtonColor(versionButton, Theme.Darken(color, 0.2))
-		Theme.SetButtonColor(loginButton, Theme.Darken(color, 0.35))
 
 		-- The corner emblem and the decorations
 		if emblem then
@@ -421,36 +432,37 @@ function UpdateNotes.Init()
 		borderGradient.Rotation = (t * 40) % 360
 	end)
 
-	-- Every join: show the log (brand-new players get the tutorial instead). Players who set it to
-	-- "Hidden on login" still see each new update once.
+	-- Every join: the log opens as soon as the screen is free (the "Welcome back" offline earnings
+	-- arrive together with the save, and only one window shows at a time). Brand-new players see
+	-- it too; their tutorial starts once they close it (UpdateNotes.AfterJoinLog).
+	modal.OnClose = function()
+		if joinShown then
+			finishJoin()
+		end
+	end
 	local checked = false
 	State.Changed:Connect(function(snapshot)
 		if checked then
 			return
 		end
 		checked = true
-		local isNew = (snapshot.SeenUpdate or 0) < Notes.Latest
-		if isNew then
+		if (snapshot.SeenUpdate or 0) < Notes.Latest then
 			State.Action("SeenUpdate", Notes.Latest)
 		end
-		if snapshot.SeenTutorial == false then
-			return
-		end
-		if snapshot.NotesOnLogin ~= false or isNew then
-			-- Wait for any other window first (the "Welcome back" offline earnings arrive together
-			-- with the save, and only one window shows at a time)
-			task.spawn(function()
-				task.wait(1.5)
-				local waited = 0
-				while Modal.AnyOpen() and waited < 180 do
-					task.wait(0.5)
-					waited += 0.5
-				end
-				if not Modal.AnyOpen() then
-					UpdateNotes.Open()
-				end
-			end)
-		end
+		task.spawn(function()
+			task.wait(1.5)
+			local waited = 0
+			while Modal.AnyOpen() and waited < 600 do
+				task.wait(0.5)
+				waited += 0.5
+			end
+			if Modal.AnyOpen() then
+				finishJoin() -- (somebody's been in a window for 10 minutes: don't hold the tutorial)
+				return
+			end
+			joinShown = true
+			UpdateNotes.Open()
+		end)
 	end)
 end
 

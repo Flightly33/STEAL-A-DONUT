@@ -59,6 +59,8 @@ type Mouth = { Part: BasePart, Weld: Weld, Base: CFrame, Size: Vector3, Corners:
 type Idle = {
 	Model: Model,
 	Root: BasePart,
+	Details: { BasePart }, -- tiny bits (sprinkles, glints, specks) not drawn from far away
+	Lod: boolean,
 	Base: CFrame,
 	Bottom: number,
 	Scale: number,
@@ -188,8 +190,14 @@ local function register(instance: Instance)
 	local corners: { BasePart } = {}
 	local phases: { [string]: number } = {} -- parts swinging around the same pivot move together
 	local hasArms = false
+	local details: { BasePart } = {}
+	local tiny = 0.45 * root.Size.Y / 3
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
+			local size = part.Size
+			if part ~= root and part.Transparency < 1 and math.max(size.X, size.Y, size.Z) <= tiny then
+				table.insert(details, part)
+			end
 			local kind = part:GetAttribute("Limb")
 			local weld = part:FindFirstChildOfClass("Weld")
 			if type(kind) == "string" and weld then
@@ -228,6 +236,8 @@ local function register(instance: Instance)
 	idles[model] = {
 		Model = model,
 		Root = root,
+		Details = details,
+		Lod = false,
 		Base = root.CFrame,
 		Bottom = if type(bottom) == "number" then bottom else 1.5,
 		Scale = root.Size.Y / 3,
@@ -261,6 +271,19 @@ local function register(instance: Instance)
 		Active = false,
 		Accum = 0,
 	}
+end
+
+-- Far away: the tiny bits aren't drawn (a whole base of donuts is thousands of parts).
+-- (LocalTransparencyModifier only changes this player's screen.)
+local LOD_DISTANCE = 125
+local function setLod(idle: Idle, far: boolean)
+	idle.Lod = far
+	local value = if far then 1 else 0
+	for _, part in idle.Details do
+		pcall(function()
+			part.LocalTransparencyModifier = value
+		end)
+	end
 end
 
 local function startAction(idle: Idle, action: string, now: number)
@@ -587,18 +610,35 @@ function DonutIdle.Init()
 		clock += dt
 		local now = clock
 		local target = watchedPosition()
+		local camera = workspace.CurrentCamera
+		local eye = if camera then camera.CFrame.Position else focus
+		local look = if camera then camera.CFrame.LookVector else Vector3.zero
 		for model, idle in idles do
 			if not model.Parent then
 				idles[model] = nil
 				continue
 			end
 			local distance = (idle.Base.Position - focus).Magnitude
+			if idle.Lod then
+				if distance < LOD_DISTANCE then
+					setLod(idle, false)
+				end
+			elseif distance > LOD_DISTANCE + 10 then
+				setLod(idle, true)
+			end
 			if distance < RANGE then
 				idle.Active = true
 				idle.Accum += dt
-				if distance < NEAR or idle.Accum >= 1 / 30 then
+				-- Off to the side or behind the camera: nobody sees it move, skip it (close ones
+				-- always move, they can swing into view any moment). Far ones move at 15 fps.
+				local toward = idle.Base.Position - eye
+				local inView = distance < NEAR or look == Vector3.zero or toward:Dot(look) > toward.Magnitude * 0.35
+				local interval = if distance < NEAR then 0 elseif distance < RANGE * 0.6 then 1 / 30 else 1 / 15
+				if inView and idle.Accum >= interval then
 					animate(idle, now, idle.Accum, target)
 					idle.Accum = 0
+				elseif idle.Accum > 1 then
+					idle.Accum = 1 -- (don't save up a huge jump while it's out of view)
 				end
 			elseif idle.Active then
 				idle.Active = false

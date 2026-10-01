@@ -12,6 +12,7 @@
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
@@ -259,15 +260,36 @@ function DonutSpawnService.Init()
 		spawnDonut(record, false) -- no announcements for the initial fill
 	end
 
-	-- Re-roll donuts that have been sitting around too long so the lane stays fresh.
+	-- Re-roll donuts that have been sitting around too long so the lane stays fresh, but only
+	-- where someone can see them: every re-roll sends a whole new donut model to every player,
+	-- and nobody needs fresh donuts in an empty area (they re-roll once someone comes near).
+	local REROLL_DISTANCE = 450
 	task.spawn(function()
 		while true do
 			task.wait(5)
 			local now = os.clock()
+			local positions = {}
+			for _, player in Players:GetPlayers() do
+				local character = player.Character
+				local rootPart = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+				if rootPart then
+					table.insert(positions, rootPart.Position)
+				end
+			end
 			for _, record in records do
 				if not record.Taken and record.Model and now - record.SpawnedAt > Config.Spawns.Lifetime then
-					spawnDonut(record, true)
-					task.wait(0.05)
+					local here = record.Point.Position
+					local watched = false
+					for _, position in positions do
+						if (position - here).Magnitude < REROLL_DISTANCE then
+							watched = true
+							break
+						end
+					end
+					if watched then
+						spawnDonut(record, true)
+						task.wait(0.05)
+					end
 				end
 			end
 		end
