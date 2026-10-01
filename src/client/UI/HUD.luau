@@ -36,6 +36,7 @@ export type Callbacks = {
 	OpenWorlds: () -> (),
 	OpenPets: () -> (),
 	OpenDonate: () -> (),
+	OpenUpdates: () -> (),
 	OpenAdmin: () -> (),
 	UnclaimedIndex: () -> number,
 	RebirthReady: () -> boolean,
@@ -210,6 +211,9 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		callbacks.OpenShop("Skins")
 	end)
 	square("💖", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
+	square("📰", "UPDATES", Theme.Colors.Yellow, 5, function()
+		callbacks.OpenUpdates()
+	end)
 	-- Music on/off in one tap (saved), and Settings for the volume. Both only when there are songs.
 	local hasMusic = #Config.Music.Tracks > 0
 	local music: TextButton

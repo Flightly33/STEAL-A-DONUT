@@ -64,6 +64,9 @@ HUD.Init({
 	OpenWorlds = Worlds.Open,
 	OpenPets = PetsWindow.Open,
 	OpenDonate = Donate.Open,
+	OpenUpdates = function()
+		UpdateNotes.Open()
+	end,
 	OpenAdmin = Admin.Open,
 	UnclaimedIndex = Index.UnclaimedCount,
 	RebirthReady = Rebirth.IsReady,
