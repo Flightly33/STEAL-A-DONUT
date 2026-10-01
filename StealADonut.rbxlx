@@ -5757,6 +5757,9 @@ return Format
           <string name="Source"><![CDATA[--[[
 	GuardModel: builds the guard ("Domer") rig out of plain parts, so no uploaded assets are needed.
 
+	Domer is pixelated and buff: every piece of him is a block (no round parts) covered in classic
+	Roblox studs, with a big chest, pecs, abs, boulder shoulders and biceps.
+
 	Used by the client (the sleeping guard on every blanket: each player sees only their own) and
 	by the server (the guard that wakes up and chases you). Each area's guard gets its own outfit,
 	hat and aura from Areas.luau.
@@ -5820,11 +5823,8 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 	root.Transparency = 1
 	root.CanCollide = false
 	local torso = newPart(model, "Torso", Vector3.new(2, 2, 1), shirt, CFrame.new(0, 3, 0), group)
-	local head = newPart(model, "Head", Vector3.new(2, 1, 1), skin, CFrame.new(0, 4.5, 0), group)
-	local mesh = Instance.new("SpecialMesh")
-	mesh.MeshType = Enum.MeshType.Head
-	mesh.Scale = Vector3.new(1.25, 1.25, 1.25)
-	mesh.Parent = head
+	-- (a blocky cube head: pixelated, no round head mesh)
+	local head = newPart(model, "Head", Vector3.new(1.3, 1.3, 1.3), skin, CFrame.new(0, 4.65, 0), group)
 	local rightArm = newPart(model, "Right Arm", Vector3.new(1, 2, 1), skin, CFrame.new(1.5, 3, 0), group)
 	local leftArm = newPart(model, "Left Arm", Vector3.new(1, 2, 1), skin, CFrame.new(-1.5, 3, 0), group)
 	local rightLeg = newPart(model, "Right Leg", Vector3.new(1, 2, 1), pants, CFrame.new(0.5, 1, 0), group)
@@ -5835,28 +5835,21 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 
 	-- Standard R6 joints
 	motor("RootJoint", root, torso, CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0), CFrame.new(0, 0, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0))
-	motor("Neck", torso, head, CFrame.new(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0), CFrame.new(0, -0.5, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0))
+	motor("Neck", torso, head, CFrame.new(0, 1, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0), CFrame.new(0, -0.65, 0, -1, 0, 0, 0, 0, 1, 0, 1, 0))
 	motor("Right Shoulder", torso, rightArm, CFrame.new(1, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0), CFrame.new(-0.5, 0.5, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0))
 	motor("Left Shoulder", torso, leftArm, CFrame.new(-1, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0), CFrame.new(0.5, 0.5, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0))
 	motor("Right Hip", torso, rightLeg, CFrame.new(1, -1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0), CFrame.new(0.5, 1, 0, 0, 0, 1, 0, 1, 0, -1, 0, 0))
 	motor("Left Hip", torso, leftLeg, CFrame.new(-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0), CFrame.new(-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0))
 
 	-- Meshes whose Scale must survive Model:ScaleTo unchanged (the part sizes carry the scaling).
-	local meshScales: { [SpecialMesh]: Vector3 } = { [mesh] = mesh.Scale }
+	local meshScales: { [SpecialMesh]: Vector3 } = {}
 
 	-- Cosmetic part welded to `base` at `offset`. A non-round "ball" becomes an ellipsoid
 	-- (a block with a sphere mesh), since Ball parts are always perfectly round.
-	local function attach(base: BasePart, name: string, shape: Enum.PartType, size: Vector3, color: Color3, offset: CFrame, material: Enum.Material?): Part
+	-- Pixelated: every piece is a block, whatever shape it was drawn as (balls and cylinders become
+	-- cubes and square slabs of the same size).
+	local function attach(base: BasePart, name: string, _shape: Enum.PartType, size: Vector3, color: Color3, offset: CFrame, material: Enum.Material?): Part
 		local part = newPart(model, name, size, color, base.CFrame * offset, group)
-		if shape == Enum.PartType.Ball and (size.X ~= size.Y or size.Y ~= size.Z) then
-			local sphere = Instance.new("SpecialMesh")
-			sphere.MeshType = Enum.MeshType.Sphere
-			sphere.Scale = Vector3.one
-			sphere.Parent = part
-			meshScales[sphere] = Vector3.one
-		else
-			part.Shape = shape
-		end
 		part.Massless = true
 		part.CanCollide = false
 		part.CanQuery = false
@@ -5895,16 +5888,32 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 	end
 
 	-- Body: collared shirt, donut belly, belt, short sleeves, shoes
-	attach(torso, "Belly", ball, Vector3.new(2.3, 2.1, 2.2), shirt, CFrame.new(0, -0.3, -0.42))
-	attach(torso, "Collar", block, Vector3.new(1.3, 0.25, 0.9), shirt:Lerp(WHITE, 0.4), CFrame.new(0, 0.95, -0.12))
-	attach(torso, "Belt", block, Vector3.new(2.06, 0.28, 1.06), pants:Lerp(BLACK, 0.35), CFrame.new(0, -0.88, 0))
-	attach(torso, "ShirtButton", ball, Vector3.one * 0.14, shirt:Lerp(BLACK, 0.3), CFrame.new(0, 0.4, -0.55))
+	-- Buff body: a wide chest tapering to the belt (V shape), pecs, a six-pack, traps
+	local shade = shirt:Lerp(BLACK, 0.18)
+	attach(torso, "Chest", block, Vector3.new(2.9, 1.2, 1.4), shirt, CFrame.new(0, 0.42, -0.1))
+	attach(torso, "Waist", block, Vector3.new(2.2, 0.9, 1.2), shirt, CFrame.new(0, -0.5, -0.05))
+	for _, side in { -1, 1 } do
+		attach(torso, "Pec", block, Vector3.new(1.2, 0.75, 0.3), shade, CFrame.new(side * 0.64, 0.45, -0.85))
+	end
+	for row = 0, 2 do
+		for _, side in { -1, 1 } do
+			attach(torso, "Ab", block, Vector3.new(0.5, 0.32, 0.2), shade, CFrame.new(side * 0.28, -0.12 - row * 0.36, -0.72))
+		end
+	end
+	attach(torso, "Traps", block, Vector3.new(1.9, 0.45, 1.0), skin, CFrame.new(0, 1.08, 0.05))
+	attach(torso, "Collar", block, Vector3.new(1.3, 0.25, 0.9), shirt:Lerp(WHITE, 0.4), CFrame.new(0, 1.0, -0.2))
+	attach(torso, "Belt", block, Vector3.new(2.3, 0.3, 1.3), pants:Lerp(BLACK, 0.35), CFrame.new(0, -0.95, -0.05))
+	attach(torso, "Buckle", block, Vector3.new(0.4, 0.3, 0.1), rgb(255, 205, 50), CFrame.new(0, -0.95, -0.72), Enum.Material.Foil)
 	for _, side in { -1, 1 } do
 		local arm = if side < 0 then leftArm else rightArm
 		local leg = if side < 0 then leftLeg else rightLeg
-		attach(arm, "Sleeve", block, Vector3.new(1.1, 0.78, 1.1), shirt, CFrame.new(0, 0.62, 0))
-		attach(arm, "Hand", ball, Vector3.one * 0.72, skin, CFrame.new(0, -1.05, 0))
-		attach(leg, "Shoe", block, Vector3.new(1.08, 0.42, 1.4), rgb(60, 60, 65), CFrame.new(0, -0.8, -0.17))
+		-- boulder shoulders, a bulging bicep, a thick forearm and a big block fist
+		attach(arm, "Shoulder", block, Vector3.new(1.55, 0.95, 1.5), shirt, CFrame.new(side * 0.15, 0.62, 0))
+		attach(arm, "Bicep", block, Vector3.new(1.4, 0.8, 1.35), skin, CFrame.new(0, -0.05, -0.08))
+		attach(arm, "Forearm", block, Vector3.new(1.25, 0.6, 1.25), skin, CFrame.new(0, -0.6, 0))
+		attach(arm, "Hand", block, Vector3.one * 0.85, skin, CFrame.new(0, -1.1, 0))
+		attach(leg, "Thigh", block, Vector3.new(1.2, 1.0, 1.2), pants, CFrame.new(0, 0.45, 0))
+		attach(leg, "Shoe", block, Vector3.new(1.15, 0.45, 1.5), rgb(60, 60, 65), CFrame.new(0, -0.8, -0.17))
 	end
 
 	-- Hat
@@ -6064,6 +6073,19 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Dead, false)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
 		humanoid:SetStateEnabled(Enum.HumanoidStateType.Ragdoll, false)
+	end
+
+	-- Made of studs: every visible part gets the classic studded surface on all six sides
+	for _, part in model:GetDescendants() do
+		if part:IsA("Part") and part ~= root then
+			part.Shape = Enum.PartType.Block
+			for _, face in { "TopSurface", "BottomSurface", "FrontSurface", "BackSurface", "LeftSurface", "RightSurface" } do
+				(part :: any)[face] = Enum.SurfaceType.Studs
+			end
+			if part.Material == Enum.Material.SmoothPlastic then
+				part.Material = Enum.Material.Plastic
+			end
+		end
 	end
 
 	model.PrimaryPart = root
@@ -8257,6 +8279,10 @@ UpdateNotes.List = {
 			{ Title = "Softer Sounds", Tag = "Improvements", Lines = {
 				"Buttons click like a soft mechanical keyboard",
 				"New gentle chimes for messages, rare finds and server events",
+			} },
+			{ Title = "Domer Hit The Gym", Tag = "New Looks", Lines = {
+				"Domer is now built from chunky studded blocks, pixel style",
+				"He's also way more buff: big shoulders, biceps and a six-pack",
 			} },
 			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
 				"Rare donuts on bases glow softer, so every donut is easy to see",

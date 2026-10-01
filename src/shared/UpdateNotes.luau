@@ -89,6 +89,10 @@ UpdateNotes.List = {
 				"Buttons click like a soft mechanical keyboard",
 				"New gentle chimes for messages, rare finds and server events",
 			} },
+			{ Title = "Domer Hit The Gym", Tag = "New Looks", Lines = {
+				"Domer is now built from chunky studded blocks, pixel style",
+				"He's also way more buff: big shoulders, biceps and a six-pack",
+			} },
 			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
 				"Rare donuts on bases glow softer, so every donut is easy to see",
 			} },
