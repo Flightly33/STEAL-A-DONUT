@@ -89,9 +89,12 @@ UpdateNotes.List = {
 				"Buttons click like a soft mechanical keyboard",
 				"New gentle chimes for messages, rare finds and server events",
 			} },
-			{ Title = "Domer Hit The Gym", Tag = "New Looks", Lines = {
+			{ Title = "Domer Hit The Gym", Tag = "NEW Looks", Lines = {
 				"Domer is now built from chunky studded blocks, pixel style",
 				"He's also way more buff: big shoulders, biceps and a six-pack",
+			} },
+			{ Title = "Admin Donuts", Tag = "Balance", Lines = {
+				"Admin donuts no longer spawn in the lane: only the admin panel can make them",
 			} },
 			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
 				"Rare donuts on bases glow softer, so every donut is easy to see",

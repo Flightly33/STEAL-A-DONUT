@@ -33,6 +33,7 @@ export type Rarity = {
 	Halo: boolean?,
 	Beam: boolean?,
 	Orbit: boolean?,
+	AdminOnly: boolean?, -- never spawns by itself: only the admin panel can make one
 	IndexReward: { Cash: number, Speed: number? },
 }
 
@@ -78,7 +79,7 @@ Rarities.List = {
 	{ Id = "Celestial", Order = 6, Color = Color3.fromRGB(255, 110, 255), Shine = true, Light = 13, Particles = 24, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 1800, Speed = 4 } },
 	{ Id = "Secret", Order = 7, Color = Color3.fromRGB(255, 255, 255), Shine = true, Light = 16, Particles = 40, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 3600, Speed = 8 } },
 	-- Rarer than Secret: one per world, a fraction of a percent of a percent per spawn.
-	{ Id = "Admin", Order = 8, Color = Color3.fromRGB(255, 40, 40), Shine = true, Light = 22, Particles = 60, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 7200, Speed = 15 } },
+	{ Id = "Admin", Order = 8, Color = Color3.fromRGB(255, 40, 40), Shine = true, Light = 22, Particles = 60, Float = true, Halo = true, Beam = true, Orbit = true, AdminOnly = true, IndexReward = { Cash = 7200, Speed = 15 } },
 	-- The rarest of all: a handful of legendary one-offs (the first is Fake Kar, in The Black Hole).
 	{ Id = "Icon", Order = 9, Color = Color3.fromRGB(40, 140, 255), Shine = true, Light = 26, Particles = 80, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 14400, Speed = 25 } },
 } :: { Rarity }

@@ -122,6 +122,7 @@ function ItemCard.Describe(item: Item): Info
 		local rarity = Rarities.Get(donut.Rarity)
 		local area = Areas.Get(donut.Area)
 		local world = Areas.World(if area then area.World else 1)
+		local spawnable = Donuts.Spawnable(donut)
 		local mutations = {}
 		for _, id in MUTATIONS do
 			local mutation = Rarities.Mutation(id)
@@ -134,14 +135,19 @@ function ItemCard.Describe(item: Item): Info
 			Color = rarity.Color,
 			Stats = {
 				{ Label = "Money", Value = `{Format.Money(donut.Income)}/s`, Color = MONEY },
-				{ Label = "Spawn chance", Value = percent(Donuts.Chance(donut)), Color = CHANCE },
+				{ Label = "Spawn chance", Value = if spawnable then percent(Donuts.Chance(donut)) else "Admin only", Color = CHANCE },
 				{ Label = "Area", Value = tostring(if area then area.Index else donut.Area), Color = PLACE },
 			},
-			Lines = {
-				`Lives in {paint(if area then area.Name else "the lane", world.Color)}. Steal it and run it home before {paint(Config.Guard.Name, rgb(255, 90, 90))} catches you!`,
-				`Can spawn as {table.concat(mutations, ", ")} for more money.`,
-			},
-			HowTo = `Steal it in {if area then areaName(area.Id) else "the lane"}`,
+			Lines = if spawnable
+				then {
+					`Lives in {paint(if area then area.Name else "the lane", world.Color)}. Steal it and run it home before {paint(Config.Guard.Name, rgb(255, 90, 90))} catches you!`,
+					`Can spawn as {table.concat(mutations, ", ")} for more money.`,
+				}
+				else {
+					`Never spawns in the lane: only the {paint("admin panel", rarity.Color)} can make one.`,
+					`Can come as {table.concat(mutations, ", ")} for more money.`,
+				},
+			HowTo = if spawnable then `Steal it in {if area then areaName(area.Id) else "the lane"}` else "Admin panel only",
 		}
 	elseif item.Kind == "Pet" and Pets.ById[item.Id] then
 		local pet = Pets.ById[item.Id]

@@ -122,13 +122,13 @@ local function refresh()
 		local rarity = Rarities.Get(donut.Rarity)
 		local cash = Economy.IndexCashReward(id)
 		local speed = Economy.IndexSpeedReward(id)
-		local chance = `{string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
-		if lucky then
+		local chance = if not Donuts.Spawnable(donut) then "Admin panel only" else `{string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
+		if lucky and Donuts.Spawnable(donut) then
 			chance ..= ` (🍀 {string.format("%.2g", Donuts.Chance(donut, Config.LuckEvent.RarityLuck) * 100)}% now)`
 		end
 		card.Rarity.Text = `{rarity.Id} • {chance}`
 		local counts = stats and stats.D[id]
-		if rarity.Order >= Config.GlobalStats.ShowFromRarity then
+		if rarity.Order >= Config.GlobalStats.ShowFromRarity and Donuts.Spawnable(donut) then
 			local spawned = if counts then counts[1] or 0 else 0
 			local gotHome = if counts then counts[2] or 0 else 0
 			card.Global.Text = if stats then `🌍 {Format.Number(spawned)} spawned ({percent(spawned, totalSpawns)}) • {Format.Number(gotHome)} found` else "🌍 loading..."

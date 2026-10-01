@@ -4651,7 +4651,7 @@ return DonutModel
 
 	Each area has 5 regular donuts weighted 50 / 28 / 14 / 4 / 1 (so the best one is about a 1% spawn),
 	a few areas also have a Secret (0.006% - 0.03%), and the last area of each world has an ADMIN donut
-	(about 1 in 25,000 spawns). Every spawn can also roll a mutation (Gold, Diamond, Mythic, Divine,
+	that never spawns by itself: only the admin panel can make one (Rarities AdminOnly). Every spawn can also roll a mutation (Gold, Diamond, Mythic, Divine,
 	Rainbow) and a size, which multiply its income.
 
 	To add a donut: copy a line, give it a unique Id, pick an area/rarity/income. That's it:
@@ -4934,7 +4934,7 @@ Donuts.List = {
 	D("quasarino", "Quasarino Crullero", "Celestial", 34, 3.33e26, 4, rgb(15, 10, 30), rgb(255, 255, 255), STARS, { "Legs", "Arms", "Visor", "QuasarJets" }),
 	D("supermassivo", "Supermassivo Sprinklo", "Celestial", 34, 7.1e26, 1, rgb(5, 5, 10), rgb(120, 60, 255), RAINBOW, { "Wings", "Crown", "Cape", "Orbit", "Halo", "AccretionDisk" }),
 	D("wormholio", "Wormholio Infinitoni", "Secret", 34, 2.9e27, 0.012, rgb(0, 0, 0), rgb(170, 90, 255), STARS, { "Wings", "Halo", "Crown", "Orbit", "Tentacles", "Wormhole" }),
-	-- The first ICON donut: rarer than Admin (about 1 in 70,000 spawns in The Black Hole)
+	-- The first ICON donut: the rarest natural spawn (about 1 in 70,000 spawns in The Black Hole)
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
 } :: { Donut }
 
@@ -5017,79 +5017,74 @@ end
 -- A donut counts as "rare" for luck boosts when its base chance in its area is under this.
 Donuts.RareChance = 0.1
 
--- Weighted random donut for an area. `rng` is a Random object. `luck` multiplies the weight of
--- every rare donut (Luck Event).
-function Donuts.Roll(areaId: number, rng: Random, luck: number?): Donut
+-- Can this donut spawn by itself (lane spawns, Rare Donut Rain)? Admin donuts can't: only the
+-- admin panel makes them.
+function Donuts.Spawnable(donut: Donut): boolean
+	return not Rarities.ById[donut.Rarity].AdminOnly
+end
+
+-- Weight of every donut of an area for a spawn (admin-only donuts weigh 0). `luck` multiplies the
+-- weight of every rare donut (Luck Event); `rareOnly` leaves only the rare ones.
+local function weights(areaId: number, luck: number?, rareOnly: boolean?): ({ Donut }, { number }, number)
 	local pool = Donuts.ByArea[areaId]
 	assert(pool and #pool > 0, "No donuts defined for area " .. tostring(areaId))
 	local boost = luck or 1
 	local base = 0
 	for _, donut in pool do
-		base += donut.Weight
-	end
-	local function weight(donut: Donut): number
-		return if boost ~= 1 and donut.Weight / base < Donuts.RareChance then donut.Weight * boost else donut.Weight
-	end
-	local total = 0
-	for _, donut in pool do
-		total += weight(donut)
-	end
-	local pick = rng:NextNumber() * total
-	for _, donut in pool do
-		pick -= weight(donut)
-		if pick <= 0 then
-			return donut
+		if Donuts.Spawnable(donut) then
+			base += donut.Weight
 		end
 	end
-	return pool[#pool]
+	local list, total = {}, 0
+	for i, donut in pool do
+		local rare = donut.Weight / base < Donuts.RareChance
+		local weight = if not Donuts.Spawnable(donut) or (rareOnly and not rare) then 0
+			elseif boost ~= 1 and rare then donut.Weight * boost
+			else donut.Weight
+		list[i] = weight
+		total += weight
+	end
+	return pool, list, total
+end
+
+local function pick(pool: { Donut }, list: { number }, total: number, rng: Random): Donut
+	local left = rng:NextNumber() * total
+	local last = pool[1]
+	for i, donut in pool do
+		if list[i] > 0 then
+			last = donut
+			left -= list[i]
+			if left <= 0 then
+				return donut
+			end
+		end
+	end
+	return last
+end
+
+-- Weighted random donut for an area. `rng` is a Random object. `luck` multiplies the weight of
+-- every rare donut (Luck Event). Never an admin-only donut.
+function Donuts.Roll(areaId: number, rng: Random, luck: number?): Donut
+	local pool, list, total = weights(areaId, luck)
+	return pick(pool, list, total, rng)
 end
 
 -- A random RARE donut of an area (base chance under RareChance), weighted like normal spawns.
--- Used by the Rare Donut Rain event.
+-- Used by the Rare Donut Rain event. Never an admin-only donut.
 function Donuts.RollRare(areaId: number, rng: Random): Donut
-	local pool = Donuts.ByArea[areaId]
-	local base = 0
-	for _, donut in pool do
-		base += donut.Weight
-	end
-	local rare = {}
-	local total = 0
-	for _, donut in pool do
-		if donut.Weight / base < Donuts.RareChance then
-			table.insert(rare, donut)
-			total += donut.Weight
-		end
-	end
-	if #rare == 0 then
+	local pool, list, total = weights(areaId, nil, true)
+	if total <= 0 then
 		return Donuts.Roll(areaId, rng)
 	end
-	local pick = rng:NextNumber() * total
-	for _, donut in rare do
-		pick -= donut.Weight
-		if pick <= 0 then
-			return donut
-		end
-	end
-	return rare[#rare]
+	return pick(pool, list, total, rng)
 end
 
--- Chance (0-1) that a spawn in the donut's area is this donut. `luck` = the Luck Event's rarity
--- boost (same maths as Donuts.Roll), so the Index can show the boosted odds while it runs.
+-- Chance (0-1) that a spawn in the donut's area is this donut (0 for admin-only donuts). `luck` =
+-- the Luck Event's rarity boost (same maths as Donuts.Roll), so the Index can show the boosted
+-- odds while it runs.
 function Donuts.Chance(donut: Donut, luck: number?): number
-	local boost = luck or 1
-	local pool = Donuts.ByArea[donut.Area]
-	local base = 0
-	for _, other in pool do
-		base += other.Weight
-	end
-	local function weight(d: Donut): number
-		return if boost ~= 1 and d.Weight / base < Donuts.RareChance then d.Weight * boost else d.Weight
-	end
-	local total = 0
-	for _, other in pool do
-		total += weight(other)
-	end
-	return weight(donut) / total
+	local pool, list, total = weights(donut.Area, luck)
+	return list[table.find(pool, donut) :: number] / total
 end
 
 return Donuts
@@ -7916,6 +7911,7 @@ export type Rarity = {
 	Halo: boolean?,
 	Beam: boolean?,
 	Orbit: boolean?,
+	AdminOnly: boolean?, -- never spawns by itself: only the admin panel can make one
 	IndexReward: { Cash: number, Speed: number? },
 }
 
@@ -7961,7 +7957,7 @@ Rarities.List = {
 	{ Id = "Celestial", Order = 6, Color = Color3.fromRGB(255, 110, 255), Shine = true, Light = 13, Particles = 24, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 1800, Speed = 4 } },
 	{ Id = "Secret", Order = 7, Color = Color3.fromRGB(255, 255, 255), Shine = true, Light = 16, Particles = 40, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 3600, Speed = 8 } },
 	-- Rarer than Secret: one per world, a fraction of a percent of a percent per spawn.
-	{ Id = "Admin", Order = 8, Color = Color3.fromRGB(255, 40, 40), Shine = true, Light = 22, Particles = 60, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 7200, Speed = 15 } },
+	{ Id = "Admin", Order = 8, Color = Color3.fromRGB(255, 40, 40), Shine = true, Light = 22, Particles = 60, Float = true, Halo = true, Beam = true, Orbit = true, AdminOnly = true, IndexReward = { Cash = 7200, Speed = 15 } },
 	-- The rarest of all: a handful of legendary one-offs (the first is Fake Kar, in The Black Hole).
 	{ Id = "Icon", Order = 9, Color = Color3.fromRGB(40, 140, 255), Shine = true, Light = 26, Particles = 80, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 14400, Speed = 25 } },
 } :: { Rarity }
@@ -8280,9 +8276,12 @@ UpdateNotes.List = {
 				"Buttons click like a soft mechanical keyboard",
 				"New gentle chimes for messages, rare finds and server events",
 			} },
-			{ Title = "Domer Hit The Gym", Tag = "New Looks", Lines = {
+			{ Title = "Domer Hit The Gym", Tag = "NEW Looks", Lines = {
 				"Domer is now built from chunky studded blocks, pixel style",
 				"He's also way more buff: big shoulders, biceps and a six-pack",
+			} },
+			{ Title = "Admin Donuts", Tag = "Balance", Lines = {
+				"Admin donuts no longer spawn in the lane: only the admin panel can make them",
 			} },
 			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
 				"Rare donuts on bases glow softer, so every donut is easy to see",
@@ -26305,13 +26304,13 @@ local function refresh()
 		local rarity = Rarities.Get(donut.Rarity)
 		local cash = Economy.IndexCashReward(id)
 		local speed = Economy.IndexSpeedReward(id)
-		local chance = `{string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
-		if lucky then
+		local chance = if not Donuts.Spawnable(donut) then "Admin panel only" else `{string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
+		if lucky and Donuts.Spawnable(donut) then
 			chance ..= ` (🍀 {string.format("%.2g", Donuts.Chance(donut, Config.LuckEvent.RarityLuck) * 100)}% now)`
 		end
 		card.Rarity.Text = `{rarity.Id} • {chance}`
 		local counts = stats and stats.D[id]
-		if rarity.Order >= Config.GlobalStats.ShowFromRarity then
+		if rarity.Order >= Config.GlobalStats.ShowFromRarity and Donuts.Spawnable(donut) then
 			local spawned = if counts then counts[1] or 0 else 0
 			local gotHome = if counts then counts[2] or 0 else 0
 			card.Global.Text = if stats then `🌍 {Format.Number(spawned)} spawned ({percent(spawned, totalSpawns)}) • {Format.Number(gotHome)} found` else "🌍 loading..."
@@ -26626,6 +26625,7 @@ function ItemCard.Describe(item: Item): Info
 		local rarity = Rarities.Get(donut.Rarity)
 		local area = Areas.Get(donut.Area)
 		local world = Areas.World(if area then area.World else 1)
+		local spawnable = Donuts.Spawnable(donut)
 		local mutations = {}
 		for _, id in MUTATIONS do
 			local mutation = Rarities.Mutation(id)
@@ -26638,14 +26638,19 @@ function ItemCard.Describe(item: Item): Info
 			Color = rarity.Color,
 			Stats = {
 				{ Label = "Money", Value = `{Format.Money(donut.Income)}/s`, Color = MONEY },
-				{ Label = "Spawn chance", Value = percent(Donuts.Chance(donut)), Color = CHANCE },
+				{ Label = "Spawn chance", Value = if spawnable then percent(Donuts.Chance(donut)) else "Admin only", Color = CHANCE },
 				{ Label = "Area", Value = tostring(if area then area.Index else donut.Area), Color = PLACE },
 			},
-			Lines = {
-				`Lives in {paint(if area then area.Name else "the lane", world.Color)}. Steal it and run it home before {paint(Config.Guard.Name, rgb(255, 90, 90))} catches you!`,
-				`Can spawn as {table.concat(mutations, ", ")} for more money.`,
-			},
-			HowTo = `Steal it in {if area then areaName(area.Id) else "the lane"}`,
+			Lines = if spawnable
+				then {
+					`Lives in {paint(if area then area.Name else "the lane", world.Color)}. Steal it and run it home before {paint(Config.Guard.Name, rgb(255, 90, 90))} catches you!`,
+					`Can spawn as {table.concat(mutations, ", ")} for more money.`,
+				}
+				else {
+					`Never spawns in the lane: only the {paint("admin panel", rarity.Color)} can make one.`,
+					`Can come as {table.concat(mutations, ", ")} for more money.`,
+				},
+			HowTo = if spawnable then `Steal it in {if area then areaName(area.Id) else "the lane"}` else "Admin panel only",
 		}
 	elseif item.Kind == "Pet" and Pets.ById[item.Id] then
 		local pet = Pets.ById[item.Id]

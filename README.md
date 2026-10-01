@@ -3,7 +3,7 @@
 A brainrot-style Roblox game in the style of *Steal an Egg*: sneak down one long lane of increasingly
 magical areas, grab donuts from under a sleeping (and HUGE) guard's nose, outrun him back to the safe
 zone, and put the donuts on your base where they make money — even while you're offline. Then raid other
-players' bases, hatch pet eggs, and chase the ultra-rare Admin donuts.
+players' bases, hatch pet eggs, and chase the ultra-rare Secret and Icon donuts.
 
 Everything (map, guards, donuts, UI) is built from code, so the project works without any uploaded
 meshes, images or sounds.
@@ -17,7 +17,7 @@ meshes, images or sounds.
 | **4 worlds, 33 areas.** World 1 *Donut Land* (grass → desert → candy → caves → ice → lava → neon city → crystals → cosmic → candy-cane canyon → rainbow summit), World 2 *Glaze Islands* (beach → coral reef → pirate cove → jelly jungle → volcano → mango lagoon → tsunami temple), World 3 *Dream Dimension* (clouds → toy factory → haunted bakery → clockwork void → donut heaven → starfall garden → aurora palace) and the new World 4 **Cyber City** (neon streets → hologram mall → robot factory → data highway → firewall fortress → glitch zone → the mainframe). Worlds 2–4 are reached through portals in the hub, need 1 / 2 / 3 rebirths, and everyone moves faster there (x1.2 / x1.3 / x1.45) | `src/shared/Areas.luau`, `src/server/MapBuilder.luau`, `src/server/Decor.luau` |
 | **Scenery in the other worlds**: Glaze Islands gets palm trees, beach umbrellas, a lighthouse, and floating islands and clouds along the whole lane; Dream Dimension gets cotton-candy trees, pastel clouds at every height, floating islands with waterfalls and rainbows, giant floating donuts, star rings and a crescent moon; Cyber City gets a neon skyline, flying cars, holo donuts and neon signs. Each world has its own sky colour and fog. All cosmetic (no collisions) | `src/server/WorldDecor.luau`, `src/client/Effects.luau` |
 | **Your base comes with you.** Every world has its own hub with 8 base plots; when you go to another world your base (donuts, treadmill, traps, incubator) moves to your plot there, so you never run back and forth. The 🏠 portal takes you home to World 1 | `src/server/PlotService.luau` (`MoveBase`), `src/server/WorldService.luau`, `Layout.PlotCFrame(plot, world)` |
-| **182 brainrot donuts**, 8 rarities (Common → Uncommon → Rare → Epic → Legendary → Celestial → Secret → **ADMIN**). Each area's best donut is a ~1% spawn; Secrets are 0.006–0.03%. The four **Admin** donuts (end of each world: areas 12, 19, 26, 33) are about **1 in 24,000 spawns** and get a red beam, halo, orbiting orbs and a server-wide banner. Rarer donuts get more effects: sparkles, lights, floating, light pillars, a glowing ring on the ground, orbiting orbs, halos, rainbow frosting, a shimmering aura | `src/shared/Donuts.luau`, `src/shared/Rarities.luau`, `src/shared/DonutModel.luau` |
+| **182 brainrot donuts**, 8 rarities (Common → Uncommon → Rare → Epic → Legendary → Celestial → Secret → **ADMIN**). Each area's best donut is a ~1% spawn; Secrets are 0.006–0.03%. The **Admin** donuts (end of each world: areas 12, 19, 26, 33, plus World 2's Cosmic copy) **never spawn by themselves**: only the admin panel can make one (`AdminOnly` in `Rarities.luau`; lane spawns, Luck Events and Rare Donut Rain all skip them, and the Index shows "Admin panel only"). They get a red beam, halo and orbiting orbs. Rarer donuts get more effects: sparkles, lights, floating, light pillars, a glowing ring on the ground, orbiting orbs, halos, rainbow frosting, a shimmering aura | `src/shared/Donuts.luau`, `src/shared/Rarities.luau`, `src/shared/DonutModel.luau` |
 | **Mutations** rolled on every spawn: Gold x2 (1.2%), Diamond x3 (0.5%), Mythic x5 (0.15%), Divine x10 (0.04%), Rainbow x25 (0.01%), each with its own look | `Rarities.Mutations` |
 | **Global rarity stats**: the Index shows, for every Legendary-or-rarer donut and every mutation, how many have *spawned* and been *found* across the whole game so far (all servers), plus "#N ever found" in the steal announcement | `src/server/StatsService.luau` (sharded DataStore counters), `Config.GlobalStats` |
 | **Sizes**: Small x0.6, Normal, Big x1.8, Huge x3.5, Giant x7. Bigger = more money, but you run 5% / 10% / 16% slower while carrying it | `Rarities.Sizes` |
@@ -164,7 +164,7 @@ These are all one-line changes in `src/shared/Config.luau` if you disagree.
   Now anyone can raid anytime, but the thief is slow, glowing red and the owner gets an alarm, and
   everyone gets the Slap Hand free, so defending is always possible. The Base Lock is the only hard
   block. If raids become too punishing, raise `Config.Raid.HoldSeconds` or lower `CarryWalkSpeed`.
-* **Admin donuts can come from the admin panel too.** Players who used the panel are hidden from the
+* **Admin donuts only come from the admin panel.** Players who used the panel are hidden from the
   global leaderboards and their finds don't count in the global "found" stats; donuts placed with the
   panel don't count as spawned or found for anyone. So the rarity numbers stay real.
 * **Skins are bought with Speed, as you asked — but that gives up Robux income.** Skins were the
