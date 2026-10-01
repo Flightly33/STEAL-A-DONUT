@@ -24,6 +24,14 @@ local KIND_COLORS = {
 	event = Theme.Colors.Pink,
 }
 
+local KIND_SOUNDS = {
+	info = "Notify",
+	success = "Success",
+	error = "Error",
+	rare = "Rare",
+	event = "Announce",
+}
+
 local toastHolder: Frame
 local bannerHolder: Frame
 local toastCounter = 0
@@ -49,10 +57,9 @@ function Notifications.Toast(text: string, kind: string?)
 	})
 	Theme.new("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0, Parent = toast }, { Theme.Corner(10) })
 	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -8), Position = UDim2.fromOffset(16, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
-	if kind == "error" then
-		Theme.PlaySound("Error")
-	elseif kind == "event" then
-		Theme.PlaySound("Announce")
+	-- A soft chime for each kind (skipped if another sound just played, like the steal jingle)
+	if Theme.SinceSound() > 0.35 then
+		Theme.PlaySound(KIND_SOUNDS[kind or "info"] or "Notify")
 	end
 
 	-- Keep at most 3 toasts

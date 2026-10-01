@@ -595,6 +595,24 @@ Config.Graphics = {
 	Brightness = 2.1, -- sunlight strength
 }
 
+-- UI sounds. Left empty, the game uses its built-in ones: a soft mechanical-keyboard "thock" when
+-- you press any button (and a lighter one when you let go), and gentle chimes for messages and
+-- events, made from Roblox's own sounds and softened with effects (UI/Theme.luau has the details
+-- and volumes). To use a sound from the Creator Store instead, paste its id ("rbxassetid://123...")
+-- here. If a pasted sound can't load (private or deleted), the built-in one plays instead.
+Config.Sounds = {
+	KeyDown = "", -- pressing a button
+	KeyUp = "", -- letting go of it
+	Open = "", -- a window popping up by itself (like the Update Log when you join)
+	Notify = "", -- a small message at the top of the screen
+	Success = "", -- something good happened (bought, claimed...)
+	Rare = "", -- a rare find
+	Error = "", -- can't do that
+	Announce = "", -- big announcements for the whole server
+	Event = "", -- a server event starting
+	CustomVolume = 0.4, -- volume for pasted sounds (0 to 1)
+}
+
 -- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).
 Config.Tutorial = {
 	FreeEgg = "Sprinkle",

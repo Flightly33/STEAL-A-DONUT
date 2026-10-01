@@ -1,15 +1,20 @@
 --[[
 	UpdateNotes: the Update Log window (the notes themselves are in Shared/UpdateNotes).
 
-	  * a ribbon tab "Update Log", a "Shown on login / Hidden on login" switch, an "Update N" picker
+	  * the corner emblem: a 3D donut in the update's colours on a turning wheel (UpdateDecor), a
+	    ribbon tab "Update Log", a "Shown on login / Hidden on login" switch, an "Update N" picker
 	    and a round close button along the top
-	  * left: the game's logo, the update's name, "Update N Patch Notes", a box listing everything new
-	    (✦ between them), then each section: heading, tag and bullet lines
+	  * left: the game's logo, the update's name, "Update N Patch Notes", a box listing everything new,
+	    then each section (heading, tag and bullet lines) with a gem divider between them, over a big
+	    faded model, the update's floating decorations, corner swirls and a soft glow
 	  * right: groups of new things as cards with spinning 3D models of the real donuts / pets / eggs
-	    (built from the game's own models, so there are no images to upload)
-	It opens by itself the first time a player joins after a new update (their save remembers the
-	last one they saw), unless they set it to "Hidden on login"; Settings > Update Log opens it any
-	time. Brand-new players get the tutorial instead.
+	    (built from the game's own models, so there are no images to upload). Hover a card (tap it
+	    on a phone) for its details card (ItemCard).
+	Everything (window border, ribbon, panels, emblem, decorations) takes the update's own colours.
+
+	It opens every time a player joins, unless they set it to "Hidden on login": then it only opens
+	once for each new update. Brand-new players get the tutorial instead on their first visit.
+	Settings > Update Log opens it any time.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -17,19 +22,17 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Notes = require(Shared.UpdateNotes)
-local Donuts = require(Shared.Donuts)
-local DonutModel = require(Shared.DonutModel)
-local Pets = require(Shared.Pets)
-local PetModel = require(Shared.PetModel)
-local Rarities = require(Shared.Rarities)
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
+local ItemCard = require(script.Parent.ItemCard)
+local UpdateDecor = require(script.Parent.UpdateDecor)
 local State = require(script.Parent.Parent.State)
 
 local UpdateNotes = {}
 
 local WIDTH, HEIGHT = 900, 540
 local SIDEBAR = 256
+local EMBLEM = 132
 local rgb = Color3.fromRGB
 
 type Spinner = { Camera: Camera, Distance: number, Height: number, Phase: number }
@@ -42,40 +45,12 @@ function UpdateNotes.Open(version: number?)
 	modal:Open()
 end
 
-local function hex(color: Color3): string
-	return string.format("#%02X%02X%02X", math.floor(color.R * 255), math.floor(color.G * 255), math.floor(color.B * 255))
-end
-
 local function text(props: { [string]: any }): TextLabel
 	props.Font = props.Font or Theme.Font
 	props.TextScaled = false
 	props.TextWrapped = true
 	props.AutomaticSize = Enum.AutomaticSize.Y
 	return Theme.Label(props)
-end
-
--- What a sidebar card shows: the model, its name and its rarity colour.
-local function describe(item: Notes.Item): (Model?, string, string, Color3)
-	if item.Kind == "Donut" then
-		local donut = Donuts.ById[item.Id]
-		if donut then
-			local ok, model = pcall(DonutModel.Build, donut, { NoEffects = true })
-			return if ok then model else nil, donut.Name, donut.Rarity, Rarities.Get(donut.Rarity).Color
-		end
-	elseif item.Kind == "Pet" then
-		local pet = Pets.ById[item.Id]
-		if pet then
-			local ok, model = pcall(PetModel.BuildPet, pet, { NoEffects = true })
-			return if ok then model else nil, pet.Name, pet.Rarity, Pets.Rarity(pet.Rarity).Color
-		end
-	elseif item.Kind == "Egg" then
-		local egg = Pets.EggById[item.Id]
-		if egg then
-			local ok, model = pcall(PetModel.BuildEgg, egg, { NoEffects = true })
-			return if ok then model else nil, egg.Name, "Egg", egg.Color
-		end
-	end
-	return nil, item.Id, "", Theme.Colors.Gray
 end
 
 -- Put a model in a ViewportFrame, centred, and return a spinner for its camera.
@@ -93,7 +68,16 @@ local function stage(viewport: ViewportFrame, model: Model, zoom: number): Spinn
 	return spinner
 end
 
+local function clear(container: Instance)
+	for _, child in container:GetChildren() do
+		if not child:IsA("UIListLayout") and not child:IsA("UIPadding") and not child:IsA("UICorner") and not child:IsA("UIStroke") and not child:IsA("UIGradient") then
+			child:Destroy()
+		end
+	end
+end
+
 function UpdateNotes.Init()
+	ItemCard.Init()
 	modal = Modal.new("UPDATE LOG", Theme.Colors.Orange, Vector2.new(WIDTH, HEIGHT))
 	local frame = modal.Frame
 	-- Our own top bar instead of the usual window header
@@ -101,20 +85,19 @@ function UpdateNotes.Init()
 	if header and header:IsA("GuiObject") then
 		header.Visible = false
 	end
-	frame.BackgroundColor3 = rgb(14, 12, 24)
-	local panelGradient = frame:FindFirstChildOfClass("UIGradient")
-	if panelGradient then
-		panelGradient:Destroy()
-	end
+	frame.BackgroundColor3 = Color3.new(1, 1, 1)
+	local windowGradient = frame:FindFirstChildOfClass("UIGradient") or Theme.new("UIGradient", { Parent = frame })
+	windowGradient.Rotation = 90
 	modal.Body.Position = UDim2.new()
 	modal.Body.Size = UDim2.fromScale(1, 1)
 	local body = modal.Body
 
-	-- Left: the patch notes, over a big faded model
+	-- Left: the patch notes, over a big faded model and the update's decorations
 	local left = Theme.new("Frame", {
 		Name = "Notes",
 		Position = UDim2.fromOffset(12, 64),
 		Size = UDim2.new(1, -(SIDEBAR + 34), 1, -76),
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		ClipsDescendants = true,
 		Parent = body,
 	}, { Theme.Corner(12), Theme.Stroke(3) })
@@ -129,8 +112,10 @@ function UpdateNotes.Init()
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, -10),
 		Size = UDim2.new(1, 40, 0, 260),
+		ZIndex = 1,
 		Parent = left,
 	})
+	local decor = Theme.new("Frame", { Name = "Decor", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 2, Parent = left })
 	local scroll = Theme.new("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -138,6 +123,7 @@ function UpdateNotes.Init()
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollBarThickness = 6,
+		ZIndex = 3,
 		Parent = left,
 	}, {
 		Theme.new("UIListLayout", { Padding = UDim.new(0, 4), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
@@ -150,9 +136,10 @@ function UpdateNotes.Init()
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, -12, 0, 64),
 		Size = UDim2.new(0, SIDEBAR, 1, -76),
-		BackgroundColor3 = rgb(8, 7, 14),
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		Parent = body,
 	}, { Theme.Corner(12), Theme.Stroke(3) })
+	local rightGradient = Theme.new("UIGradient", { Rotation = 90, Parent = right })
 	local cards = Theme.new("ScrollingFrame", {
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -166,26 +153,48 @@ function UpdateNotes.Init()
 		Theme.new("UIPadding", { PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 12) }),
 	})
 
-	-- Top bar: the ribbon tab, the two pickers and the close button
-	Theme.new("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = rgb(10, 9, 18), BorderSizePixel = 0, Parent = body }, { Theme.Corner(18) })
+	-- Top bar
+	local topBar = Theme.new("Frame", { Name = "TopBar", Size = UDim2.new(1, 0, 0, 58), BackgroundColor3 = Color3.new(1, 1, 1), BorderSizePixel = 0, Parent = body }, { Theme.Corner(18) })
+	local topGradient = Theme.new("UIGradient", { Rotation = 90, Parent = topBar })
+
+	-- The glowing border, in the update's colours (it slowly runs round the window)
+	local border = Theme.new("Frame", {
+		Name = "Border",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -6, 1, -6),
+		ZIndex = 2,
+		Parent = body,
+	}, { Theme.Corner(16) })
+	local borderStroke = Theme.new("UIStroke", { Thickness = 3, Color = Color3.new(1, 1, 1), Parent = border })
+	local borderGradient = Theme.new("UIGradient", { Parent = borderStroke })
+
+	-- The ribbon tab, with a pointed end
 	local ribbon = Theme.new("Frame", {
 		Name = "Ribbon",
 		Position = UDim2.fromOffset(-30, -24),
 		Size = UDim2.fromOffset(380, 70),
-		ZIndex = 3,
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		ZIndex = 4,
 		Parent = body,
 	}, { Theme.Corner(12), Theme.Stroke(3.5) })
 	local ribbonGradient = Theme.new("UIGradient", { Rotation = 90, Parent = ribbon })
-	Theme.Label({ Text = "Update Log", TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(96, 12), Size = UDim2.new(1, -110, 0, 46), StrokeThickness = 3.5, ZIndex = 4, Parent = ribbon })
-	local badge = Theme.new("Frame", {
-		Name = "Badge",
-		Position = UDim2.fromOffset(-44, -34),
-		Size = UDim2.fromOffset(96, 96),
-		BackgroundColor3 = Theme.Colors.Yellow,
-		ZIndex = 5,
+	local tip = Theme.new("Frame", {
+		Name = "Tip",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, 350, 0, 11),
+		Size = UDim2.fromOffset(48, 48),
+		Rotation = 45,
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		ZIndex = 3,
 		Parent = body,
-	}, { Theme.new("UICorner", { CornerRadius = UDim.new(1, 0) }), Theme.Stroke(4), Theme.Gradient(rgb(255, 230, 120), rgb(255, 150, 40)) })
-	Theme.Label({ Text = "🍩", Size = UDim2.fromScale(0.8, 0.8), Position = UDim2.fromScale(0.1, 0.1), ZIndex = 6, Parent = badge })
+	}, { Theme.Corner(6), Theme.Stroke(3.5) })
+	local tipGradient = Theme.new("UIGradient", { Rotation = 45, Parent = tip })
+	local ribbonTrim = Theme.new("Frame", { Name = "Trim", AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 96, 1, -7), Size = UDim2.new(1, -120, 0, 3), BorderSizePixel = 0, ZIndex = 5, Parent = ribbon }, {
+		Theme.new("UIGradient", { Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.7, 0.2), NumberSequenceKeypoint.new(1, 1) }) }),
+	})
+	Theme.Label({ Text = "Update Log", TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(104, 10), Size = UDim2.new(1, -120, 0, 46), StrokeThickness = 3.5, ZIndex = 6, Parent = ribbon })
+	local ribbonDecor = Theme.new("Frame", { Name = "Decor", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ClipsDescendants = true, ZIndex = 5, Parent = ribbon })
 
 	local close = Theme.Button({ Text = "X", Color = Theme.Colors.Red, Size = UDim2.fromOffset(58, 58), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -8, 0, 8), Parent = body })
 	close.ZIndex = 5
@@ -213,7 +222,7 @@ function UpdateNotes.Init()
 		Parent = body,
 	}, { Theme.Corner(10), Theme.Stroke(2.5), Theme.new("UIListLayout", { Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder }), Theme.new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 6) }) })
 	for i, update in Notes.List do
-		local option = Theme.Button({ Text = `Update {update.Version}`, Color = if i == 1 then Theme.Colors.Orange else rgb(70, 70, 90), Size = UDim2.new(1, 0, 0, 36), Parent = menu })
+		local option = Theme.Button({ Text = `Update {update.Version}`, Color = update.Color, Size = UDim2.new(1, 0, 0, 36), Parent = menu })
 		option.LayoutOrder = i
 		option.ZIndex = 11
 		option.Activated:Connect(function()
@@ -238,22 +247,59 @@ function UpdateNotes.Init()
 	showLogin()
 
 	local spinners: { Spinner } = {}
+	local steps: { UpdateDecor.Step } = {}
+	local emblem: Frame? = nil
 	show = function(version: number)
 		local update = Notes.Get(version) or Notes.List[1]
+		local color, accent = update.Color, update.Accent
+		local style = UpdateDecor.Style(update)
 		menu.Visible = false
+		ItemCard.Hide()
 		table.clear(spinners)
-		for _, container in { scroll, cards } do
-			for _, child in container:GetChildren() do
-				if not child:IsA("UIListLayout") and not child:IsA("UIPadding") then
-					child:Destroy()
-				end
-			end
-		end
+		table.clear(steps)
+		clear(scroll)
+		clear(cards)
+		clear(decor)
+		clear(ribbonDecor)
 		backdrop:ClearAllChildren()
 		Theme.SetButtonText(versionButton, `▼ Update {update.Version}`)
-		leftGradient.Color = ColorSequence.new(Theme.Lighten(update.Color, 0.12), Theme.Darken(update.Color, 0.45))
-		ribbonGradient.Color = ColorSequence.new(Theme.Lighten(update.Accent, 0.15), Theme.Darken(update.Accent, 0.2))
-		local accent = update.Accent
+
+		-- Colours: everything takes the update's theme
+		windowGradient.Color = ColorSequence.new(Theme.Darken(color, 0.55), Theme.Darken(color, 0.85))
+		leftGradient.Color = ColorSequence.new(Theme.Lighten(color, 0.12), Theme.Darken(color, 0.45))
+		rightGradient.Color = ColorSequence.new(Theme.Darken(color, 0.6), rgb(8, 7, 14))
+		topGradient.Color = ColorSequence.new(Theme.Darken(color, 0.5), Theme.Darken(color, 0.78))
+		ribbonGradient.Color = ColorSequence.new(Theme.Lighten(color, 0.25), Theme.Darken(color, 0.15))
+		tipGradient.Color = ColorSequence.new(Theme.Lighten(color, 0.1), Theme.Darken(color, 0.2))
+		ribbonTrim.BackgroundColor3 = accent
+		borderGradient.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, accent),
+			ColorSequenceKeypoint.new(0.25, Theme.Lighten(color, 0.35)),
+			ColorSequenceKeypoint.new(0.5, Theme.Lighten(accent, 0.4)),
+			ColorSequenceKeypoint.new(0.75, Theme.Lighten(color, 0.35)),
+			ColorSequenceKeypoint.new(1, accent),
+		})
+		Theme.SetButtonColor(versionButton, Theme.Darken(color, 0.2))
+		Theme.SetButtonColor(loginButton, Theme.Darken(color, 0.35))
+
+		-- The corner emblem and the decorations
+		if emblem then
+			emblem:Destroy()
+		end
+		local badge, emblemStep = UpdateDecor.Emblem(body, update, EMBLEM, 6)
+		badge.Position = UDim2.fromOffset(-58, -52)
+		emblem = badge
+		table.insert(steps, emblemStep)
+		table.insert(steps, UpdateDecor.Glow(decor, style.Glow or accent, 150, 0.45, 2))
+		local swirlA = UpdateDecor.Swirl(decor, UDim2.fromScale(0, 1), 230, accent, 0.7, 2)
+		local swirlB = UpdateDecor.Swirl(decor, UDim2.fromScale(1, 0), 190, accent, 0.72, 2)
+		if style.Spin then
+			table.insert(steps, swirlA)
+			table.insert(steps, swirlB)
+		end
+		table.insert(steps, UpdateDecor.Rays(decor, UDim2.new(0.5, 0, 0, 120), 300, 10, Theme.Lighten(accent, 0.3), 0.82, 2))
+		table.insert(steps, UpdateDecor.Motes(decor, update, 2))
+		UpdateDecor.Swirl(ribbonDecor, UDim2.new(1, -36, 0.5, 0), 70, accent, 0.65, 5)
 
 		-- Left column
 		local order = 0
@@ -263,10 +309,12 @@ function UpdateNotes.Init()
 			instance.Parent = scroll
 		end
 		local logo = Theme.Label({ Text = "STEAL A DONUT", Size = UDim2.new(1, -30, 0, 70), StrokeThickness = 5 })
-		Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(rgb(255, 255, 255), rgb(255, 190, 225)), Parent = logo })
+		Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(rgb(255, 255, 255), Theme.Lighten(accent, 0.55)), Parent = logo })
 		add(logo)
-		add(Theme.Label({ Text = update.Name, TextColor3 = accent, Size = UDim2.new(1, -30, 0, 48), StrokeThickness = 4 }))
-		add(Theme.Label({ Text = `Update {update.Version} Patch Notes  •  {update.Date}`, Font = Theme.Font, TextColor3 = rgb(205, 200, 220), Size = UDim2.new(1, -30, 0, 24), StrokeThickness = 2 }))
+		local title = Theme.Label({ Text = update.Name, TextColor3 = Color3.new(1, 1, 1), Size = UDim2.new(1, -30, 0, 50), StrokeThickness = 4 })
+		Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Theme.Lighten(accent, 0.45), Theme.Darken(accent, 0.1)), Parent = title })
+		add(title)
+		add(Theme.Label({ Text = `Update {update.Version} Patch Notes  •  {update.Date}`, Font = Theme.Font, TextColor3 = rgb(225, 220, 235), Size = UDim2.new(1, -30, 0, 24), StrokeThickness = 2 }))
 		-- The box listing everything new
 		local titles = {}
 		for _, section in update.Sections do
@@ -275,41 +323,53 @@ function UpdateNotes.Init()
 		local box = Theme.new("Frame", {
 			Size = UDim2.new(1, -60, 0, 0),
 			AutomaticSize = Enum.AutomaticSize.Y,
-			BackgroundColor3 = rgb(0, 0, 0),
-			BackgroundTransparency = 0.55,
-		}, { Theme.Corner(10), Theme.Stroke(2, Theme.Darken(accent, 0.4)), Theme.Padding(12) })
-		text({ Text = table.concat(titles, `  <font color="{hex(accent)}">✦</font>  `), RichText = true, TextSize = 22, LineHeight = 1.1, Size = UDim2.fromScale(1, 0), StrokeThickness = 2, Parent = box })
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.4,
+		}, {
+			Theme.Corner(10),
+			Theme.Stroke(2.5, Theme.Darken(accent, 0.3)),
+			Theme.Padding(12),
+			Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Theme.Darken(color, 0.55), rgb(0, 0, 0)) }),
+		})
+		text({ Text = table.concat(titles, `  <font color="#{accent:ToHex()}">✦</font>  `), RichText = true, TextSize = 22, LineHeight = 1.1, Size = UDim2.fromScale(1, 0), StrokeThickness = 2, Parent = box })
 		add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 6) }))
 		add(box)
-		add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 10) }))
+		add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 8) }))
 		for _, section in update.Sections do
-			add(Theme.Label({ Text = section.Title, TextColor3 = accent, Size = UDim2.new(1, -30, 0, 34), StrokeThickness = 3 }))
-			add(Theme.Label({ Text = section.Tag, Font = Theme.Font, TextColor3 = rgb(200, 195, 215), Size = UDim2.new(1, -30, 0, 22), StrokeThickness = 2 }))
+			add(UpdateDecor.Divider(accent, 300))
+			local heading = Theme.Label({ Text = section.Title, TextColor3 = Color3.new(1, 1, 1), Size = UDim2.new(1, -30, 0, 34), StrokeThickness = 3 })
+			Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Theme.Lighten(accent, 0.35), accent), Parent = heading })
+			add(heading)
+			add(Theme.Label({ Text = string.upper(section.Tag), Font = Theme.Font, TextColor3 = Theme.Lighten(color, 0.6), Size = UDim2.new(1, -30, 0, 20), StrokeThickness = 2 }))
 			for _, line in section.Lines do
-				add(text({ Text = "• " .. line, TextSize = 21, Size = UDim2.new(1, -60, 0, 0), StrokeThickness = 2 }))
+				add(text({ Text = `<font color="#{accent:ToHex()}">•</font> {line}`, RichText = true, TextSize = 21, Size = UDim2.new(1, -60, 0, 0), StrokeThickness = 2 }))
 			end
-			add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 10) }))
+			add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 8) }))
 		end
 
-		-- Right column: groups of cards
+		-- Right column: groups of cards (hover one for its details)
 		local cardOrder = 0
 		local firstModel: Model? = nil
 		for _, group in update.Sidebar do
 			cardOrder += 1
-			Theme.Label({ Text = group.Title, TextColor3 = accent, Size = UDim2.new(1, -16, 0, 30), StrokeThickness = 3, LayoutOrder = cardOrder, Parent = cards })
+			local groupTitle = Theme.Label({ Text = group.Title, TextColor3 = Color3.new(1, 1, 1), Size = UDim2.new(1, -16, 0, 30), StrokeThickness = 3, LayoutOrder = cardOrder, Parent = cards })
+			Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Theme.Lighten(accent, 0.35), accent), Parent = groupTitle })
 			cardOrder += 1
 			local grid = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, -12, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = cardOrder, Parent = cards }, {
 				Theme.new("UIGridLayout", { CellSize = UDim2.fromOffset(112, 112), CellPadding = UDim2.fromOffset(8, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 			})
 			for i, item in group.Items do
-				local model, name, rarity, color = describe(item)
-				local card = Theme.new("Frame", { LayoutOrder = i, Parent = grid }, {
+				local info = ItemCard.Describe(item)
+				local model = ItemCard.Model(item)
+				local itemColor = info.Color
+				local card = Theme.new("Frame", { Name = "Card", LayoutOrder = i, BackgroundColor3 = Color3.new(1, 1, 1), Parent = grid }, {
 					Theme.Corner(12),
-					Theme.Stroke(3, Theme.Lighten(color, 0.35)),
-					Theme.Gradient(Theme.Lighten(color, 0.1), Theme.Darken(color, 0.55)),
+					Theme.Gradient(Theme.Lighten(itemColor, 0.1), Theme.Darken(itemColor, 0.55)),
 				})
-				Theme.Label({ Text = string.upper(rarity), TextColor3 = Theme.Lighten(color, 0.5), TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(7, 4), Size = UDim2.new(0.8, 0, 0, 15), StrokeThickness = 1.5, ZIndex = 3, Parent = card })
-				Theme.Label({ Text = name, Font = Theme.Font, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 30), StrokeThickness = 2, ZIndex = 3, Parent = card })
+				local cardStroke = Theme.Stroke(3, Theme.Lighten(itemColor, 0.35))
+				cardStroke.Parent = card
+				Theme.Label({ Text = string.upper(info.Rarity), TextColor3 = Theme.Lighten(itemColor, 0.5), TextXAlignment = Enum.TextXAlignment.Left, Position = UDim2.fromOffset(7, 4), Size = UDim2.new(0.8, 0, 0, 15), StrokeThickness = 1.5, ZIndex = 3, Parent = card })
+				Theme.Label({ Text = info.Name, Font = Theme.Font, AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -4), Size = UDim2.new(1, -8, 0, 30), StrokeThickness = 2, ZIndex = 3, Parent = card })
 				if model then
 					if not firstModel then
 						firstModel = model:Clone()
@@ -326,6 +386,12 @@ function UpdateNotes.Init()
 					})
 					table.insert(spinners, stage(viewport, model, 1.6))
 				end
+				-- Hover (or tap) for the details card; the card lights up while you do
+				local hit = Theme.new("TextButton", { Name = "Hover", Text = "", BackgroundTransparency = 1, AutoButtonColor = false, Size = UDim2.fromScale(1, 1), ZIndex = 4, Parent = card })
+				ItemCard.Attach(hit, item, function(on: boolean)
+					cardStroke.Color = if on then Theme.Lighten(itemColor, 0.75) else Theme.Lighten(itemColor, 0.35)
+					cardStroke.Thickness = if on then 4.5 else 3
+				end)
 			end
 		end
 		if firstModel then
@@ -335,31 +401,51 @@ function UpdateNotes.Init()
 		cards.CanvasPosition = Vector2.zero
 	end
 
-	-- The models sway gently while the window is open
+	-- The models sway and the decorations move while the window is open
+	local started = os.clock()
+	local last = started
 	RunService.RenderStepped:Connect(function()
 		if not modal:IsOpen() then
 			return
 		end
-		local t = os.clock()
+		local now = os.clock()
+		local t, dt = now - started, math.min(now - last, 0.1)
+		last = now
 		for _, spinner in spinners do
 			local angle = math.sin(t * 0.8 + spinner.Phase) * 0.6
 			spinner.Camera.CFrame = CFrame.lookAt(Vector3.new(math.sin(angle) * spinner.Distance, spinner.Height, -math.cos(angle) * spinner.Distance), Vector3.zero)
 		end
+		for _, step in steps do
+			step(t, dt)
+		end
+		borderGradient.Rotation = (t * 40) % 360
 	end)
 
-	-- Joining after a new update: show it once (brand-new players get the tutorial instead)
+	-- Every join: show the log (brand-new players get the tutorial instead). Players who set it to
+	-- "Hidden on login" still see each new update once.
 	local checked = false
 	State.Changed:Connect(function(snapshot)
 		if checked then
 			return
 		end
 		checked = true
-		if (snapshot.SeenUpdate or 0) >= Notes.Latest then
+		local isNew = (snapshot.SeenUpdate or 0) < Notes.Latest
+		if isNew then
+			State.Action("SeenUpdate", Notes.Latest)
+		end
+		if snapshot.SeenTutorial == false then
 			return
 		end
-		State.Action("SeenUpdate", Notes.Latest)
-		if snapshot.SeenTutorial ~= false and snapshot.NotesOnLogin ~= false then
-			task.delay(1.5, function()
+		if snapshot.NotesOnLogin ~= false or isNew then
+			-- Wait for any other window first (the "Welcome back" offline earnings arrive together
+			-- with the save, and only one window shows at a time)
+			task.spawn(function()
+				task.wait(1.5)
+				local waited = 0
+				while Modal.AnyOpen() and waited < 180 do
+					task.wait(0.5)
+					waited += 0.5
+				end
 				if not Modal.AnyOpen() then
 					UpdateNotes.Open()
 				end

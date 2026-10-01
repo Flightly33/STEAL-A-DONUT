@@ -30,18 +30,7 @@ local function endsIn(): number
 end
 
 local function fanfare()
-	task.spawn(function()
-		for _, pitch in { 0.8, 1, 1.25, 1.6 } do
-			local sound = Instance.new("Sound")
-			sound.SoundId = "rbxasset://sounds/electronicpingshort.wav"
-			sound.Volume = 0.35
-			sound.PlaybackSpeed = pitch
-			sound.Parent = gui
-			sound:Play()
-			task.delay(2, sound.Destroy, sound)
-			task.wait(0.12)
-		end
-	end)
+	Theme.PlaySound("Event")
 end
 
 local function showCard(event: Events.Event)

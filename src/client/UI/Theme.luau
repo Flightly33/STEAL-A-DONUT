@@ -6,6 +6,8 @@ local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Theme = {}
 
@@ -33,60 +35,230 @@ Theme.Colors = {
 
 Theme.IsTouch = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
--- Sound effects: quiet and soft by default. Id = any sound (paste "rbxassetid://123" from the
--- Creator Store to use your own), Volume 0-1, Pitch 1 = normal (lower = deeper/softer).
--- Set Id = "" to turn a sound off.
--- Notes = { pitch, ... } plays the sound once per note, one after the other (a little jingle).
+-- Sound effects: quiet and soft by default. Every UI sound is made from sounds that ship with
+-- Roblox (rbxasset://sounds/...), layered and softened with sound effects, so nothing has to be
+-- uploaded. Paste Creator Store sounds into Config.Sounds to use your own instead.
+--   Id / Volume (0-1) / Pitch (1 = normal, lower = deeper and softer); Id = "" turns it off
+--   Notes  = { pitch, ... } plays it once per note, one after the other (a little jingle); a
+--            note can be a list of pitches to play together (a chord)
+--   Layers = more sounds played at the same time (a key's low "thock" under its click)
+--   Vary   = random pitch wobble (0.04 = +-4%) so repeated clicks don't sound robotic
+--   Group  = "Keys" (muffled, like a keyboard with soft switches) or "Chimes" (soft, with a bit of
+--            room echo)
 local PING = "rbxasset://sounds/electronicpingshort.wav"
 local WHOOSH = "rbxasset://sounds/Rocket whoosh 01.wav"
 local THUD = "rbxasset://sounds/action_jump_land.mp3"
-export type SoundDef = { Id: string, Volume: number, Pitch: number, Notes: { number }?, Gap: number? }
+local CLICK = "rbxasset://sounds/button.wav"
+export type Layer = { Id: string, Volume: number, Pitch: number }
+export type SoundDef = { Id: string, Volume: number, Pitch: number, Notes: { any }?, Gap: number?, Layers: { Layer }?, Vary: number?, Group: string? }
+-- Musical steps above the first note (major scale), for the chimes
+local THIRD, FIFTH, OCTAVE = 1.26, 1.498, 2
 Theme.Sounds = {
-	Click = { Id = "rbxasset://sounds/button.wav", Volume = 0.12, Pitch = 1.15 },
+	-- Buttons: a soft mechanical keyboard. Pressing = a muffled click over a low wooden "thock";
+	-- letting go = the same, lighter and higher, like a key springing back up.
+	KeyDown = { Id = CLICK, Volume = 0.09, Pitch = 0.72, Layers = { { Id = THUD, Volume = 0.3, Pitch = 2.5 } }, Vary = 0.05, Group = "Keys" },
+	KeyUp = { Id = CLICK, Volume = 0.045, Pitch = 0.95, Layers = { { Id = THUD, Volume = 0.13, Pitch = 3.1 } }, Vary = 0.06, Group = "Keys" },
+	-- A window popping up by itself: a deeper "space bar" thock
+	Open = { Id = CLICK, Volume = 0.08, Pitch = 0.6, Layers = { { Id = THUD, Volume = 0.32, Pitch = 1.9 } }, Vary = 0.03, Group = "Keys" },
+	-- Messages: soft chimes, each kind its own little tune
+	Notify = { Id = PING, Volume = 0.1, Pitch = 0.8, Notes = { 1, 1.335 }, Gap = 0.08, Group = "Chimes" },
+	Success = { Id = PING, Volume = 0.11, Pitch = 0.8, Notes = { 1, THIRD, FIFTH }, Gap = 0.07, Group = "Chimes" },
+	Rare = { Id = PING, Volume = 0.09, Pitch = 0.8, Notes = { FIFTH, OCTAVE, OCTAVE * THIRD, OCTAVE * FIFTH }, Gap = 0.05, Group = "Chimes" },
+	Error = { Id = PING, Volume = 0.1, Pitch = 0.5, Notes = { 1, 0.84 }, Gap = 0.1, Group = "Chimes" },
+	Announce = { Id = PING, Volume = 0.11, Pitch = 0.72, Notes = { 1, THIRD, FIFTH, { 1, THIRD, OCTAVE } :: any }, Gap = 0.09, Group = "Chimes" },
+	-- A server event starting: a rising fanfare ending on a chord, over a soft low boom
+	Event = { Id = PING, Volume = 0.13, Pitch = 0.7, Notes = { 1, THIRD, FIFTH, OCTAVE, { FIFTH, OCTAVE, OCTAVE * THIRD } :: any }, Gap = 0.11, Layers = { { Id = THUD, Volume = 0.35, Pitch = 0.45 } }, Group = "Chimes" },
 	-- Stealing: a quick "swipe", a rising "got it!" jingle, then the chase starts
 	Grab = { Id = WHOOSH, Volume = 0.35, Pitch = 1.8 },
 	Steal = { Id = PING, Volume = 0.2, Pitch = 1, Notes = { 1, 1.26, 1.5 }, Gap = 0.07 },
-	Hatch = { Id = "rbxasset://sounds/electronicpingshort.wav", Volume = 0.3, Pitch = 1.6 },
+	Hatch = { Id = PING, Volume = 0.3, Pitch = 1.6 },
 	Crack = { Id = THUD, Volume = 0.4, Pitch = 1.8 },
 	-- Home safe: a bright "cha-ching" arpeggio
 	Deposit = { Id = PING, Volume = 0.24, Pitch = 1, Notes = { 1, 1.26, 1.5, 2 }, Gap = 0.08 },
 	Collect = { Id = PING, Volume = 0.2, Pitch = 1 },
-	Announce = { Id = PING, Volume = 0.12, Pitch = 0.7 },
 	-- Caught: a big BONK and a whoosh as you go flying
 	Caught = { Id = THUD, Volume = 0.8, Pitch = 0.55 },
 	Fling = { Id = WHOOSH, Volume = 0.5, Pitch = 0.8 },
-	Error = { Id = "", Volume = 0, Pitch = 1 },
 } :: { [string]: SoundDef }
+Theme.Sounds.Click = Theme.Sounds.KeyDown
 
-local function playOnce(id: string, volume: number, pitch: number)
+-- Sound groups: effects shared by every sound in them
+type GroupEffects = { Equalizer: { HighGain: number, MidGain: number, LowGain: number }?, Reverb: { [string]: number }? }
+local GROUPS: { [string]: GroupEffects } = {
+	-- muffle the click's sharp top end (soft, "lubed" switches) and add a little body
+	Keys = { Equalizer = { HighGain = -12, MidGain = -2, LowGain = 3 } },
+	-- round off the ping into a bell, with a small room around it
+	Chimes = { Equalizer = { HighGain = -8, MidGain = 0, LowGain = 1 }, Reverb = { DecayTime = 1.3, Density = 1, Diffusion = 1, DryLevel = 0, WetLevel = -13 } },
+}
+local soundFolder: Folder? = nil
+local soundGroups: { [string]: SoundGroup } = {}
+local function folder(): Folder
+	if not soundFolder then
+		local f = Instance.new("Folder")
+		f.Name = "UISounds"
+		f.Parent = SoundService
+		for name, effects in GROUPS do
+			local group = Instance.new("SoundGroup")
+			group.Name = name
+			group.Volume = 1
+			local equalizer = effects.Equalizer
+			if equalizer then
+				local eq = Instance.new("EqualizerSoundEffect")
+				eq.HighGain = equalizer.HighGain
+				eq.MidGain = equalizer.MidGain
+				eq.LowGain = equalizer.LowGain
+				eq.Priority = 1
+				eq.Parent = group
+			end
+			local reverb = effects.Reverb
+			if reverb then
+				local effect = Instance.new("ReverbSoundEffect")
+				for key, value in reverb do
+					(effect :: any)[key] = value
+				end
+				effect.Priority = 0
+				effect.Parent = group
+			end
+			group.Parent = f
+			soundGroups[name] = group
+		end
+		soundFolder = f
+	end
+	return soundFolder :: Folder
+end
+
+local random = Random.new()
+local function playOnce(id: string, volume: number, pitch: number, group: string?)
 	local sound = Instance.new("Sound")
 	sound.SoundId = id
 	sound.Volume = volume
 	sound.PlaybackSpeed = pitch
-	SoundService:PlayLocalSound(sound)
-	task.delay(3, function()
+	local holder = folder()
+	if group then
+		sound.SoundGroup = soundGroups[group]
+	end
+	sound.Parent = holder
+	sound:Play()
+	task.delay(4, function()
 		sound:Destroy()
 	end)
 end
 
+-- Config.Sounds: pasted Creator Store sounds replace the built-in ones (until one fails to load)
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
+local custom: { [string]: string } = {}
+for name, id in Config.Sounds :: { [string]: any } do
+	if type(id) == "string" and id ~= "" then
+		custom[name] = id
+	end
+end
+if next(custom) then
+	task.spawn(function()
+		local list = {}
+		for name, id in custom do
+			local probe = Instance.new("Sound")
+			probe.Name = name
+			probe.SoundId = id
+			table.insert(list, probe)
+		end
+		pcall(function()
+			ContentProvider:PreloadAsync(list, function(contentId: string, status: Enum.AssetFetchStatus)
+				if status == Enum.AssetFetchStatus.Failure then
+					for name, id in custom do
+						if id == contentId then
+							custom[name] = nil
+							warn(`[Sounds] Config.Sounds.{name} ({id}) couldn't load, so the built-in sound plays instead.`)
+						end
+					end
+				end
+			end)
+		end)
+	end)
+end
+
+local lastSound = 0
 function Theme.PlaySound(name: string, _volume: number?)
+	if name ~= "KeyDown" and name ~= "KeyUp" then
+		lastSound = os.clock()
+	end
+	local own = custom[name]
+	if own then
+		playOnce(own, Config.Sounds.CustomVolume, 1, nil)
+		return
+	end
 	local def = Theme.Sounds[name]
 	if not def or def.Id == "" then
 		return
+	end
+	local wobble = if def.Vary then 1 + random:NextNumber(-def.Vary, def.Vary) else 1
+	if def.Layers then
+		for _, layer in def.Layers do
+			playOnce(layer.Id, layer.Volume, layer.Pitch * wobble, def.Group)
+		end
 	end
 	local notes = def.Notes
 	if notes then
 		task.spawn(function()
 			for i, note in notes do
-				playOnce(def.Id, def.Volume, def.Pitch * note)
+				if type(note) == "table" then
+					for _, pitch in note do
+						playOnce(def.Id, def.Volume * 0.8, def.Pitch * pitch, def.Group)
+					end
+				else
+					playOnce(def.Id, def.Volume, def.Pitch * note * wobble, def.Group)
+				end
 				if i < #notes then
 					task.wait(def.Gap or 0.08)
 				end
 			end
 		end)
 	else
-		playOnce(def.Id, def.Volume, def.Pitch)
+		playOnce(def.Id, def.Volume, def.Pitch * wobble, def.Group)
 	end
+end
+
+-- Every button in `root` (now and later) clicks like a soft keyboard key: down when pressed, up
+-- when let go. Give a button the attribute Silent = true to keep it quiet.
+local lastKey = 0
+local wired: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+local function wireButton(button: GuiButton)
+	if wired[button] then
+		return -- (moved to another frame: already clicks)
+	end
+	wired[button] = true
+	button.MouseButton1Down:Connect(function()
+		if not button:GetAttribute("Silent") then
+			lastKey = os.clock()
+			Theme.PlaySound("KeyDown")
+		end
+	end)
+	button.MouseButton1Up:Connect(function()
+		if not button:GetAttribute("Silent") then
+			Theme.PlaySound("KeyUp")
+		end
+	end)
+end
+function Theme.WireClickSounds(root: Instance)
+	for _, child in root:GetDescendants() do
+		if child:IsA("GuiButton") then
+			wireButton(child)
+		end
+	end
+	root.DescendantAdded:Connect(function(child: Instance)
+		if child:IsA("GuiButton") then
+			wireButton(child)
+		end
+	end)
+end
+
+-- Seconds since the last button press (a window opened by a click doesn't need its own sound).
+function Theme.SinceKeyPress(): number
+	return os.clock() - lastKey
+end
+
+-- Seconds since the last sound other than a key click (so chimes don't pile up on each other).
+function Theme.SinceSound(): number
+	return os.clock() - lastSound
 end
 
 -- Instance.new with a property table and optional children.
@@ -230,8 +402,7 @@ function Theme.Button(props: {
 		Parent = button,
 	})
 	button.MouseButton1Down:Connect(function()
-		Theme.Bounce(button)
-		Theme.PlaySound("Click")
+		Theme.Bounce(button) -- (the click sound comes from Theme.WireClickSounds)
 	end)
 	button.Parent = props.Parent
 	return button

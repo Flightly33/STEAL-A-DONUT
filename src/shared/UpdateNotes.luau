@@ -1,15 +1,20 @@
 --[[
-	UpdateNotes: the Update Log players see the first time they join after an update (UI/UpdateNotes).
+	UpdateNotes: the Update Log that pops up every time a player joins (UI/UpdateNotes).
 
 	PUBLISHING AN UPDATE? Add a new entry at the TOP of UpdateNotes.List with the next Version number.
-	Everyone who joins after that sees it once (their save remembers the last Version they saw), unless
-	they switched the log to "Hidden on login". Brand-new players get the how-to-play tutorial instead.
-	The 📰 button in Settings shows every update any time.
+	It shows on every join. Players can switch it to "Hidden on login", and then it only pops up once
+	for each new update (their save remembers the last Version they saw). Brand-new players get the
+	tutorial instead on their first visit. The 📰 button in Settings shows every update any time.
 
 	  Version  - goes up by one every update (1, 2, 3...)
 	  Name     - the update's name, big under the game's logo
 	  Date     - shown after "Update N Patch Notes"
 	  Color    - the window's background colour; Accent - the headings' colour
+	  Decor    - what floats around the notes: "Rise" (golden diamonds and sparkles drifting up),
+	             "Embers" (sparks rising from a lava glow), "Stars" (twinkling stars, shooting stars
+	             and a slowly turning swirl) or "Sparkles" (soft glowing bubbles)
+	  Emblem   - the 3D donut in the top-left corner: { Frosting = colour, Sprinkles = { colours },
+	             Dough = colour (optional) }. Its ring and the window's border use Color and Accent.
 	  Sections - the patch notes: a heading, a small tag under it and bullet lines
 	             { Title = "The Black Hole", Tag = "NEW Area", Lines = { "...", "..." } }
 	             (the box at the top lists every section's Title)
@@ -17,9 +22,12 @@
 	             images to upload, so nothing for Roblox to moderate). Kind is "Donut", "Pet" or "Egg";
 	             Id is the id in Donuts.luau / Pets.luau.
 	             { Title = "7 New Donuts", Items = { { Kind = "Donut", Id = "fakekar" }, ... } }
+	             Hovering a card (tapping it on a phone) shows its details: rarity, stats, odds and
+	             where to get it. Add Note = "..." to an item to put an extra line on that card.
 ]]
 
-export type Item = { Kind: string, Id: string }
+export type Item = { Kind: string, Id: string, Note: string? }
+export type Emblem = { Frosting: Color3, Sprinkles: { Color3 }, Dough: Color3? }
 export type Section = { Title: string, Tag: string, Lines: { string } }
 export type Group = { Title: string, Items: { Item } }
 export type Update = {
@@ -28,6 +36,8 @@ export type Update = {
 	Date: string,
 	Color: Color3,
 	Accent: Color3,
+	Decor: string?,
+	Emblem: Emblem?,
 	Sections: { Section },
 	Sidebar: { Group },
 }
@@ -49,6 +59,8 @@ UpdateNotes.List = {
 		Date = "Oct 1, 2026",
 		Color = Color3.fromRGB(30, 110, 60),
 		Accent = Color3.fromRGB(255, 220, 90),
+		Decor = "Rise",
+		Emblem = { Frosting = Color3.fromRGB(130, 235, 140), Sprinkles = { Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 245, 170) } },
 		Sections = {
 			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
 				"Rebirths need half the Speed and far less money",
@@ -59,6 +71,14 @@ UpdateNotes.List = {
 				"Follow the red arrow to learn the game step by step",
 				"Finish it to claim a free egg!",
 			} },
+			{ Title = "New Update Log", Tag = "NEW", Lines = {
+				"Shows every time you join, themed to each update",
+				"Hover any card on the right (tap on phones) to see its stats, odds and how to get it",
+			} },
+			{ Title = "Softer Sounds", Tag = "Improvements", Lines = {
+				"Buttons click like a soft mechanical keyboard",
+				"New gentle chimes for messages, rare finds and server events",
+			} },
 			{ Title = "Calmer Bases", Tag = "Improvements", Lines = {
 				"Rare donuts on bases glow softer, so every donut is easy to see",
 			} },
@@ -67,7 +87,7 @@ UpdateNotes.List = {
 			} },
 		},
 		Sidebar = {
-			{ Title = "Free Tutorial Egg", Items = { { Kind = "Egg", Id = "Sprinkle" } } },
+			{ Title = "Free Tutorial Egg", Items = { { Kind = "Egg", Id = "Sprinkle", Note = "Free for finishing the tutorial!" } } },
 		},
 	},
 	{
@@ -76,6 +96,8 @@ UpdateNotes.List = {
 		Date = "Oct 1, 2026",
 		Color = Color3.fromRGB(120, 25, 10),
 		Accent = Color3.fromRGB(255, 170, 50),
+		Decor = "Embers",
+		Emblem = { Frosting = Color3.fromRGB(255, 110, 20), Dough = Color3.fromRGB(80, 40, 30), Sprinkles = { Color3.fromRGB(255, 220, 60), Color3.fromRGB(255, 60, 0), Color3.fromRGB(40, 30, 30) } },
 		Sections = {
 			{ Title = "The Underworld", Tag = "NEW World", Lines = {
 				"Glaze Islands is gone: World 2 is now The Underworld!",
@@ -104,6 +126,8 @@ UpdateNotes.List = {
 		Date = "Sep 30, 2026",
 		Color = Color3.fromRGB(70, 30, 140),
 		Accent = Color3.fromRGB(255, 170, 60),
+		Decor = "Stars",
+		Emblem = { Frosting = Color3.fromRGB(120, 70, 230), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 170, 60), Color3.fromRGB(120, 200, 255) } },
 		Sections = {
 			{ Title = "The Black Hole", Tag = "NEW Area", Lines = {
 				"A huge, wide new level at the end of Cyber City",
@@ -148,6 +172,8 @@ UpdateNotes.List = {
 		Date = "Sep 29, 2026",
 		Color = Color3.fromRGB(150, 40, 110),
 		Accent = Color3.fromRGB(255, 200, 80),
+		Decor = "Sparkles",
+		Emblem = { Frosting = Color3.fromRGB(255, 140, 200), Sprinkles = { Color3.fromRGB(255, 60, 60), Color3.fromRGB(255, 200, 0), Color3.fromRGB(60, 220, 90), Color3.fromRGB(40, 150, 255), Color3.fromRGB(255, 255, 255) } },
 		Sections = {
 			{ Title = "New Looks", Tag = "Models", Lines = {
 				"Every donut, pet and egg got a brand new look",

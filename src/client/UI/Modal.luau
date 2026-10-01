@@ -81,6 +81,9 @@ function Modal.Open(self: Modal)
 		current:Close()
 	end
 	current = self
+	if not self.Frame.Visible and Theme.SinceKeyPress() > 0.4 then
+		Theme.PlaySound("Open") -- (opened with a button, the button's click is enough)
+	end
 	local scale = self.Frame:FindFirstChild("AutoScale") :: UIScale
 	local target = Theme.CurrentScale()
 	scale.Scale = target * 0.85

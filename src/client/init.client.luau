@@ -4,6 +4,9 @@
 
 local UI = script:WaitForChild("UI")
 
+local Theme = require(UI.Theme)
+Theme.WireClickSounds(Theme.PlayerGui()) -- every button clicks like a soft keyboard key
+
 local Notifications = require(UI.Notifications)
 local HUD = require(UI.HUD)
 local Shop = require(UI.Shop)

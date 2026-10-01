@@ -53,6 +53,7 @@ export type BuildOptions = {
 	Calm: boolean?, -- softer effects (donuts on bases: lots of them side by side would glare)
 	Mutation: string?,
 	Size: string?,
+	NoFace: boolean?, -- just a donut (the Update Log's emblem): no face, sprinkles all the way round
 }
 
 local function hashString(text: string): number
@@ -273,11 +274,11 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 	if sprinkleColors then
 		local colors = sprinkleColors
-		for n = 1, 16 do
+		for n = 1, if opts.NoFace then 26 else 16 do
 			local angle
 			repeat
 				angle = rng:NextNumber(0, TAU)
-			until math.abs(angle - math.pi / 2) > 0.62
+			until opts.NoFace or math.abs(angle - math.pi / 2) > 0.62
 			local cf = onGlaze(angle, rng:NextNumber(-1.0, 1.1), -0.035) * CFrame.Angles(0, 0, rng:NextNumber(0, TAU))
 			local sprinkle = Instance.new("Part")
 			sprinkle.Shape = Enum.PartType.Cylinder
@@ -291,26 +292,28 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	-- The client squashes the eye whites ("EyeWhite") to blink, shifts the pupils and their
 	-- highlights ("Pupil") to look around, and opens the mouth (widens the middle of the smile,
 	-- "Mouth" = "Middle", and hides its corners) when the donut jumps or dances.
-	local eyesCovered = partsSet.Sunglasses or partsSet.Visor
-	local EYE_Y = TOP - 0.66
-	for _, side in { -1, 1 } do
-		if not eyesCovered and not (partsSet.EyePatch and side == 1) then
-			local eye = ellipsoid(Vector3.new(0.62, 0.8, 0.4), WHITE, at(side * 0.5, EYE_Y, -0.93), nil, "Eye")
-			eye:SetAttribute("EyeWhite", true)
-			local px = side * 0.5 - side * 0.04
-			ellipsoid(Vector3.new(0.4, 0.5, 0.2), BLACK, at(px, EYE_Y - 0.05, -1.06), nil, "Pupil"):SetAttribute("Pupil", true)
-			ball(0.17, WHITE, at(px - 0.07, EYE_Y + 0.07, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
-			ball(0.08, WHITE, at(px + 0.08, EYE_Y - 0.15, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
-		end
-		ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), face(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
-	end
-	if not partsSet.Mustache and not partsSet.Beak and not partsSet.Fangs then
-		local mouthY = TOP - 1.2
-		local dark = rgb(90, 30, 35)
-		ellipsoid(Vector3.new(0.28, 0.11, 0.1), dark, face(0, mouthY - 0.035, 0), nil, "Mouth"):SetAttribute("Mouth", "Middle")
+	if not opts.NoFace then
+		local eyesCovered = partsSet.Sunglasses or partsSet.Visor
+		local EYE_Y = TOP - 0.66
 		for _, side in { -1, 1 } do
-			local corner = ellipsoid(Vector3.new(0.22, 0.1, 0.1), dark, face(side * 0.18, mouthY, 0) * CFrame.Angles(0, 0, side * math.rad(30)), nil, "Mouth")
-			corner:SetAttribute("Mouth", "Corner")
+			if not eyesCovered and not (partsSet.EyePatch and side == 1) then
+				local eye = ellipsoid(Vector3.new(0.62, 0.8, 0.4), WHITE, at(side * 0.5, EYE_Y, -0.93), nil, "Eye")
+				eye:SetAttribute("EyeWhite", true)
+				local px = side * 0.5 - side * 0.04
+				ellipsoid(Vector3.new(0.4, 0.5, 0.2), BLACK, at(px, EYE_Y - 0.05, -1.06), nil, "Pupil"):SetAttribute("Pupil", true)
+				ball(0.17, WHITE, at(px - 0.07, EYE_Y + 0.07, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
+				ball(0.08, WHITE, at(px + 0.08, EYE_Y - 0.15, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
+			end
+			ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), face(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
+		end
+		if not partsSet.Mustache and not partsSet.Beak and not partsSet.Fangs then
+			local mouthY = TOP - 1.2
+			local dark = rgb(90, 30, 35)
+			ellipsoid(Vector3.new(0.28, 0.11, 0.1), dark, face(0, mouthY - 0.035, 0), nil, "Mouth"):SetAttribute("Mouth", "Middle")
+			for _, side in { -1, 1 } do
+				local corner = ellipsoid(Vector3.new(0.22, 0.1, 0.1), dark, face(side * 0.18, mouthY, 0) * CFrame.Angles(0, 0, side * math.rad(30)), nil, "Mouth")
+				corner:SetAttribute("Mouth", "Corner")
+			end
 		end
 	end
 
