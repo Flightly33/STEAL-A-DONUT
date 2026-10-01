@@ -2,8 +2,8 @@
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
 	  left   - big Shop / Index / Pets / Rebirth buttons + the speed slider (middle of the screen)
-	  right  - a grid of square buttons: Home / Worlds / Boosts / Skins / Donate / Music / Settings
-	           (+ Admin), centred on the right edge
+	  right  - a grid of square buttons: Home / Worlds / Boosts / Skins / Donate / Updates / Music /
+	           Settings / Hide UI (+ Admin), centred on the right edge
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
@@ -38,6 +38,7 @@ export type Callbacks = {
 	OpenDonate: () -> (),
 	OpenUpdates: () -> (),
 	OpenAdmin: () -> (),
+	HideUI: () -> (),
 	UnclaimedIndex: () -> number,
 	RebirthReady: () -> boolean,
 	ReadyEggs: () -> number,
@@ -177,7 +178,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		Name = "RightButtons",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -12, 0.5, 0),
-		Size = UDim2.fromOffset(160, 330),
+		Size = UDim2.fromOffset(160, 410),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -232,6 +233,24 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	music.Visible = hasMusic
 	local settings = square("⚙️", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
 	settings.Visible = hasMusic
+	-- Clear the screen for screenshots (X on a keyboard does the same; see HideUI)
+	local hide = square("👁", "HIDE UI", Theme.Colors.Gray, 8, callbacks.HideUI)
+	if UserInputService.KeyboardEnabled then
+		-- a little dark key cap in the corner: "X"
+		local key = Theme.new("Frame", {
+			Name = "Key",
+			BackgroundColor3 = Theme.Colors.Panel,
+			Size = UDim2.fromOffset(24, 24),
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromOffset(2, 2),
+			ZIndex = 5,
+			Parent = hide,
+		}, {
+			Theme.Corner(6),
+			Theme.Stroke(2),
+		})
+		Theme.Label({ Text = "X", Size = UDim2.new(1, -6, 1, -6), Position = UDim2.fromOffset(3, 3), ZIndex = 6, StrokeThickness = 1.5, Parent = key })
+	end
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)

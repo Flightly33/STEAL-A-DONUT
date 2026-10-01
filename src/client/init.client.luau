@@ -25,6 +25,7 @@ local UpdateNotes = require(UI.UpdateNotes)
 local PassOffer = require(UI.PassOffer)
 local UltimateRebirth = require(UI.UltimateRebirth)
 local EventBanner = require(UI.EventBanner)
+local HideUI = require(UI.HideUI)
 local Effects = require(script.Effects)
 local BlackHoleFX = require(script.BlackHoleFX)
 local UnderworldFX = require(script.UnderworldFX)
@@ -57,6 +58,7 @@ PassOffer.Init()
 UltimateRebirth.Init()
 EventBanner.Init()
 ChatTags.Init()
+HideUI.Init()
 HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,
@@ -69,6 +71,7 @@ HUD.Init({
 		UpdateNotes.Open()
 	end,
 	OpenAdmin = Admin.Open,
+	HideUI = HideUI.Toggle,
 	UnclaimedIndex = Index.UnclaimedCount,
 	RebirthReady = Rebirth.IsReady,
 	ReadyEggs = PetsWindow.ReadyEggs,

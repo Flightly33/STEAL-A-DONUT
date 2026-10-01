@@ -85,6 +85,10 @@ UpdateNotes.List = {
 				"Half as many shadows, lighter lighting and calmer particles",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
+			{ Title = "Hide UI", Tag = "NEW", Lines = {
+				"Press X (or the 👁 HIDE UI button) to clear the screen for screenshots",
+				"Press X again or tap SHOW UI to bring it all back",
+			} },
 			{ Title = "Softer Sounds", Tag = "Improvements", Lines = {
 				"Buttons click like a soft mechanical keyboard",
 				"New gentle chimes for messages, rare finds and server events",
