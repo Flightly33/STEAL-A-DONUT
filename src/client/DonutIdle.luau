@@ -528,6 +528,12 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 			rotation = CFrame.Angles(0, 0, 0.18 * math.sin(t * 3 + limb.Phase) - limb.Side * 0.12 * math.max(0, y / math.max(k, 0.1)))
 		elseif kind == "Cape" then
 			rotation = CFrame.Angles(0.12 + 0.08 * math.sin(t * 2.2) + math.clamp(velocity * 0.05, -0.2, 0.2), 0, 0.03 * math.sin(t * 1.3))
+		elseif kind == "Tail" then -- wags side to side
+			rotation = CFrame.Angles(0, 0.35 * math.sin(t * 4 + limb.Phase), 0)
+		elseif kind == "Sway" then -- flags, flames, antennae
+			rotation = CFrame.Angles(0.06 * math.sin(t * 2.1 + limb.Phase), 0, 0.12 * math.sin(t * 2.6 + limb.Phase))
+		elseif kind == "Roll" then -- clock hands, wind-up keys: turns round the front-back axis
+			rotation = CFrame.Angles(0, 0, (t * 1.6) % TAU)
 		else
 			rotation = CFrame.identity
 		end

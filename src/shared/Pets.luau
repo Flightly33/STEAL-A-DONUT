@@ -64,9 +64,9 @@ Pets.Rarities = {
 
 Pets.List = {
 	-- Sprinkle Egg
-	{ Id = "GlazePup", Name = "Glaze Pup", Rarity = "Common", Money = 0.05, Speed = 0, Shape = "Quad", Body = rgb(222, 165, 95), Accent = rgb(255, 150, 200), Features = { "FloppyEars", "Tail", "Sprinkles" } },
+	{ Id = "GlazePup", Name = "Glaze Pup", Rarity = "Common", Money = 0.05, Speed = 0, Shape = "Quad", Body = rgb(222, 165, 95), Accent = rgb(255, 150, 200), Features = { "FloppyEars", "Tail", "Sprinkles", "GlazeDrip" } },
 	{ Id = "SprinkleKitty", Name = "Sprinkle Kitty", Rarity = "Common", Money = 0, Speed = 0.05, Shape = "Quad", Body = rgb(255, 200, 230), Accent = rgb(255, 110, 170), Features = { "PointyEars", "Tail", "Sprinkles" } },
-	{ Id = "ChocoBunny", Name = "Choco Bunny", Rarity = "Uncommon", Money = 0.06, Speed = 0.04, Shape = "Quad", Body = rgb(120, 70, 40), Accent = rgb(255, 230, 200), Features = { "LongEars", "PuffTail" } },
+	{ Id = "ChocoBunny", Name = "Choco Bunny", Rarity = "Uncommon", Money = 0.06, Speed = 0.04, Shape = "Quad", Body = rgb(120, 70, 40), Accent = rgb(255, 230, 200), Features = { "LongEars", "PuffTail", "ChocoDrizzle" } },
 	{ Id = "DonutDuck", Name = "Donut Duck", Rarity = "Rare", Money = 0.12, Speed = 0.04, Shape = "Bird", Body = rgb(255, 230, 90), Accent = rgb(255, 150, 40), Features = { "Beak", "DonutRing" } },
 	-- Frosted Egg
 	{ Id = "FrostPenguin", Name = "Frost Penguin", Rarity = "Common", Money = 0, Speed = 0.08, Shape = "Bird", Body = rgb(40, 45, 60), Accent = rgb(240, 245, 255), Features = { "Beak", "Belly", "Scarf" } },
@@ -86,7 +86,7 @@ Pets.List = {
 	-- Tropical Egg
 	{ Id = "ParrotPal", Name = "Parrot Pal", Rarity = "Rare", Money = 0.3, Speed = 0, Shape = "Bird", Body = rgb(60, 200, 90), Accent = rgb(255, 60, 60), Features = { "Beak", "Wings", "Crest" } },
 	{ Id = "CoralCrab", Name = "Coral Crab", Rarity = "Epic", Money = 0.1, Speed = 0.3, Shape = "Crab", Body = rgb(255, 110, 90), Accent = rgb(255, 220, 200), Features = { "Claws", "Antenna" } },
-	{ Id = "TikiTurtle", Name = "Tiki Turtle", Rarity = "Legendary", Money = 0.5, Speed = 0.3, Shape = "Quad", Body = rgb(110, 190, 90), Accent = rgb(170, 110, 60), Features = { "Shell", "Leaf", "Glow" } },
+	{ Id = "TikiTurtle", Name = "Tiki Turtle", Rarity = "Legendary", Money = 0.5, Speed = 0.3, Shape = "Quad", Body = rgb(110, 190, 90), Accent = rgb(170, 110, 60), Features = { "Shell", "Leaf", "Glow", "TikiMask" } },
 	{ Id = "KrakenJr", Name = "Kraken Jr.", Rarity = "Mythic", Money = 0.9, Speed = 0.5, Shape = "Blob", Body = rgb(170, 50, 120), Accent = rgb(80, 220, 255), Features = { "Tentacles", "Crown", "Glow" } },
 	-- Dream Egg
 	{ Id = "CloudSheep", Name = "Cloud Sheep", Rarity = "Epic", Money = 0.4, Speed = 0.3, Shape = "Quad", Body = rgb(250, 250, 255), Accent = rgb(255, 190, 225), Features = { "Fluff", "RoundEars" } },
@@ -99,16 +99,16 @@ Pets.List = {
 	{ Id = "GlitchGod", Name = "Glitch God", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Blob", Body = rgb(0, 0, 0), Accent = rgb(0, 255, 180), Features = { "Crown", "Halo", "Stars", "Rainbow", "Glitch", "Glow" }, Scale = 1.2 },
 	-- Crate exclusives: the Royal Egg (Epic / Legendary crates) ...
 	{ Id = "RoyalCorgi", Name = "Royal Corgi", Rarity = "Legendary", Money = 0.8, Speed = 0.4, Shape = "Quad", Body = rgb(240, 170, 90), Accent = rgb(255, 215, 60), Features = { "PointyEars", "PuffTail", "Crown", "Glow" }, Exclusive = "Royal Egg" },
-	{ Id = "JesterMonkey", Name = "Jester Monkey", Rarity = "Legendary", Money = 0.5, Speed = 0.8, Shape = "Quad", Body = rgb(150, 95, 60), Accent = rgb(170, 60, 255), Features = { "RoundEars", "Tail", "Bow", "Glow" }, Exclusive = "Royal Egg" },
+	{ Id = "JesterMonkey", Name = "Jester Monkey", Rarity = "Legendary", Money = 0.5, Speed = 0.8, Shape = "Quad", Body = rgb(150, 95, 60), Accent = rgb(170, 60, 255), Features = { "RoundEars", "Tail", "Bow", "Glow", "JesterHat" }, Exclusive = "Royal Egg" },
 	{ Id = "RoyalGriffin", Name = "Royal Griffin", Rarity = "Mythic", Money = 1.4, Speed = 0.9, Shape = "Bird", Body = rgb(245, 220, 150), Accent = rgb(255, 200, 40), Features = { "Beak", "Wings", "Crest", "Crown", "Glow" }, Exclusive = "Royal Egg" },
 	{ Id = "CrownWhale", Name = "Crown Whale", Rarity = "Mythic", Money = 1.8, Speed = 0.6, Shape = "Whale", Body = rgb(60, 40, 140), Accent = rgb(255, 215, 60), Features = { "Crown", "Spout", "Stars", "Glow" }, Exclusive = "Royal Egg" },
 	-- Cyber Egg (World 4: Cyber City)
-	{ Id = "PixelPup", Name = "Pixel Pup", Rarity = "Epic", Money = 0.5, Speed = 0.3, Shape = "Quad", Body = rgb(40, 40, 60), Accent = rgb(255, 40, 200), Features = { "PointyEars", "Tail", "Glow" } },
-	{ Id = "DroneBird", Name = "Drone Bird", Rarity = "Legendary", Money = 0.8, Speed = 0.6, Shape = "Bird", Body = rgb(150, 155, 165), Accent = rgb(0, 230, 255), Features = { "Beak", "Wings", "Antenna", "Glow" } },
-	{ Id = "MechaCat", Name = "Mecha Cat", Rarity = "Mythic", Money = 1.6, Speed = 0.9, Shape = "Quad", Body = rgb(60, 62, 70), Accent = rgb(255, 190, 0), Features = { "PointyEars", "Tail", "Antenna", "Glow" } },
-	{ Id = "NeonOverlord", Name = "Neon Overlord", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(20, 20, 35), Accent = rgb(255, 40, 200), Features = { "Wings", "Horns", "Tail", "Crown", "Glitch", "Glow" }, Scale = 1.15 },
+	{ Id = "PixelPup", Name = "Pixel Pup", Rarity = "Epic", Money = 0.5, Speed = 0.3, Shape = "Quad", Body = rgb(40, 40, 60), Accent = rgb(255, 40, 200), Features = { "PointyEars", "Tail", "Glow", "Pixels" } },
+	{ Id = "DroneBird", Name = "Drone Bird", Rarity = "Legendary", Money = 0.8, Speed = 0.6, Shape = "Bird", Body = rgb(150, 155, 165), Accent = rgb(0, 230, 255), Features = { "Beak", "Wings", "Antenna", "Glow", "Rotors" } },
+	{ Id = "MechaCat", Name = "Mecha Cat", Rarity = "Mythic", Money = 1.6, Speed = 0.9, Shape = "Quad", Body = rgb(60, 62, 70), Accent = rgb(255, 190, 0), Features = { "PointyEars", "Tail", "Antenna", "Glow", "MetalPlates" } },
+	{ Id = "NeonOverlord", Name = "Neon Overlord", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(20, 20, 35), Accent = rgb(255, 40, 200), Features = { "Wings", "Horns", "Tail", "Crown", "Glitch", "Glow", "NeonStripes" }, Scale = 1.15 },
 	-- ... and one pet that only comes straight out of a Legendary Crate.
-	{ Id = "CrateKing", Name = "Crate King", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(255, 200, 40), Accent = rgb(255, 60, 60), Features = { "Wings", "Horns", "Tail", "Crown", "Halo", "Rainbow", "Glow" }, Scale = 1.15, Exclusive = "Legendary Crate" },
+	{ Id = "CrateKing", Name = "Crate King", Rarity = "Secret", Money = 3, Speed = 1.5, Shape = "Dragon", Body = rgb(255, 200, 40), Accent = rgb(255, 60, 60), Features = { "Wings", "Horns", "Tail", "Crown", "Halo", "Rainbow", "Glow", "CrateBox" }, Scale = 1.15, Exclusive = "Legendary Crate" },
 } :: { Pet }
 
 Pets.Eggs = {

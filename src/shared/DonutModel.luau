@@ -29,7 +29,9 @@ local CollectionService = game:GetService("CollectionService")
 local Rarities = require(script.Parent.Rarities)
 local Format = require(script.Parent.Format)
 local Donuts = require(script.Parent.Donuts)
+local Areas = require(script.Parent.Areas)
 local FXThemes = require(script.Parent.FXThemes)
+local DonutExtras = require(script.Parent.DonutExtras)
 
 type Donut = Donuts.Donut
 
@@ -204,7 +206,8 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	-- A smooth ring (a torus) out of straight tube pieces: one cylinder per segment lying along the
 	-- ring, each just long enough to meet its neighbours on the outside without a notch.
-	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string): { BasePart }
+	-- `shade(angle)` lightens (+) or darkens (-) each piece a little: baked-looking dough, glossy glaze.
+	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string, shade: ((number) -> number)?): { BasePart }
 		local step = TAU / count
 		local length = 2 * R * math.sin(step / 2) + diameter * math.tan(step / 2)
 		local pieces = {}
@@ -215,7 +218,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			p.Size = Vector3.new(length, diameter, diameter) * s
 			p.Name = name
 			local cf = at(R * math.cos(angle), R * math.sin(angle), z) * CFrame.Angles(0, 0, angle + math.pi / 2)
-			table.insert(pieces, add(p, cf, color, material))
+			local tint = color
+			if shade then
+				local amount = shade(angle)
+				tint = if amount > 0 then color:Lerp(WHITE, amount) else color:Lerp(Color3.new(0, 0, 0), -amount)
+			end
+			table.insert(pieces, add(p, cf, tint, material))
 		end
 		return pieces
 	end
@@ -236,10 +244,17 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	-- Dough ring, with a thinner glaze ring in front of it (the dough shows around its edges)
-	for _, piece in ring(SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough") do
+	-- (the dough is golden on top and more baked underneath; the glaze catches light from the top left)
+	for _, piece in ring(SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough", function(angle: number): number
+		local up = math.sin(angle)
+		return if up > 0 then up * 0.08 else up * 0.16
+	end) do
 		piece.Reflectance = shine * 0.3
 	end
-	local glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting")
+	local glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting", function(angle: number): number
+		local light = math.cos(angle - math.rad(135))
+		return if light > 0 then light * 0.1 else light * 0.07
+	end)
 
 	-- Wavy glaze edge: tongues of glaze lying over the dough rim all the way round; on the lower
 	-- sides some run right over the edge like drips.
@@ -286,6 +301,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			sprinkle.Name = "Sprinkle"
 			add(sprinkle, cf, colors[(n - 1) % #colors + 1], if special then Enum.Material.Neon else Enum.Material.SmoothPlastic)
 		end
+	end
+
+	-- A soft shine on the glaze (top left, beside the face)
+	if mutation.Id ~= "Diamond" then
+		local gloss = ellipsoid(Vector3.new(0.85, 0.2, 0.05), WHITE, onGlaze(math.rad(150), -0.25, 0.012) * CFrame.Angles(0, 0, math.rad(150) + math.pi / 2), nil, "Gloss")
+		gloss.Transparency = 0.55
 	end
 
 	-- Face: big shiny eyes, rosy cheeks and a smile.
@@ -643,8 +664,58 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		local builder = accessories[name]
 		if builder then
 			builder()
-		else
+		elseif not DonutExtras.Has(name) then
 			warn(`[DonutModel] Unknown accessory "{name}" on donut {donut.Id}`)
+		end
+	end
+
+	-- Signature accessories (DonutExtras) and the home area's little touches. They come after the
+	-- classic ones because some restyle them (ballet slippers, crab claws...).
+	local function findParts(name: string): { BasePart }
+		local found = {}
+		for _, child in model:GetChildren() do
+			if child.Name == name and child:IsA("BasePart") then
+				table.insert(found, child)
+			end
+		end
+		return found
+	end
+	local kit: DonutExtras.Kit = {
+		Id = donut.Id,
+		s = s,
+		R = R,
+		TOP = TOP,
+		BALL = BALL,
+		FROST_R = FROST_R,
+		Dough = doughColor,
+		Frosting = frostingColor,
+		Sprinkles = donut.Sprinkles or {},
+		RarityOrder = rarity.Order,
+		Rng = rng,
+		at = at,
+		ball = ball,
+		ellipsoid = ellipsoid,
+		block = block,
+		cylinder = cylinder,
+		wedge = wedge,
+		limb = limb,
+		onGlaze = onGlaze,
+		face = face,
+		has = function(name: string): boolean
+			return partsSet[name] == true
+		end,
+		find = findParts,
+		add = add,
+	}
+	for _, name in donut.Parts do
+		if not accessories[name] then
+			DonutExtras.Build(kit, name)
+		end
+	end
+	if not opts.NoFace then
+		local area = Areas.Get(donut.Area)
+		if area then
+			DonutExtras.Theme(kit, area.Theme, area.World == Areas.UltimateWorld)
 		end
 	end
 

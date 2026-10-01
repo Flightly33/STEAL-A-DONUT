@@ -71,6 +71,11 @@ UpdateNotes.List = {
 				"Follow the red arrow to learn the game step by step",
 				"Finish it to claim a free egg!",
 			} },
+			{ Title = "Every Donut Is Unique", Tag = "NEW Looks", Lines = {
+				"Every donut got details that match its name: Tick Tock has a clock, Volcanito a volcano, Wifinut wifi, Banhammer a giant hammer...",
+				"Donuts carry their home area's theme: lava cracks, circuits, icicles, stars, slime and more",
+				"Nine pets got new details too: drone rotors, a jester hat, a tiki mask, a treasure crate...",
+			} },
 			{ Title = "New Update Log", Tag = "NEW", Lines = {
 				"Shows every time you join, themed to each update",
 				"Hover any card on the right (tap on phones) to see its stats, odds and how to get it",
@@ -87,6 +92,7 @@ UpdateNotes.List = {
 			} },
 		},
 		Sidebar = {
+			{ Title = "Unique Looks", Items = donuts({ "ticktock", "volcanito", "banhammer", "wifinut", "crabbo", "missingno" }) },
 			{ Title = "Free Tutorial Egg", Items = { { Kind = "Egg", Id = "Sprinkle", Note = "Free for finishing the tutorial!" } } },
 		},
 	},

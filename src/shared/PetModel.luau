@@ -754,6 +754,9 @@ function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 		for i = 1, 9 do
 			local point = onSurface(bodyCenter, bodySemi, Vector3.new(rng:NextNumber(-0.55, 0.55), 1, rng:NextNumber(-0.7, 0.8)))
 			local normal = normalAt(bodyCenter, bodySemi, point)
+			if has("GlazeDrip") then
+				point += normal * 0.2 -- (on top of the glaze)
+			end
 			local along = normal:Cross(Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)).Unit).Unit * 0.14
 			b.Rod(point - along, point + along, 0.09, colors[i % 4 + 1], Enum.Material.Neon)
 		end
@@ -827,6 +830,104 @@ function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 				part.Transparency = 0.25
 			end
 		end
+	end
+
+	-- Signature details that match the pet's name ---------------------------------
+	-- A line drawn over its back, hugging the body (drizzles, stripes)
+	local function overBack(z: number, color: Color3, material: Enum.Material?)
+		local dirs = { Vector3.new(-1, 0.25, z), Vector3.new(-0.55, 0.9, z), Vector3.new(0, 1, z), Vector3.new(0.55, 0.9, z), Vector3.new(1, 0.25, z) }
+		local points = {}
+		for _, dir in dirs do
+			local point = onSurface(bodyCenter, bodySemi, dir)
+			table.insert(points, point + normalAt(bodyCenter, bodySemi, point) * 0.05)
+		end
+		for i = 1, #points - 1 do
+			b.Rod(points[i], points[i + 1], 0.09, color, material)
+		end
+	end
+	if has("GlazeDrip") then
+		-- a pink glaze cap over its back with drips running down
+		local glaze = rgb(255, 150, 200)
+		b.Blob(Vector3.new(bodySemi.X * 1.65, 0.5, bodySemi.Z * 1.55), CFrame.new(bodyCenter + Vector3.new(0, bodySemi.Y * 0.88, 0)), glaze)
+		for i = 0, 3 do
+			local angle = i / 4 * TAU + 0.4
+			local point = onSurface(bodyCenter, bodySemi, Vector3.new(math.cos(angle), 0.55, math.sin(angle)))
+			b.Blob(Vector3.new(0.24, 0.5, 0.24), CFrame.new(point + normalAt(bodyCenter, bodySemi, point) * 0.06), glaze)
+		end
+	end
+	if has("ChocoDrizzle") then
+		for i = -1, 1 do
+			overBack(i * 0.5, rgb(70, 40, 25))
+		end
+	end
+	if has("JesterHat") then
+		local colors = { rgb(200, 40, 200), rgb(255, 200, 40) }
+		for i, side in { -1, 1 } do
+			local tip = headTop + Vector3.new(side * 0.7, 0.55, 0.05)
+			b.Rod(headTop + Vector3.new(side * 0.15, 0.05, 0), tip, 0.32, colors[i])
+			b.Ball(0.2, tip + Vector3.new(side * 0.05, -0.08, 0), GOLD, Enum.Material.Foil)
+		end
+		b.Blob(Vector3.new(1.05, 0.32, 0.95), CFrame.new(headTop + Vector3.new(0, 0.02, 0)), colors[1])
+	end
+	if has("TikiMask") then
+		-- a carved wooden tiki mask on its head
+		local wood = rgb(150, 100, 60)
+		local point, normal = onHead(0, 0.55, -0.85), Vector3.new(0, 0.3, -1).Unit
+		local frame = facingFrame(point + normal * 0.05, normal)
+		b.Part(Vector3.new(0.7, 0.75, 0.14), frame, wood, Enum.Material.Wood)
+		for _, side in { -1, 1 } do
+			b.Part(Vector3.new(0.18, 0.12, 0.06), frame * CFrame.new(side * 0.17, 0.12, -0.08), rgb(255, 220, 90), Enum.Material.Neon)
+		end
+		b.Part(Vector3.new(0.4, 0.1, 0.06), frame * CFrame.new(0, -0.2, -0.08), rgb(60, 35, 20))
+		for i = -1, 1 do
+			b.Blob(Vector3.new(0.18, 0.5, 0.08), CFrame.new(headTop + Vector3.new(i * 0.22, 0.3, 0.05)) * CFrame.Angles(0, 0, -i * 0.4), rgb(90, 200, 70))
+		end
+	end
+	if has("Pixels") then
+		local colors = { rgb(255, 60, 200), rgb(60, 230, 255), rgb(255, 230, 60) }
+		local rng = Random.new(#pet.Id * 3)
+		for i = 1, 6 do
+			local point = onSurface(bodyCenter, bodySemi, Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(0, 1), rng:NextNumber(-1, 1)))
+			b.Part(Vector3.one * 0.22, CFrame.new(point), colors[i % 3 + 1], Enum.Material.Neon)
+		end
+		-- pixel shades
+		local point = onHead(0, 0.2, -1)
+		local normal = normalAt(headCenter, headSemi, point)
+		b.Part(Vector3.new(0.95, 0.2, 0.08), facingFrame(point + normal * 0.06, normal), BLACK)
+	end
+	if has("Rotors") then
+		-- two drone rotors on little arms above its head, spinning
+		for _, side in { -1, 1 } do
+			local hub = headTop + Vector3.new(side * 0.75, 0.35, 0.05)
+			b.Rod(headTop + Vector3.new(side * 0.1, -0.02, 0.05), hub, 0.1, rgb(80, 80, 90), Enum.Material.Metal)
+			local blade = b.Part(Vector3.new(1.0, 0.04, 0.16), CFrame.new(hub + Vector3.new(0, 0.1, 0)), rgb(60, 200, 255), Enum.Material.Neon)
+			limb(blade, "Spin", side, hub)
+			b.Ball(0.16, hub + Vector3.new(0, 0.08, 0), rgb(60, 60, 70), Enum.Material.Metal)
+		end
+	end
+	if has("MetalPlates") then
+		local metal = rgb(170, 175, 185)
+		for i = 0, 2 do
+			local point = onSurface(bodyCenter, bodySemi, Vector3.new(if i == 1 then 0 else (i - 1), 0.8, (i - 1) * 0.6))
+			local frame = facingFrame(point, normalAt(bodyCenter, bodySemi, point))
+			b.Part(Vector3.new(0.5, 0.45, 0.07), frame, metal, Enum.Material.Metal)
+			b.Ball(0.08, (frame * CFrame.new(0.17, 0.15, -0.04)).Position, rgb(100, 100, 110), Enum.Material.Metal)
+		end
+		local point = onHead(0, 0.2, -1)
+		local normal = normalAt(headCenter, headSemi, point)
+		b.Part(Vector3.new(0.95, 0.18, 0.08), facingFrame(point + normal * 0.06, normal), rgb(0, 255, 220), Enum.Material.Neon)
+	end
+	if has("NeonStripes") then
+		for i = -1, 1 do
+			overBack(i * 0.6, if i == 0 then rgb(255, 0, 200) else rgb(0, 255, 230), Enum.Material.Neon)
+		end
+	end
+	if has("CrateBox") then
+		-- a little treasure crate riding on its back
+		local top = onSurface(bodyCenter, bodySemi, Vector3.yAxis) + Vector3.new(0, 0.32, 0.15)
+		b.Part(Vector3.new(0.75, 0.6, 0.65), CFrame.new(top) * CFrame.Angles(0, 0.3, 0), rgb(170, 110, 55), Enum.Material.WoodPlanks)
+		b.Part(Vector3.new(0.78, 0.1, 0.68), CFrame.new(top + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0.3, 0), GOLD, Enum.Material.Foil)
+		b.Ball(0.18, top + Vector3.new(0, 0.38, 0), rgb(255, 230, 120), Enum.Material.Neon)
 	end
 
 	if not opts.NoEffects then
