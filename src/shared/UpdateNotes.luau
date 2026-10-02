@@ -61,6 +61,15 @@ UpdateNotes.List = {
 		Decor = "Rise",
 		Emblem = { Frosting = Color3.fromRGB(130, 235, 140), Sprinkles = { Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 245, 170) } },
 		Sections = {
+			{ Title = "Rebirths", Tag = "Balance", Lines = {
+				"Rebirths are easier: less Speed and money needed",
+				"No more rebirth limit: keep rebirthing forever!",
+			} },
+			{ Title = "Chases", Tag = "NEW", Lines = {
+				"You now carry stolen donuts in your arms",
+				"Intense music plays while Domer chases you",
+				"Sleeping Domers have their eyes closed",
+			} },
 			{ Title = "Head Start", Tag = "Balance", Lines = {
 				"The treadmill gives x4 Speed when you're just starting, slowly fading by Area 6",
 				"Area 2 takes about 4 minutes of running instead of 15!",
@@ -89,6 +98,7 @@ UpdateNotes.List = {
 				"Far-away areas, worlds and bases aren't drawn until you get close",
 				"Far-away donuts on bases skip their tiniest details",
 				"Half as many shadows, lighter lighting and calmer particles",
+				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
 			{ Title = "Hide UI", Tag = "NEW", Lines = {

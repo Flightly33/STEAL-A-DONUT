@@ -139,12 +139,22 @@ function Economy.RebirthSpeedMultiplier(rebirths: number): number
 end
 
 -- Requirements for the NEXT rebirth (nil when there are no more).
+-- No limit: past the listed levels every rebirth needs Config.Rebirth.After.Speed more Speed and
+-- costs Config.Rebirth.After.CostGrowth times more than the one before.
 function Economy.NextRebirth(rebirths: number): { Speed: number, Cost: number }?
-	return Config.Rebirth.Levels[rebirths + 1]
+	local levels = Config.Rebirth.Levels
+	local listed = levels[rebirths + 1]
+	if listed then
+		return listed
+	end
+	local last = levels[#levels]
+	local extra = rebirths + 1 - #levels
+	local after = Config.Rebirth.After
+	return { Speed = last.Speed + after.Speed * extra, Cost = last.Cost * after.CostGrowth ^ extra }
 end
 
 function Economy.MaxRebirths(): number
-	return #Config.Rebirth.Levels
+	return math.huge
 end
 
 function Economy.WorldUnlocked(worldId: number, rebirths: number, ultimate: number?): boolean

@@ -85,6 +85,26 @@ local function buildSleeper(areaId: number)
 			part.CanTouch = false
 		end
 	end
+	-- Asleep: eyelids shut (skin-coloured eyes with a dark closed-eye line, no pupils)
+	local head = model:FindFirstChild("Head", true) :: BasePart?
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") and part.Name == "Pupil" then
+			part.Transparency = 1
+		elseif part:IsA("BasePart") and part.Name == "Eye" and head then
+			part.Color = head.Color
+			local lid = Instance.new("Part")
+			lid.Name = "ClosedEye"
+			lid.Anchored = true
+			lid.CanCollide = false
+			lid.CanQuery = false
+			lid.CanTouch = false
+			lid.Color = Color3.fromRGB(25, 20, 20)
+			lid.Material = Enum.Material.SmoothPlastic
+			lid.Size = Vector3.new(part.Size.X * 0.8, part.Size.Y * 0.12, part.Size.Z * 0.1)
+			lid.CFrame = part.CFrame * CFrame.new(0, -part.Size.Y * 0.05, -part.Size.Z / 2)
+			lid.Parent = model
+		end
+	end
 	local home = CFrame.new(marker.Position.X, 0, marker.Position.Z)
 	model:PivotTo(GuardModel.SleepCFrame(home))
 	model.Parent = folder

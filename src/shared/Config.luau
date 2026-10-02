@@ -165,7 +165,7 @@ Config.Speed = {
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
 -- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 2 in ~7 min,
--- Area 10 in ~2 h and rebirths at ~50 min, ~2.4 h, ~5 h and ~9.4 h (Config.Rebirth). Real players
+-- Area 10 in ~2 h and rebirths at ~36 min, ~1.9 h, ~4.1 h and ~7.9 h (Config.Rebirth). Real players
 -- take longer (breaks, getting caught).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
@@ -240,19 +240,15 @@ Config.Rebirth = {
 	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
 	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
-	-- a simulated good player (no passes or pets) rebirths at ~50 min, ~2.4 h, ~5 h and ~9.4 h.
+	-- a simulated good player (no passes or pets) rebirths at ~36 min, ~1.9 h, ~4.1 h and ~7.9 h.
 	Levels = {
-		{ Speed = 550, Cost = 25_000_000 }, -- about halfway through World 1 -> unlocks The Underworld
-		{ Speed = 875, Cost = 2_000_000_000_000 }, -- unlocks Dream Dimension
-		{ Speed = 1_200, Cost = 2e17 }, -- unlocks Cyber City
-		{ Speed = 1_550, Cost = 2e23 },
-		{ Speed = 1_600, Cost = 2e24 },
-		{ Speed = 1_650, Cost = 2e25 },
-		{ Speed = 1_700, Cost = 2e26 },
-		{ Speed = 1_750, Cost = 2e27 },
-		{ Speed = 1_800, Cost = 2e28 },
-		{ Speed = 1_850, Cost = 2e29 },
+		{ Speed = 400, Cost = 5_000_000 }, -- early in World 1 -> unlocks The Underworld
+		{ Speed = 700, Cost = 200_000_000_000 }, -- unlocks Dream Dimension
+		{ Speed = 1_000, Cost = 2e16 }, -- unlocks Cyber City
+		{ Speed = 1_300, Cost = 2e21 },
 	},
+	-- No rebirth limit: after the list each rebirth needs +50 Speed and costs 5x more.
+	After = { Speed = 50, CostGrowth = 5 },
 }
 
 --------------------------------------------------------------------------------
@@ -639,6 +635,13 @@ Config.GalaxySky = {
 Config.UltimateRebirth = {
 	ExplosionSoundId = "",
 	ExplosionVolume = 1,
+}
+
+-- Fewer particles on every screen (client-side): every emitter runs at this share of its rate,
+-- capped per emitter. Lower = less lag.
+Config.Particles = {
+	ParticleScale = 0.4,
+	MaxParticleRate = 20,
 }
 
 Config.Music = {

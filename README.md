@@ -239,7 +239,7 @@ Domer's blanket, need more). The signs, the HUD, the teleporter, events and crat
 | 32 Glitch Zone | 2,920 | 446 | 476 | $19.8Sp/s (Celestial) |
 | 33 The Mainframe | 3,010 | 459 | 491 | $119Sp/s (Celestial) |
 
-Rebirths need **550 / 875 / 1,200 / 1,550 Speed** and **$25M / $2T / $200Qa / $200Sx**. Each rebirth
+Rebirths need **400 / 700 / 1,000 / 1,300 Speed** and **$5M / $200B / $20Qa / $2Sx**, and there's **no limit**: after that every rebirth needs +50 Speed and costs 5x more (`Config.Rebirth.After`). Each rebirth
 adds +100% money and **+50% treadmill speed**. Treadmills give **0.1 → 0.6 Speed/s** across the 17
 tiers, the Speed Multiplier gives +5% per level.
 
@@ -258,16 +258,16 @@ From a simulated bot that steals, upgrades and trains efficiently, buys **no** p
 pets, crates or Index bonus** (median of 5 runs). The bot fills its base before it trains, so a
 player who hops on the treadmill straight away gets there sooner:
 
-| Milestone | Before the Head Start | Now |
+| Milestone | Before the Head Start | Now (Head Start + easier rebirths) |
 |---|---|---|
 | Area 2 | 16 min | 7 min |
 | Area 3 | 30 min | 13 min |
 | Area 5 | 54 min | 29 min |
 | Area 10 | 2.7 h | 2.0 h |
-| Rebirth 1 → World 2 | 1.3 h | 50 min |
-| Rebirth 2 → World 3 | 3.1 h | 2.4 h |
-| Rebirth 3 → Cyber City | 5.9 h | 5.0 h |
-| Rebirth 4 | 10.6 h | 9.4 h |
+| Rebirth 1 → World 2 | 1.3 h | 36 min |
+| Rebirth 2 → World 3 | 3.1 h | 1.9 h |
+| Rebirth 3 → Cyber City | 5.9 h | 4.1 h |
+| Rebirth 4 | 10.6 h | 7.9 h |
 
 In the late game, walking to the far areas and back takes most of the time, not training. The knobs
 are the Head Start (`Config.Treadmill.HeadStart`), the rebirth requirements (`Config.Rebirth.Levels`)

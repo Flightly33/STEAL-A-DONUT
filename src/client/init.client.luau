@@ -39,6 +39,7 @@ local PetFX = require(script.PetFX)
 local Flight = require(script.Flight)
 local ChatTags = require(script.ChatTags)
 local Culling = require(script.Culling)
+local ParticleBudget = require(script.ParticleBudget)
 
 Notifications.Init()
 Shop.Init()
@@ -87,6 +88,7 @@ DonutIdle.Init()
 Followers.Init()
 PetFX.Init()
 Flight.Init()
+ParticleBudget.Init()
 Culling.Init() -- last: everything else has seen the whole map first
 
 -- Tell the server the UI is listening (it then sends the welcome-back popup, etc.)
