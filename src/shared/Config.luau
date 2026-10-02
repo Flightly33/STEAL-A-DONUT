@@ -151,13 +151,14 @@ Config.Plots = {
 -- Speed
 -- The "Speed" stat turns into a real Roblox WalkSpeed in a straight line: every SpeedPerWalk Speed
 -- is +1 WalkSpeed, so twice the training really is twice the extra speed.
---   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 16, 90 = 25, 810 = 97)
+--   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 18, 90 = 27, 810 = 99)
 -- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
 -- There's no maximum: the more you train, the faster you run. (Around WalkSpeed 1000+ Roblox physics
 -- can let a player slip through a thin wall; the speed slider on the HUD lets players slow down.)
 --------------------------------------------------------------------------------
 Config.Speed = {
-	BaseWalkSpeed = 16,
+	BaseWalkSpeed = 18,
+	GuardBaseWalkSpeed = 16, -- Domer is still tuned from 16, so the +2 head start really makes you faster than him
 	SpeedPerWalk = 10,
 }
 

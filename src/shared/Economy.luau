@@ -53,7 +53,7 @@ end
 -- Guards in later worlds get the same world bonus as players, so the recommended speeds still hold.
 function Economy.GuardWalkSpeed(areaId: number): number
 	local area = Areas.List[areaId]
-	return (Economy.WalkSpeedFromStat(area.RecommendedSpeed) + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World) * Config.Guard.SpeedMultiplier
+	return (Config.Speed.GuardBaseWalkSpeed + area.RecommendedSpeed / Config.Speed.SpeedPerWalk + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World) * Config.Guard.SpeedMultiplier
 end
 
 -- The Speed that gets you home with at least the front half of an area's donuts: a straight race

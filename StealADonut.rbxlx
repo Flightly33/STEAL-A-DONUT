@@ -650,13 +650,14 @@ Config.Plots = {
 -- Speed
 -- The "Speed" stat turns into a real Roblox WalkSpeed in a straight line: every SpeedPerWalk Speed
 -- is +1 WalkSpeed, so twice the training really is twice the extra speed.
---   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 16, 90 = 25, 810 = 97)
+--   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 18, 90 = 27, 810 = 99)
 -- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
 -- There's no maximum: the more you train, the faster you run. (Around WalkSpeed 1000+ Roblox physics
 -- can let a player slip through a thin wall; the speed slider on the HUD lets players slow down.)
 --------------------------------------------------------------------------------
 Config.Speed = {
-	BaseWalkSpeed = 16,
+	BaseWalkSpeed = 18,
+	GuardBaseWalkSpeed = 16, -- Domer is still tuned from 16, so the +2 head start really makes you faster than him
 	SpeedPerWalk = 10,
 }
 
@@ -5153,7 +5154,7 @@ end
 -- Guards in later worlds get the same world bonus as players, so the recommended speeds still hold.
 function Economy.GuardWalkSpeed(areaId: number): number
 	local area = Areas.List[areaId]
-	return (Economy.WalkSpeedFromStat(area.RecommendedSpeed) + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World) * Config.Guard.SpeedMultiplier
+	return (Config.Speed.GuardBaseWalkSpeed + area.RecommendedSpeed / Config.Speed.SpeedPerWalk + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World) * Config.Guard.SpeedMultiplier
 end
 
 -- The Speed that gets you home with at least the front half of an area's donuts: a straight race
@@ -8265,6 +8266,7 @@ UpdateNotes.List = {
 				"The treadmill gives x4 Speed when you're just starting, slowly fading by Area 6",
 				"Area 2 takes about 4 minutes of running instead of 15!",
 				"It comes back after every rebirth too",
+				"Everyone now starts at 18 walk speed (was 16)",
 			} },
 			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
 				"Rebirths need half the Speed and far less money",

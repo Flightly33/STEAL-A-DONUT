@@ -65,6 +65,7 @@ UpdateNotes.List = {
 				"The treadmill gives x4 Speed when you're just starting, slowly fading by Area 6",
 				"Area 2 takes about 4 minutes of running instead of 15!",
 				"It comes back after every rebirth too",
+				"Everyone now starts at 18 walk speed (was 16)",
 			} },
 			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
 				"Rebirths need half the Speed and far less money",

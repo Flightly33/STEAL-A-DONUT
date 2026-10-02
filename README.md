@@ -193,7 +193,7 @@ These are all one-line changes in `src/shared/Config.luau` if you disagree.
 
 ## Balance
 
-**Speed is linear and uncapped:** WalkSpeed = 16 + Speed / 10. 90 Speed = 25 WalkSpeed, 810 Speed = 97
+**Speed is linear and uncapped:** WalkSpeed = 18 + Speed / 10 (Domer is still tuned from 16, so you start 2 faster than him). 90 Speed = 27 WalkSpeed, 810 Speed = 99
 WalkSpeed, and every treadmill session makes a visible difference. On top of that everyone is x1.2
 faster in World 2, x1.3 in World 3 and x1.45 in Cyber City. (The old ~286 limit was the 220 WalkSpeed
 cap times World 3's x1.3; there's no cap now.)
