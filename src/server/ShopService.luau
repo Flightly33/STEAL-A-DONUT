@@ -38,6 +38,7 @@ local ItemService = require(script.Parent.ItemService)
 local WorldService = require(script.Parent.WorldService)
 local PetService = require(script.Parent.PetService)
 local ProductService = require(script.Parent.ProductService)
+local Ownership = require(script.Parent.Ownership)
 
 local ShopService = {}
 
@@ -66,9 +67,16 @@ local function findSkin(skinId: string?): Config.Skin?
 	return nil
 end
 
-local function ownsSkin(profile: DataService.Profile, skinId: string): boolean
+-- (an owner-only skin is the game owner's alone, whatever their save says)
+local function ownsSkin(player: Player, profile: DataService.Profile, skinId: string): boolean
 	local skin = findSkin(skinId)
-	return skin ~= nil and (skin.SpeedCost <= 0 or profile.Data.OwnedSkins[skinId] == true)
+	if not skin then
+		return false
+	end
+	if skin.OwnerOnly then
+		return Ownership.IsOwner(player)
+	end
+	return skin.SpeedCost <= 0 or profile.Data.OwnedSkins[skinId] == true
 end
 
 -- Studio only: something without a real ID yet (0) is granted for this test session. Anything with
@@ -145,7 +153,7 @@ function ShopService.LoadOwnership(player: Player)
 			end
 		end)
 	end
-	if not ownsSkin(profile, profile.Data.EquippedSkin) then
+	if not ownsSkin(player, profile, profile.Data.EquippedSkin) then
 		profile.Data.EquippedSkin = "Classic"
 	end
 	player:SetAttribute("MoneyMultiplier", DataService.MoneyMultiplier(profile))
@@ -233,8 +241,12 @@ function Actions.BuySkin(player: Player, profile: DataService.Profile, skinId: a
 	if not skin then
 		return
 	end
-	if ownsSkin(profile, skin.Id) then
+	if ownsSkin(player, profile, skin.Id) then
 		Actions.EquipSkin(player, profile, skin.Id)
+		return
+	end
+	if skin.OwnerOnly then
+		notify(player, "👑 Only the game's owner can use that skin!", "error")
 		return
 	end
 	if StealService.IsCarrying(player) then
@@ -253,7 +265,7 @@ function Actions.BuySkin(player: Player, profile: DataService.Profile, skinId: a
 end
 
 function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId: any)
-	if type(skinId) ~= "string" or not ownsSkin(profile, skinId) then
+	if type(skinId) ~= "string" or not ownsSkin(player, profile, skinId) then
 		return
 	end
 	profile.Data.EquippedSkin = skinId

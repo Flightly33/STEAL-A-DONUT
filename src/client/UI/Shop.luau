@@ -474,6 +474,12 @@ local function buildSkins(page: ScrollingFrame)
 			Theme.new("Frame", { Size = UDim2.new(0.2, -4, 1, -16), Position = UDim2.new(0.04 + (i - 1) * 0.24, 0, 0, 8), BackgroundColor3 = color, Parent = swatch }, { Theme.Corner(8), Theme.Stroke(1.5) })
 		end
 		Theme.Label({ Text = string.upper(skin.Name), Size = UDim2.new(1, -20, 0, 30), Position = UDim2.fromOffset(10, 80), Parent = c })
+		if skin.OwnerOnly then
+			-- only the game's owner sees this one
+			State.OnAttribute("AdminOwner", function(value)
+				c.Visible = value == true
+			end)
+		end
 		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 46), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
 		button.Activated:Connect(function()
 			if State.Data.OwnedSkins[skin.Id] or skin.SpeedCost <= 0 then
@@ -484,6 +490,9 @@ local function buildSkins(page: ScrollingFrame)
 		end)
 		table.insert(refreshers, function()
 			local owned = skin.SpeedCost <= 0 or State.Data.OwnedSkins[skin.Id]
+			if skin.OwnerOnly then
+				owned = c.Visible
+			end
 			if State.Data.EquippedSkin == skin.Id then
 				Theme.SetButtonText(button, "EQUIPPED")
 				Theme.SetButtonColor(button, Theme.Colors.Gray)

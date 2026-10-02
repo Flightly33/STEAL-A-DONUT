@@ -254,7 +254,7 @@ end
 function Economy.SlotCount(expansions: number, floors: number?): number
 	local p = Config.Plots
 	local ground = math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
-	local upper = math.clamp((floors or 1) - 1, 0, #p.UpperFloors.Costs)
+	local upper = math.max((floors or 1) - 1, 0) -- (the owner can have more floors than can be bought)
 	return ground + p.UpperFloors.Slots * upper
 end
 

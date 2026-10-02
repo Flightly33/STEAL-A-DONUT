@@ -57,6 +57,7 @@ export type Skin = {
 	Pedestal: Color3,
 	PedestalMaterial: Enum.Material,
 	Effect: string?,
+	OwnerOnly: boolean?, -- only the game's owner can use it (it's hidden from everyone else's Shop)
 }
 
 local Config = {}
@@ -398,6 +399,10 @@ Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
 	OwnerOnlyCommands = {} :: { string }, -- e.g. { "Luck", "OpenCrate", "SpawnCrate", "Event" }
+	-- The owner's 👑 +FLOORS buttons build floors past the normal limit, up to this many in all.
+	-- (Roblox parts can't be taller than 2048 studs, and the base's glass walls and corner
+	-- pillars run from the ground to the roof: 75 floors x 26 studs is about as high as they go.)
+	OwnerMaxFloors = 75,
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = false, -- admin-panel users show up on the global boards too
 }
@@ -504,6 +509,16 @@ Config.Skins = {
 		Trim = Color3.fromRGB(255, 0, 0), TrimMaterial = Enum.Material.Neon,
 		Pedestal = Color3.fromRGB(255, 255, 255), PedestalMaterial = Enum.Material.Neon,
 		Effect = "Rainbow",
+	},
+	-- The game owner's own skin: a royal purple-and-gold throne room with a red carpet down the
+	-- middle, golden sparkles on every stand and a giant floating crown above the base.
+	{
+		Id = "Owner", Name = "👑 Owner's Throne", SpeedCost = 0, OwnerOnly = true,
+		Floor = Color3.fromRGB(58, 26, 96), FloorAlt = Color3.fromRGB(38, 16, 66), FloorMaterial = Enum.Material.Marble,
+		Fence = Color3.fromRGB(255, 205, 70), FenceMaterial = Enum.Material.Foil,
+		Trim = Color3.fromRGB(175, 95, 255), TrimMaterial = Enum.Material.Neon,
+		Pedestal = Color3.fromRGB(255, 215, 90), PedestalMaterial = Enum.Material.Foil,
+		Effect = "Royal",
 	},
 } :: { Skin }
 

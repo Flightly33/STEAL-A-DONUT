@@ -188,11 +188,23 @@ Layout.SlotColumns = { -19.5, -6.5, 6.5, 19.5 }
 Layout.SlotRows = { -26, -12, 2, 16, 30, 42 }
 -- Floors: the ground floor has SlotsPerPlot stands, every upper floor UpperFloors.Slots more
 -- (stands SlotsPerPlot+1 .. are upstairs, same layout, UpperFloors.Height studs per floor).
+-- MaxFloors is what can be bought; the game's owner can build more (Config.Admin.OwnerMaxFloors).
 Layout.MaxFloors = 1 + #Config.Plots.UpperFloors.Costs
-Layout.MaxSlots = Config.Plots.SlotsPerPlot + Config.Plots.UpperFloors.Slots * (Layout.MaxFloors - 1)
--- Lift pads (plot space) at the front of the base, clear of the entrance and the stands:
--- LiftOffsets[k] joins floor k and floor k + 1 (pads stacked exactly above each other).
+
+-- How many stands a base with `floors` floors has (all of them unlocked).
+function Layout.SlotsForFloors(floors: number): number
+	return Config.Plots.SlotsPerPlot + Config.Plots.UpperFloors.Slots * (math.max(floors, 1) - 1)
+end
+
+Layout.MaxSlots = Layout.SlotsForFloors(Layout.MaxFloors)
+-- Lift pads (plot space) at the front of the base, clear of the entrance and the stands. The lift
+-- between floor k and floor k + 1 uses LiftOffsets[k], taking turns left / right, so a floor's
+-- "up" and "down" pads are never on top of each other (pads stacked exactly above each other).
 Layout.LiftOffsets = { Vector3.new(-18, 0, -40), Vector3.new(18, 0, -40) }
+
+function Layout.LiftOffset(lift: number): Vector3
+	return Layout.LiftOffsets[(lift - 1) % #Layout.LiftOffsets + 1]
+end
 
 -- Height of a floor's surface above the plot's floor (floor 1 = ground = 0).
 function Layout.FloorY(floor: number): number
@@ -218,13 +230,14 @@ function Layout.SlotOffset(slotIndex: number): Vector3
 	return Vector3.new(Layout.SlotColumns[column], Layout.FloorY(floor), Layout.SlotRows[row])
 end
 
--- Is `position` inside the plot's fenced area?
-function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?): boolean
+-- Is `position` inside the plot's fenced area? (`floors`: how many floors the base has)
+function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?, floors: number?): boolean
 	local localPos = Layout.PlotCFrame(plotIndex, worldId):PointToObjectSpace(position)
+	local top = math.max(floors or 1, Layout.MaxFloors)
 	return math.abs(localPos.X) <= Layout.PlotWidth / 2
 		and math.abs(localPos.Z) <= Layout.PlotDepth / 2
 		and localPos.Y > -5
-		and localPos.Y < Layout.FloorY(Layout.MaxFloors) + Config.Plots.UpperFloors.Height + 10
+		and localPos.Y < Layout.FloorY(top) + Config.Plots.UpperFloors.Height + 10
 end
 
 return Layout

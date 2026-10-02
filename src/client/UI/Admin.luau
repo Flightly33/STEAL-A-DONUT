@@ -189,6 +189,23 @@ local function build()
 	button(base, "🍩 Clear all donuts", Theme.Colors.Gray, function()
 		command("ClearDonuts")
 	end)
+	-- Only the game's owner sees these: floors past the normal limit, and the owner's own skin
+	local ownerButtons = {
+		button(base, "👑 +1 floor", Theme.Colors.Yellow, function()
+			command("AddFloors", 1)
+		end),
+		button(base, "👑 +10 floors", Theme.Colors.Yellow, function()
+			command("AddFloors", 10)
+		end),
+		button(base, "👑 Owner skin", Theme.Colors.Purple, function()
+			command("OwnerSkin")
+		end),
+	}
+	State.OnAttribute("AdminOwner", function(value)
+		for _, b in ownerButtons do
+			b.Visible = value == true
+		end
+	end)
 
 	-- Donuts: pick one, a mutation and a size
 	local donutSection = section("🍩 Donuts (pick one, then give or spawn it)", 150)

@@ -20,7 +20,6 @@
 
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local TextChatService = game:GetService("TextChatService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -47,6 +46,7 @@ local EventService = require(script.Parent.EventService)
 local ShopService = require(script.Parent.ShopService)
 local ItemService = require(script.Parent.ItemService)
 local HDAdmin = require(script.Parent.HDAdmin)
+local Ownership = require(script.Parent.Ownership)
 
 local AdminService = {}
 
@@ -64,20 +64,7 @@ local function isCode(text: any): boolean
 end
 
 -- The game's owner (or someone they trust): can also use the commands that give away paid products.
-local function isOwner(player: Player): boolean
-	if RunService:IsStudio() then
-		return true
-	end
-	if table.find(Config.Admin.AllowedUserIds, player.UserId) then
-		return true
-	end
-	-- The game's owner always can (for a group game: the group's owner).
-	if game.CreatorType == Enum.CreatorType.User then
-		return player.UserId == game.CreatorId
-	end
-	local ok, rank = pcall(player.GetRankInGroup, player, game.CreatorId)
-	return ok and rank == 255
-end
+local isOwner = Ownership.IsOwner
 
 local function allowed(player: Player): boolean
 	return Config.Admin.AllowAnyone or isOwner(player)
@@ -349,6 +336,38 @@ function Commands.RestoreAdmin(player: Player, _profile: DataService.Profile, ta
 		end
 	end
 	notify(player, `✅ Admin given back to {count} player{if count == 1 then "" else "s"}`, "success")
+end
+
+-- Owner only: more floors than anyone can buy (Config.Admin.OwnerMaxFloors in all). The ground
+-- floor gets fully expanded first, like it has to be before buying a floor.
+function Commands.AddFloors(player: Player, profile: DataService.Profile, count: any)
+	if not isOwner(player) then
+		notify(player, "👑 Only the game's owner can build extra floors.", "error")
+		return
+	end
+	local cap = math.max(Layout.MaxFloors, Config.Admin.OwnerMaxFloors)
+	if profile.Data.Floors >= cap then
+		notify(player, `🏢 Your base already has {cap} floors, as many as Roblox can build (Config.Admin.OwnerMaxFloors).`, "error")
+		return
+	end
+	local add = math.clamp(math.floor(tonumber(count) or 1), 1, cap)
+	profile.Data.Expansions = math.max(profile.Data.Expansions, #Config.Plots.ExpansionCosts)
+	profile.Data.Floors = math.min(profile.Data.Floors + add, cap)
+	player:SetAttribute("Expansions", profile.Data.Expansions)
+	player:SetAttribute("Floors", profile.Data.Floors)
+	PlotService.RefreshFloors(player)
+	notify(player, `🏢 Your base has {profile.Data.Floors} floors now ({PlotService.GetSlotCount(player)} stands)!`, "success")
+end
+
+-- Owner only: put the 👑 Owner's Throne skin on your base (or back to the Classic one).
+function Commands.OwnerSkin(player: Player, profile: DataService.Profile)
+	if not isOwner(player) then
+		notify(player, "👑 Only the game's owner can use that skin!", "error")
+		return
+	end
+	profile.Data.EquippedSkin = if profile.Data.EquippedSkin == "Owner" then "Classic" else "Owner"
+	PlotService.ApplySkin(player)
+	DataService.PushState(player)
 end
 
 function Commands.ClearEggs(player: Player, profile: DataService.Profile)

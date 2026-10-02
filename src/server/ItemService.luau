@@ -318,7 +318,7 @@ local function startLock(player: Player, duration: number?): boolean
 		while lockParts[player] == field and field.Parent do
 			for _, other in Players:GetPlayers() do
 				local root = if other ~= player then rootOf(other) else nil
-				if root and Layout.IsInPlot(plotIndex, root.Position, PlotService.GetBaseWorld(player)) then
+				if root and Layout.IsInPlot(plotIndex, root.Position, PlotService.GetBaseWorld(player), PlotService.GetFloors(player)) then
 					local character = other.Character
 					if character then
 						character:PivotTo(cf * CFrame.new(0, 4, -d / 2 - 12) * CFrame.Angles(0, math.pi, 0))

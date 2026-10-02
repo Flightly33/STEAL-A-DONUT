@@ -98,9 +98,15 @@ function PlotService.GetSpawnCFrame(player: Player): CFrame?
 	return if spawn then spawn.CFrame * CFrame.new(0, 3.5, 0) else nil
 end
 
+-- How many floors the player's base has (more than can be bought for the game's owner).
+function PlotService.GetFloors(player: Player): number
+	local profile = DataService.Get(player)
+	return if profile then math.clamp(profile.Data.Floors, 1, math.max(Layout.MaxFloors, Config.Admin.OwnerMaxFloors)) else 1
+end
+
 function PlotService.IsInOwnPlot(player: Player, position: Vector3): boolean
 	local index = playerPlots[player]
-	return index ~= nil and Layout.IsInPlot(index, position, PlotService.GetBaseWorld(player))
+	return index ~= nil and Layout.IsInPlot(index, position, PlotService.GetBaseWorld(player), PlotService.GetFloors(player))
 end
 
 function PlotService.GetBaseIncome(player: Player): number
@@ -677,7 +683,7 @@ local function applySlotLocks(plotIndex: number, unlocked: number, worldId: numb
 		end
 	end
 	local columns = #Layout.SlotColumns
-	for index = 1, Layout.MaxSlots do
+	for index = 1, math.max(Layout.MaxSlots, unlocked) do
 		local pedestal = slots:FindFirstChild("Slot" .. index)
 		if pedestal and pedestal:IsA("BasePart") then
 			local locked = index > unlocked
@@ -745,6 +751,80 @@ local function clearChildren(instance: Instance)
 	for _, child in instance:GetChildren() do
 		child:Destroy()
 	end
+end
+
+-- The owner's skin: a red carpet with gold edges down the middle of every floor, gold sparkles
+-- on the ground floor's stands, gentle gold glitter, and a giant crown floating above the roof.
+-- (Sparkles only downstairs: an owner's base can have dozens of floors.)
+local function buildRoyal(plot: Model, fx: Instance, center: CFrame)
+	local d = Layout.PlotDepth
+	local floors = 1
+	while plot:FindFirstChild("Floor" .. (floors + 1)) do
+		floors += 1
+	end
+	local gold, purple = rgb(255, 205, 70), rgb(175, 95, 255)
+	for floor = 1, floors do
+		local y = Layout.FloorY(floor) + Layout.PlotFloorHeight + 0.12
+		Build.Decor({ Parent = fx, Name = "Carpet", Size = Vector3.new(4, 0.2, d - 6), CFrame = center * CFrame.new(0, y, 0), Color = rgb(195, 25, 45), Material = Enum.Material.Fabric })
+		for _, side in { -1, 1 } do
+			Build.Decor({ Parent = fx, Name = "CarpetTrim", Size = Vector3.new(0.4, 0.24, d - 6), CFrame = center * CFrame.new(side * 2.1, y, 0), Color = gold, Material = Enum.Material.Foil })
+		end
+	end
+	local slots = plot:FindFirstChild("Slots")
+	if slots then
+		for _, pedestal in slots:GetChildren() do
+			local index = pedestal:GetAttribute("SlotIndex") or tonumber(string.match(pedestal.Name, "^Slot(%d+)$"))
+			if pedestal:IsA("BasePart") and pedestal.Transparency < 0.5 and type(index) == "number" and index <= Config.Plots.SlotsPerPlot then
+				local holder = Build.Decor({ Parent = fx, Name = "PedestalFX", Size = Vector3.one, CFrame = CFrame.new(pedestal.Position), Transparency = 1 })
+				local sparkles = Instance.new("Sparkles")
+				sparkles.SparkleColor = gold
+				sparkles.Parent = holder
+			end
+		end
+	end
+	local glitter = Build.Decor({ Parent = fx, Name = "Emitter", Size = Vector3.new(Layout.PlotWidth - 4, 1, d - 4), CFrame = center * CFrame.new(0, 1, 0), Transparency = 1 })
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Color = ColorSequence.new(gold, purple)
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.LightEmission = 0.8
+	emitter.Rate = 12
+	emitter.Speed = NumberRange.new(1, 2.5)
+	emitter.Lifetime = NumberRange.new(3, 5)
+	emitter.Size = NumberSequence.new(0.35, 0)
+	emitter.Parent = glitter
+
+	-- The crown: a gold band with five points topped with gems, on a purple velvet cushion
+	local boxCFrame, boxSize = plot:GetBoundingBox()
+	local top = boxCFrame.Position.Y + boxSize.Y / 2
+	local base = CFrame.new(center.Position.X, top + 10, center.Position.Z)
+	local crown = Instance.new("Model")
+	crown.Name = "OwnerCrown"
+	local radius = 9
+	Build.Decor({ Parent = crown, Name = "Cushion", Shape = Enum.PartType.Cylinder, Size = Vector3.new(3, radius * 2 - 1, radius * 2 - 1), CFrame = base * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(110, 30, 150), Material = Enum.Material.Fabric })
+	for k = 0, 9 do
+		local angle = k * math.pi / 5
+		Build.Decor({ Parent = crown, Name = "Band", Size = Vector3.new(6, 4, 1.2), CFrame = base * CFrame.Angles(0, angle, 0) * CFrame.new(0, 1.5, -radius), Color = gold, Material = Enum.Material.Foil })
+	end
+	for k = 0, 4 do
+		local angle = k * 2 * math.pi / 5
+		local spike = base * CFrame.Angles(0, angle, 0) * CFrame.new(0, 6, -radius)
+		Build.Decor({ Parent = crown, Name = "Point", Size = Vector3.new(3, 7, 1.2), CFrame = spike, Color = gold, Material = Enum.Material.Foil })
+		Build.Decor({ Parent = crown, Name = "Gem", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.4, CFrame = spike * CFrame.new(0, 4.2, 0), Color = if k % 2 == 0 then purple else rgb(255, 50, 80), Material = Enum.Material.Neon })
+		Build.Decor({ Parent = crown, Name = "BandGem", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.4, CFrame = base * CFrame.Angles(0, angle + math.pi / 5, 0) * CFrame.new(0, 1.5, -radius - 0.5), Color = rgb(80, 200, 255), Material = Enum.Material.Neon })
+	end
+	local light = Instance.new("PointLight")
+	light.Color = gold
+	light.Range = 30
+	light.Brightness = 1.5
+	light.Parent = crown:FindFirstChild("Cushion")
+	local label = Instance.new("BillboardGui")
+	label.Size = UDim2.fromScale(26, 5)
+	label.StudsOffsetWorldSpace = Vector3.new(0, 15, 0)
+	label.LightInfluence = 0
+	label.MaxDistance = 400
+	label.Parent = crown:FindFirstChild("Cushion")
+	Build.Text(label, "👑 OWNER'S BASE 👑", { TextColor3 = rgb(255, 215, 90) })
+	crown.Parent = fx
 end
 
 local function applySkinToPlot(plot: Model, skinId: string)
@@ -842,6 +922,8 @@ local function applySkinToPlot(plot: Model, skinId: string)
 		elseif effect == "Sparkle" then
 			areaEmitter(rgb(255, 230, 120), Enum.NormalId.Top, 15, 2, 0.35)
 		end
+	elseif effect == "Royal" then
+		buildRoyal(plot, fx, center)
 	end
 end
 
@@ -858,6 +940,9 @@ end
 --------------------------------------------------------------------------------
 local liftCooldown: { [Player]: number } = {}
 local FLOOR_NAMES = { "GROUND FLOOR", "2ND FLOOR", "3RD FLOOR" }
+local function floorName(floor: number): string
+	return FLOOR_NAMES[floor] or `FLOOR {floor}`
+end
 
 -- A glowing lift pad: step on it and you're taken to `target`.
 local function liftPad(parent: Instance, cf: CFrame, text: string, target: CFrame)
@@ -903,9 +988,9 @@ function removeUpperFloors(plot: Model)
 	end
 	local slots = plot:FindFirstChild("Slots")
 	if slots then
-		for index = Config.Plots.SlotsPerPlot + 1, Layout.MaxSlots do
-			local pedestal = slots:FindFirstChild("Slot" .. index)
-			if pedestal then
+		for _, pedestal in slots:GetChildren() do
+			local index = tonumber(string.match(pedestal.Name, "^Slot(%d+)$"))
+			if index and index > Config.Plots.SlotsPerPlot then
 				pedestal:Destroy()
 			end
 		end
@@ -921,7 +1006,7 @@ function buildUpperFloors(player: Player)
 		return
 	end
 	removeUpperFloors(plot)
-	local floors = if profile then math.clamp(profile.Data.Floors, 1, Layout.MaxFloors) else 1
+	local floors = if profile then PlotService.GetFloors(player) else 1
 	MapBuilder.BuildShell(plot, floors)
 	local cf = Layout.PlotCFrame(index, PlotService.GetBaseWorld(player))
 	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
@@ -974,10 +1059,10 @@ function buildUpperFloors(player: Player)
 		end
 		-- Lift pads between this floor and the one below, exactly above each other (so a carried
 		-- donut never "teleports" sideways)
-		local lift = Layout.LiftOffsets[floor - 1]
+		local lift = Layout.LiftOffset(floor - 1)
 		local step = Vector3.new(0, 0, 7) -- step off the pad towards the stands
-		liftPad(deck, at(lift.X, below + fh + 0.2, lift.Z), "⬆ " .. FLOOR_NAMES[floor], at(lift.X + step.X, height + fh + 3, lift.Z + step.Z))
-		liftPad(deck, at(lift.X, height + fh + 0.2, lift.Z), "⬇ " .. FLOOR_NAMES[floor - 1], at(lift.X + step.X, below + fh + 3, lift.Z + step.Z))
+		liftPad(deck, at(lift.X, below + fh + 0.2, lift.Z), "⬆ " .. floorName(floor), at(lift.X + step.X, height + fh + 3, lift.Z + step.Z))
+		liftPad(deck, at(lift.X, height + fh + 0.2, lift.Z), "⬇ " .. floorName(floor - 1), at(lift.X + step.X, below + fh + 3, lift.Z + step.Z))
 		-- This floor's stands (in the plot's Slots folder, like the ground floor's)
 		local slots = plot:FindFirstChild("Slots")
 		if slots then
@@ -1000,6 +1085,14 @@ function buildUpperFloors(player: Player)
 	end
 end
 
+-- Rebuild the base after its number of floors changed (bought, or the owner's admin panel).
+function PlotService.RefreshFloors(player: Player)
+	buildUpperFloors(player)
+	PlotService.RefreshLocks(player)
+	PlotService.ApplySkin(player)
+	PlotService.RefreshSign(player)
+end
+
 -- Buy the next floor (the 2nd once the ground floor is fully expanded, then the 3rd).
 function PlotService.BuyFloor(player: Player): boolean
 	local profile = DataService.Get(player)
@@ -1017,11 +1110,8 @@ function PlotService.BuyFloor(player: Player): boolean
 	end
 	profile.Data.Floors = math.min(profile.Data.Floors + 1, Layout.MaxFloors)
 	player:SetAttribute("Floors", profile.Data.Floors)
-	buildUpperFloors(player)
-	PlotService.RefreshLocks(player)
-	PlotService.ApplySkin(player)
-	PlotService.RefreshSign(player)
-	local name = string.lower(FLOOR_NAMES[profile.Data.Floors] or "floor")
+	PlotService.RefreshFloors(player)
+	local name = string.lower(floorName(profile.Data.Floors))
 	notify(player, `🏢 {string.upper(name)} built! +{Config.Plots.UpperFloors.Slots} stands ({PlotService.GetSlotCount(player)} total). Take the lift pad at the front of your base.`, "success")
 	return true
 end
@@ -1041,7 +1131,7 @@ local function showBase(player: Player)
 	player:SetAttribute("BaseWorld", worldId)
 	if profile then
 		buildUpperFloors(player) -- (their stands must exist before the donuts go on them)
-		for i = 1, Layout.MaxSlots do
+		for i = 1, Layout.SlotsForFloors(math.max(PlotService.GetFloors(player), Layout.MaxFloors)) do
 			spawnSlotModel(player, i)
 		end
 	end
@@ -1100,7 +1190,7 @@ function PlotService.Assign(player: Player): number?
 	if profile then
 		-- Drop any saved slot that points at a donut that no longer exists (e.g. removed from Donuts.luau).
 		for key, slot in profile.Data.Slots do
-			if not Donuts.ById[slot.Id] or (tonumber(key) or 999) > Layout.MaxSlots then
+			if not Donuts.ById[slot.Id] or (tonumber(key) or math.huge) > Layout.SlotsForFloors(math.max(PlotService.GetFloors(player), Layout.MaxFloors)) then
 				profile.Data.Slots[key] = nil
 			end
 		end
