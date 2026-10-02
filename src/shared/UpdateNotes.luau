@@ -101,6 +101,9 @@ UpdateNotes.List = {
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
+			{ Title = "Studded Donuts", Tag = "NEW Looks", Lines = {
+				"Every donut is now built from classic studded blocks, just like Domer!",
+			} },
 			{ Title = "Bigger Lanes", Tag = "Balance", Lines = {
 				"Every area is longer and a bit wider (same number of donuts)",
 				"You start at 21 walk speed, and the first Domers are a little faster",

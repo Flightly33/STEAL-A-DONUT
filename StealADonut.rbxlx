@@ -1682,6 +1682,12 @@ Config.UltimateRebirth = {
 
 -- Fewer particles on every screen (client-side): every emitter runs at this share of its rate,
 -- capped per emitter. Lower = less lag.
+-- Donut models: Studded = made of studded blocks like Domer (square-edged ring, stepped glaze,
+-- blocky face and accessories, the classic studs on every side). false = the smooth round donuts.
+Config.DonutModels = {
+	Studded = true,
+}
+
 Config.Particles = {
 	ParticleScale = 0.4,
 	MaxParticleRate = 20,
@@ -2098,6 +2104,7 @@ export type Kit = {
 	Frosting: Color3,
 	Sprinkles: { Color3 },
 	RarityOrder: number,
+	Studded: boolean,
 	Rng: Random,
 	at: (x: number, y: number, z: number) -> CFrame,
 	ball: (diameter: number, color: Color3, cf: CFrame, material: Enum.Material?, name: string?) -> BasePart,
@@ -2186,6 +2193,13 @@ local function onDough(k: Kit, angle: number, around: number, lift: number): CFr
 	local downTube = radial * math.cos(around) + Vector3.new(0, 0, math.sin(around))
 	local tangent = Vector3.new(-radial.Y, radial.X, 0)
 	local point = radial * k.R + normal * (k.BALL / 2 + lift)
+	if k.Studded then
+		-- the square-edged dough ring: its outer side (from 45 degrees round), else its front
+		local half = k.BALL / 2
+		point = if around >= math.pi / 4
+			then radial * (k.R + half) + Vector3.new(0, 0, -half * math.cos(around) / math.sin(around)) + normal * lift
+			else radial * (k.R + half * math.tan(around)) + Vector3.new(0, 0, -half) + normal * lift
+	end
 	return CFrame.fromMatrix(point * k.s, tangent, normal, downTube)
 end
 
@@ -4102,6 +4116,8 @@ return DonutExtras
 
 local CollectionService = game:GetService("CollectionService")
 
+local Config = require(script.Parent.Config)
+
 local Rarities = require(script.Parent.Rarities)
 local Format = require(script.Parent.Format)
 local Donuts = require(script.Parent.Donuts)
@@ -4119,6 +4135,13 @@ local SEGMENTS = 16 -- tube pieces in the dough ring
 local GLAZE_SEGMENTS = 18 -- the glaze is shinier, so it gets a few more (smoother highlights)
 local FROSTING_OFFSET = -0.3 -- the glaze sits on the front face (-Z is the donut's front)
 local FROSTING_TUBE = 1.36
+-- Studded donuts (Config.DonutModels): the ring is built from square-edged blocks, a few fewer of
+-- them (chunkier), and the glaze is two steps: a wide "shoulder" and a narrower raised "crown" in the
+-- middle, so its front follows the round glaze closely and everything placed on it still sits on it.
+local STUDDED = Config.DonutModels.Studded
+local STUDDED_SEGMENTS, STUDDED_GLAZE_SEGMENTS = 12, 14
+local CROWN_HALF, CROWN_FRONT, SHOULDER_FRONT = 0.38, -0.98, -0.74
+local STUD_FACES = { "TopSurface", "BottomSurface", "FrontSurface", "BackSurface", "LeftSurface", "RightSurface" }
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
@@ -4283,15 +4306,16 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	-- A smooth ring (a torus) out of straight tube pieces: one cylinder per segment lying along the
 	-- ring, each just long enough to meet its neighbours on the outside without a notch.
 	-- `shade(angle)` lightens (+) or darkens (-) each piece a little: baked-looking dough, glossy glaze.
-	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string, shade: ((number) -> number)?): { BasePart }
+	-- (studded: square blocks, `depth` deep front to back)
+	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string, shade: ((number) -> number)?, depth: number?): { BasePart }
 		local step = TAU / count
 		local length = 2 * R * math.sin(step / 2) + diameter * math.tan(step / 2)
 		local pieces = {}
 		for i = 0, count - 1 do
 			local angle = i * step
 			local p = Instance.new("Part")
-			p.Shape = Enum.PartType.Cylinder
-			p.Size = Vector3.new(length, diameter, diameter) * s
+			p.Shape = if STUDDED then Enum.PartType.Block else Enum.PartType.Cylinder
+			p.Size = Vector3.new(length, diameter, depth or diameter) * s
 			p.Name = name
 			local cf = at(R * math.cos(angle), R * math.sin(angle), z) * CFrame.Angles(0, 0, angle + math.pi / 2)
 			local tint = color
@@ -4310,6 +4334,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
 		local normal = radial * math.sin(tilt) + Vector3.new(0, 0, -math.cos(tilt))
 		local point = radial * R + Vector3.new(0, 0, FROSTING_OFFSET) + normal * (FROST_R + lift)
+		if STUDDED then
+			-- on the flat front of the stepped glaze (the crown in the middle, the shoulder outside it)
+			local offset = math.sin(tilt) * FROST_R
+			local front = if math.abs(offset) <= CROWN_HALF then CROWN_FRONT else SHOULDER_FRONT
+			point = radial * (R + offset) + Vector3.new(0, 0, front) + normal * lift
+		end
 		return CFrame.lookAt(point * s, (point + normal) * s)
 	end
 
@@ -4321,16 +4351,29 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	-- Dough ring, with a thinner glaze ring in front of it (the dough shows around its edges)
 	-- (the dough is golden on top and more baked underneath; the glaze catches light from the top left)
-	for _, piece in ring(SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough", function(angle: number): number
+	for _, piece in ring(if STUDDED then STUDDED_SEGMENTS else SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough", function(angle: number): number
 		local up = math.sin(angle)
 		return if up > 0 then up * 0.08 else up * 0.16
 	end) do
 		piece.Reflectance = shine * 0.3
 	end
-	local glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting", function(angle: number): number
+	local function glazeShade(angle: number): number
 		local light = math.cos(angle - math.rad(135))
 		return if light > 0 then light * 0.1 else light * 0.07
-	end)
+	end
+	local glaze
+	if STUDDED then
+		-- shoulder: as wide as the round glaze, from inside the dough to SHOULDER_FRONT; crown on top
+		glaze = ring(STUDDED_GLAZE_SEGMENTS, FROSTING_TUBE, SHOULDER_FRONT / 2, frostingColor, frostingMaterial, "Frosting", glazeShade, -SHOULDER_FRONT)
+		local crownDepth = SHOULDER_FRONT - CROWN_FRONT + 0.1
+		for _, piece in ring(STUDDED_GLAZE_SEGMENTS, CROWN_HALF * 2, CROWN_FRONT + crownDepth / 2, frostingColor, frostingMaterial, "Frosting", function(angle: number): number
+			return glazeShade(angle) + 0.05 -- the raised middle catches a bit more light
+		end, crownDepth) do
+			table.insert(glaze, piece)
+		end
+	else
+		glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting", glazeShade)
+	end
 
 	-- Wavy glaze edge: tongues of glaze lying over the dough rim all the way round; on the lower
 	-- sides some run right over the edge like drips.
@@ -4347,6 +4390,13 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		local center = (radial * R + normal * (BALL / 2)) * s
 		local length = if drip then rng:NextNumber(0.85, 1.1) else rng:NextNumber(0.45, 0.6)
 		local cf = CFrame.fromMatrix(center, tangent, normal, downTube)
+		if STUDDED then
+			-- a flat tab of glaze on the square ring's outer side, running back from its front edge
+			local depth = math.min(length, BALL) * 0.8
+			center = (radial * (R + BALL / 2 + 0.06) + Vector3.new(0, 0, -BALL / 2 + depth / 2)) * s
+			cf = CFrame.fromMatrix(center, tangent, radial, Vector3.new(0, 0, 1))
+			length = depth
+		end
 		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), frostingColor, cf, frostingMaterial, "Frosting"))
 	end
 	for _, piece in glaze do
@@ -4767,6 +4817,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		Frosting = frostingColor,
 		Sprinkles = donut.Sprinkles or {},
 		RarityOrder = rarity.Order,
+		Studded = STUDDED,
 		Rng = rng,
 		at = at,
 		ball = ball,
@@ -4799,6 +4850,28 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	if rarity.Id == "Secret" then
 		local aura = ball(6.5, rarity.Color, at(0, 0, 0), Enum.Material.ForceField, "Aura")
 		aura.Transparency = 0.3
+	end
+
+	-- Studded (Config.DonutModels): every solid part becomes a block with the classic studs on all
+	-- six sides, like Domer (see-through glows, force fields and the invisible root are left alone)
+	if STUDDED then
+		for _, p in model:GetDescendants() do
+			if p:IsA("BasePart") and p ~= root and p.Transparency < 0.6 and p.Material ~= Enum.Material.ForceField then
+				if p:IsA("Part") then
+					p.Shape = Enum.PartType.Block
+				end
+				local mesh = p:FindFirstChildOfClass("SpecialMesh")
+				if mesh and (mesh.MeshType == Enum.MeshType.Sphere or mesh.MeshType == Enum.MeshType.Cylinder) then
+					mesh:Destroy()
+				end
+				for _, side in STUD_FACES do
+					(p :: any)[side] = Enum.SurfaceType.Studs
+				end
+				if p.Material == Enum.Material.SmoothPlastic then
+					p.Material = Enum.Material.Plastic
+				end
+			end
+		end
 	end
 
 	-- Measure the model so callers can stand it on a surface and put labels above it.
@@ -8875,6 +8948,9 @@ UpdateNotes.List = {
 				"Half as many shadows, lighter lighting and calmer particles",
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
+			} },
+			{ Title = "Studded Donuts", Tag = "NEW Looks", Lines = {
+				"Every donut is now built from classic studded blocks, just like Domer!",
 			} },
 			{ Title = "Bigger Lanes", Tag = "Balance", Lines = {
 				"Every area is longer and a bit wider (same number of donuts)",

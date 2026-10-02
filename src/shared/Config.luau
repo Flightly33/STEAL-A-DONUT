@@ -659,6 +659,12 @@ Config.UltimateRebirth = {
 
 -- Fewer particles on every screen (client-side): every emitter runs at this share of its rate,
 -- capped per emitter. Lower = less lag.
+-- Donut models: Studded = made of studded blocks like Domer (square-edged ring, stepped glaze,
+-- blocky face and accessories, the classic studs on every side). false = the smooth round donuts.
+Config.DonutModels = {
+	Studded = true,
+}
+
 Config.Particles = {
 	ParticleScale = 0.4,
 	MaxParticleRate = 20,

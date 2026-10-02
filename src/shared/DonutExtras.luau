@@ -35,6 +35,7 @@ export type Kit = {
 	Frosting: Color3,
 	Sprinkles: { Color3 },
 	RarityOrder: number,
+	Studded: boolean,
 	Rng: Random,
 	at: (x: number, y: number, z: number) -> CFrame,
 	ball: (diameter: number, color: Color3, cf: CFrame, material: Enum.Material?, name: string?) -> BasePart,
@@ -123,6 +124,13 @@ local function onDough(k: Kit, angle: number, around: number, lift: number): CFr
 	local downTube = radial * math.cos(around) + Vector3.new(0, 0, math.sin(around))
 	local tangent = Vector3.new(-radial.Y, radial.X, 0)
 	local point = radial * k.R + normal * (k.BALL / 2 + lift)
+	if k.Studded then
+		-- the square-edged dough ring: its outer side (from 45 degrees round), else its front
+		local half = k.BALL / 2
+		point = if around >= math.pi / 4
+			then radial * (k.R + half) + Vector3.new(0, 0, -half * math.cos(around) / math.sin(around)) + normal * lift
+			else radial * (k.R + half * math.tan(around)) + Vector3.new(0, 0, -half) + normal * lift
+	end
 	return CFrame.fromMatrix(point * k.s, tangent, normal, downTube)
 end
 
