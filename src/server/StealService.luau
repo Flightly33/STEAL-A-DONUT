@@ -176,13 +176,62 @@ function StealService.AttachAboveHead(player: Player, model: Model): boolean
 	return true
 end
 
+-- Arms reach forward while holding a donut (R15 and R6 shoulder joints); undone when it's gone.
+local ARM_JOINTS = { "RightShoulder", "LeftShoulder", "Right Shoulder", "Left Shoulder" }
+local function raiseArms(character: Model, model: Model)
+	local saved: { [Motor6D]: CFrame } = {}
+	for _, joint in character:GetDescendants() do
+		if joint:IsA("Motor6D") and table.find(ARM_JOINTS, joint.Name) then
+			saved[joint] = joint.C0
+			-- R6 shoulders point sideways (rotate about their own Z), R15 about X
+			joint.C0 = joint.C0 * (if string.find(joint.Name, " ") then CFrame.Angles(0, 0, if joint.Name == "Right Shoulder" then math.rad(80) else math.rad(-80)) else CFrame.Angles(math.rad(80), 0, 0))
+		end
+	end
+	model.Destroying:Connect(function()
+		for joint, c0 in saved do
+			if joint.Parent then
+				joint.C0 = c0
+			end
+		end
+	end)
+end
+
+-- Weld a donut in front of the player's chest, held in both arms.
+function StealService.AttachInArms(player: Player, model: Model): boolean
+	local character = player.Character
+	local torso = character and ((character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")) :: BasePart?)
+	local root = model.PrimaryPart
+	if not character or not torso or not root then
+		return false
+	end
+	local _, size = model:GetBoundingBox()
+	local offset = CFrame.new(0, 0.2, -(torso.Size.Z / 2 + size.Z / 2 + 0.3))
+	model:PivotTo(torso.CFrame * offset)
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Massless = true
+			part.CanCollide = false
+		end
+	end
+	root.Anchored = false
+	local weld = Instance.new("Weld")
+	weld.Part0 = torso
+	weld.Part1 = root
+	weld.C0 = offset
+	weld.Parent = root
+	model.Name = "CarriedDonut"
+	model.Parent = character
+	raiseArms(character, model)
+	return true
+end
+
 local function attachVisual(player: Player, donutId: string, mutationId: string, sizeId: string): Model?
 	local donut = Donuts.ById[donutId]
 	if not donut then
 		return nil
 	end
-	local model = DonutModel.Build(donut, { Scale = 0.55, Mutation = mutationId, Size = sizeId })
-	if not StealService.AttachAboveHead(player, model) then
+	local model = DonutModel.Build(donut, { Scale = 0.45, Mutation = mutationId, Size = sizeId })
+	if not StealService.AttachInArms(player, model) and not StealService.AttachAboveHead(player, model) then
 		model:Destroy()
 		return nil
 	end

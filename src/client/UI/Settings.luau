@@ -42,8 +42,43 @@ local retryPending = false
 local tracks = Config.Music.Tracks
 local usingFallback = false
 
+-- Chase music: while Domer chases you, an intense track (Config.Music.Chase) takes over. Without
+-- a working chase track the normal song plays faster and a bit louder instead.
+local chaseSound: Sound? = nil
+local chasing = false
+
+local function chaseReady(): boolean
+	return chaseSound ~= nil and chaseSound.IsLoaded and chaseSound.TimeLength > 0
+end
+
 local function applyVolume()
-	sound.Volume = if musicOn then volume else 0
+	local TweenService = game:GetService("TweenService")
+	local fade = TweenInfo.new(0.6)
+	local useChase = chasing and chaseReady()
+	TweenService:Create(sound, fade, { Volume = if not musicOn or useChase then 0 else volume * (if chasing then 1.3 else 1) }):Play()
+	sound.PlaybackSpeed = if chasing and not useChase then 1.25 else 1
+	if chaseSound then
+		if useChase and not chaseSound.IsPlaying then
+			chaseSound.TimePosition = 0
+			chaseSound:Play()
+		end
+		TweenService:Create(chaseSound, fade, { Volume = if useChase and musicOn then volume * 1.3 else 0 }):Play()
+		if not chasing then
+			task.delay(0.7, function()
+				if not chasing and chaseSound then
+					chaseSound:Stop()
+				end
+			end)
+		end
+	end
+end
+
+-- Chase.luau calls this when a chase starts (true) and ends (false).
+function Settings.SetChasing(on: boolean)
+	if on ~= chasing then
+		chasing = on
+		applyVolume()
+	end
 end
 
 local function workingTracks(): number
@@ -145,6 +180,15 @@ function Settings.Init()
 	sound.Name = "Soundtrack"
 	sound.Looped = false
 	sound.Parent = SoundService
+	if Config.Music.Chase.Id > 0 then
+		local chase = Instance.new("Sound")
+		chase.Name = "ChaseMusic"
+		chase.Looped = true
+		chase.Volume = 0
+		chase.SoundId = "rbxassetid://" .. tostring(Config.Music.Chase.Id)
+		chase.Parent = SoundService
+		chaseSound = chase
+	end
 	applyVolume()
 	sound.Ended:Connect(function()
 		if not sound.Looped then

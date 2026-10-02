@@ -650,6 +650,10 @@ Config.Music = {
 	Fallback = {
 		{ Name = "Relaxed Scene", Id = 1848354536 },
 	} :: { { Name: string, Id: number } },
+	-- Intense music while Domer chases you. Paste the id of a fast action track from the Creator
+	-- Store (Toolbox > Audio > Music; it must be public or uploaded by you). 0 = no track: the normal
+	-- song speeds up and gets louder during chases instead.
+	Chase = { Name = "Chase", Id = 0 },
 }
 
 --------------------------------------------------------------------------------
