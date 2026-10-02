@@ -101,6 +101,10 @@ UpdateNotes.List = {
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
+			{ Title = "Brighter Graphics", Tag = "NEW Looks", Lines = {
+				"Sunnier, more colourful lighting with puffy 3D clouds",
+				"Neon and fire glow, far-away places fade into a soft blue haze",
+			} },
 			{ Title = "Loading Screen", Tag = "NEW", Lines = {
 				"A brand new loading screen with tips while the game loads",
 				"Don't want to wait? Press SKIP!",

@@ -281,6 +281,12 @@ local function startAmbience()
 		if bloom then
 			TweenService:Create(bloom, info, { Intensity = amb.Bloom + look.BloomBoost }):Play()
 		end
+		-- clouds only in daylight with clear air (not at night, in caves or in thick fog)
+		local terrain = workspace:FindFirstChildOfClass("Terrain")
+		local clouds = terrain and terrain:FindFirstChildOfClass("Clouds")
+		if clouds then
+			clouds.Enabled = amb.ClockTime >= 7 and amb.ClockTime <= 17.5 and amb.AtmosphereDensity < 0.35
+		end
 	end
 	AreaTracker.Changed:Connect(apply)
 	State.OnAttribute("World", function()

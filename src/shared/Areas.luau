@@ -72,18 +72,18 @@ export type World = {
 
 local Areas = {}
 
--- Bright, clean "Steal an Egg" style daylight: high sun, clear sky, no fog, vivid colours,
--- soft light shadows.
+-- Bright, clean "Steal an Egg" style daylight: high sun, puffy clouds, very vivid colours, bright
+-- shade, soft shadows and a light blue haze far away.
 local DAY = {
 	ClockTime = 13.5,
 	Tint = Color3.fromRGB(255, 255, 255),
-	Saturation = 0.12,
-	Contrast = 0.04,
-	Ambient = Color3.fromRGB(150, 150, 160),
-	AtmosphereColor = Color3.fromRGB(199, 214, 234),
-	AtmosphereDensity = 0.05,
+	Saturation = 0.14,
+	Contrast = 0.05,
+	Ambient = Color3.fromRGB(172, 172, 184),
+	AtmosphereColor = Color3.fromRGB(199, 220, 245),
+	AtmosphereDensity = 0.18,
 	Haze = 0,
-	Bloom = 0.1,
+	Bloom = 0.2,
 }
 
 local function ambience(overrides: { [string]: any }): Ambience

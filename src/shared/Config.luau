@@ -587,13 +587,16 @@ Config.Items = {
 -- (Areas.luau Ambience), so turning these down makes the whole game calmer.
 --------------------------------------------------------------------------------
 Config.Graphics = {
-	SaturationBoost = 0.1, -- more vivid colours
-	ContrastBoost = 0.05,
-	BloomBoost = 0.05, -- glow around bright things (neon, sparkles, the sun)
-	BloomThreshold = 2.6, -- how bright something must be to glow (lower = more glow)
-	BloomSize = 20,
-	SunRays = 0.06,
-	Brightness = 2.1, -- sunlight strength
+	SaturationBoost = 0.18, -- more vivid colours (on top of each area's own)
+	ContrastBoost = 0.07,
+	BloomBoost = 0.15, -- glow around bright things (neon, fire, sparkles)
+	BloomThreshold = 2.2, -- how bright something must be to glow (lower = more glow)
+	BloomSize = 24,
+	SunRays = 0, -- 0 = no sun rays effect at all (saves a full-screen pass)
+	Brightness = 2.6, -- sunlight strength
+	ShadowSoftness = 0.25,
+	-- Roblox's 3D clouds in daytime areas (hidden at night and in foggy areas). Cover 0 = none.
+	Clouds = { Cover = 0.62, Density = 0.75 },
 }
 
 -- UI sounds. Left empty, the game uses its built-in ones: a soft mechanical-keyboard "thock" when

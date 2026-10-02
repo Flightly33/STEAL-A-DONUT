@@ -2,7 +2,7 @@
   <Item class="Lighting" referent="0">
     <Properties>
       <string name="Name">Lighting</string>
-      <float name="Brightness">2.5</float>
+      <float name="Brightness">2.6</float>
       <float name="ClockTime">13.5</float>
       <float name="EnvironmentDiffuseScale">1</float>
       <float name="EnvironmentSpecularScale">0.5</float>
@@ -615,18 +615,18 @@ export type World = {
 
 local Areas = {}
 
--- Bright, clean "Steal an Egg" style daylight: high sun, clear sky, no fog, vivid colours,
--- soft light shadows.
+-- Bright, clean "Steal an Egg" style daylight: high sun, puffy clouds, very vivid colours, bright
+-- shade, soft shadows and a light blue haze far away.
 local DAY = {
 	ClockTime = 13.5,
 	Tint = Color3.fromRGB(255, 255, 255),
-	Saturation = 0.12,
-	Contrast = 0.04,
-	Ambient = Color3.fromRGB(150, 150, 160),
-	AtmosphereColor = Color3.fromRGB(199, 214, 234),
-	AtmosphereDensity = 0.05,
+	Saturation = 0.14,
+	Contrast = 0.05,
+	Ambient = Color3.fromRGB(172, 172, 184),
+	AtmosphereColor = Color3.fromRGB(199, 220, 245),
+	AtmosphereDensity = 0.18,
 	Haze = 0,
-	Bloom = 0.1,
+	Bloom = 0.2,
 }
 
 local function ambience(overrides: { [string]: any }): Ambience
@@ -1605,13 +1605,16 @@ Config.Items = {
 -- (Areas.luau Ambience), so turning these down makes the whole game calmer.
 --------------------------------------------------------------------------------
 Config.Graphics = {
-	SaturationBoost = 0.1, -- more vivid colours
-	ContrastBoost = 0.05,
-	BloomBoost = 0.05, -- glow around bright things (neon, sparkles, the sun)
-	BloomThreshold = 2.6, -- how bright something must be to glow (lower = more glow)
-	BloomSize = 20,
-	SunRays = 0.06,
-	Brightness = 2.1, -- sunlight strength
+	SaturationBoost = 0.18, -- more vivid colours (on top of each area's own)
+	ContrastBoost = 0.07,
+	BloomBoost = 0.15, -- glow around bright things (neon, fire, sparkles)
+	BloomThreshold = 2.2, -- how bright something must be to glow (lower = more glow)
+	BloomSize = 24,
+	SunRays = 0, -- 0 = no sun rays effect at all (saves a full-screen pass)
+	Brightness = 2.6, -- sunlight strength
+	ShadowSoftness = 0.25,
+	-- Roblox's 3D clouds in daytime areas (hidden at night and in foggy areas). Cover 0 = none.
+	Clouds = { Cover = 0.62, Density = 0.75 },
 }
 
 -- UI sounds. Left empty, the game uses its built-in ones: a soft mechanical-keyboard "thock" when
@@ -8837,6 +8840,10 @@ UpdateNotes.List = {
 				"Half as many shadows, lighter lighting and calmer particles",
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
+			} },
+			{ Title = "Brighter Graphics", Tag = "NEW Looks", Lines = {
+				"Sunnier, more colourful lighting with puffy 3D clouds",
+				"Neon and fire glow, far-away places fade into a soft blue haze",
 			} },
 			{ Title = "Loading Screen", Tag = "NEW", Lines = {
 				"A brand new loading screen with tips while the game loads",
@@ -16076,17 +16083,18 @@ local function setupLighting()
 	Lighting.ClockTime = 13.5
 	Lighting.Brightness = Config.Graphics.Brightness
 	Lighting.ExposureCompensation = 0
-	Lighting.ShadowSoftness = 0.5
+	Lighting.ShadowSoftness = Config.Graphics.ShadowSoftness
 	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 1 -- shiny plastic catches the light
-	Lighting.OutdoorAmbient = rgb(170, 170, 180)
-	Lighting.Ambient = rgb(150, 150, 160)
+	Lighting.EnvironmentSpecularScale = 0.5
+	Lighting.OutdoorAmbient = rgb(190, 190, 200) -- bright shade, like the reference
+	Lighting.Ambient = rgb(172, 172, 184)
 	local atmosphere = ensure("Atmosphere", "Atmosphere") :: Atmosphere
-	atmosphere.Density = 0.05
+	atmosphere.Density = 0.18
+	atmosphere.Offset = 0.25
 	atmosphere.Haze = 0
 	atmosphere.Glare = 0
-	atmosphere.Color = rgb(199, 214, 234)
-	atmosphere.Decay = rgb(106, 112, 125)
+	atmosphere.Color = rgb(199, 220, 245)
+	atmosphere.Decay = rgb(110, 121, 135)
 	local tint = ensure("ColorCorrectionEffect", "AreaTint") :: ColorCorrectionEffect
 	tint.Brightness = 0.02
 	tint.Saturation = 0.12 + Config.Graphics.SaturationBoost
@@ -16096,9 +16104,25 @@ local function setupLighting()
 	bloom.Intensity = 0.1 + Config.Graphics.BloomBoost
 	bloom.Size = Config.Graphics.BloomSize
 	bloom.Threshold = Config.Graphics.BloomThreshold
-	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
-	sunRays.Intensity = Config.Graphics.SunRays
-	sunRays.Spread = 0.6
+	if Config.Graphics.SunRays > 0 then
+		local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
+		sunRays.Intensity = Config.Graphics.SunRays
+		sunRays.Spread = 0.6
+	else
+		local old = Lighting:FindFirstChild("SunRays")
+		if old then
+			old:Destroy()
+		end
+	end
+	-- Puffy 3D clouds (the client hides them at night and in foggy areas)
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain and Config.Graphics.Clouds.Cover > 0 then
+		local clouds = terrain:FindFirstChildOfClass("Clouds") or Instance.new("Clouds")
+		clouds.Cover = Config.Graphics.Clouds.Cover
+		clouds.Density = Config.Graphics.Clouds.Density
+		clouds.Color = rgb(255, 255, 255)
+		clouds.Parent = terrain
+	end
 	-- Roblox's own sky, with lots of stars for the night-time areas (World 2 swaps in the galaxy
 	-- skybox from Config.GalaxySky on the client)
 	local sky = ensure("Sky", "Sky") :: Sky
@@ -23588,6 +23612,12 @@ local function startAmbience()
 		end
 		if bloom then
 			TweenService:Create(bloom, info, { Intensity = amb.Bloom + look.BloomBoost }):Play()
+		end
+		-- clouds only in daylight with clear air (not at night, in caves or in thick fog)
+		local terrain = workspace:FindFirstChildOfClass("Terrain")
+		local clouds = terrain and terrain:FindFirstChildOfClass("Clouds")
+		if clouds then
+			clouds.Enabled = amb.ClockTime >= 7 and amb.ClockTime <= 17.5 and amb.AtmosphereDensity < 0.35
 		end
 	end
 	AreaTracker.Changed:Connect(apply)

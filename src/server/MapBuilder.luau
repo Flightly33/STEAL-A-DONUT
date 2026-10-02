@@ -1279,17 +1279,18 @@ local function setupLighting()
 	Lighting.ClockTime = 13.5
 	Lighting.Brightness = Config.Graphics.Brightness
 	Lighting.ExposureCompensation = 0
-	Lighting.ShadowSoftness = 0.5
+	Lighting.ShadowSoftness = Config.Graphics.ShadowSoftness
 	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 1 -- shiny plastic catches the light
-	Lighting.OutdoorAmbient = rgb(170, 170, 180)
-	Lighting.Ambient = rgb(150, 150, 160)
+	Lighting.EnvironmentSpecularScale = 0.5
+	Lighting.OutdoorAmbient = rgb(190, 190, 200) -- bright shade, like the reference
+	Lighting.Ambient = rgb(172, 172, 184)
 	local atmosphere = ensure("Atmosphere", "Atmosphere") :: Atmosphere
-	atmosphere.Density = 0.05
+	atmosphere.Density = 0.18
+	atmosphere.Offset = 0.25
 	atmosphere.Haze = 0
 	atmosphere.Glare = 0
-	atmosphere.Color = rgb(199, 214, 234)
-	atmosphere.Decay = rgb(106, 112, 125)
+	atmosphere.Color = rgb(199, 220, 245)
+	atmosphere.Decay = rgb(110, 121, 135)
 	local tint = ensure("ColorCorrectionEffect", "AreaTint") :: ColorCorrectionEffect
 	tint.Brightness = 0.02
 	tint.Saturation = 0.12 + Config.Graphics.SaturationBoost
@@ -1299,9 +1300,25 @@ local function setupLighting()
 	bloom.Intensity = 0.1 + Config.Graphics.BloomBoost
 	bloom.Size = Config.Graphics.BloomSize
 	bloom.Threshold = Config.Graphics.BloomThreshold
-	local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
-	sunRays.Intensity = Config.Graphics.SunRays
-	sunRays.Spread = 0.6
+	if Config.Graphics.SunRays > 0 then
+		local sunRays = ensure("SunRaysEffect", "SunRays") :: SunRaysEffect
+		sunRays.Intensity = Config.Graphics.SunRays
+		sunRays.Spread = 0.6
+	else
+		local old = Lighting:FindFirstChild("SunRays")
+		if old then
+			old:Destroy()
+		end
+	end
+	-- Puffy 3D clouds (the client hides them at night and in foggy areas)
+	local terrain = workspace:FindFirstChildOfClass("Terrain")
+	if terrain and Config.Graphics.Clouds.Cover > 0 then
+		local clouds = terrain:FindFirstChildOfClass("Clouds") or Instance.new("Clouds")
+		clouds.Cover = Config.Graphics.Clouds.Cover
+		clouds.Density = Config.Graphics.Clouds.Density
+		clouds.Color = rgb(255, 255, 255)
+		clouds.Parent = terrain
+	end
 	-- Roblox's own sky, with lots of stars for the night-time areas (World 2 swaps in the galaxy
 	-- skybox from Config.GalaxySky on the client)
 	local sky = ensure("Sky", "Sky") :: Sky
