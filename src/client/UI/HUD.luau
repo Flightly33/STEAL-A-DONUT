@@ -115,7 +115,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		end
 	end)
 
-	-- Speed slider: anything from normal walking speed (16) up to your full speed. Handy on your
+	-- Speed slider: anything from the starting walk speed up to your full speed. Handy on your
 	-- base or on the treadmill when you're very fast.
 	local sliderRow = Theme.new("Frame", { Name = "SpeedSlider", BackgroundTransparency = 1, Size = UDim2.fromOffset(196, 52), LayoutOrder = 6, Parent = left })
 	local sliderLabel = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = sliderRow })
@@ -129,8 +129,9 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		fill.Size = UDim2.fromScale(choice, 1)
 		knob.Position = UDim2.fromScale(choice, 0.5)
 		fill.BackgroundColor3 = Theme.Colors.Gray:Lerp(Theme.Colors.Green, choice)
-		local full = math.max(State.Number("WalkSpeed"), 16)
-		local chosen = 16 + (full - 16) * choice
+		local base = Config.Speed.BaseWalkSpeed
+		local full = math.max(State.Number("WalkSpeed"), base)
+		local chosen = base + (full - base) * choice
 		sliderLabel.Text = `🏃 Speed <font color="#9dff7a">{math.floor(chosen)}</font> / {math.floor(full)}`
 	end
 	local function send(force: boolean?)
@@ -287,18 +288,16 @@ local function buildStats(gui: ScreenGui)
 	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 106), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
 
 	local function updateSpeed()
-		local walk = State.Number("WalkSpeed")
 		-- A crate Speed Boost shows its countdown next to your speed
 		local endsAt = State.Get("SpeedBoostEndsAt")
 		local left = if type(endsAt) == "number" then endsAt - workspace:GetServerTimeNow() else 0
 		local boost = if left > 0
 			then `  <font size="20" color="#ffe14a">⚡+{math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% {Format.Duration(left)}</font>`
 			else ""
-		speedLabel.Text = `{Format.Number(State.Number("Speed"))}  <font size="22">(🏃 {math.floor(walk)})</font>{boost}`
+		speedLabel.Text = `{Format.Number(State.Number("Speed"))}{boost}`
 	end
 	speedLabel.RichText = true
 	State.OnAttribute("Speed", updateSpeed)
-	State.OnAttribute("WalkSpeed", updateSpeed)
 	State.OnAttribute("SpeedBoostEndsAt", updateSpeed)
 	task.spawn(function()
 		while true do
@@ -339,21 +338,24 @@ local function buildAreaInfo(gui: ScreenGui)
 
 	local function refresh()
 		local areaId = AreaTracker.Current
-		local walk = State.Number("WalkSpeed")
 		local world = Areas.World(math.max(1, State.Number("World")))
 		if areaId <= 0 then
 			nameLabel.Text = if world.Id > 1 then `🛡 {world.Icon} {world.Name}` else "🛡 SAFE ZONE"
 			nameLabel.TextColor3 = Color3.fromRGB(110, 200, 255)
-			detail.Text = `Your walk speed: <font color="#9dff7a">{math.floor(walk)}</font>`
+			detail.Text = `{Config.Guard.Name} can't get you here`
 			return
 		end
+		-- (no walk speed here: the Speed stat on the left is the number that counts)
 		local area = Areas.List[areaId]
 		local guard = math.floor(Economy.GuardWalkSpeed(areaId))
-		local recommended = Economy.RecommendedWalkSpeed(areaId)
-		local color = if walk >= recommended then "#7dff6a" elseif walk + 8 >= recommended then "#ffd54a" else "#ff5a5a"
+		local speed = State.Number("Speed")
+		local recommended = Economy.RecommendedSpeed(areaId)
+		local color = if speed >= recommended then "#7dff6a" elseif speed + 80 >= recommended then "#ffd54a" else "#ff5a5a"
 		nameLabel.Text = `📍 {area.Name}`
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
-		detail.Text = `😴 {Config.Guard.Name}: <b>{guard}</b>   •   🏃 You: <font color="{color}"><b>{math.floor(walk)}</b></font>`
+		detail.Text = if recommended > 0
+			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Need <font color="{color}"><b>⚡{Format.Number(recommended)}</b></font>`
+			else `😴 {Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
 	end
 
 	-- The server event that's running (with a countdown)
@@ -385,7 +387,7 @@ local function buildAreaInfo(gui: ScreenGui)
 			Notifications.Banner(`AREA {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{Config.Guard.Name} speed {math.floor(Economy.GuardWalkSpeed(areaId))} • {rec}`)
 		end
 	end)
-	State.OnAttribute("WalkSpeed", function()
+	State.OnAttribute("Speed", function()
 		refresh()
 	end)
 	State.OnAttribute("World", function()

@@ -195,7 +195,7 @@ These are all one-line changes in `src/shared/Config.luau` if you disagree.
 
 ## Balance
 
-**Speed is linear and uncapped:** WalkSpeed = 18 + Speed / 10 (Domer is still tuned from 16, so you start 2 faster than him). 90 Speed = 27 WalkSpeed, 810 Speed = 99
+**Speed is linear and uncapped:** WalkSpeed = 21 + Speed / 10 (Domer is tuned from 18, so you start 3 ahead of his base). 90 Speed = 30 WalkSpeed, 810 Speed = 102
 WalkSpeed, and every treadmill session makes a visible difference. On top of that everyone is x1.2
 faster in World 2, x1.3 in World 3 and x1.45 in Cyber City. (The old ~286 limit was the 220 WalkSpeed
 cap times World 3's x1.3; there's no cap now.)
@@ -207,39 +207,39 @@ Domer's blanket, need more). The signs, the HUD, the teleporter, events and crat
 
 | Area | Recommended Speed | Your WalkSpeed at that Speed | Domer WalkSpeed | Best donut (not counting Secrets) |
 |---|---|---|---|---|
-| 1 Glazed Meadow | any | 16 | 22 | $15/s (Rare) |
-| 2 Sprinkle Park | 90 | 25 | 32 | $90/s (Rare) |
-| 3 Sugar Dunes | 180 | 34 | 41 | $540/s (Epic) |
-| 4 Frosting Falls | 270 | 43 | 51 | $3.2K/s (Epic) |
-| 5 Chocolate Caverns | 360 | 52 | 61 | $19.5K/s (Legendary) |
-| 6 Glacier Glaze | 460 | 62 | 70 | $117K/s (Legendary) |
-| 7 Molten Bakery | 550 | 71 | 80 | $700K/s (Legendary) |
-| 8 Neon Donut City | 650 | 81 | 90 | $4.2M/s (Legendary) |
-| 9 Crystal Cosmos | 740 | 90 | 99 | $25M/s (Celestial) |
-| 10 Celestial Donut Dimension | 840 | 100 | 109 | $150M/s (Celestial) |
-| 11 Candy Cane Canyon | 930 | 109 | 119 | $900M/s (Legendary) |
-| 12 Rainbow Sprinkle Summit | 1,030 | 119 | 129 | $5.4B/s (Legendary) |
-| 13 Glaze Beach | 1,120 | 153 | 168 | $32.4B/s (Legendary) |
-| 14 Coral Crullers | 1,220 | 165 | 180 | $194B/s (Legendary) |
-| 15 Pirate Cove | 1,310 | 176 | 192 | $1.1T/s (Legendary) |
-| 16 Jelly Jungle | 1,400 | 187 | 203 | $7T/s (Celestial) |
-| 17 Volcano Isle | 1,500 | 199 | 215 | $42.4T/s (Celestial) |
-| 18 Mango Lagoon | 1,590 | 210 | 227 | $255T/s (Celestial) |
-| 19 Tsunami Temple | 1,690 | 222 | 238 | $1.5Qa/s (Celestial) |
-| 20 Cloud Bakery | 1,790 | 253 | 273 | $9Qa/s (Legendary) |
-| 21 Toy Factory | 1,880 | 265 | 286 | $54.4Qa/s (Celestial) |
-| 22 Haunted Donuttery | 1,980 | 278 | 299 | $329Qa/s (Celestial) |
-| 23 Clockwork Void | 2,070 | 289 | 311 | $1.9Qi/s (Celestial) |
-| 24 Donut Heaven | 2,160 | 301 | 324 | $11.7Qi/s (Celestial) |
-| 25 Starfall Garden | 2,260 | 314 | 336 | $70.8Qi/s (Celestial) |
-| 26 Aurora Palace | 2,350 | 326 | 349 | $425Qi/s (Celestial) |
-| 27 Neon Streets | 2,450 | 378 | 406 | $2.5Sx/s (Legendary) |
-| 28 Hologram Mall | 2,540 | 391 | 420 | $15.3Sx/s (Celestial) |
-| 29 Robot Factory | 2,640 | 406 | 434 | $91.6Sx/s (Celestial) |
-| 30 Data Highway | 2,730 | 419 | 448 | $550Sx/s (Celestial) |
-| 31 Firewall Fortress | 2,820 | 432 | 462 | $3.3Sp/s (Celestial) |
-| 32 Glitch Zone | 2,920 | 446 | 476 | $19.8Sp/s (Celestial) |
-| 33 The Mainframe | 3,010 | 459 | 491 | $119Sp/s (Celestial) |
+| 1 Glazed Meadow | any | 21 | 24 | $15/s (Rare) |
+| 2 Sprinkle Park | 90 | 30 | 34 | $90/s (Rare) |
+| 3 Sugar Dunes | 180 | 39 | 44 | $540/s (Epic) |
+| 4 Frosting Falls | 270 | 48 | 53 | $3.2K/s (Epic) |
+| 5 Chocolate Caverns | 360 | 57 | 63 | $19.5K/s (Legendary) |
+| 6 Glacier Glaze | 450 | 66 | 73 | $117K/s (Legendary) |
+| 7 Molten Bakery | 540 | 75 | 82 | $700K/s (Legendary) |
+| 8 Neon Donut City | 630 | 84 | 92 | $4.2M/s (Legendary) |
+| 9 Crystal Cosmos | 720 | 93 | 102 | $25M/s (Celestial) |
+| 10 Celestial Donut Dimension | 820 | 103 | 111 | $150M/s (Celestial) |
+| 11 Candy Cane Canyon | 910 | 112 | 121 | $900M/s (Legendary) |
+| 12 Rainbow Sprinkle Summit | 1K | 122 | 131 | $5.4B/s (Legendary) |
+| 13 Ember Gates | 1.1K | 158 | 171 | $32.4B/s (Legendary) |
+| 14 Brimstone Bakery | 1.2K | 169 | 183 | $194B/s (Legendary) |
+| 15 Magma Rivers | 1.2K | 180 | 194 | $1.1T/s (Legendary) |
+| 16 Soul Caverns | 1.3K | 192 | 206 | $7T/s (Celestial) |
+| 17 Obsidian Forge | 1.4K | 204 | 218 | $42.4T/s (Celestial) |
+| 18 Inferno Spires | 1.5K | 214 | 229 | $255T/s (Celestial) |
+| 19 The Molten Core | 1.6K | 225 | 241 | $1.5Qa/s (Celestial) |
+| 20 Cloud Bakery | 1.7K | 258 | 276 | $9Qa/s (Legendary) |
+| 21 Toy Factory | 1.8K | 270 | 289 | $54.4Qa/s (Celestial) |
+| 22 Haunted Donuttery | 1.9K | 283 | 301 | $329Qa/s (Celestial) |
+| 23 Clockwork Void | 2K | 295 | 314 | $1.9Qi/s (Celestial) |
+| 24 Donut Heaven | 2.1K | 306 | 327 | $11.7Qi/s (Celestial) |
+| 25 Starfall Garden | 2.2K | 319 | 339 | $70.8Qi/s (Celestial) |
+| 26 Aurora Palace | 2.3K | 332 | 352 | $425Qi/s (Celestial) |
+| 27 Neon Streets | 2.4K | 385 | 409 | $2.5Sx/s (Legendary) |
+| 28 Hologram Mall | 2.5K | 398 | 423 | $15.3Sx/s (Celestial) |
+| 29 Robot Factory | 2.6K | 413 | 438 | $91.6Sx/s (Celestial) |
+| 30 Data Highway | 2.7K | 426 | 452 | $550Sx/s (Celestial) |
+| 31 Firewall Fortress | 2.8K | 439 | 466 | $3.3Sp/s (Celestial) |
+| 32 Glitch Zone | 2.9K | 453 | 480 | $19.8Sp/s (Celestial) |
+| 33 The Mainframe | 3K | 468 | 494 | $119Sp/s (Celestial) |
 
 Rebirths need **400 / 700 / 1,000 / 1,300 Speed** and **$5M / $200B / $20Qa / $2Sx**, and there's **no limit**: after that every rebirth needs +50 Speed and costs 5x more (`Config.Rebirth.After`). Each rebirth
 adds +100% money and **+50% treadmill speed**. Treadmills give **0.1 → 0.6 Speed/s** across the 17
@@ -260,16 +260,16 @@ From a simulated bot that steals, upgrades and trains efficiently, buys **no** p
 pets, crates or Index bonus** (median of 5 runs). The bot fills its base before it trains, so a
 player who hops on the treadmill straight away gets there sooner:
 
-| Milestone | Before the Head Start | Now (Head Start + easier rebirths) |
+| Milestone | Before the Head Start | Now (Head Start, easier rebirths, longer lanes) |
 |---|---|---|
 | Area 2 | 16 min | 7 min |
-| Area 3 | 30 min | 13 min |
+| Area 3 | 30 min | 12 min |
 | Area 5 | 54 min | 29 min |
-| Area 10 | 2.7 h | 2.0 h |
+| Area 10 | 2.7 h | 1.8 h |
 | Rebirth 1 → World 2 | 1.3 h | 36 min |
 | Rebirth 2 → World 3 | 3.1 h | 1.9 h |
-| Rebirth 3 → Cyber City | 5.9 h | 4.1 h |
-| Rebirth 4 | 10.6 h | 7.9 h |
+| Rebirth 3 → Cyber City | 5.9 h | 4.3 h |
+| Rebirth 4 | 10.6 h | 8.5 h |
 
 In the late game, walking to the far areas and back takes most of the time, not training. The knobs
 are the Head Start (`Config.Treadmill.HeadStart`), the rebirth requirements (`Config.Rebirth.Levels`)

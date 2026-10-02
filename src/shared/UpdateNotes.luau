@@ -101,6 +101,11 @@ UpdateNotes.List = {
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
+			{ Title = "Bigger Lanes", Tag = "Balance", Lines = {
+				"Every area is longer and a bit wider (same number of donuts)",
+				"You start at 21 walk speed, and the first Domers are a little faster",
+				"New scary chase music: a pounding heartbeat that speeds up the longer Domer chases you!",
+			} },
 			{ Title = "Brighter Graphics", Tag = "NEW Looks", Lines = {
 				"Sunnier, more colourful lighting with puffy 3D clouds",
 				"Neon and fire glow, far-away places fade into a soft blue haze",

@@ -100,8 +100,8 @@ Config.Guard = {
 -- Map layout (studs). Floor top is at Y = 0.
 --------------------------------------------------------------------------------
 Config.Map = {
-	LaneHalfWidth = 60, -- the lane runs along +Z, from X = -60 to X = 60
-	AreaLength = 160, -- each area is this long in Z (must be a multiple of TileSize)
+	LaneHalfWidth = 70, -- the lane runs along +Z, from X = -70 to X = 70
+	AreaLength = 200, -- each area is this long in Z (must be a multiple of TileSize)
 	TileSize = 20,
 	LaneWallHeight = 60,
 
@@ -152,21 +152,23 @@ Config.Plots = {
 -- Speed
 -- The "Speed" stat turns into a real Roblox WalkSpeed in a straight line: every SpeedPerWalk Speed
 -- is +1 WalkSpeed, so twice the training really is twice the extra speed.
---   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 18, 90 = 27, 810 = 99)
+--   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 21, 90 = 30, 810 = 102)
 -- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
 -- There's no maximum: the more you train, the faster you run. (Around WalkSpeed 1000+ Roblox physics
 -- can let a player slip through a thin wall; the speed slider on the HUD lets players slow down.)
 --------------------------------------------------------------------------------
 Config.Speed = {
-	BaseWalkSpeed = 18,
-	GuardBaseWalkSpeed = 16, -- Domer is still tuned from 16, so the +2 head start really makes you faster than him
+	BaseWalkSpeed = 21,
+	-- Domer's speeds are worked out from this instead (Economy.GuardWalkSpeed): 18 makes the early
+	-- Domers a bit faster than before (Area 1: ~24.7), while players still start 3 ahead of it.
+	GuardBaseWalkSpeed = 18,
 	SpeedPerWalk = 10,
 }
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
 -- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 2 in ~7 min,
--- Area 10 in ~2 h and rebirths at ~36 min, ~1.9 h, ~4.1 h and ~7.9 h (Config.Rebirth). Real players
+-- Area 10 in ~1.8 h and rebirths at ~36 min, ~1.9 h, ~4.3 h and ~8.5 h (Config.Rebirth). Real players
 -- take longer (breaks, getting caught).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
@@ -241,7 +243,7 @@ Config.Rebirth = {
 	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
 	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
-	-- a simulated good player (no passes or pets) rebirths at ~36 min, ~1.9 h, ~4.1 h and ~7.9 h.
+	-- a simulated good player (no passes or pets) rebirths at ~36 min, ~1.9 h, ~4.3 h and ~8.5 h.
 	Levels = {
 		{ Speed = 400, Cost = 5_000_000 }, -- early in World 1 -> unlocks The Underworld
 		{ Speed = 700, Cost = 200_000_000_000 }, -- unlocks Dream Dimension
@@ -671,9 +673,9 @@ Config.Music = {
 	Fallback = {
 		{ Name = "Relaxed Scene", Id = 1848354536 },
 	} :: { { Name: string, Id: number } },
-	-- Intense music while Domer chases you. Paste the id of a fast action track from the Creator
-	-- Store (Toolbox > Audio > Music; it must be public or uploaded by you). 0 = no track: the normal
-	-- song speeds up and gets louder during chases instead.
+	-- Music while Domer chases you. 0 = the built-in scary chase loop (a pounding heartbeat that speeds
+	-- up, a dark drone and creepy pings: UI/ChaseMusic.luau). To use a real track instead, paste the
+	-- id of one from the Creator Store (Toolbox > Audio > Music; public or uploaded by you).
 	Chase = { Name = "Chase", Id = 0 },
 }
 

@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 8
+local MAP_VERSION = 9
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -944,6 +944,41 @@ local function buildSpawns(parent: Instance, areaId: number, zs: number, ze: num
 	end
 end
 
+-- The themes (Decor.luau) were designed for a lane DECOR_DESIGN_HALF studs either side of the
+-- middle. In a wider lane, everything near the walls moves out to the walls with them (each prop
+-- as a whole); the props in the middle stay where they are.
+local DECOR_DESIGN_HALF = 60
+local function widenDecor(decor: Instance, half: number)
+	local extra = half - DECOR_DESIGN_HALF
+	if extra == 0 then
+		return
+	end
+	for _, item in decor:GetChildren() do
+		local parts: { BasePart } = {}
+		if item:IsA("BasePart") then
+			table.insert(parts, item)
+		end
+		for _, d in item:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+			end
+		end
+		if #parts > 0 then
+			local sum = 0
+			for _, part in parts do
+				sum += part.Position.X
+			end
+			local x = sum / #parts
+			if math.abs(x) >= 36 then
+				local shift = Vector3.new(math.sign(x) * extra, 0, 0)
+				for _, part in parts do
+					part.CFrame += shift
+				end
+			end
+		end
+	end
+end
+
 local function buildArea(parent: Instance, area: Areas.Area)
 	local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
 	local half = Layout.AreaHalfWidth(area.Id)
@@ -990,6 +1025,9 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	decor.Name = "Decor"
 	decor.Parent = folder
 	Decor.BuildTheme(area.Theme, decor, zs, ze, Random.new(area.Id * 104729))
+	if not area.HalfWidth then
+		widenDecor(decor, half)
+	end
 
 	-- Close the lane after the last area of each world
 	if area.Index == #Areas.ByWorld[area.World] then
@@ -1409,6 +1447,30 @@ function MapBuilder.Build(): Folder
 		-- Older saved maps: add things introduced later.
 		local hub = existing:FindFirstChild("Hub")
 		local version = (existing:GetAttribute("MapVersion") or 1) :: number
+		if version < 9 then
+			-- Version 9: longer, wider areas (Config.Map). Rebuild every lane and world hub (below), and
+			-- the main hub's safe zone line, entrance gate, ground and walls (cut to the lane's width).
+			for _, name in { "Lane", "Worlds" } do
+				local old = existing:FindFirstChild(name)
+				if old then
+					old:Destroy()
+				end
+			end
+			if hub then
+				local rebuildGround = version >= 5 -- (older maps get a new hub ground below anyway)
+				for _, name in { "SafeZoneLine", "SafeZoneLabel", "EntranceGate", if rebuildGround then "Floor" else "", if rebuildGround then "Walls" else "" } do
+					local old = if name ~= "" then hub:FindFirstChild(name) else nil
+					if old then
+						old:Destroy()
+					end
+				end
+				buildSafeZoneLine(hub)
+				buildEntranceGate(hub)
+				if rebuildGround then
+					buildHubGround(hub)
+				end
+			end
+		end
 		if version < 4 then
 			-- Version 4: two more areas in every world and World 4 (Cyber City), so area numbers changed.
 			-- Rebuild the lanes, the world hubs and the hub's portals from scratch (below).

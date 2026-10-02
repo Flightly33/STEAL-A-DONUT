@@ -17,6 +17,7 @@ local Config = require(Shared.Config)
 local Signal = require(Shared.Signal)
 
 local Theme = require(script.Parent.Theme)
+local ChaseMusic = require(script.Parent.ChaseMusic)
 local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
@@ -42,8 +43,8 @@ local retryPending = false
 local tracks = Config.Music.Tracks
 local usingFallback = false
 
--- Chase music: while Domer chases you, an intense track (Config.Music.Chase) takes over. Without
--- a working chase track the normal song plays faster and a bit louder instead.
+-- Chase music: while Domer chases you, the normal song fades out and a scary chase loop plays
+-- (ChaseMusic, made from Roblox's built-in sounds), or the track in Config.Music.Chase if it has one.
 local chaseSound: Sound? = nil
 local chasing = false
 
@@ -55,8 +56,13 @@ local function applyVolume()
 	local TweenService = game:GetService("TweenService")
 	local fade = TweenInfo.new(0.6)
 	local useChase = chasing and chaseReady()
-	TweenService:Create(sound, fade, { Volume = if not musicOn or useChase then 0 else volume * (if chasing then 1.3 else 1) }):Play()
-	sound.PlaybackSpeed = if chasing and not useChase then 1.25 else 1
+	TweenService:Create(sound, fade, { Volume = if not musicOn or chasing then 0 else volume }):Play()
+	sound.PlaybackSpeed = 1
+	if chasing and musicOn and not useChase then
+		ChaseMusic.Start(volume)
+	else
+		ChaseMusic.Stop()
+	end
 	if chaseSound then
 		if useChase and not chaseSound.IsPlaying then
 			chaseSound.TimePosition = 0

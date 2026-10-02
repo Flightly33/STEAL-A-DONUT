@@ -70,7 +70,12 @@ export type World = {
 	Icon: string,
 }
 
+local Config = require(script.Parent.Config)
+
 local Areas = {}
+
+-- (an area's default length: bridges and The Black Hole are measured in areas)
+local AREA = Config.Map.AreaLength
 
 -- Bright, clean "Steal an Egg" style daylight: high sun, puffy clouds, very vivid colours, bright
 -- shade, soft shadows and a light blue haze far away.
@@ -406,7 +411,7 @@ Areas.List = {
 		-- window, and the big red ULTIMATE REBIRTH button sends you to World 2.
 		Id = 34, Name = "The Black Hole", Theme = "BlackHole",
 		RecommendedSpeed = 2_970, GuardSpeedBonus = 11, WakeDelay = 0.59, World = 4, Index = 8,
-		Length = 240, HalfWidth = 95, Lab = true,
+		Length = AREA * 1.5, HalfWidth = 95, Lab = true,
 		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
@@ -443,9 +448,9 @@ end
 
 Areas.Worlds = {
 	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, RequiredRebirths = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
-	{ Id = 2, Name = "The Underworld", OffsetX = 2600, BridgeLength = 1920, RequiredRebirths = 1, WalkMultiplier = 1.2, Color = Color3.fromRGB(255, 90, 30), Icon = "🔥" },
-	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 3040, RequiredRebirths = 2, WalkMultiplier = 1.3, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
-	{ Id = 4, Name = "Cyber City", OffsetX = 5200, BridgeLength = 4160, RequiredRebirths = 3, WalkMultiplier = 1.45, Color = Color3.fromRGB(255, 40, 200), Icon = "🌆" },
+	{ Id = 2, Name = "The Underworld", OffsetX = 2600, BridgeLength = 12 * AREA, RequiredRebirths = 1, WalkMultiplier = 1.2, Color = Color3.fromRGB(255, 90, 30), Icon = "🔥" },
+	{ Id = 3, Name = "Dream Dimension", OffsetX = -2600, BridgeLength = 19 * AREA, RequiredRebirths = 2, WalkMultiplier = 1.3, Color = Color3.fromRGB(200, 140, 255), Icon = "🌙" },
+	{ Id = 4, Name = "Cyber City", OffsetX = 5200, BridgeLength = 26 * AREA, RequiredRebirths = 3, WalkMultiplier = 1.45, Color = Color3.fromRGB(255, 40, 200), Icon = "🌆" },
 	-- Reached by pressing ULTIMATE REBIRTH in The Black Hole's secret lab (no rebirths needed after).
 	{ Id = 5, Name = "World 2", OffsetX = -5200, BridgeLength = 0, RequiredRebirths = 0, RequiredUltimate = 1, WalkMultiplier = 1, Color = Color3.fromRGB(90, 120, 255), Icon = "🌌" },
 } :: { World }
