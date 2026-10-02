@@ -219,9 +219,14 @@ local function buildUpgrades(page: ScrollingFrame)
 
 		local indexBonus = State.Number("IndexBonus")
 		local petBonus = State.Number("PetSpeedBonus")
-		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus)
+		local speed = State.Number("Speed")
+		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus, speed)
 		local walk = State.Number("WalkSpeed")
 		local extras = {}
+		local headStart = Economy.HeadStartMultiplier(speed)
+		if headStart > 1.01 then
+			table.insert(extras, `🚀 x{string.format("%.1f", headStart)} head start`)
+		end
 		if rebirths > 0 then
 			table.insert(extras, `🔄 x{Format.Multiplier(Economy.RebirthSpeedMultiplier(rebirths))}`)
 		end

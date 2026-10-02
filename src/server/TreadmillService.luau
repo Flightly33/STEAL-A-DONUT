@@ -31,6 +31,13 @@ local BELT_LENGTH = 13
 local BELT_WIDTH = 6
 
 local belts: { [Player]: BasePart } = {}
+-- The console shows the Head Start rounded to 0.1: refresh it (at most once a second) as it fades
+local shownHeadStart: { [Player]: number } = {}
+local screenRefreshed: { [Player]: number } = {}
+
+local function roundedHeadStart(speed: number): number
+	return math.floor(Economy.HeadStartMultiplier(speed) * 10 + 0.5) / 10
+end
 
 function TreadmillService.GetRate(player: Player): number
 	local profile = DataService.Get(player)
@@ -38,7 +45,7 @@ function TreadmillService.GetRate(player: Player): number
 		return 0
 	end
 	local data = profile.Data
-	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data))
+	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data), data.Speed)
 end
 
 local function updateScreen(player: Player)
@@ -52,7 +59,12 @@ local function updateScreen(player: Player)
 		return
 	end
 	local tier = Economy.TreadmillTier(profile.Data.TreadmillLevel)
+	local headStart = roundedHeadStart(profile.Data.Speed)
+	shownHeadStart[player] = headStart
 	local text = `+{Format.Rate(TreadmillService.GetRate(player))} ⚡/s`
+	if headStart > 1 then
+		text ..= `\n🚀 x{string.format("%.1f", headStart)} BOOST`
+	end
 	for _, label in model:GetDescendants() do
 		if label:IsA("TextLabel") then
 			if label.Name == "Rate" then
@@ -67,6 +79,8 @@ end
 function TreadmillService.Remove(player: Player)
 	local belt = belts[player]
 	belts[player] = nil
+	shownHeadStart[player] = nil
+	screenRefreshed[player] = nil
 	if belt and belt.Parent then
 		(belt.Parent :: Instance):Destroy()
 	end
@@ -307,6 +321,11 @@ function TreadmillService.Init()
 					onBelt = isOnBelt(belt, root.Position)
 					if onBelt then
 						DataService.AddSpeed(player, TreadmillService.GetRate(player) * dt)
+						local now = os.clock()
+						if roundedHeadStart(profile.Data.Speed) ~= shownHeadStart[player] and now - (screenRefreshed[player] or 0) >= 1 then
+							screenRefreshed[player] = now
+							updateScreen(player)
+						end
 					end
 				end
 				if player:GetAttribute("OnTreadmill") ~= onBelt then

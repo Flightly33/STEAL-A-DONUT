@@ -161,10 +161,18 @@ function Economy.WorldRequirementText(worldId: number): string
 	return if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
 end
 
+-- Head Start bonus on treadmill gains for a player with this much Speed: x4 at 0, fading evenly
+-- to x1 at Config.Treadmill.HeadStart.UntilSpeed.
+function Economy.HeadStartMultiplier(speed: number): number
+	local headStart = Config.Treadmill.HeadStart
+	return 1 + (headStart.Multiplier - 1) * math.clamp(1 - speed / headStart.UntilSpeed, 0, 1)
+end
+
 -- Speed gained per second on the treadmill.
 -- indexBonus: total Index speed bonus in % (e.g. 35 = +35%).
 -- petBonus: total speed bonus of your equipped pets (0.25 = +25%).
-function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?): number
+-- speed: the player's current Speed (for the Head Start bonus; leave it out for the plain rate).
+function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?, speed: number?): number
 	local index = math.min((indexBonus or 0) / 100, Config.Index.MaxSpeedBonus)
 	local pets = math.min(petBonus or 0, Config.Pets.MaxSpeedBonus)
 	return Economy.TreadmillTier(treadmillLevel).Rate
@@ -173,6 +181,7 @@ function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, 
 		* Economy.RebirthSpeedMultiplier(rebirths or 0)
 		* (1 + index)
 		* (1 + pets)
+		* (if speed then Economy.HeadStartMultiplier(speed) else 1)
 end
 
 --------------------------------------------------------------------------------

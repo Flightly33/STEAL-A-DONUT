@@ -163,12 +163,16 @@ Config.Speed = {
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
--- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 10 in
--- ~1.8 h and rebirths at ~1.3 h, ~3 h, ~6 h and ~11 h (Config.Rebirth). Real players take longer
--- (breaks, getting caught).
+-- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 2 in ~7 min,
+-- Area 10 in ~2 h and rebirths at ~50 min, ~2.4 h, ~5 h and ~9.4 h (Config.Rebirth). Real players
+-- take longer (breaks, getting caught).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
+	-- Head Start: treadmill gains are x Multiplier at Speed 0, fading evenly to x1 at UntilSpeed
+	-- (Area 6). Makes the first areas quick for new players, and the climb back after each rebirth.
+	-- (Simulated good player: Area 2 in ~7 min instead of ~16, Area 5 in ~29 min instead of ~54.)
+	HeadStart = { Multiplier = 4, UntilSpeed = 450 },
 	Tiers = {
 		{ Name = "Rusty", Rate = 0.1, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
 		{ Name = "Basic", Rate = 0.115, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
@@ -235,7 +239,7 @@ Config.Rebirth = {
 	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
 	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
-	-- a simulated good player (no passes or pets) rebirths at ~1.3 h, ~3 h, ~6 h and ~11 h.
+	-- a simulated good player (no passes or pets) rebirths at ~50 min, ~2.4 h, ~5 h and ~9.4 h.
 	Levels = {
 		{ Speed = 550, Cost = 25_000_000 }, -- about halfway through World 1 -> unlocks The Underworld
 		{ Speed = 875, Cost = 2_000_000_000_000 }, -- unlocks Dream Dimension

@@ -239,36 +239,39 @@ Domer's blanket, need more). The signs, the HUD, the teleporter, events and crat
 | 32 Glitch Zone | 2,920 | 446 | 476 | $19.8Sp/s (Celestial) |
 | 33 The Mainframe | 3,010 | 459 | 491 | $119Sp/s (Celestial) |
 
-Rebirths need **1,100 / 1,750 / 2,400 / 3,100 Speed** (just past the end of each world) and **$2.5T /
-$200Qa / $20Sx / $20Oc**. Each rebirth adds +100% money and **+25% treadmill speed** (was +35%).
-Treadmills give **0.1 → 0.455 Speed/s** across the 15 tiers (was 0.3 → 1.3; same curve, ~0.35x), the
-Speed Multiplier gives +5% per level.
+Rebirths need **550 / 875 / 1,200 / 1,550 Speed** and **$25M / $2T / $200Qa / $200Sx**. Each rebirth
+adds +100% money and **+50% treadmill speed**. Treadmills give **0.1 → 0.6 Speed/s** across the 17
+tiers, the Speed Multiplier gives +5% per level.
+
+**Head Start:** treadmill gains are **x4 at Speed 0**, fading evenly to x1 at Speed 450 (Area 6)
+(`Config.Treadmill.HeadStart`). New players reach Area 2 in about 4 minutes of running on the free
+treadmill instead of 15, and it kicks in again after every rebirth (Speed goes back to 0), so the
+climb back is quicker too. The treadmill's screen and the Shop show the current boost (🚀 x3.2).
 
 Worlds 2–4 start with a long bridge so their first areas are just as far from safety as if the lane
 kept going — without it, a player who just rebirthed (Speed 0) could steal the next world's donuts
 next to the safe zone and skip the whole game.
 
-### Pacing (about 2x slower)
+### Pacing
 
 From a simulated bot that steals, upgrades and trains efficiently, buys **no** passes and has **no
-pets, crates or Index bonus** (median of 9 runs):
+pets, crates or Index bonus** (median of 5 runs). The bot fills its base before it trains, so a
+player who hops on the treadmill straight away gets there sooner:
 
-| Milestone | Before this update (20 areas) | Now (33 areas) |
+| Milestone | Before the Head Start | Now |
 |---|---|---|
-| Area 2 | 8 min | 16 min |
-| Area 5 | 37 min | 1.1 h |
-| Area 10 | 1.5 h | 2.3 h |
-| Rebirth 1 → World 2 | 1.7 h | 3.2 h |
-| Second floor | — | ~8.5 h |
-| Rebirth 2 → World 3 | 4.8 h | 8.7 h |
-| Rebirth 3 → Cyber City | 9.6 h (the end of the game) | 22.6 h |
-| Area 33 / Rebirth 4 | — | ~39 h |
+| Area 2 | 16 min | 7 min |
+| Area 3 | 30 min | 13 min |
+| Area 5 | 54 min | 29 min |
+| Area 10 | 2.7 h | 2.0 h |
+| Rebirth 1 → World 2 | 1.3 h | 50 min |
+| Rebirth 2 → World 3 | 3.1 h | 2.4 h |
+| Rebirth 3 → Cyber City | 5.9 h | 5.0 h |
+| Rebirth 4 | 10.6 h | 9.4 h |
 
-That bot swaps its whole base for better donuts whenever a new area unlocks. A player who **mostly
-trains** and only swaps donuts now and then is faster: about 2 h / 4.7 h / 8.7 h / 15 h to Rebirth
-1 / 2 / 3 / 4. In the late game, walking to the far areas and back takes most of the time, not
-training, so treadmill numbers alone can't slow it down much more. The next knobs, if it's still too
-fast, are the rebirth Speed requirements (`Config.Rebirth.Levels`) and the donut incomes.
+In the late game, walking to the far areas and back takes most of the time, not training. The knobs
+are the Head Start (`Config.Treadmill.HeadStart`), the rebirth requirements (`Config.Rebirth.Levels`)
+and the donut incomes.
 
 Things the simulation leaves out, which make it **faster** for real players who have them: pets (up to
 +600% money and +300% treadmill speed), Index speed bonuses (up to +150%), crate coins and Speed

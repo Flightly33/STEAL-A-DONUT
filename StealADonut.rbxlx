@@ -662,12 +662,16 @@ Config.Speed = {
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
--- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 10 in
--- ~1.8 h and rebirths at ~1.3 h, ~3 h, ~6 h and ~11 h (Config.Rebirth). Real players take longer
--- (breaks, getting caught).
+-- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 2 in ~7 min,
+-- Area 10 in ~2 h and rebirths at ~50 min, ~2.4 h, ~5 h and ~9.4 h (Config.Rebirth). Real players
+-- take longer (breaks, getting caught).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
+	-- Head Start: treadmill gains are x Multiplier at Speed 0, fading evenly to x1 at UntilSpeed
+	-- (Area 6). Makes the first areas quick for new players, and the climb back after each rebirth.
+	-- (Simulated good player: Area 2 in ~7 min instead of ~16, Area 5 in ~29 min instead of ~54.)
+	HeadStart = { Multiplier = 4, UntilSpeed = 450 },
 	Tiers = {
 		{ Name = "Rusty", Rate = 0.1, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
 		{ Name = "Basic", Rate = 0.115, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
@@ -734,7 +738,7 @@ Config.Rebirth = {
 	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
 	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
-	-- a simulated good player (no passes or pets) rebirths at ~1.3 h, ~3 h, ~6 h and ~11 h.
+	-- a simulated good player (no passes or pets) rebirths at ~50 min, ~2.4 h, ~5 h and ~9.4 h.
 	Levels = {
 		{ Speed = 550, Cost = 25_000_000 }, -- about halfway through World 1 -> unlocks The Underworld
 		{ Speed = 875, Cost = 2_000_000_000_000 }, -- unlocks Dream Dimension
@@ -5257,10 +5261,18 @@ function Economy.WorldRequirementText(worldId: number): string
 	return if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
 end
 
+-- Head Start bonus on treadmill gains for a player with this much Speed: x4 at 0, fading evenly
+-- to x1 at Config.Treadmill.HeadStart.UntilSpeed.
+function Economy.HeadStartMultiplier(speed: number): number
+	local headStart = Config.Treadmill.HeadStart
+	return 1 + (headStart.Multiplier - 1) * math.clamp(1 - speed / headStart.UntilSpeed, 0, 1)
+end
+
 -- Speed gained per second on the treadmill.
 -- indexBonus: total Index speed bonus in % (e.g. 35 = +35%).
 -- petBonus: total speed bonus of your equipped pets (0.25 = +25%).
-function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?): number
+-- speed: the player's current Speed (for the Head Start bonus; leave it out for the plain rate).
+function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?, speed: number?): number
 	local index = math.min((indexBonus or 0) / 100, Config.Index.MaxSpeedBonus)
 	local pets = math.min(petBonus or 0, Config.Pets.MaxSpeedBonus)
 	return Economy.TreadmillTier(treadmillLevel).Rate
@@ -5269,6 +5281,7 @@ function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, 
 		* Economy.RebirthSpeedMultiplier(rebirths or 0)
 		* (1 + index)
 		* (1 + pets)
+		* (if speed then Economy.HeadStartMultiplier(speed) else 1)
 end
 
 --------------------------------------------------------------------------------
@@ -8248,6 +8261,11 @@ UpdateNotes.List = {
 		Decor = "Rise",
 		Emblem = { Frosting = Color3.fromRGB(130, 235, 140), Sprinkles = { Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 245, 170) } },
 		Sections = {
+			{ Title = "Head Start", Tag = "Balance", Lines = {
+				"The treadmill gives x4 Speed when you're just starting, slowly fading by Area 6",
+				"Area 2 takes about 4 minutes of running instead of 15!",
+				"It comes back after every rebirth too",
+			} },
 			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
 				"Rebirths need half the Speed and far less money",
 				"Every rebirth now gives +50% treadmill speed (was +25%)",
@@ -19620,6 +19638,13 @@ local BELT_LENGTH = 13
 local BELT_WIDTH = 6
 
 local belts: { [Player]: BasePart } = {}
+-- The console shows the Head Start rounded to 0.1: refresh it (at most once a second) as it fades
+local shownHeadStart: { [Player]: number } = {}
+local screenRefreshed: { [Player]: number } = {}
+
+local function roundedHeadStart(speed: number): number
+	return math.floor(Economy.HeadStartMultiplier(speed) * 10 + 0.5) / 10
+end
 
 function TreadmillService.GetRate(player: Player): number
 	local profile = DataService.Get(player)
@@ -19627,7 +19652,7 @@ function TreadmillService.GetRate(player: Player): number
 		return 0
 	end
 	local data = profile.Data
-	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data))
+	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data), data.Speed)
 end
 
 local function updateScreen(player: Player)
@@ -19641,7 +19666,12 @@ local function updateScreen(player: Player)
 		return
 	end
 	local tier = Economy.TreadmillTier(profile.Data.TreadmillLevel)
+	local headStart = roundedHeadStart(profile.Data.Speed)
+	shownHeadStart[player] = headStart
 	local text = `+{Format.Rate(TreadmillService.GetRate(player))} ⚡/s`
+	if headStart > 1 then
+		text ..= `\n🚀 x{string.format("%.1f", headStart)} BOOST`
+	end
 	for _, label in model:GetDescendants() do
 		if label:IsA("TextLabel") then
 			if label.Name == "Rate" then
@@ -19656,6 +19686,8 @@ end
 function TreadmillService.Remove(player: Player)
 	local belt = belts[player]
 	belts[player] = nil
+	shownHeadStart[player] = nil
+	screenRefreshed[player] = nil
 	if belt and belt.Parent then
 		(belt.Parent :: Instance):Destroy()
 	end
@@ -19896,6 +19928,11 @@ function TreadmillService.Init()
 					onBelt = isOnBelt(belt, root.Position)
 					if onBelt then
 						DataService.AddSpeed(player, TreadmillService.GetRate(player) * dt)
+						local now = os.clock()
+						if roundedHeadStart(profile.Data.Speed) ~= shownHeadStart[player] and now - (screenRefreshed[player] or 0) >= 1 then
+							screenRefreshed[player] = now
+							updateScreen(player)
+						end
 					end
 				end
 				if player:GetAttribute("OnTreadmill") ~= onBelt then
@@ -24006,7 +24043,7 @@ end
 
 local function currentRate(): number
 	local level = math.max(1, State.Number("TreadmillLevel"))
-	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("Rebirths"), State.Number("IndexBonus"), State.Number("PetSpeedBonus"))
+	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("Rebirths"), State.Number("IndexBonus"), State.Number("PetSpeedBonus"), State.Number("Speed"))
 end
 
 local function tierColor(): Color3
@@ -28909,9 +28946,14 @@ local function buildUpgrades(page: ScrollingFrame)
 
 		local indexBonus = State.Number("IndexBonus")
 		local petBonus = State.Number("PetSpeedBonus")
-		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus)
+		local speed = State.Number("Speed")
+		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus, speed)
 		local walk = State.Number("WalkSpeed")
 		local extras = {}
+		local headStart = Economy.HeadStartMultiplier(speed)
+		if headStart > 1.01 then
+			table.insert(extras, `🚀 x{string.format("%.1f", headStart)} head start`)
+		end
 		if rebirths > 0 then
 			table.insert(extras, `🔄 x{Format.Multiplier(Economy.RebirthSpeedMultiplier(rebirths))}`)
 		end
