@@ -17,8 +17,8 @@ local HideUI = {}
 local KEY = Enum.KeyCode.X
 -- Roblox's own GUI that goes away too (the emote wheel and health bar aren't used by the game)
 local CORE_GUI = { Enum.CoreGuiType.Chat, Enum.CoreGuiType.PlayerList, Enum.CoreGuiType.Backpack }
--- Never hidden: our own pill, and the steal prompts (you still need to see "Steal")
-local KEEP = { ShowUI = true, ProximityPrompts = true }
+-- Never hidden: our own pill, the steal prompts (you still need to see "Steal") and the loading screen
+local KEEP = { ShowUI = true, ProximityPrompts = true, LoadingScreen = true }
 local FADE_AFTER = 3 -- seconds before the pill fades out on a keyboard
 
 local hidden = false

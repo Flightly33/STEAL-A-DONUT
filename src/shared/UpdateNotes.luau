@@ -101,6 +101,10 @@ UpdateNotes.List = {
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
 			} },
+			{ Title = "Loading Screen", Tag = "NEW", Lines = {
+				"A brand new loading screen with tips while the game loads",
+				"Don't want to wait? Press SKIP!",
+			} },
 			{ Title = "Hide UI", Tag = "NEW", Lines = {
 				"Press X (or the 👁 HIDE UI button) to clear the screen for screenshots",
 				"Press X again or tap SHOW UI to bring it all back",

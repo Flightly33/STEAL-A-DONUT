@@ -450,6 +450,13 @@ function UpdateNotes.Init()
 			State.Action("SeenUpdate", Notes.Latest)
 		end
 		task.spawn(function()
+			-- wait for the loading screen to finish first
+			local player = game:GetService("Players").LocalPlayer
+			local loading = 0
+			while player:GetAttribute("LoadingScreen") and loading < 60 do
+				task.wait(0.25)
+				loading += 0.25
+			end
 			task.wait(1.5)
 			local waited = 0
 			while Modal.AnyOpen() and waited < 600 do
