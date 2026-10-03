@@ -129,15 +129,53 @@ function PlotService.HasFreeSlot(player: Player): boolean
 	return PlotService.GetFreeSlot(player) ~= nil
 end
 
+-- (only donuts that fit in the base earn: ones saved past its end - it was made smaller - wait
+-- until it's big enough again)
 local function recalcIncome(player: Player)
 	local profile = DataService.Get(player)
 	local total = 0
 	if profile then
-		for _, slot in profile.Data.Slots do
-			total += Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
+		local count = PlotService.GetSlotCount(player)
+		for key, slot in profile.Data.Slots do
+			if (tonumber(key) or math.huge) <= count then
+				total += Economy.DonutIncome(slot.Id, slot.Level, slot.Mutation, slot.Size)
+			end
 		end
 	end
 	baseIncome[player] = total
+end
+
+-- Move donuts saved past the end of the base into free spots inside it. Any that still don't fit
+-- stay saved (nothing is ever thrown away) and come back when the base is big enough again.
+local function compactSlots(player: Player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local count = PlotService.GetSlotCount(player)
+	local overflow = {}
+	for key in profile.Data.Slots do
+		local number = tonumber(key)
+		if number and number > count then
+			table.insert(overflow, number)
+		end
+	end
+	table.sort(overflow)
+	local free = 1
+	for _, number in overflow do
+		while free <= count and profile.Data.Slots[tostring(free)] do
+			free += 1
+		end
+		if free > count then
+			break
+		end
+		local key = tostring(number)
+		profile.Data.Slots[tostring(free)] = profile.Data.Slots[key]
+		profile.Data.Slots[key] = nil
+		if profile.Data.Favorite == key then
+			profile.Data.Favorite = tostring(free)
+		end
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -936,12 +974,21 @@ function PlotService.RefreshPen(player: Player)
 	if not plot then
 		return
 	end
-	MapBuilder.BuildPen(plot, PlotService.GetSlotCount(player))
-	for i = 1, PlotService.GetSlotCount(player) do
+	local count = PlotService.GetSlotCount(player)
+	compactSlots(player) -- (a smaller base: squeeze its donuts into the spots it still has)
+	MapBuilder.BuildPen(plot, count)
+	local models: { [number]: Model } = slotModels[player] or {}
+	for index, model in models do
+		if index > count then
+			model:Destroy()
+			models[index] = nil
+		end
+	end
+	for i = 1, count do
 		spawnSlotModel(player, i)
 	end
+	afterSlotsChanged(player)
 	PlotService.ApplySkin(player)
-	PlotService.RefreshSign(player)
 	PlotService.Resized:Fire(player)
 end
 
@@ -1038,34 +1085,13 @@ function PlotService.Assign(player: Player): number?
 	if profile then
 		-- Drop any saved slot that points at a donut that no longer exists (e.g. removed from
 		-- Donuts.luau), and move donuts saved past the end of the base (bases used to have more
-		-- room in some cases) into free spots. Any that still don't fit stay saved, in case the base
-		-- gets bigger again - nothing is ever thrown away.
-		local count = PlotService.GetSlotCount(player)
-		local overflow = {}
+		-- room in some cases) into free spots.
 		for key, slot in profile.Data.Slots do
-			local number = tonumber(key)
-			if not Donuts.ById[slot.Id] or not number then
+			if not Donuts.ById[slot.Id] or not tonumber(key) then
 				profile.Data.Slots[key] = nil
-			elseif number > count then
-				table.insert(overflow, number)
 			end
 		end
-		table.sort(overflow)
-		local free = 1
-		for _, number in overflow do
-			while free <= count and profile.Data.Slots[tostring(free)] do
-				free += 1
-			end
-			if free > count then
-				break
-			end
-			local key = tostring(number)
-			profile.Data.Slots[tostring(free)] = profile.Data.Slots[key]
-			profile.Data.Slots[key] = nil
-			if profile.Data.Favorite == key then
-				profile.Data.Favorite = tostring(free)
-			end
-		end
+		compactSlots(player)
 	end
 	-- The same plot number is reserved for them in the other worlds.
 	for _, world in Areas.Worlds do

@@ -1002,27 +1002,31 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	-- The big effects of the mid-to-late game themes (FXThemes): fire, spirals, smoke and the
 	-- points the electric sparks burst from (the client sets those off, and adds the shards).
+	-- FXBoost: these run near full strength (client/ParticleBudget), but only on the donuts closest
+	-- to you - DonutFX switches them off on the rest.
 	local function themeEffects(theme: FXThemes.Theme)
 		local low = bottom * 0.55
 		if theme.Flames then
-			local base = holder("FlameFX", Vector3.new(3.4, 0.5, 2.2) * s, CFrame.new(0, low, 0))
+			local base = holder("FlameFX", Vector3.new(4, 0.8, 2.6) * s, CFrame.new(0, low, 0))
 			local fire = Instance.new("ParticleEmitter")
 			fire.Name = "Flames"
 			fire.Texture = texture("Fire")
 			fire.Color = keys(theme.Flames)
-			fire.LightEmission = 1
+			-- (half-solid, not pure glow, so they still read in bright daylight)
+			fire.LightEmission = 0.55
 			fire.LightInfluence = 0
-			fire.Brightness = 2.2
-			fire.Rate = 30
-			fire.Lifetime = NumberRange.new(0.55, 1)
-			fire.Speed = NumberRange.new(3 * s, 6 * s)
+			fire.Brightness = 2.6
+			fire.Rate = 40
+			fire.Lifetime = NumberRange.new(0.6, 1.1)
+			fire.Speed = NumberRange.new(3 * s, 6.5 * s)
 			fire.SpreadAngle = Vector2.new(14, 14)
 			fire.EmissionDirection = Enum.NormalId.Top
 			fire.Acceleration = Vector3.new(0, 5 * s, 0)
 			fire.Rotation = NumberRange.new(-25, 25)
 			fire.RotSpeed = NumberRange.new(-60, 60)
-			fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4 * s), NumberSequenceKeypoint.new(0.35, 2.4 * s), NumberSequenceKeypoint.new(1, 0.3 * s) })
+			fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * s), NumberSequenceKeypoint.new(0.35, 3.6 * s), NumberSequenceKeypoint.new(1, 0.5 * s) })
 			fire.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.1), NumberSequenceKeypoint.new(0.7, 0.45), NumberSequenceKeypoint.new(1, 1) })
+			fire:SetAttribute("FXBoost", true)
 			fire.Parent = base
 			-- embers flying up out of it
 			local embers = emitter(base, keys({ theme.Flames[1], theme.Flames[#theme.Flames] }), 16, 0.22 * s, 7 * s, 1.6)
@@ -1031,6 +1035,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			embers.SpreadAngle = Vector2.new(30, 30)
 			embers.Brightness = 4
 			embers.Acceleration = Vector3.new(0, 3 * s, 0)
+			embers:SetAttribute("FXBoost", true)
 		end
 		if theme.Swirl then
 			local sphere = holder("SwirlFX", Vector3.one * 3.4 * s, CFrame.identity)
@@ -1040,18 +1045,19 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			swirl.Color = if theme.Rainbow
 				then ColorSequence.new({ ColorSequenceKeypoint.new(0, rgb(255, 80, 80)), ColorSequenceKeypoint.new(0.33, rgb(255, 230, 60)), ColorSequenceKeypoint.new(0.66, rgb(80, 255, 140)), ColorSequenceKeypoint.new(1, rgb(120, 140, 255)) })
 				else keys(theme.Colors)
-			swirl.LightEmission = 1
+			swirl.LightEmission = 0.5
 			swirl.LightInfluence = 0
-			swirl.Brightness = 1.6
-			swirl.Rate = 5
+			swirl.Brightness = 2.2
+			swirl.Rate = 7
 			swirl.Lifetime = NumberRange.new(1.4, 2.2)
 			swirl.Speed = NumberRange.new(0)
 			swirl.Shape = Enum.ParticleEmitterShape.Sphere
 			swirl.LockedToPart = true
 			swirl.Rotation = NumberRange.new(0, 360)
 			swirl.RotSpeed = NumberRange.new(140, 220)
-			swirl.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * s), NumberSequenceKeypoint.new(1, 6.5 * s) })
+			swirl.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.5 * s), NumberSequenceKeypoint.new(1, 7.5 * s) })
 			swirl.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.35), NumberSequenceKeypoint.new(1, 1) })
+			swirl:SetAttribute("FXBoost", true)
 			swirl.Parent = sphere
 		end
 		if theme.Smoke then
@@ -1071,6 +1077,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			smoke.RotSpeed = NumberRange.new(-30, 30)
 			smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.5 * s), NumberSequenceKeypoint.new(1, 6 * s) })
 			smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.45), NumberSequenceKeypoint.new(1, 1) })
+			smoke:SetAttribute("FXBoost", true)
 			smoke.Parent = base
 		end
 		local electric = theme.Electric
@@ -1088,9 +1095,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				spark.Name = "Crackle"
 				spark.Texture = texture("Spark")
 				spark.Color = keys(electric.Colors)
-				spark.LightEmission = 1
+				spark.LightEmission = 0.7
 				spark.LightInfluence = 0
-				spark.Brightness = 6
+				spark.Brightness = 7
 				spark.Rate = 0 -- (bursts only: client/DonutFX calls Emit)
 				spark.Lifetime = NumberRange.new(0.08, 0.2)
 				spark.Speed = NumberRange.new(14 * s, 30 * s)

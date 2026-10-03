@@ -18,6 +18,7 @@ local Signal = require(Shared.Signal)
 
 local Theme = require(script.Parent.Theme)
 local ChaseMusic = require(script.Parent.ChaseMusic)
+local StormMusic = require(script.Parent.StormMusic)
 local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
@@ -47,6 +48,8 @@ local usingFallback = false
 -- (ChaseMusic, made from Roblox's built-in sounds), or the track in Config.Music.Chase if it has one.
 local chaseSound: Sound? = nil
 local chasing = false
+-- The Eternal Storm: its march (StormMusic) plays instead of the normal song (a chase still wins).
+local storming = false
 
 local function chaseReady(): boolean
 	return chaseSound ~= nil and chaseSound.IsLoaded and chaseSound.TimeLength > 0
@@ -56,12 +59,17 @@ local function applyVolume()
 	local TweenService = game:GetService("TweenService")
 	local fade = TweenInfo.new(0.6)
 	local useChase = chasing and chaseReady()
-	TweenService:Create(sound, fade, { Volume = if not musicOn or chasing then 0 else volume }):Play()
+	TweenService:Create(sound, fade, { Volume = if not musicOn or chasing or storming then 0 else volume }):Play()
 	sound.PlaybackSpeed = 1
 	if chasing and musicOn and not useChase then
 		ChaseMusic.Start(volume)
 	else
 		ChaseMusic.Stop()
+	end
+	if storming and musicOn and not chasing then
+		StormMusic.Start(volume)
+	else
+		StormMusic.Stop()
 	end
 	if chaseSound then
 		if useChase and not chaseSound.IsPlaying then
@@ -83,6 +91,14 @@ end
 function Settings.SetChasing(on: boolean)
 	if on ~= chasing then
 		chasing = on
+		applyVolume()
+	end
+end
+
+-- StormFX calls this when the Eternal Storm starts (true) and ends (false).
+function Settings.SetStorm(on: boolean)
+	if on ~= storming then
+		storming = on
 		applyVolume()
 	end
 end
@@ -183,6 +199,7 @@ end
 
 function Settings.Init()
 	ChaseMusic.Preload()
+	StormMusic.Preload()
 	sound = Instance.new("Sound")
 	sound.Name = "Soundtrack"
 	sound.Looped = false

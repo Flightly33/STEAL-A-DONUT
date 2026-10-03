@@ -53,6 +53,54 @@ end
 
 UpdateNotes.List = {
 	{
+		Version = 5,
+		Name = "The Eternal Storm",
+		Date = "Oct 3, 2026",
+		Color = Color3.fromRGB(45, 20, 85),
+		Accent = Color3.fromRGB(215, 160, 255),
+		Decor = "Stars",
+		Emblem = { Frosting = Color3.fromRGB(190, 100, 255), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(235, 200, 255), Color3.fromRGB(120, 40, 230) }, Dough = Color3.fromRGB(45, 15, 70) },
+		Sections = {
+			{ Title = "Eternal Storm", Tag = "NEW Event", Lines = {
+				"The rarest event ever: a giant black hole tears open the sky!",
+				"Purple lightning strikes donuts in every world and makes them ETERNAL (x50 money!)",
+				"Huge rocks crash down from the sky: get out of the purple circle or you'll be flung!",
+				"It comes with its own song: the Radetzky March",
+			} },
+			{ Title = "Open Bases", Tag = "NEW", Lines = {
+				"Bases are big open pens now, like Steal an Egg",
+				"Your donuts are alive: they walk around their pen, hop, wave and look around",
+				"Make your base bigger in the Shop to fit more donuts (you keep every donut you had)",
+				"6 bases per server, with lots more room between them",
+				"Everyone's avatar and name float above their base",
+			} },
+			{ Title = "Wild Effects", Tag = "NEW Looks", Lines = {
+				"Legendary and up get flames, spirals, crystal shards and electric sparks",
+				"Secret, Admin and Icon donuts are a storm of lightning and shards",
+				"Early donuts look clean and simple",
+			} },
+			{ Title = "Rarer Finds", Tag = "Balance", Lines = {
+				"The best donut of every area spawns less often",
+				"Mutations are about half as common: finding one really means something",
+			} },
+			{ Title = "Bigger World", Tag = "NEW", Lines = {
+				"Every area is longer and wider",
+				"Grassy rocky hills around the lobby walls",
+			} },
+			{ Title = "Domer", Tag = "Improvements", Lines = {
+				"Getting caught flings you, but you're not sent back to your base any more",
+				"His Z's are much bigger",
+			} },
+			{ Title = "Fair Leaderboards", Tag = "Improvements", Lines = {
+				"Admins don't show up on the global leaderboards",
+				"The player list's Money / Speed / Rebirths columns never swap any more",
+			} },
+		},
+		Sidebar = {
+			{ Title = "Wildest Effects", Items = donuts({ "fakekar", "grandeglazzarino", "adminglazino", "nebulini", "tungfudgur" }) },
+		},
+	},
+	{
 		Version = 4,
 		Name = "Faster Rebirths",
 		Date = "Oct 1, 2026",

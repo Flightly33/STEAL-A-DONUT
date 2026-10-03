@@ -56,6 +56,7 @@ local STYLES: { [string]: Style } = {
 	Coins = { Rate = 70, Speed = NumberRange.new(10, 18), Size = NumberSequence.new(0.45), Lifetime = NumberRange.new(2.5, 4), Color = ColorSequence.new(rgb(255, 210, 60)), Direction = Enum.NormalId.Bottom, Spin = true, Light = 0.4, Height = 35 },
 	Leaves = { Rate = 90, Speed = NumberRange.new(4, 8), Size = NumberSequence.new(0.5), Lifetime = NumberRange.new(5, 7), Color = ColorSequence.new(rgb(255, 150, 50), rgb(200, 80, 30)), Direction = Enum.NormalId.Bottom, Acceleration = Vector3.new(5, 0, 2), Spin = true, Height = 35 },
 	Rainbow = { Rate = 200, Speed = NumberRange.new(4, 10), Size = NumberSequence.new(0.5, 0), Lifetime = NumberRange.new(3, 5), Color = RAINBOW, Direction = Enum.NormalId.Bottom, Light = 1, Spin = true, Height = 30 },
+	Void = { Rate = 150, Speed = NumberRange.new(3, 9), Size = NumberSequence.new(0.55, 0), Lifetime = NumberRange.new(3, 5), Color = ColorSequence.new(rgb(225, 170, 255), rgb(120, 30, 230)), Direction = Enum.NormalId.Top, Light = 1, Spin = true, Height = -2 },
 	Eggs = { Rate = 40, Speed = NumberRange.new(10, 16), Size = NumberSequence.new(0.7), Lifetime = NumberRange.new(2.5, 4), Color = ColorSequence.new(rgb(255, 240, 200), rgb(255, 190, 230)), Direction = Enum.NormalId.Bottom, Spin = true, Height = 35 },
 }
 

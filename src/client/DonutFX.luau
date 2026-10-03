@@ -77,6 +77,8 @@ type FX = {
 	OutlineTheme: Theme?,
 	Visuals: Visuals?,
 	Distance: number,
+	Boosted: { ParticleEmitter }, -- flames, spirals, smoke (FXBoost): only on for the closest donuts
+	BoostOn: boolean?,
 	Crackles: { ParticleEmitter }, -- electric burst points (FXThemes Electric)
 	CrackleRate: number,
 	NextCrackle: number,
@@ -365,7 +367,18 @@ local function restoreColors(fx: FX)
 	end
 end
 
+local function setBoost(fx: FX, on: boolean)
+	if fx.BoostOn == on then
+		return
+	end
+	fx.BoostOn = on
+	for _, emitter in fx.Boosted do
+		emitter.Enabled = on
+	end
+end
+
 local function dropVisuals(fx: FX)
+	setBoost(fx, false)
 	local visuals = fx.Visuals
 	if visuals then
 		shardCount -= #visuals.Shards
@@ -666,6 +679,13 @@ local function register(instance: Instance)
 			end
 		end
 	end
+	local boosted: { ParticleEmitter } = {}
+	for _, emitter in model:GetDescendants() do
+		if emitter:IsA("ParticleEmitter") and emitter:GetAttribute("FXBoost") then
+			emitter.Enabled = false -- (on once it's one of the closest donuts)
+			table.insert(boosted, emitter)
+		end
+	end
 	local crackles: { ParticleEmitter } = {}
 	local crackleRate = 0
 	for _, holder in model:GetChildren() do
@@ -699,6 +719,8 @@ local function register(instance: Instance)
 		OutlineTheme = outlineTheme,
 		Visuals = nil,
 		Distance = math.huge,
+		Boosted = boosted,
+		BoostOn = false,
 		Crackles = crackles,
 		CrackleRate = crackleRate,
 		NextCrackle = clock + rng:NextNumber(0, 1),
@@ -762,6 +784,7 @@ function DonutFX.Init()
 			updateCheap(fx)
 			if rank <= MAX_ACTIVE then
 				ensureVisuals(fx)
+				setBoost(fx, true)
 				local wantsOutline = fx.OutlineTheme ~= nil and outlines < MAX_OUTLINES
 				if wantsOutline then
 					outlines += 1

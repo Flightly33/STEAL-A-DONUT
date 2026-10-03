@@ -29,7 +29,7 @@ export type Event = {
 	Luck: number, -- mutation luck (Luck events)
 	Boost: string?, -- mutation with an extra x5
 	Rarity: number, -- rare donut luck (1 = normal)
-	Weather: string, -- Sand | Snow | Rain | Embers | Bubbles | Sparkles | Stars | Confetti | Ghosts | Coins | Leaves | Rainbow | Eggs
+	Weather: string, -- Sand | Snow | Rain | Embers | Bubbles | Sparkles | Stars | Confetti | Ghosts | Coins | Leaves | Rainbow | Eggs | Void
 	Color: Color3,
 	Tint: Color3,
 	Fog: number, -- extra haze (0 = none)
@@ -71,7 +71,7 @@ Events.List = {
 	E("EggShower", "Egg Shower", "🥚", "EggShower", 8, 1, nil, 1, "Eggs", rgb(255, 230, 150), rgb(255, 248, 230), 0, "Eggs are dropping in every area! Grab them before they're gone!"),
 	E("DoubleHatch", "2x Incubator Speed", "⚡", "DoubleHatch", 7, 1, nil, 1, "Sparkles", rgb(120, 255, 170), rgb(235, 255, 240), 0, "Every incubator hatches twice as fast!"),
 	-- The rarest of all
-	E("EternalStorm", "ETERNAL STORM", "🌌", "EternalStorm", Config.EternalStorm.Weight, 1, nil, 1, "Embers", rgb(180, 80, 255), rgb(205, 175, 255), 0.2, "A black hole tears the sky open! Purple lightning makes donuts ETERNAL (x50)! Watch out for falling rocks!"),
+	E("EternalStorm", "ETERNAL STORM", "🌌", "EternalStorm", Config.EternalStorm.Weight, 1, nil, 1, "Void", rgb(180, 80, 255), rgb(205, 175, 255), 0.2, "A black hole tears the sky open! Purple lightning makes donuts ETERNAL (x50)! Watch out for falling rocks!"),
 } :: { Event }
 for _, event in Events.List do
 	if event.Kind == "EternalStorm" then

@@ -3,6 +3,7 @@
 
 	Every ParticleEmitter in the game (donut auras, decorations, effects, pets...) emits
 	Config.Particles.ParticleScale of its normal rate, and never more than MaxParticleRate per second.
+	(The flames, spirals and smoke of the rarest donuts - FXBoost - get more: see below.)
 	If a script changes an emitter's Rate later, the new rate is scaled the same way.
 ]]
 
@@ -14,8 +15,15 @@ local ParticleBudget = {}
 
 local scaling: { [ParticleEmitter]: boolean } = setmetatable({}, { __mode = "k" }) :: any
 
-local function scaled(rate: number): number
+-- The big mid-to-late game donut effects (emitters with the FXBoost attribute) are allowed more:
+-- DonutFX only keeps them switched on for the few donuts closest to you.
+local BOOST_SCALE, BOOST_MAX = 0.85, 40
+
+local function scaled(rate: number, boost: boolean): number
 	local g = Config.Particles
+	if boost then
+		return math.min(rate * BOOST_SCALE, BOOST_MAX)
+	end
 	return math.min(rate * g.ParticleScale, g.MaxParticleRate)
 end
 
@@ -29,7 +37,7 @@ local function apply(item: Instance)
 			return
 		end
 		scaling[emitter] = true
-		emitter.Rate = scaled(emitter.Rate)
+		emitter.Rate = scaled(emitter.Rate, emitter:GetAttribute("FXBoost") == true)
 		scaling[emitter] = nil
 	end
 	rescale()

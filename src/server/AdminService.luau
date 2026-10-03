@@ -127,14 +127,28 @@ local function unlockSize(player: Player)
 	end
 end
 
--- Make the base `count` sizes bigger (up to Config.Admin.MaxSlots donuts, past the sizes you can buy).
+-- Make the base `count` sizes bigger (up to Config.Admin.MaxSlots donuts, past the sizes you can
+-- buy), or smaller with a negative count (down to the smallest base). Donuts that don't fit a
+-- smaller base stay saved and come back when it grows again.
 local function growBase(player: Player, profile: DataService.Profile, count: any)
 	local cap = Economy.AdminMaxBaseLevel()
+	local change = math.floor(tonumber(count) or 1)
+	if change < 0 then
+		if profile.Data.BaseLevel <= 1 then
+			notify(player, "🏢 Your base is already as small as it gets!", "error")
+			return
+		end
+		profile.Data.BaseLevel = math.max(profile.Data.BaseLevel + math.max(change, -cap), 1)
+		DataService.SyncAttributes(player)
+		PlotService.RefreshPen(player)
+		notify(player, `🏢 Your base holds {PlotService.GetSlotCount(player)} donuts now (any that don't fit are kept safe until it's bigger again).`, "success")
+		return
+	end
 	if profile.Data.BaseLevel >= cap then
 		notify(player, `🏢 Your base already holds {Economy.SlotCount(cap)} donuts, as big as a base gets!`, "error")
 		return
 	end
-	local add = math.clamp(math.floor(tonumber(count) or 1), 1, cap)
+	local add = math.clamp(change, 1, cap)
 	profile.Data.BaseLevel = math.min(profile.Data.BaseLevel + add, cap)
 	DataService.SyncAttributes(player)
 	PlotService.RefreshPen(player)

@@ -197,6 +197,9 @@ local function build()
 		button(base, "👑 Max base", Theme.Colors.Yellow, function()
 			command("GrowBase", 99)
 		end),
+		button(base, "👑 Smaller base", Theme.Colors.Orange, function()
+			command("GrowBase", -1)
+		end),
 		button(base, "👑 Owner skin", Theme.Colors.Purple, function()
 			command("OwnerSkin")
 		end),

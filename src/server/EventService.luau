@@ -99,9 +99,9 @@ local function playersByWorld(): ({ [number]: { BasePart } }, { [number]: boolea
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 		if root then
-			local world = Layout.WorldAt(root.Position)
+			local world = Layout.WorldAt(root.CFrame.Position)
 			present[world] = true
-			if not Layout.IsSafe(root.Position) then
+			if not Layout.IsSafe(root.CFrame.Position) then
 				inLanes[world] = inLanes[world] or {}
 				table.insert(inLanes[world], root)
 			end
@@ -114,7 +114,7 @@ end
 local function rockSpot(worldId: number, roots: { BasePart }?): Vector3?
 	local base: Vector3
 	if roots and #roots > 0 then
-		base = roots[rng:NextInteger(1, #roots)].Position
+		base = roots[rng:NextInteger(1, #roots)].CFrame.Position
 		local angle = rng:NextNumber(0, math.pi * 2)
 		base += Vector3.new(math.cos(angle), 0, math.sin(angle)) * rng:NextNumber(8, 45)
 	else
@@ -150,7 +150,7 @@ local function dropRock(worldId: number, roots: { BasePart }?)
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 			if root then
-				local offset = root.Position - spot
+				local offset = root.CFrame.Position - spot
 				if Vector3.new(offset.X, 0, offset.Z).Magnitude <= reach and offset.Y < size + 8 then
 					ItemService.Fling(player, spot, storm.FlingPower)
 				end
@@ -176,7 +176,7 @@ local function strike()
 		return
 	end
 	local record = pool[rng:NextInteger(1, #pool)]
-	Remotes.Event("StormStrike"):FireAllClients({ Position = record.Point.Position })
+	Remotes.Event("StormStrike"):FireAllClients({ Position = record.Point.CFrame.Position })
 	task.wait(0.3) -- (the bolt lands, then the donut changes)
 	if not DonutSpawnService.Eternalize(record) then
 		return
