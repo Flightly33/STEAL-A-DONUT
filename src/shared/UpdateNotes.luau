@@ -103,7 +103,6 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Studded Donuts", Tag = "NEW Looks", Lines = {
 				"Every donut is now built from classic studded blocks, just like Domer!",
-				"New chunky white icons on the buttons",
 			} },
 			{ Title = "Bigger Lanes", Tag = "Balance", Lines = {
 				"Every area is longer and a bit wider (same number of donuts)",
@@ -117,6 +116,11 @@ UpdateNotes.List = {
 			{ Title = "Loading Screen", Tag = "NEW", Lines = {
 				"A brand new loading screen with tips while the game loads",
 				"Don't want to wait? Press SKIP!",
+			} },
+			{ Title = "Cleaner Buttons", Tag = "Improvements", Lines = {
+				"Shiny new cartoon icons on every button",
+				"Music on/off, next song and volume are now in ⚙️ Settings",
+				"No more Worlds button: walk through the portals in the hub (Teleporter owners get a 🌀 TELEPORT button)",
 			} },
 			{ Title = "Hide UI", Tag = "NEW", Lines = {
 				"Press X (or the 👁 HIDE UI button) to clear the screen for screenshots",

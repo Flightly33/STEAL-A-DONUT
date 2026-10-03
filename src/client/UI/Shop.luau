@@ -279,7 +279,7 @@ local function buildPasses(page: ScrollingFrame)
 		local description = if pass.Kind == "Money"
 			then `Earn {pass.Multiplier}x money from every donut, forever`
 			elseif pass.Kind == "Speed" then "Double speed from your treadmill, forever"
-			else "Teleport to any world or area you've unlocked, any time"
+			else "Teleport to any world or area you've unlocked, any time (a 🌀 TELEPORT button)"
 		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = c })
 		Theme.Label({ Text = string.upper(pass.Name), TextColor3 = pass.Color:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = c })
 		Theme.Label({

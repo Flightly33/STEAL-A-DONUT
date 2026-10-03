@@ -671,7 +671,7 @@ Config.Particles = {
 }
 
 Config.Music = {
-	DefaultVolume = 0.3, -- 0 to 1 (players change it in Settings; the 🎵 button turns it off)
+	DefaultVolume = 0.3, -- 0 to 1 (players change it, or turn music off, in ⚙️ Settings)
 	Tracks = {
 		{ Name = "Morning Mood", Id = 1846088038 }, -- Grieg, Peer Gynt (Roblox's licensed music)
 	} :: { { Name: string, Id: number } },

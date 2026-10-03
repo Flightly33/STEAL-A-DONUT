@@ -2,8 +2,9 @@
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
 	  left   - big Shop / Index / Pets / Rebirth buttons + the speed slider (middle of the screen)
-	  right  - a grid of square buttons: Home / Worlds / Boosts / Skins / Donate / Updates / Music /
-	           Settings / Hide UI (+ Admin), centred on the right edge
+	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
+	           is in there) / Hide UI (+ Admin, + Teleport for Teleporter pass owners), centred on the
+	           right edge. Everyone else travels between worlds through the hub's portals.
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
@@ -25,7 +26,6 @@ local Notifications = require(script.Parent.Notifications)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
 local Bases = require(script.Parent.Parent.Bases)
-local Settings = require(script.Parent.Settings)
 
 local HUD = {}
 
@@ -214,7 +214,14 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	square("🏠", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)
-	square("🌀", "WORLDS", Theme.Colors.Blue, 2, callbacks.OpenWorlds)
+	-- Teleporter pass owners: jump to any world or area (the Worlds window). Everyone else walks
+	-- through the hub's portals, so they don't get a button.
+	local teleport = square("🌀", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenWorlds)
+	local function showTeleport()
+		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
+	end
+	State.Changed:Connect(showTeleport)
+	showTeleport()
 	square("🚀", "BOOSTS", Theme.Colors.Orange, 3, function()
 		callbacks.OpenShop("Passes")
 	end)
@@ -222,37 +229,21 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		callbacks.OpenShop("Skins")
 	end)
 	square("💖", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
-	square("📰", "UPDATES", Theme.Colors.Yellow, 5, function()
+	square("📰", "UPDATES", Theme.Colors.Yellow, 6, function()
 		callbacks.OpenUpdates()
 	end)
-	-- Music on/off in one tap (saved), and Settings for the volume. Both only when there are songs.
-	local hasMusic = #Config.Music.Tracks > 0
-	local music: TextButton
-	music = square("🎵", "MUSIC ON", Theme.Colors.Green, 6, function()
-		Settings.SetMusicOn(not Settings.MusicOn())
-	end)
-	local function showMusic(on: boolean)
-		local caption = music:FindFirstChild("Caption") :: TextLabel?
-		if caption then
-			caption.Text = if on then "MUSIC ON" else "MUSIC OFF"
-		end
-		Theme.SetButtonColor(music, if on then Theme.Colors.Green else Theme.Colors.Gray)
-	end
-	Settings.MusicChanged:Connect(showMusic)
-	showMusic(Settings.MusicOn())
-	music.Visible = hasMusic
-	local settings = square("⚙️", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
-	settings.Visible = hasMusic
+	-- Settings: music on/off, next song and volume live in its window
+	square("⚙️", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
 	-- Clear the screen for screenshots (X on a keyboard does the same; see HideUI)
 	local hide = square("👁", "HIDE UI", Theme.Colors.Gray, 8, callbacks.HideUI)
 	if UserInputService.KeyboardEnabled then
-		-- a little dark key cap in the corner: "X"
+		-- a little dark key cap on the top-right corner: "X" (it fits in the gaps beside the square)
 		local key = Theme.new("Frame", {
 			Name = "Key",
 			BackgroundColor3 = Theme.Colors.Panel,
 			Size = UDim2.fromOffset(24, 24),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromOffset(2, 2),
+			Position = UDim2.new(1, -4, 0, 4),
 			ZIndex = 5,
 			Parent = hide,
 		}, {
