@@ -198,10 +198,11 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		local button = Theme.Button({ Text = "", Color = color, Size = UDim2.fromOffset(74, 74), LayoutOrder = order, Parent = right })
 		local drawn = Icons.For(icon)
 		if drawn then
-			local art = Icons.Draw(drawn, button, color)
-			art.Size = UDim2.fromScale(0.56, 0.56)
-			art.AnchorPoint = Vector2.new(0.5, 0)
-			art.Position = UDim2.fromScale(0.5, 0.08)
+			Icons.Draw(drawn, button, color, {
+				Size = UDim2.fromScale(0.56, 0.56),
+				AnchorPoint = Vector2.new(0.5, 0),
+				Position = UDim2.fromScale(0.5, 0.08),
+			})
 		else
 			Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.62, 0), Position = UDim2.fromScale(0, 0.06), Parent = button })
 		end
@@ -273,11 +274,12 @@ local function buildStats(gui: ScreenGui)
 	local function row(icon: string, color: Color3, y: number): TextLabel
 		local holder = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 52), Position = UDim2.fromOffset(0, y), Parent = stats })
 		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(50, 50), Position = if Theme.IsTouch then UDim2.new(1, -50, 0, 0) else UDim2.new(), Parent = holder })
+		-- (a little shorter than the row, so tall glyphs like "$" don't touch the row above)
 		return Theme.Label({
 			Text = "0",
 			TextColor3 = color,
-			Size = UDim2.new(1, -58, 1, 0),
-			Position = if Theme.IsTouch then UDim2.new() else UDim2.fromOffset(56, 0),
+			Size = UDim2.new(1, -58, 0.86, 0),
+			Position = if Theme.IsTouch then UDim2.fromScale(0, 0.07) else UDim2.new(0, 56, 0.07, 0),
 			TextXAlignment = align,
 			StrokeThickness = 4,
 			Parent = holder,
@@ -285,7 +287,7 @@ local function buildStats(gui: ScreenGui)
 	end
 	local speedLabel = row("👟", Theme.Colors.Speed, 0)
 	local moneyLabel = row("💵", Theme.Colors.Money, 52)
-	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 28), Position = UDim2.fromOffset(0, 106), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
+	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 109), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
 
 	local function updateSpeed()
 		-- A crate Speed Boost shows its countdown next to your speed

@@ -387,10 +387,11 @@ function Theme.Button(props: {
 		local drawn = Icons.For(props.Icon)
 		if drawn then
 			-- a chunky white outlined icon (UI/Icons) instead of the emoji
-			local icon = Icons.Draw(drawn, button, props.Color)
-			icon.Size = UDim2.fromScale(0.74, 0.74)
-			icon.AnchorPoint = Vector2.new(0, 0.5)
-			icon.Position = UDim2.new(0, 8, 0.5, 0)
+			Icons.Draw(drawn, button, props.Color, {
+				Size = UDim2.fromScale(0.74, 0.74),
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(0, 8, 0.5, 0),
+			})
 		else
 			Theme.Label({
 				Name = "Icon",
