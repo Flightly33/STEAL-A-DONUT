@@ -1,8 +1,8 @@
 --[[
 	StormMusic: the Eternal Storm's song, the Radetzky March (Settings starts and stops it).
 
-	Put the Radetzky March from the Toolbox (Creator Store > Audio) in Config.EternalStorm.MusicId
-	and that recording plays, looped. Until then (or if it can't load) a built-in version plays,
+	The recording in Config.EternalStorm.MusicId (the Radetzky March from the Creator Store) plays,
+	looped. With no id (or if it can't load) a built-in version plays,
 	made from sounds every Roblox client already has: the march's tune on a bright bell, an
 	"oom-pah" bass and chords under it, a bass drum and snare, and a drum roll to start. (It was
 	written out from memory, so it's the tune's style more than an exact copy of the score.)

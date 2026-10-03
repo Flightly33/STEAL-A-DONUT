@@ -299,9 +299,9 @@ Config.EternalStorm = {
 	FlingPower = 115,
 	HoleScale = 20, -- the black hole in the sky (The Black Hole's own is 3)
 	HoleHeight = 900,
-	-- The event's song. Empty = a built-in version of the Radetzky March played with Roblox's own
-	-- sounds. Paste a Creator Store audio id ("rbxassetid://123...") to play that instead.
-	MusicId = "",
+	-- The event's song: the Radetzky March from the Creator Store. Empty (or an id that won't load)
+	-- = a built-in version of the march played with Roblox's own sounds.
+	MusicId = "rbxassetid://1844280451",
 	MusicVolume = 1, -- x the player's music volume
 }
 

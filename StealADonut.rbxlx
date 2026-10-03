@@ -1322,9 +1322,9 @@ Config.EternalStorm = {
 	FlingPower = 115,
 	HoleScale = 20, -- the black hole in the sky (The Black Hole's own is 3)
 	HoleHeight = 900,
-	-- The event's song. Empty = a built-in version of the Radetzky March played with Roblox's own
-	-- sounds. Paste a Creator Store audio id ("rbxassetid://123...") to play that instead.
-	MusicId = "",
+	-- The event's song: the Radetzky March from the Creator Store. Empty (or an id that won't load)
+	-- = a built-in version of the march played with Roblox's own sounds.
+	MusicId = "rbxassetid://1844280451",
 	MusicVolume = 1, -- x the player's music volume
 }
 
@@ -33168,8 +33168,8 @@ return Shop
               <string name="Source"><![CDATA[--[[
 	StormMusic: the Eternal Storm's song, the Radetzky March (Settings starts and stops it).
 
-	Put the Radetzky March from the Toolbox (Creator Store > Audio) in Config.EternalStorm.MusicId
-	and that recording plays, looped. Until then (or if it can't load) a built-in version plays,
+	The recording in Config.EternalStorm.MusicId (the Radetzky March from the Creator Store) plays,
+	looped. With no id (or if it can't load) a built-in version plays,
 	made from sounds every Roblox client already has: the march's tune on a bright bell, an
 	"oom-pah" bass and chords under it, a bass drum and snare, and a drum roll to start. (It was
 	written out from memory, so it's the tune's style more than an exact copy of the score.)
