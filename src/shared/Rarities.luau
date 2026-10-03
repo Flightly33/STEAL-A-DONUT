@@ -4,6 +4,7 @@
 	Every donut that spawns has:
 	  * a base RARITY (from Donuts.luau)       Common ... Secret, Admin, Icon
 	  * a MUTATION (rolled on spawn, rare)     None / Gold / Diamond / Mythic / Divine / Rainbow
+	                                           (+ Eternal, only from the Eternal Storm event)
 	  * a SIZE (rolled on spawn)               Small / Normal / Big / Huge / Giant
 
 	Income = base income x mutation multiplier x size multiplier x upgrade level.
@@ -52,6 +53,7 @@ export type Mutation = {
 	Wings: boolean?,
 	Horns: boolean?,
 	Light: number?,
+	EventOnly: boolean?, -- never rolled on a spawn (Eternal: only the Eternal Storm gives it)
 }
 
 export type Size = {
@@ -73,8 +75,10 @@ local Rarities = {}
 Rarities.List = {
 	{ Id = "Common", Order = 1, Color = Color3.fromRGB(215, 215, 215), IndexReward = { Cash = 300 } },
 	{ Id = "Uncommon", Order = 2, Color = Color3.fromRGB(85, 225, 90), IndexReward = { Cash = 450 } },
-	{ Id = "Rare", Order = 3, Color = Color3.fromRGB(55, 150, 255), Shine = true, Particles = 3, IndexReward = { Cash = 600 } },
-	{ Id = "Epic", Order = 4, Color = Color3.fromRGB(190, 70, 255), Shine = true, Light = 7, Particles = 7, Float = true, IndexReward = { Cash = 900, Speed = 1 } },
+	-- (early game: Common - Rare are plain donuts, Epic only glows a little; the big effects start at
+	-- Legendary and get wilder from there - see FXThemes)
+	{ Id = "Rare", Order = 3, Color = Color3.fromRGB(55, 150, 255), Shine = true, IndexReward = { Cash = 600 } },
+	{ Id = "Epic", Order = 4, Color = Color3.fromRGB(190, 70, 255), Shine = true, Light = 6, Particles = 3, IndexReward = { Cash = 900, Speed = 1 } },
 	{ Id = "Legendary", Order = 5, Color = Color3.fromRGB(255, 190, 25), Shine = true, Light = 10, Particles = 14, Float = true, Beam = true, IndexReward = { Cash = 1200, Speed = 2 } },
 	{ Id = "Celestial", Order = 6, Color = Color3.fromRGB(255, 110, 255), Shine = true, Light = 13, Particles = 24, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 1800, Speed = 4 } },
 	{ Id = "Secret", Order = 7, Color = Color3.fromRGB(255, 255, 255), Shine = true, Light = 16, Particles = 40, Rainbow = true, Float = true, Halo = true, Beam = true, Orbit = true, IndexReward = { Cash = 3600, Speed = 8 } },
@@ -86,15 +90,17 @@ Rarities.List = {
 
 --------------------------------------------------------------------------------
 -- Mutations: rolled on every spawn. Chances are per spawn; area events and the Luck Event multiply
--- them. Gold 1.2%, Diamond 0.5%, Mythic 0.15%, Divine 0.04%, Rainbow 0.01% (1 in 10,000).
+-- them. Gold 0.6%, Diamond 0.25%, Mythic 0.08%, Divine 0.02%, Rainbow 0.006% (1 in ~17,000).
+-- Eternal never rolls: only the Eternal Storm's purple lightning gives it (EventService).
 --------------------------------------------------------------------------------
 Rarities.Mutations = {
 	{ Id = "None", Order = 0, Multiplier = 1, Chance = 0, Color = Color3.fromRGB(255, 255, 255) },
-	{ Id = "Gold", Order = 1, Multiplier = 2, Chance = 0.012, Color = Color3.fromRGB(255, 205, 40), Dough = Color3.fromRGB(230, 170, 40), Frosting = Color3.fromRGB(255, 215, 60), Material = Enum.Material.Foil, Particles = 6, Light = 6 },
-	{ Id = "Diamond", Order = 2, Multiplier = 3, Chance = 0.005, Color = Color3.fromRGB(120, 230, 255), Dough = Color3.fromRGB(170, 230, 255), Frosting = Color3.fromRGB(200, 250, 255), Material = Enum.Material.Glass, Particles = 12, Light = 8 },
-	{ Id = "Mythic", Order = 3, Multiplier = 5, Chance = 0.0015, Color = Color3.fromRGB(255, 45, 85), Dough = Color3.fromRGB(60, 20, 30), Frosting = Color3.fromRGB(255, 40, 70), Material = Enum.Material.Neon, Particles = 18, Horns = true, Light = 10 },
-	{ Id = "Divine", Order = 4, Multiplier = 10, Chance = 0.0004, Color = Color3.fromRGB(255, 250, 200), Dough = Color3.fromRGB(255, 240, 200), Frosting = Color3.fromRGB(255, 255, 255), Material = Enum.Material.Neon, Particles = 25, Halo = true, Wings = true, Light = 14 },
-	{ Id = "Rainbow", Order = 5, Multiplier = 25, Chance = 0.0001, Color = Color3.fromRGB(255, 120, 255), Particles = 35, Rainbow = true, Halo = true, Light = 16 },
+	{ Id = "Gold", Order = 1, Multiplier = 2, Chance = 0.006, Color = Color3.fromRGB(255, 205, 40), Dough = Color3.fromRGB(230, 170, 40), Frosting = Color3.fromRGB(255, 215, 60), Material = Enum.Material.Foil, Light = 5 },
+	{ Id = "Diamond", Order = 2, Multiplier = 3, Chance = 0.0025, Color = Color3.fromRGB(120, 230, 255), Dough = Color3.fromRGB(170, 230, 255), Frosting = Color3.fromRGB(200, 250, 255), Material = Enum.Material.Glass, Particles = 4, Light = 7 },
+	{ Id = "Mythic", Order = 3, Multiplier = 5, Chance = 0.0008, Color = Color3.fromRGB(255, 45, 85), Dough = Color3.fromRGB(60, 20, 30), Frosting = Color3.fromRGB(255, 40, 70), Material = Enum.Material.Neon, Particles = 18, Horns = true, Light = 10 },
+	{ Id = "Divine", Order = 4, Multiplier = 10, Chance = 0.0002, Color = Color3.fromRGB(255, 250, 200), Dough = Color3.fromRGB(255, 240, 200), Frosting = Color3.fromRGB(255, 255, 255), Material = Enum.Material.Neon, Particles = 25, Halo = true, Wings = true, Light = 14 },
+	{ Id = "Rainbow", Order = 5, Multiplier = 25, Chance = 0.00006, Color = Color3.fromRGB(255, 120, 255), Particles = 35, Rainbow = true, Halo = true, Light = 16 },
+	{ Id = "Eternal", Order = 6, Multiplier = 50, Chance = 0, Color = Color3.fromRGB(175, 70, 255), Dough = Color3.fromRGB(45, 15, 70), Frosting = Color3.fromRGB(200, 110, 255), Material = Enum.Material.Neon, Particles = 30, Halo = true, Light = 20, EventOnly = true },
 } :: { Mutation }
 
 --------------------------------------------------------------------------------

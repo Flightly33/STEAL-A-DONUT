@@ -74,11 +74,9 @@ local function tryRaid(owner: Player, slotIndex: number, prompt: ProximityPrompt
 		notify(thief, "🔒 That base is locked!", "error")
 		return
 	end
-	local target = prompt.Parent
-	if not target or not target:IsA("BasePart") then
-		return
-	end
-	if not StealService.CanPickUp(thief, target.Position, 16) then
+	-- (the donut roams its pen: check against where it really is now, not where it was put)
+	local target = PlotService.GetDonutPosition(owner, slotIndex)
+	if not target or not StealService.CanPickUp(thief, target, 20) then
 		return
 	end
 	if not PlotService.HasFreeSlot(thief) then

@@ -108,51 +108,48 @@ Config.Guard = {
 -- Map layout (studs). Floor top is at Y = 0.
 --------------------------------------------------------------------------------
 Config.Map = {
-	LaneHalfWidth = 70, -- the lane runs along +Z, from X = -70 to X = 70
-	AreaLength = 240, -- each area is this long in Z (must be a multiple of TileSize)
+	LaneHalfWidth = 100, -- the lane runs along +Z, from X = -100 to X = 100
+	AreaLength = 300, -- each area is this long in Z (must be a multiple of TileSize)
 	TileSize = 20,
 	LaneWallHeight = 60,
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe hub (bases, shop, leaderboards)
-	HubHalfWidth = 230,
-	HubDepth = 400, -- deep enough for 4 rows of bases Layout.PlotRowSpacing apart (every world's hub)
+	HubHalfWidth = 320,
+	HubDepth = 730, -- deep enough for 3 rows of bases Layout.PlotRowSpacing apart (every world's hub)
 	HubWallHeight = 40,
 
-	DonutSpawnsPerArea = 7,
+	DonutSpawnsPerArea = 9,
 }
 
 --------------------------------------------------------------------------------
 -- Player bases (plots)
 --------------------------------------------------------------------------------
 Config.Plots = {
-	Count = 8, -- set the place's Max Players to this number
-	StartSlots = 8, -- donut stands you start with
-	SlotsPerPlot = 24, -- stands a fully expanded base has
-	-- Each expansion adds one row of 4 stands. Bought with money in the Shop, kept through rebirths.
-	ExpansionSlots = 4,
-	ExpansionCosts = { 50_000, 250_000_000, 1_000_000_000_000, 5_000_000_000_000_000 },
-	-- Upper floors: once all SlotsPerPlot stands are unlocked, buy a second floor, then a third,
-	-- each with Slots more stands (same layout, Height studs up - above even a Giant donut). Lift
-	-- pads at the front of the base take you between floors. Kept through rebirths, like expansions.
-	UpperFloors = {
-		Costs = {
-			1e19, -- 2nd floor: $10Qn, 2000x the last expansion (bots get it around Rebirth 2)
-			1e23, -- 3rd floor: $100Sx, 10,000x the 2nd floor (around Rebirth 3)
-		},
-		Slots = 24, -- per floor (at most SlotsPerPlot)
-		Height = 26,
+	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
+	-- Your base is an open pen (like Steal an Egg) where your donuts roam around. Buy a bigger base
+	-- in the Shop to fit more donuts: every size holds Slots donuts and the pen grows to fit them.
+	-- Bigger bases are kept through rebirths.
+	Sizes = {
+		{ Slots = 8, Cost = 0 },
+		{ Slots = 12, Cost = 50_000 },
+		{ Slots = 16, Cost = 250_000_000 },
+		{ Slots = 20, Cost = 1_000_000_000_000 },
+		{ Slots = 24, Cost = 5_000_000_000_000_000 },
+		{ Slots = 36, Cost = 3e18 },
+		{ Slots = 48, Cost = 7e18 },
+		{ Slots = 60, Cost = 3e22 },
+		{ Slots = 72, Cost = 7e22 },
 	},
-	-- Every base is a building: glass windows from the top of its low walls up to a roof above its
-	-- top floor, so you can see the donuts inside. The front stays open (that's the way in), and a
-	-- thief can only get in there, not over the sides.
-	-- Enclosed = false: no glass walls (low walls you can hop over from the side, and no roof).
-	Building = {
-		Enclosed = true,
-		GlassColor = Color3.fromRGB(170, 225, 255),
-		GlassTransparency = 0.55,
-		EntranceHeight = 12, -- the open gap at the front of the ground floor (studs)
-	},
-	DonutScale = 1.1,
+	-- Past the last size (the owner, and the "ender=rich" code): ExtraSlots more per size, up to
+	-- Config.Admin.MaxSlots.
+	ExtraSlots = 12,
+	-- Every donut has its own patch of the pen (CellSize studs square) and roams around it, up to
+	-- RoamRadius x CellSize from its middle, so donuts spread out instead of piling up.
+	CellSize = 16,
+	RoamRadius = 0.85,
+	RoamSpeed = 3.5, -- studs per second while walking (bigger donuts take bigger strides)
+	FenceHeight = 4.5, -- low enough to hop over (anyone can walk in, like Steal an Egg)
+	DonutScale = 1.5,
 	PodiumDonutScale = 1.7,
 }
 
@@ -288,6 +285,26 @@ Config.GlobalStats = {
 -- Server events (see Events.luau / EventService): every few minutes ONE event runs for the whole
 -- server - a luck event, Rare Donut Rain, Egg Shower or 2x Incubator Speed.
 --------------------------------------------------------------------------------
+-- The Eternal Storm: a VERY rare server event (or the owner's 👑 button in the admin panel). A
+-- giant black hole fills the sky, huge chunks of rock rain down (anyone they land on is flung), and
+-- purple lightning strikes donuts in every world's lanes: every donut it hits becomes ETERNAL
+-- (x50 money, purple glow, a storm of purple lightning round it). Only lane donuts get struck.
+Config.EternalStorm = {
+	Weight = 0.6, -- how often it's picked compared to the other events (they add up to ~125: about 1 in 200)
+	Duration = 180,
+	StrikeInterval = { 7, 12 }, -- seconds between lightning strikes that turn a donut Eternal
+	BlockInterval = { 1.2, 2.6 }, -- seconds between falling rocks (in each world someone is in)
+	BlockSize = { 18, 34 }, -- studs
+	FallTime = 2.6, -- seconds from a rock appearing in the sky to it hitting the ground
+	FlingPower = 115,
+	HoleScale = 20, -- the black hole in the sky (The Black Hole's own is 3)
+	HoleHeight = 900,
+	-- The event's song. Empty = a built-in version of the Radetzky March played with Roblox's own
+	-- sounds. Paste a Creator Store audio id ("rbxassetid://123...") to play that instead.
+	MusicId = "",
+	MusicVolume = 1, -- x the player's music volume
+}
+
 Config.Events = {
 	Enabled = true,
 	FirstDelay = 90, -- seconds after the server starts
@@ -409,14 +426,15 @@ Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
 	OwnerOnlyCommands = {} :: { string }, -- e.g. { "Luck", "OpenCrate", "SpawnCrate", "Event" }
-	-- The +FLOORS buttons (the owner's 👑 ones in the admin panel, and everyone who typed the floors
-	-- code "ender=rich") build floors past the normal limit, up to this many in all. It can't be
-	-- infinite: Roblox parts can't be taller than 2048 studs, and the base's glass walls and corner
-	-- pillars run from the ground to the roof, so 75 floors x 26 studs is about as high as they go.
-	-- (Every floor is also ~65 more parts that every player's device has to draw.)
-	MaxFloors = 75,
+	-- The BIGGER BASE buttons (the owner's 👑 ones in the admin panel, and everyone who typed the
+	-- code "ender=rich") grow a base past the biggest size you can buy, up to this many donuts. It
+	-- can't be infinite: every base has to fit on its plot in the hub, and every roaming donut is
+	-- ~100 parts that every player's device has to move.
+	MaxSlots = 100,
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
-	HideFromLeaderboards = false, -- admin-panel users show up on the global boards too
+	-- Admins (everyone who used the admin panel, and the game's owner) are left off the global
+	-- boards, except the donation board. Their old scores are removed the next time they play.
+	HideFromLeaderboards = true,
 }
 
 --------------------------------------------------------------------------------
@@ -456,7 +474,7 @@ Config.Favorite = {
 --------------------------------------------------------------------------------
 -- Base skins, bought with your SPEED stat (spending speed makes you slower until you train it back).
 -- "Classic" is free and always owned. Skins are kept forever (also through rebirths).
--- SkinRole colours: Floor / FloorAlt (checker) / Fence / Trim / Pedestal / Sign
+-- SkinRole colours: Floor / FloorAlt (the pen's checker ground) / Fence / Trim (posts, border) / Pedestal (gate arch, post caps) / Sign
 --------------------------------------------------------------------------------
 Config.Skins = {
 	{
@@ -673,6 +691,14 @@ Config.UltimateRebirth = {
 -- blocky face and accessories, the classic studs on every side). false = the smooth round donuts.
 Config.DonutModels = {
 	Studded = true,
+}
+
+-- Donut effects (FXThemes: Legendary and up). The particle textures they use: empty = Roblox's own
+-- built-in ones. To use a Creator Store particle texture instead, paste its id, e.g.
+-- Spark = "rbxassetid://1234567" (Spark: the electric bursts, Fire: the flames, Smoke: the dark
+-- aura, Swirl: the spirals).
+Config.DonutFX = {
+	Textures = { Spark = "", Fire = "", Smoke = "", Swirl = "" } :: { [string]: string },
 }
 
 Config.Particles = {

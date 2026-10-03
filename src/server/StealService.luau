@@ -357,12 +357,8 @@ local function onCaught(player: Player, areaId: number)
 		if not player.Parent then
 			return
 		end
+		-- (you stay wherever Domer flung you: no trip back to your base)
 		profile.Session.Stunned = false
-		local spawnCf = PlotService.GetSpawnCFrame(player)
-		local character = player.Character
-		if spawnCf and character then
-			character:PivotTo(spawnCf)
-		end
 	end)
 end
 
@@ -428,7 +424,6 @@ end
 
 function StealService.Init()
 	DonutSpawnService.SetStealHandler(trySteal)
-	PlotService.Teleporter = StealService.Teleport -- lift pads between base floors
 	GuardService.Caught:Connect(onCaught)
 
 	local accumulator = 0

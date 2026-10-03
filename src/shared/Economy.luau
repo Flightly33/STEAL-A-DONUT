@@ -251,15 +251,42 @@ function Economy.CrateCoins(seconds: number, speed: number, rebirths: number): n
 	return math.floor(seconds * best * Economy.RebirthMoneyMultiplier(rebirths))
 end
 
-function Economy.SlotCount(expansions: number, floors: number?): number
-	local p = Config.Plots
-	local ground = math.min(p.StartSlots + p.ExpansionSlots * expansions, p.SlotsPerPlot)
-	local upper = math.max((floors or 1) - 1, 0) -- (the owner can have more floors than can be bought)
-	return ground + p.UpperFloors.Slots * upper
+-- How many donuts a base of size `level` holds (Config.Plots.Sizes; past the last size - the
+-- owner and the "ender=rich" code - ExtraSlots more per size, up to Config.Admin.MaxSlots).
+function Economy.SlotCount(level: number): number
+	local sizes = Config.Plots.Sizes
+	local l = math.max(math.floor(level), 1)
+	if l <= #sizes then
+		return sizes[l].Slots
+	end
+	return math.min(sizes[#sizes].Slots + Config.Plots.ExtraSlots * (l - #sizes), math.max(Config.Admin.MaxSlots, sizes[#sizes].Slots))
 end
 
-function Economy.MaxFloors(): number
-	return 1 + #Config.Plots.UpperFloors.Costs
+-- The biggest size you can buy, and the biggest the owner / the code can grow a base to.
+function Economy.MaxBaseLevel(): number
+	return #Config.Plots.Sizes
+end
+
+function Economy.AdminMaxBaseLevel(): number
+	local sizes = Config.Plots.Sizes
+	local extra = math.max(Config.Admin.MaxSlots - sizes[#sizes].Slots, 0)
+	return #sizes + math.ceil(extra / Config.Plots.ExtraSlots)
+end
+
+-- The smallest size that holds at least `slots` donuts (old saves: stands + floors -> a pen).
+function Economy.LevelForSlots(slots: number): number
+	for level = 1, Economy.AdminMaxBaseLevel() do
+		if Economy.SlotCount(level) >= slots then
+			return level
+		end
+	end
+	return Economy.AdminMaxBaseLevel()
+end
+
+-- Price of the next bigger base (nil once it's the biggest you can buy).
+function Economy.BaseSizeCost(level: number): number?
+	local nextSize = Config.Plots.Sizes[math.max(level, 1) + 1]
+	return if nextSize then nextSize.Cost else nil
 end
 
 -- Incubator upgrades: hatch speed multiplier, egg capacity, and the price of the next level.
@@ -274,20 +301,6 @@ end
 function Economy.IncubatorUpgradeCost(kind: string, level: number): number?
 	local upgrade = if kind == "Speed" then Config.Pets.IncubatorSpeed else Config.Pets.IncubatorSize
 	return upgrade.Costs[level + 1]
-end
-
--- Price of the next floor (2nd, then 3rd): nil until the ground floor is fully expanded, or once
--- every floor is built.
-function Economy.NextFloorCost(expansions: number, floors: number): number?
-	if floors >= Economy.MaxFloors() or Economy.SlotCount(expansions, 1) < Config.Plots.SlotsPerPlot then
-		return nil
-	end
-	return Config.Plots.UpperFloors.Costs[math.max(floors, 1)]
-end
-
--- Price of the next expansion (nil when fully expanded).
-function Economy.ExpansionCost(expansions: number): number?
-	return Config.Plots.ExpansionCosts[expansions + 1]
 end
 
 --------------------------------------------------------------------------------

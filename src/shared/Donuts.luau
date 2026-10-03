@@ -7,7 +7,8 @@
 	Dough / Frosting / Sprinkles -> colours used by DonutModel
 	Parts    -> brainrot accessories (see DonutModel for the full list)
 
-	Each area has 5 regular donuts weighted 50 / 28 / 14 / 4 / 1 (so the best one is about a 1% spawn),
+	Each area has 5 regular donuts weighted 50 / 28 / 14 / 4 / 1 (spawning at 50 / 28 / 12 / 3 / 0.6: the best one is
+	about a 0.6% spawn),
 	a few areas also have a Secret (0.006% - 0.03%), and the last area of each world has an ADMIN donut
 	that never spawns by itself: only the admin panel can make one (Rarities AdminOnly). Every spawn can also roll a mutation (Gold, Diamond, Mythic, Divine,
 	Rainbow) and a size, which multiply its income.
@@ -322,6 +323,13 @@ for _, donut in table.clone(Donuts.List) do
 			donut.Parts
 		))
 	end
+end
+
+-- The best finds of every area spawn less often than the weights written above: the 14% one at
+-- about 12%, the 4% one at 3% and the 1% one at 0.6%, so the rarer donuts feel rare.
+local RARER: { [number]: number } = { [14] = 12, [4] = 3, [1] = 0.6 }
+for _, donut in Donuts.List do
+	donut.Weight = RARER[donut.Weight] or donut.Weight
 end
 
 Donuts.ById = {} :: { [string]: Donut }

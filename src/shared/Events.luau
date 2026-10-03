@@ -12,6 +12,9 @@
 	              Config.Events.RareRainInterval seconds.
 	  EggShower   every area that can have eggs gets one, and a new one drops as soon as it's grabbed.
 	  DoubleHatch every incubator hatches Config.Events.HatchBoost x as fast.
+	  EternalStorm  the Eternal Storm (Config.EternalStorm): a black hole in the sky, falling rocks,
+	              and purple lightning that turns lane donuts Eternal. Very rare; only the game's
+	              owner can start it from the admin panel.
 
 	Weight: how often it's picked compared to the others. Weather is the client-side effect.
 ]]
@@ -20,7 +23,8 @@ export type Event = {
 	Id: string,
 	Name: string,
 	Icon: string,
-	Kind: string, -- "Luck" | "RareRain" | "EggShower" | "DoubleHatch"
+	Kind: string, -- "Luck" | "RareRain" | "EggShower" | "DoubleHatch" | "EternalStorm"
+	OwnerOnly: boolean?, -- only the game's owner can start it from the admin panel
 	Weight: number,
 	Luck: number, -- mutation luck (Luck events)
 	Boost: string?, -- mutation with an extra x5
@@ -31,6 +35,8 @@ export type Event = {
 	Fog: number, -- extra haze (0 = none)
 	Description: string,
 }
+
+local Config = require(script.Parent.Config)
 
 local rgb = Color3.fromRGB
 
@@ -64,7 +70,14 @@ Events.List = {
 	E("RareRain", "Rare Donut Rain", "☄️", "RareRain", 8, 1, nil, 1, "Stars", rgb(255, 170, 60), rgb(255, 235, 215), 0, "Rare donuts are crashing down from the sky, one at a time!"),
 	E("EggShower", "Egg Shower", "🥚", "EggShower", 8, 1, nil, 1, "Eggs", rgb(255, 230, 150), rgb(255, 248, 230), 0, "Eggs are dropping in every area! Grab them before they're gone!"),
 	E("DoubleHatch", "2x Incubator Speed", "⚡", "DoubleHatch", 7, 1, nil, 1, "Sparkles", rgb(120, 255, 170), rgb(235, 255, 240), 0, "Every incubator hatches twice as fast!"),
+	-- The rarest of all
+	E("EternalStorm", "ETERNAL STORM", "🌌", "EternalStorm", Config.EternalStorm.Weight, 1, nil, 1, "Embers", rgb(180, 80, 255), rgb(205, 175, 255), 0.2, "A black hole tears the sky open! Purple lightning makes donuts ETERNAL (x50)! Watch out for falling rocks!"),
 } :: { Event }
+for _, event in Events.List do
+	if event.Kind == "EternalStorm" then
+		event.OwnerOnly = true
+	end
+end
 
 Events.ById = {} :: { [string]: Event }
 for _, event in Events.List do

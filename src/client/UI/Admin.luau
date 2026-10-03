@@ -170,7 +170,7 @@ local function build()
 	button(speed, "+1 Rebirth", Theme.Colors.Yellow, function()
 		command("Rebirth")
 	end)
-	button(speed, "+Expansion / floor", Theme.Colors.Blue, function()
+	button(speed, "+Bigger base", Theme.Colors.Blue, function()
 		command("Expand")
 	end)
 
@@ -189,16 +189,19 @@ local function build()
 	button(base, "🍩 Clear all donuts", Theme.Colors.Gray, function()
 		command("ClearDonuts")
 	end)
-	-- Only the game's owner sees these: floors past the normal limit, and the owner's own skin
+	-- Only the game's owner sees these: bases past the biggest you can buy, and the owner's own skin
 	local ownerButtons = {
-		button(base, "👑 +1 floor", Theme.Colors.Yellow, function()
-			command("AddFloors", 1)
+		button(base, "👑 Bigger base", Theme.Colors.Yellow, function()
+			command("GrowBase", 1)
 		end),
-		button(base, "👑 +10 floors", Theme.Colors.Yellow, function()
-			command("AddFloors", 10)
+		button(base, "👑 Max base", Theme.Colors.Yellow, function()
+			command("GrowBase", 99)
 		end),
 		button(base, "👑 Owner skin", Theme.Colors.Purple, function()
 			command("OwnerSkin")
+		end),
+		button(base, "👑 🌌 ETERNAL STORM", Color3.fromRGB(150, 60, 230), function()
+			command("EternalStorm")
 		end),
 	}
 	State.OnAttribute("AdminOwner", function(value)
@@ -324,9 +327,11 @@ local function build()
 	-- Server events (whole server, one at a time)
 	local events = section("🌍 Start a server event (for the whole server)", 150)
 	for _, event in Events.List do
-		button(events, `{event.Icon} {event.Name}`, event.Color, function()
-			command("Event", event.Id)
-		end)
+		if not event.OwnerOnly then
+			button(events, `{event.Icon} {event.Name}`, event.Color, function()
+				command("Event", event.Id)
+			end)
+		end
 	end
 
 	-- Teleport

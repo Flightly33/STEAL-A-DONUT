@@ -6,7 +6,12 @@
 	around (and at you when you're close), and a wave or a hop to say hi when you walk up. No big
 	flips or twirls there. (Floating rare lane donuts are bobbed and spun by Effects instead.)
 
-	Every donut gets its own personality, picked from its id and the stand it's on:
+	Base donuts roam their pen: they stand around for a few seconds, turn, and walk somewhere else
+	(a hop on every step, feet and arms swinging). Where each one is comes from Roam.luau and the
+	shared server clock, so every player sees it in the same spot and the server knows where it is
+	too (to check thieves are really next to it).
+
+	Every donut gets its own personality, picked from its id and its spot in the base:
 	  Bounce - happy little hops (feet kick, arms flop)
 	  Sway   - rocks side to side, arms swinging
 	  Dance  - bops to a beat, arms up in turn, feet stepping
@@ -27,7 +32,10 @@
 
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+
+local Roam = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Roam"))
 
 local DonutIdle = {}
 
@@ -60,8 +68,12 @@ type Eye = { Part: BasePart, Size: Vector3, Color: Color3 }
 type Pupil = { Part: BasePart, Weld: Weld, Base: CFrame }
 type Mouth = { Part: BasePart, Weld: Weld, Base: CFrame, Size: Vector3, Corners: { BasePart } }
 
+-- Base donuts roam their pen (Roam.luau): where they are comes from the shared server clock.
+type RoamInfo = { Params: Roam.Params, Origin: CFrame, Height: number }
+
 type Idle = {
 	Model: Model,
+	Roam: RoamInfo?,
 	Root: BasePart,
 	Details: { BasePart }, -- tiny bits (sprinkles, glints, specks) not drawn from far away
 	Lod: boolean,
@@ -241,8 +253,27 @@ local function register(instance: Instance)
 
 	local now = clock
 	local bottom = model:GetAttribute("Bottom")
+	local roam: RoamInfo? = nil
+	local origin = model:GetAttribute("RoamOrigin")
+	local home = model:GetAttribute("RoamHome")
+	local roamMin, roamMax = model:GetAttribute("RoamMin"), model:GetAttribute("RoamMax")
+	if typeof(origin) == "CFrame" and typeof(home) == "Vector3" and typeof(roamMin) == "Vector2" and typeof(roamMax) == "Vector2" then
+		roam = {
+			Params = {
+				Seed = (model:GetAttribute("RoamSeed") :: number?) or 1,
+				Home = home,
+				Radius = (model:GetAttribute("RoamRadius") :: number?) or 8,
+				Speed = (model:GetAttribute("RoamSpeed") :: number?) or 4,
+				Min = roamMin,
+				Max = roamMax,
+			},
+			Origin = origin,
+			Height = origin:PointToObjectSpace(root.Position).Y,
+		}
+	end
 	idles[model] = {
 		Model = model,
+		Roam = roam,
 		Root = root,
 		Details = details,
 		Lod = false,
@@ -302,6 +333,14 @@ end
 local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 	local t = now + idle.Phase
 	local k = idle.Scale
+	-- Roaming: walk to where it is in its pen right now (the same spot on every screen)
+	local moving, stride = false, 0
+	local roam = idle.Roam
+	if roam then
+		local state = Roam.At(roam.Params, workspace:GetServerTimeNow())
+		idle.Base = roam.Origin * CFrame.new(state.Position.X, roam.Height, state.Position.Z) * CFrame.Angles(0, state.Yaw, 0)
+		moving, stride = state.Moving, state.Walk
+	end
 	local y, yaw, pitch, roll, flip = 0, 0, 0, 0, 0
 	-- Limb amounts. Arms: 0 = relaxed, 0.5 = the built "hands up" pose, 1 = straight up.
 	-- Legs: positive kicks the feet forward. Wings: positive = tips up.
@@ -331,7 +370,7 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 	end
 
 	-- Turn a little towards you while you're around (not all the way round if you're behind it)
-	local turnTarget = if watching and math.abs(faceYaw) < 2 then math.clamp(faceYaw, -0.7, 0.7) * 0.6 else 0
+	local turnTarget = if watching and not moving and math.abs(faceYaw) < 2 then math.clamp(faceYaw, -0.7, 0.7) * 0.6 else 0
 	idle.Turn = approach(idle.Turn, turnTarget, 2.5, dt)
 
 	local style = idle.Style
@@ -418,9 +457,27 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 	if style ~= "Float" and style ~= "Look" and style ~= "Lane" then
 		yaw += idle.Turn
 	end
+	if moving and style ~= "Float" then
+		-- Walking: a little hop on every step, feet and arms swinging, leaning into it
+		local phase = stride / (1.5 * math.max(k, 0.3)) * math.pi
+		local step = math.abs(math.sin(phase))
+		y = 0.16 * k * step
+		yaw, roll = 0, 0.06 * math.sin(phase)
+		pitch = -0.07
+		legL = 0.65 * math.sin(phase)
+		legR = -legL
+		armL = 0.3 - 0.3 * math.sin(phase)
+		armR = 0.3 + 0.3 * math.sin(phase)
+		wing = 0.2 * step
+		floppy = false
+	end
 
-	-- A special move every few seconds
-	if not idle.Action and now >= idle.NextAction then
+	-- A special move every few seconds (standing still)
+	if moving and idle.Action then
+		idle.Action = nil
+		idle.NextAction = now + idle.Rng:NextNumber(3, 8)
+	end
+	if not idle.Action and not moving and now >= idle.NextAction then
 		local options = if style == "Lane" then { "Wiggle", "LookAround", "Jump" } else { "Twirl", "Jump", "Jump", "Wiggle", "LookAround", "Flip", "Doze" }
 		if idle.HasArms and style == "Lane" then
 			table.insert(options, "Wave")

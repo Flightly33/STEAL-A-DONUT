@@ -134,21 +134,21 @@ local function underworld(folder: Instance, world: Areas.World, rng: Random)
 		local function strip(inner: number, outer: number, zMin: number, zMax: number)
 			lavaSea(math.min(x0 + side * inner, x0 + side * outer), math.max(x0 + side * inner, x0 + side * outer), zMin, zMax)
 		end
-		strip(hubSide, 420, hubBack, 60) -- beside the hub
-		strip(map.LaneHalfWidth + 4, 300, 0, Layout.AreaStart(Areas.ByWorld[world.Id][1].Id)) -- beside the bridge
+		strip(hubSide, hubSide + 190, hubBack, 60) -- beside the hub
+		strip(map.LaneHalfWidth + 4, map.LaneHalfWidth + 230, 0, Layout.AreaStart(Areas.ByWorld[world.Id][1].Id)) -- beside the bridge
 		for _, area in Areas.ByWorld[world.Id] do
 			local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
-			strip(Layout.AreaHalfWidth(area.Id) + 4, 300, zs, if area.Index == #Areas.ByWorld[world.Id] then ze + 60 else ze)
+			strip(Layout.AreaHalfWidth(area.Id) + 4, Layout.AreaHalfWidth(area.Id) + 230, zs, if area.Index == #Areas.ByWorld[world.Id] then ze + 60 else ze)
 		end
 	end
-	lavaSea(x0 - 420, x0 + 420, hubBack, -(map.HubDepth + 4)) -- behind the hub
+	lavaSea(x0 - hubSide - 190, x0 + hubSide + 190, hubBack, -(map.HubDepth + 4)) -- behind the hub
 	-- Obsidian spires rising out of the lava round the hub and all along the lane
 	for _ = 1, 16 do
 		local side = if rng:NextNumber() < 0.5 then -1 else 1
-		Decor.Spire(folder, Vector3.new(x0 + side * rng:NextNumber(260, 400), -2, rng:NextNumber(-(map.HubDepth + 100), 40)), rng:NextNumber(60, 140), rng)
+		Decor.Spire(folder, Vector3.new(x0 + side * rng:NextNumber(map.HubHalfWidth + 30, map.HubHalfWidth + 170), -2, rng:NextNumber(-(map.HubDepth + 100), 40)), rng:NextNumber(60, 140), rng)
 	end
 	for _ = 1, 6 do
-		Decor.Spire(folder, Vector3.new(x0 + rng:NextNumber(-380, 380), -2, rng:NextNumber(hubBack, -(map.HubDepth + 20))), rng:NextNumber(70, 150), rng)
+		Decor.Spire(folder, Vector3.new(x0 + rng:NextNumber(-map.HubHalfWidth - 150, map.HubHalfWidth + 150), -2, rng:NextNumber(hubBack, -(map.HubDepth + 20))), rng:NextNumber(70, 150), rng)
 	end
 	alongLane(world, 110, function(x, z, side)
 		Decor.Spire(folder, Vector3.new(x + side * rng:NextNumber(0, 70), -2, z + rng:NextNumber(-30, 30)), rng:NextNumber(40, 100), rng)
@@ -156,7 +156,7 @@ local function underworld(folder: Instance, world: Areas.World, rng: Random)
 	-- Floating rocks pouring lava into the sea
 	for n = 1, 4 do
 		local side = if n % 2 == 0 then 1 else -1
-		local top = Vector3.new(x0 + side * rng:NextNumber(270, 360), rng:NextNumber(80, 110), rng:NextNumber(-(map.HubDepth + 40), -60))
+		local top = Vector3.new(x0 + side * rng:NextNumber(map.HubHalfWidth + 40, map.HubHalfWidth + 130), rng:NextNumber(80, 110), rng:NextNumber(-(map.HubDepth + 40), -60))
 		for i = 0, 2 do
 			local size = 26 - i * 7
 			Build.Decor({ Parent = folder, Name = "FloatingRock", Size = Vector3.new(size, 7, size), CFrame = CFrame.new(top + Vector3.new(0, 4 - i * 6, 0)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = rgb(40, 32, 32), Material = Enum.Material.Basalt })
@@ -262,23 +262,23 @@ local function cyber(folder: Instance, world: Areas.World, rng: Random)
 		local function strip(inner: number, outer: number, zMin: number, zMax: number)
 			ground(math.min(x0 + side * inner, x0 + side * outer), math.max(x0 + side * inner, x0 + side * outer), zMin, zMax)
 		end
-		strip(hubSide, 340, hubBack, 60) -- beside the hub
+		strip(hubSide, hubSide + 110, hubBack, 60) -- beside the hub
 		local laneWall = map.LaneHalfWidth + 4
 		local firstArea = Layout.AreaStart(Areas.ByWorld[world.Id][1].Id)
-		strip(laneWall, 240, 0, firstArea) -- beside the bridge
+		strip(laneWall, laneWall + 170, 0, firstArea) -- beside the bridge
 		for _, area in Areas.ByWorld[world.Id] do
 			local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
-			strip(Layout.AreaHalfWidth(area.Id) + 4, 240, zs, if area.Index == #Areas.ByWorld[world.Id] then ze + 20 else ze)
+			strip(Layout.AreaHalfWidth(area.Id) + 4, Layout.AreaHalfWidth(area.Id) + 174, zs, if area.Index == #Areas.ByWorld[world.Id] then ze + 20 else ze)
 		end
 	end
-	ground(x0 - 340, x0 + 340, hubBack, -(map.HubDepth + 4)) -- behind the hub
+	ground(x0 - hubSide - 110, x0 + hubSide + 110, hubBack, -(map.HubDepth + 4)) -- behind the hub
 	-- A skyline all around the hub (outside its walls)
 	for z = -(map.HubDepth + 40), 40, 34 do
 		for _, side in { -1, 1 } do
-			tower(folder, Vector3.new(x0 + side * rng:NextNumber(255, 300), 0, z), rng)
+			tower(folder, Vector3.new(x0 + side * rng:NextNumber(map.HubHalfWidth + 25, map.HubHalfWidth + 70), 0, z), rng)
 		end
 	end
-	for x = x0 - 240, x0 + 240, 36 do
+	for x = x0 - map.HubHalfWidth - 10, x0 + map.HubHalfWidth + 10, 36 do
 		tower(folder, Vector3.new(x, 0, rng:NextNumber(-(map.HubDepth + 60), -(map.HubDepth + 30))), rng)
 	end
 	-- Flying cars and holo donuts over the hub

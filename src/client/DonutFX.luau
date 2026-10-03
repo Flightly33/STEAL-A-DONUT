@@ -6,8 +6,12 @@
 	  * magic circles on the ground: rings, dashed arcs and glyphs turning in opposite directions
 	  * comets with glowing trails orbiting the donut
 	  * shockwaves bursting along the ground
-	  * pulsing lights (a heartbeat for Mythic, rainbow for Secret / Rainbow), glowing outlines,
-	    spinning light rays, and the donut itself changing colour (galaxy, rainbow, throbbing red)
+	  * pulsing lights (a heartbeat for Mythic, rainbow for Secret / Rainbow, a purple throb for
+	    Eternal), glowing outlines, spinning light rays, and the donut itself changing colour
+	    (galaxy, rainbow, throbbing red)
+	  * crystal shards tumbling round the donut, flying out and back (Celestial and up)
+	  * electric bursts: stars of sparks crackling off it (the server made the emitters; this sets
+	    them off)
 	Everything here exists only on this client (nothing is replicated) and is removed again when you
 	walk away. Only the closest donuts get the full show.
 ]]
@@ -27,6 +31,7 @@ local RANGE = 170 -- studs from the camera
 local MAX_ACTIVE = 14 -- closest donuts that get lightning, circles and comets
 local MAX_OUTLINES = 6 -- Roblox can only draw a limited number of outlines at once
 local MAX_BOLTS = 40
+local MAX_SHARDS = 110 -- crystal shards on screen at once (the closest donuts get them first)
 local TAU = math.pi * 2
 local FLAT = CFrame.Angles(math.rad(90), 0, 0) -- lays a cylinder adornment flat on the ground
 
@@ -40,12 +45,15 @@ type Wisp = { Part: BasePart, Trail: Trail, Axis: CFrame, Radius: number, Speed:
 
 type Wave = { Adornment: CylinderHandleAdornment, Start: number, Theme: Theme, Scale: number }
 
+type Shard = { Part: BasePart, Axis: CFrame, Radius: number, Speed: number, Offset: number, Spin: Vector3, SpinSpeed: number, Out: number }
+
 type Visuals = {
 	Folder: Folder,
 	Anchor: BasePart?,
 	Spinners: { Spinner },
 	Wisps: { Wisp },
 	Waves: { Wave },
+	Shards: { Shard },
 	Outline: Highlight?,
 }
 
@@ -54,6 +62,7 @@ type FX = {
 	Root: BasePart,
 	Scale: number,
 	Ground: CFrame?, -- where the magic circle goes (nil while a donut is being carried)
+	GroundY: number?, -- donuts roaming a base pen: the circle follows them along the floor
 	Themes: { ThemeState },
 	Light: PointLight?,
 	LightBrightness: number,
@@ -68,11 +77,16 @@ type FX = {
 	OutlineTheme: Theme?,
 	Visuals: Visuals?,
 	Distance: number,
+	Crackles: { ParticleEmitter }, -- electric burst points (FXThemes Electric)
+	CrackleRate: number,
+	NextCrackle: number,
 }
 
 type Bolt = { Parts: { BasePart }, Light: PointLight, Born: number }
 
 local fxs: { [Model]: FX } = {}
+local shardCount = 0
+local bulkMove = true -- (workspace:BulkMoveTo, if this client has it)
 local bolts: { Bolt } = {}
 local boltPool: { BasePart } = {}
 local folder: Folder
@@ -287,6 +301,45 @@ local function buildWisps(fx: FX, visuals: Visuals, state: ThemeState)
 	end
 end
 
+-- Jagged crystal shards (thin wedges) tumbling round the donut on tilted orbits, flying out and
+-- back in. Bright ones glow (neon), dark ones are solid, like the corrupted look of the rarest pets.
+local function buildShards(fx: FX, visuals: Visuals, state: ThemeState)
+	local shards = state.Theme.Shards
+	if not shards then
+		return
+	end
+	local sc = fx.Scale
+	for i = 1, shards.Count do
+		if shardCount >= MAX_SHARDS then
+			return
+		end
+		local color = shards.Colors[(i - 1) % #shards.Colors + 1]
+		local _, _, v = color:ToHSV()
+		local part = Instance.new("WedgePart")
+		part.Name = "Shard"
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		part.Size = Vector3.new(0.12, rng:NextNumber(0.7, 1.7), rng:NextNumber(0.45, 1)) * sc
+		part.Color = color
+		part.Material = if v > 0.45 then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		part.Parent = visuals.Folder
+		shardCount += 1
+		table.insert(visuals.Shards, {
+			Part = part,
+			Axis = CFrame.Angles(rng:NextNumber(-0.7, 0.7), rng:NextNumber(0, TAU), rng:NextNumber(-0.7, 0.7)),
+			Radius = rng:NextNumber(2, 3.2) * sc,
+			Speed = rng:NextNumber(0.7, 1.6) * (if rng:NextNumber() < 0.5 then -1 else 1),
+			Offset = rng:NextNumber(0, TAU),
+			Spin = rng:NextUnitVector(),
+			SpinSpeed = rng:NextNumber(1.5, 4),
+			Out = rng:NextNumber(0.6, 1.6) * sc,
+		})
+	end
+end
+
 local function spawnWave(fx: FX, state: ThemeState)
 	local visuals = fx.Visuals
 	local anchor = visuals and visuals.Anchor
@@ -315,6 +368,7 @@ end
 local function dropVisuals(fx: FX)
 	local visuals = fx.Visuals
 	if visuals then
+		shardCount -= #visuals.Shards
 		visuals.Folder:Destroy()
 		if visuals.Outline then
 			visuals.Outline:Destroy()
@@ -331,7 +385,7 @@ local function ensureVisuals(fx: FX)
 	local visualsFolder = Instance.new("Folder")
 	visualsFolder.Name = fx.Model.Name
 	visualsFolder.Parent = folder
-	local visuals: Visuals = { Folder = visualsFolder, Anchor = nil, Spinners = {}, Wisps = {}, Waves = {}, Outline = nil }
+	local visuals: Visuals = { Folder = visualsFolder, Anchor = nil, Spinners = {}, Wisps = {}, Waves = {}, Shards = {}, Outline = nil }
 	if fx.Ground then
 		local anchor = localPart("CircleAnchor", visualsFolder)
 		anchor.Transparency = 1
@@ -344,6 +398,7 @@ local function ensureVisuals(fx: FX)
 			buildCircle(fx, visuals, visuals.Anchor :: BasePart, state)
 		end
 		buildWisps(fx, visuals, state)
+		buildShards(fx, visuals, state)
 	end
 	fx.Visuals = visuals
 end
@@ -387,6 +442,9 @@ local function updateCheap(fx: FX)
 			light.Brightness = base * 1.4
 		elseif pulse == "Glow" then
 			light.Brightness = base * (1 + 0.35 * math.sin(clock * 2))
+		elseif pulse == "Throb" then
+			-- a deep purple throb, flaring up now and then like the storm's lightning
+			light.Brightness = base * (1.5 + 0.9 * math.sin(clock * 4.5) + (if math.sin(clock * 13.7) > 0.93 then 2 else 0))
 		end
 	end
 end
@@ -420,6 +478,15 @@ local function updateFull(fx: FX)
 	if not visuals then
 		return
 	end
+	local groundY = fx.GroundY
+	if groundY then
+		local position = fx.Root.Position
+		fx.Ground = CFrame.new(position.X, groundY, position.Z)
+		local anchor = visuals.Anchor
+		if anchor then
+			anchor.CFrame = CFrame.new(position.X, groundY + 0.07, position.Z)
+		end
+	end
 	-- Magic circles
 	for _, spinner in visuals.Spinners do
 		local adornment = spinner.Adornment :: any
@@ -446,6 +513,38 @@ local function updateFull(fx: FX)
 			local color = Color3.fromHSV((clock * 0.3 + wisp.Hue) % 1, 0.7, 1)
 			wisp.Part.Color = color
 			wisp.Trail.Color = ColorSequence.new(color)
+		end
+	end
+	-- Crystal shards
+	local shards = visuals.Shards
+	if #shards > 0 then
+		local parts: { BasePart } = table.create(#shards)
+		local cframes: { CFrame } = table.create(#shards)
+		for i, shard in shards do
+			local angle = clock * shard.Speed + shard.Offset
+			local radius = shard.Radius + shard.Out * (0.5 + 0.5 * math.sin(clock * 1.6 + shard.Offset * 2))
+			local offset = shard.Axis:VectorToWorldSpace(Vector3.new(math.cos(angle), 0, math.sin(angle))) * radius
+			parts[i] = shard.Part
+			cframes[i] = CFrame.new(center + offset) * CFrame.fromAxisAngle(shard.Spin, (clock * shard.SpinSpeed + shard.Offset) % TAU)
+		end
+		if bulkMove then
+			local ok = pcall(function()
+				workspace:BulkMoveTo(parts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+			end)
+			bulkMove = ok
+		end
+		if not bulkMove then
+			for i, part in parts do
+				part.CFrame = cframes[i]
+			end
+		end
+	end
+	-- Electric bursts: a star of sparks from a random point on the donut, several times a second
+	if #fx.Crackles > 0 and clock >= fx.NextCrackle then
+		fx.NextCrackle = clock + rng:NextNumber(0.4, 1.6) / math.max(fx.CrackleRate, 0.1)
+		local emitter = fx.Crackles[rng:NextInteger(1, #fx.Crackles)]
+		if emitter.Parent then
+			emitter:Emit(rng:NextInteger(7, 13))
 		end
 	end
 	-- Shockwaves
@@ -536,6 +635,7 @@ local function register(instance: Instance)
 	if root.Anchored and not model:GetAttribute("Follower") then
 		ground = CFrame.new(root.Position - Vector3.new(0, if type(bottom) == "number" then bottom else 1.5, 0))
 	end
+	local groundY = if ground and model:GetAttribute("RoamOrigin") ~= nil then ground.Position.Y else nil
 
 	local states: { ThemeState } = {}
 	local tint, pulse, outlineTheme = nil, nil, nil
@@ -566,12 +666,25 @@ local function register(instance: Instance)
 			end
 		end
 	end
+	local crackles: { ParticleEmitter } = {}
+	local crackleRate = 0
+	for _, holder in model:GetChildren() do
+		if holder.Name == "ElectricFX" then
+			crackleRate += (holder:GetAttribute("ElectricRate") :: number?) or 0
+			for _, emitter in holder:GetDescendants() do
+				if emitter:IsA("ParticleEmitter") then
+					table.insert(crackles, emitter)
+				end
+			end
+		end
+	end
 	local light = root:FindFirstChildOfClass("PointLight")
 	fxs[model] = {
 		Model = model,
 		Root = root,
 		Scale = sc,
 		Ground = ground,
+		GroundY = groundY,
 		Themes = states,
 		Light = light,
 		LightBrightness = if light then light.Brightness else 1,
@@ -586,6 +699,9 @@ local function register(instance: Instance)
 		OutlineTheme = outlineTheme,
 		Visuals = nil,
 		Distance = math.huge,
+		Crackles = crackles,
+		CrackleRate = crackleRate,
+		NextCrackle = clock + rng:NextNumber(0, 1),
 	}
 end
 

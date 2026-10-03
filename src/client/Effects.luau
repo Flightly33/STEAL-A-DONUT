@@ -363,7 +363,7 @@ local function startPopups()
 			task.wait(interval)
 			local plot = Bases.Mine()
 			local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if plot and root and (root.Position - plot:GetPivot().Position).Magnitude < 120 then
+			if plot and root and (root.Position - plot:GetPivot().Position).Magnitude < 180 then
 				local mult = math.max(1, State.Number("MoneyMultiplier"))
 				for _, child in plot:GetChildren() do
 					local income = child:GetAttribute("Income")

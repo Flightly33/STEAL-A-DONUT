@@ -31,7 +31,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened", "UltimateAsk", "UltimateRebirth" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened", "UltimateAsk", "UltimateRebirth", "StormBlock", "StormStrike" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats" }
 
 local Remotes = {}

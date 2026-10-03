@@ -13,12 +13,15 @@
 	  data only refreshes every few minutes). Without DataStores (Studio) this is all you'll see.
 	* The donation board always starts with Config.Donations.Pinned (shown with a crown instead of a
 	  rank, with its Note under the name; it's never saved and doesn't push anyone's rank down).
-	* Players who used the admin panel are left off every board except donations
-	  (Config.Admin.HideFromLeaderboards).
+	* Admins - players who used the admin panel, and the game's owner - are left off every board
+	  except donations (Config.Admin.HideFromLeaderboards). Scores they saved before that are
+	  removed from the global boards the next time they play, and never shown in the meantime once
+	  a server has seen them.
 ]]
 
 local DataStoreService = game:GetService("DataStoreService")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local UserService = game:GetService("UserService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -30,6 +33,7 @@ local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local DataService = require(script.Parent.DataService)
+local Ownership = require(script.Parent.Ownership)
 
 local LeaderboardService = {}
 
@@ -43,6 +47,9 @@ local stores: { [string]: OrderedDataStore } = {}
 local cache: { [string]: Board } = {}
 local nameCache: { [number]: string } = {}
 local lastWritten: { [Player]: { [string]: number } } = {}
+local ownerCache: { [Player]: boolean } = {}
+local hiddenIds: { [number]: boolean } = {} -- admins seen by this server: kept off fetched boards too
+local purged: { [number]: boolean } = {}
 
 --------------------------------------------------------------------------------
 -- Encoding
@@ -70,9 +77,46 @@ local function scoreFor(boardId: string, data: DataService.Data): number
 	return 0
 end
 
--- Admin-panel users don't count on the normal boards (donations are real, so they still do).
-local function hidden(boardId: string, data: DataService.Data): boolean
-	return boardId ~= "Donated" and Config.Admin.HideFromLeaderboards and data.UsedAdmin
+-- Is this player an admin? (used the admin panel, or owns the game - not counting Studio, where
+-- everyone counts as the owner)
+local function isAdmin(player: Player, data: DataService.Data): boolean
+	if data.UsedAdmin then
+		return true
+	end
+	local owner = ownerCache[player]
+	if owner == nil then
+		owner = not RunService:IsStudio() and Ownership.IsOwner(player)
+		ownerCache[player] = owner
+	end
+	return owner == true
+end
+
+-- Admins don't count on the normal boards (donations are real, so they still do).
+local function hidden(boardId: string, player: Player, data: DataService.Data): boolean
+	if boardId == "Donated" or not Config.Admin.HideFromLeaderboards or not isAdmin(player, data) then
+		return false
+	end
+	hiddenIds[player.UserId] = true
+	return true
+end
+
+-- Take an admin's old scores off the global boards (once per server).
+local function purge(player: Player, data: DataService.Data)
+	if purged[player.UserId] or not hidden("Money", player, data) then
+		return
+	end
+	purged[player.UserId] = true
+	for _, board in cfg.Boards do
+		local store = stores[board.Id]
+		if store and board.Id ~= "Donated" then
+			local ok, err = pcall(function()
+				store:RemoveAsync(tostring(player.UserId))
+			end)
+			if not ok then
+				warn(`[Leaderboards] Remove failed ({board.Id}): {err}`)
+			end
+		end
+	end
 end
 
 local function display(boardId: string, score: number): (string, Color3?)
@@ -137,10 +181,11 @@ function LeaderboardService.WriteScores(player: Player)
 		return
 	end
 	lastWritten[player] = lastWritten[player] or {}
+	purge(player, profile.Data)
 	for _, board in cfg.Boards do
 		local store = stores[board.Id]
 		local score = scoreFor(board.Id, profile.Data)
-		if store and score > 0 and lastWritten[player][board.Id] ~= score and not hidden(board.Id, profile.Data) then
+		if store and score > 0 and lastWritten[player][board.Id] ~= score and not hidden(board.Id, player, profile.Data) then
 			local ok, err = pcall(store.SetAsync, store, tostring(player.UserId), score)
 			if ok then
 				lastWritten[player][board.Id] = score
@@ -161,6 +206,7 @@ end
 function LeaderboardService.OnPlayerRemoving(player: Player)
 	LeaderboardService.WriteScores(player)
 	lastWritten[player] = nil
+	ownerCache[player] = nil
 end
 
 --------------------------------------------------------------------------------
@@ -171,7 +217,9 @@ local function withLivePlayers(boardId: string, board: Board?): Board
 	local byUser: { [number]: { UserId: number, Name: string, Score: number } } = {}
 	if board then
 		for _, entry in board.Entries do
-			byUser[entry.UserId] = { UserId = entry.UserId, Name = entry.Name, Score = entry.Score }
+			if not (hiddenIds[entry.UserId] and boardId ~= "Donated") then
+				byUser[entry.UserId] = { UserId = entry.UserId, Name = entry.Name, Score = entry.Score }
+			end
 		end
 	end
 	for player, profile in DataService.GetAll() do
@@ -180,7 +228,7 @@ local function withLivePlayers(boardId: string, board: Board?): Board
 			score += profile.Session.TestDonated -- Studio test tips: shown here, never saved
 		end
 		local existing = byUser[player.UserId]
-		if hidden(boardId, profile.Data) then
+		if hidden(boardId, player, profile.Data) then
 			byUser[player.UserId] = nil
 		elseif score > 0 and (not existing or score > existing.Score) then
 			byUser[player.UserId] = { UserId = player.UserId, Name = player.DisplayName, Score = score }

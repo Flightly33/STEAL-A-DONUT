@@ -41,7 +41,7 @@ type Sleeper = {
 }
 
 local SNORE_RANGE = 85 -- studs: how far away you can hear him
-local Z_RANGE = 160 -- ...and see his Z's
+local Z_RANGE = 240 -- ...and see his Z's
 local BREATH = 3.8 -- seconds per breath (in 1.7 s, out 1.3 s, then a pause)
 local BREATH_IN = 1.7
 local BREATH_OUT = 1.3
@@ -141,7 +141,7 @@ local function puffZs(sleeper: Sleeper)
 			gui.Adornee = mouth
 			gui.LightInfluence = 0
 			gui.MaxDistance = Z_RANGE
-			local start = (0.45 + i * 0.12) * scale
+			local start = (1 + i * 0.3) * scale -- (big enough to read from across the area)
 			gui.Size = UDim2.fromScale(start, start)
 			gui.StudsOffsetWorldSpace = Vector3.new(0, 0.35 * scale, 0)
 			local label = Instance.new("TextLabel")
@@ -151,14 +151,17 @@ local function puffZs(sleeper: Sleeper)
 			label.Text = if i == 1 then "z" else "Z"
 			label.TextScaled = true
 			label.TextColor3 = Color3.fromRGB(235, 245, 255)
-			label.TextStrokeColor3 = Color3.fromRGB(50, 70, 140)
-			label.TextStrokeTransparency = 0
+			label.TextStrokeTransparency = 1
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = Color3.fromRGB(50, 70, 140)
+			stroke.Thickness = 3
+			stroke.Parent = label
 			label.Rotation = math.random(-18, 18)
 			label.Parent = gui
 			gui.Parent = sleeper.Model
 			local size = start * 1.9
 			TweenService:Create(gui, TweenInfo.new(2.6, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-				StudsOffsetWorldSpace = Vector3.new(drift * (1 + i * 0.4), (2.4 + i * 0.5) * scale, 0),
+				StudsOffsetWorldSpace = Vector3.new(drift * (1.5 + i * 0.6), (3.2 + i * 0.9) * scale, 0),
 				Size = UDim2.fromScale(size, size),
 			}):Play()
 			TweenService:Create(label, TweenInfo.new(1.1, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 1.5), {
@@ -166,6 +169,7 @@ local function puffZs(sleeper: Sleeper)
 				TextStrokeTransparency = 1,
 				Rotation = label.Rotation + math.random(-25, 25),
 			}):Play()
+			TweenService:Create(stroke, TweenInfo.new(1.1, Enum.EasingStyle.Linear, Enum.EasingDirection.In, 0, false, 1.5), { Transparency = 1 }):Play()
 			task.delay(2.7, function()
 				gui:Destroy()
 			end)

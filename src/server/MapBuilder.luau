@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 10
+local MAP_VERSION = 11
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -420,12 +420,56 @@ local function buildHubGround(hub: Instance)
 	end
 end
 
+-- Rocky hills along the tops of the hub's outer walls, in the lobby's own green and brown, so
+-- you look at grassy rocks instead of the empty sky past the walls. Two rows of chunky, tilted
+-- boulders with grass on top, the outer row taller; seeded, so every server builds the same ridge.
+local function buildRidge(hub: Instance)
+	local hw, depth, z0, h, t = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ, map.HubWallHeight, 4
+	local ridge = Instance.new("Model")
+	ridge.Name = "Ridge"
+	local rng = Random.new(2024)
+	local rockColors = { WALL_BROWN[1], WALL_BROWN[2], rgb(178, 112, 62), rgb(214, 148, 92) }
+	local function boulder(at: Vector3, size: Vector3)
+		local tilt = CFrame.Angles(rng:NextNumber(-0.18, 0.18), rng:NextNumber(0, math.pi * 2), rng:NextNumber(-0.18, 0.18))
+		local cf = CFrame.new(at) * tilt
+		Build.Part({ Parent = ridge, Name = "Rock", Size = size, CFrame = cf, Color = rockColors[rng:NextInteger(1, #rockColors)], Material = Enum.Material.Slate })
+		-- grass on top (a slab sitting on the rock's top face, a little smaller)
+		local grass = Vector3.new(size.X * 0.92, 1.6, size.Z * 0.92)
+		Build.Part({ Parent = ridge, Name = "Grass", Size = grass, CFrame = cf * CFrame.new(0, size.Y / 2 + 0.6, 0), Color = HUB_GREEN[rng:NextInteger(1, 2)], Material = Enum.Material.Plastic })
+	end
+	-- `from` -> `to` along the top of a wall; `outward` points away from the hub
+	local function line(from: Vector3, to: Vector3, outward: Vector3)
+		local length = (to - from).Magnitude
+		local dir = (to - from).Unit
+		local d = 0
+		while d < length do
+			local base = from + dir * d
+			-- inner row: low, right on the wall top
+			local inner = Vector3.new(rng:NextNumber(14, 22), rng:NextNumber(12, 20), rng:NextNumber(14, 22))
+			boulder(base + outward * rng:NextNumber(6, 10) + Vector3.new(0, h + inner.Y * 0.18, 0), inner)
+			-- outer row: tall peaks
+			local outer = Vector3.new(rng:NextNumber(18, 30), rng:NextNumber(26, 46), rng:NextNumber(18, 30))
+			boulder(base + dir * rng:NextNumber(-4, 4) + outward * rng:NextNumber(20, 30) + Vector3.new(0, h + outer.Y * 0.2, 0), outer)
+			d += rng:NextNumber(13, 19)
+		end
+	end
+	local laneOuter = map.LaneHalfWidth + t
+	line(Vector3.new(-hw - t, 0, z0 - depth - t), Vector3.new(-hw - t, 0, z0 + t), Vector3.new(-1, 0, 0)) -- left
+	line(Vector3.new(hw + t, 0, z0 - depth - t), Vector3.new(hw + t, 0, z0 + t), Vector3.new(1, 0, 0)) -- right
+	line(Vector3.new(-hw - t, 0, z0 - depth - t), Vector3.new(hw + t, 0, z0 - depth - t), Vector3.new(0, 0, -1)) -- back
+	-- the front walls either side of the lane (the rocks lean back over the lane's own walls' side)
+	line(Vector3.new(-hw - t, 0, z0 + t), Vector3.new(-laneOuter - 30, 0, z0 + t), Vector3.new(0, 0, 1))
+	line(Vector3.new(laneOuter + 30, 0, z0 + t), Vector3.new(hw + t, 0, z0 + t), Vector3.new(0, 0, 1))
+	ridge.Parent = hub
+end
+
 local function buildHub(parent: Folder)
 	local hub = Instance.new("Folder")
 	hub.Name = "Hub"
 	hub.Parent = parent
 	local z0 = map.SafeZoneZ
 	buildHubGround(hub)
+	buildRidge(hub)
 
 	buildSafeZoneLine(hub)
 	buildEntranceGate(hub)
@@ -1066,148 +1110,102 @@ end
 --------------------------------------------------------------------------------
 -- Donut stands: rows of 4 starting at the FRONT of the plot (see Layout.SlotOffset). Stands you
 -- haven't unlocked yet are shown see-through by PlotService.
-local function buildSlots(plot: Model, plotIndex: number, worldId: number)
-	local old = plot:FindFirstChild("Slots")
+-- A base's pen (like Steal an Egg): a patch of checker ground - one tile per donut - inside a low
+-- fence you can hop over, with a gate in the middle of the front. Rebuilt (PlotService) whenever
+-- the base gets bigger; `slots` is how many donuts it holds (Layout.PenGrid).
+function MapBuilder.BuildPen(plot: Model, slots: number)
+	local old = plot:FindFirstChild("Pen")
 	if old then
 		old:Destroy()
-	end
-	local cf = Layout.PlotCFrame(plotIndex, worldId)
-	local fh = Layout.PlotFloorHeight
-	local classic = Config.Skins[1]
-	local slots = Instance.new("Folder")
-	slots.Name = "Slots"
-	slots.Parent = plot
-	for index = 1, Config.Plots.SlotsPerPlot do
-		local offset = Layout.SlotOffset(index)
-		local pedestal = Build.Part({
-			Parent = slots, Name = "Slot" .. index,
-			Shape = Enum.PartType.Cylinder,
-			Size = Vector3.new(1, 7.5, 7.5),
-			CFrame = cf * CFrame.new(offset.X, fh + 0.5, offset.Z) * CFrame.Angles(0, 0, math.pi / 2),
-			Color = classic.Pedestal, Material = classic.PedestalMaterial,
-		})
-		pedestal:SetAttribute("SkinRole", "Pedestal")
-		pedestal:SetAttribute("SlotIndex", index)
-		-- Where the donut stands (top of pedestal, facing out of the plot)
-		pedestal:SetAttribute("Surface", cf * CFrame.new(offset.X, fh + 1, offset.Z))
-	end
-end
-
--- Low solid walls on the plot's left and right sides (PLOT_WALL_HEIGHT). With the building on
--- (Config.Plots.Building.Enclosed) glass rises from their top to the roof; without it they're low
--- enough to hop over, so thieves can jump in from the side.
-local PLOT_WALL_HEIGHT = 6
-local function addPlotWalls(plot: Instance, cf: CFrame)
-	if plot:FindFirstChild("SideWalls") then
-		return
-	end
-	local folder = Instance.new("Folder")
-	folder.Name = "SideWalls"
-	local w, d = Layout.PlotWidth, Layout.PlotDepth
-	local classic = Config.Skins[1]
-	for _, side in { -1, 1 } do
-		local wall = Build.Part({
-			Parent = folder, Name = "Wall",
-			Size = Vector3.new(1.4, PLOT_WALL_HEIGHT, d + 1.4),
-			CFrame = cf * CFrame.new(side * (w / 2 + 0.9), PLOT_WALL_HEIGHT / 2, 0),
-			Color = classic.Fence, Material = classic.FenceMaterial,
-		})
-		wall:SetAttribute("SkinRole", "Fence")
-		local cap = Build.Part({
-			Parent = folder, Name = "WallCap",
-			Size = Vector3.new(2, 0.4, d + 2),
-			CFrame = cf * CFrame.new(side * (w / 2 + 0.9), PLOT_WALL_HEIGHT + 0.2, 0),
-			Color = classic.Trim, Material = classic.TrimMaterial,
-		})
-		cap:SetAttribute("SkinRole", "Trim")
-	end
-	folder.Parent = plot
-end
-
--- A base as a building (Config.Plots.Building): glass windows from the top of the low walls up
--- to a roof above the top floor, so the donuts inside stay in view. The front is open below
--- EntranceHeight (the way in); the sides and back are closed, so nobody hops in over a wall.
--- Rebuilt by PlotService whenever the number of floors changes (floors = 1, 2 or 3).
-function MapBuilder.BuildShell(plot: Model, floors: number)
-	local old = plot:FindFirstChild("Building")
-	if old then
-		old:Destroy()
-	end
-	local settings = Config.Plots.Building
-	if not settings.Enclosed then
-		return
 	end
 	local cf = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number, (plot:GetAttribute("WorldId") :: number?) or 1)
-	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
+	local fh = Layout.PlotFloorHeight
 	local classic = Config.Skins[1]
-	local top = Layout.FloorY(floors + 1) + fh -- underside of the roof
-	local wallHeight = PLOT_WALL_HEIGHT
-	local entrance = settings.EntranceHeight
-	local ex, ez = w / 2 + 0.9, d / 2 + 0.9 -- the wall lines (the side walls stand on them too)
-	local building = Instance.new("Model")
-	building.Name = "Building"
+	local columns, rows, width, depth = Layout.PenGrid(slots)
+	local cell = Config.Plots.CellSize
+	local front = Layout.PenFront
+	local pen = Instance.new("Model")
+	pen.Name = "Pen"
+	pen:SetAttribute("Slots", slots)
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
-	local function glass(name: string, size: Vector3, position: CFrame)
-		local pane = Build.Part({
-			Parent = building, Name = name, Size = size, CFrame = position,
-			Color = settings.GlassColor, Material = Enum.Material.Glass, Transparency = settings.GlassTransparency,
-		})
-		pane.CastShadow = false
+	local function skinned(role: string, props): BasePart
+		props.Parent = props.Parent or pen
+		local part = Build.Part(props)
+		part:SetAttribute("SkinRole", role)
+		return part
 	end
-	local function trim(name: string, size: Vector3, position: CFrame)
-		local part = Build.Part({ Parent = building, Name = name, Size = size, CFrame = position, Color = classic.Trim, Material = classic.TrimMaterial })
-		part:SetAttribute("SkinRole", "Trim")
+	-- Ground: one checker tile per donut patch, with a border round the edge
+	local floor = Instance.new("Folder")
+	floor.Name = "Floor"
+	floor.Parent = pen
+	for column = 0, columns - 1 do
+		for row = 0, rows - 1 do
+			local role = if (column + row) % 2 == 0 then "Floor" else "FloorAlt"
+			skinned(role, {
+				Parent = floor, Name = "Tile",
+				Size = Vector3.new(cell, fh + 0.5, cell),
+				CFrame = at(-width / 2 + cell * (column + 0.5), (fh - 0.5) / 2, front + cell * (row + 0.5)),
+				Color = if role == "Floor" then classic.Floor else classic.FloorAlt,
+				Material = classic.FloorMaterial,
+			})
+		end
 	end
-	-- Glass: both sides and the back from the top of the low walls, the front above the entrance
-	local glassHeight = top - wallHeight
+	local border = 2
 	for _, side in { -1, 1 } do
-		glass("SideGlass", Vector3.new(0.6, glassHeight, ez * 2), at(side * ex, wallHeight + glassHeight / 2, 0))
+		skinned("Trim", { Parent = floor, Name = "Border", Size = Vector3.new(border, fh + 0.6, depth + border * 2), CFrame = at(side * (width / 2 + border / 2), (fh - 0.4) / 2, front + depth / 2), Color = classic.Trim, Material = classic.TrimMaterial })
+		skinned("Trim", { Parent = floor, Name = "Border", Size = Vector3.new(width, fh + 0.6, border), CFrame = at(0, (fh - 0.4) / 2, if side < 0 then front - border / 2 else front + depth + border / 2), Color = classic.Trim, Material = classic.TrimMaterial })
 	end
-	glass("BackGlass", Vector3.new(ex * 2, glassHeight, 0.6), at(0, wallHeight + glassHeight / 2, ez))
-	glass("FrontGlass", Vector3.new(ex * 2, top - entrance, 0.6), at(0, entrance + (top - entrance) / 2, -ez))
-	-- A low solid wall along the back, like the side walls
-	local back = Build.Part({ Parent = building, Name = "BackWall", Size = Vector3.new(ex * 2 + 1.4, wallHeight, 1.4), CFrame = at(0, wallHeight / 2, ez), Color = classic.Fence, Material = classic.FenceMaterial })
-	back:SetAttribute("SkinRole", "Fence")
-	-- Frame: corner pillars, window bars, a beam over the entrance and a band at every floor
-	for _, x in { -ex, ex } do
-		for _, z in { -ez, ez } do
-			trim("Pillar", Vector3.new(1.8, top, 1.8), at(x, top / 2, z))
+
+	-- Fence: posts and two rails all the way round, a gap for the gate at the front
+	local fence = Instance.new("Folder")
+	fence.Name = "Fence"
+	fence.Parent = pen
+	local height = Config.Plots.FenceHeight
+	local gate = 8 -- half the gate's width
+	local function fenceLine(from: Vector3, to: Vector3)
+		local length = (to - from).Magnitude
+		if length < 0.5 then
+			return
+		end
+		local dir = (to - from).Unit
+		local posts = math.max(1, math.floor(length / 6.5 + 0.5))
+		for i = 0, posts do
+			local p = from + dir * (length * i / posts)
+			skinned("Fence", { Parent = fence, Name = "Post", Size = Vector3.new(1.1, height + 0.6, 1.1), CFrame = at(p.X, fh + (height + 0.6) / 2, p.Z), Color = classic.Fence, Material = classic.FenceMaterial })
+		end
+		local mid = (from + to) / 2
+		local line = CFrame.lookAt(Vector3.new(mid.X, 0, mid.Z), Vector3.new(to.X, 0, to.Z))
+		for _, y in { height * 0.4, height * 0.85 } do
+			skinned("Fence", { Parent = fence, Name = "Rail", Size = Vector3.new(0.45, 0.6, length), CFrame = cf * line * CFrame.new(0, fh + y, 0), Color = classic.Fence, Material = classic.FenceMaterial })
+		end
+		skinned("Trim", { Parent = fence, Name = "RailCap", Size = Vector3.new(0.7, 0.3, length), CFrame = cf * line * CFrame.new(0, fh + height + 0.45, 0), Color = classic.Trim, Material = classic.TrimMaterial })
+	end
+	local hw, z0, z1 = width / 2 + border, front - border, front + depth + border
+	fenceLine(Vector3.new(-hw, 0, z1), Vector3.new(hw, 0, z1)) -- back
+	fenceLine(Vector3.new(-hw, 0, z0), Vector3.new(-hw, 0, z1)) -- left
+	fenceLine(Vector3.new(hw, 0, z0), Vector3.new(hw, 0, z1)) -- right
+	fenceLine(Vector3.new(-hw, 0, z0), Vector3.new(-gate, 0, z0)) -- front left
+	fenceLine(Vector3.new(gate, 0, z0), Vector3.new(hw, 0, z0)) -- front right
+	-- Big corner posts with round caps, and a gate arch
+	for _, x in { -hw, hw } do
+		for _, z in { z0, z1 } do
+			skinned("Trim", { Parent = fence, Name = "CornerPost", Size = Vector3.new(1.8, height + 2, 1.8), CFrame = at(x, fh + (height + 2) / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
+			skinned("Pedestal", { Parent = fence, Name = "CornerCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.4, CFrame = at(x, fh + height + 2.6, z), Color = classic.Pedestal, Material = classic.PedestalMaterial })
 		end
 	end
-	for z = -d / 2 + 14, d / 2 - 13, 14 do
-		for _, side in { -1, 1 } do
-			trim("WindowBar", Vector3.new(0.5, glassHeight, 0.9), at(side * (ex + 0.4), wallHeight + glassHeight / 2, z))
-		end
-	end
-	for x = -14, 14, 14 do
-		trim("WindowBar", Vector3.new(0.9, glassHeight, 0.5), at(x, wallHeight + glassHeight / 2, ez + 0.4))
-		trim("WindowBar", Vector3.new(0.9, top - entrance, 0.5), at(x, entrance + (top - entrance) / 2, -ez - 0.4))
-	end
-	trim("EntranceBeam", Vector3.new(ex * 2, 1, 1.2), at(0, entrance, -ez))
-	for floor = 2, floors do
-		local y = Layout.FloorY(floor) + fh
-		trim("FloorBand", Vector3.new(ex * 2, 0.8, 1), at(0, y, -ez - 0.2))
-		trim("FloorBand", Vector3.new(ex * 2, 0.8, 1), at(0, y, ez + 0.2))
-		for _, side in { -1, 1 } do
-			trim("FloorBand", Vector3.new(1, 0.8, ez * 2), at(side * (ex + 0.2), y, 0))
-		end
-	end
-	-- Roof: a frame with a big glass skylight
-	local roofW, roofD = ex * 2 + 3, ez * 2 + 3
-	glass("Skylight", Vector3.new(roofW - 12, 0.6, roofD - 12), at(0, top + 0.3, 0))
+	local archHeight = 11
 	for _, side in { -1, 1 } do
-		trim("RoofEdge", Vector3.new(6, 1.2, roofD), at(side * (roofW / 2 - 3), top + 0.6, 0))
-		trim("RoofEdge", Vector3.new(roofW - 12, 1.2, 6), at(0, top + 0.6, side * (roofD / 2 - 3)))
+		skinned("Trim", { Parent = fence, Name = "GatePost", Size = Vector3.new(2, archHeight, 2), CFrame = at(side * gate, fh + archHeight / 2, z0), Color = classic.Trim, Material = classic.TrimMaterial })
 	end
-	building.Parent = plot
+	skinned("Pedestal", { Parent = fence, Name = "GateArch", Size = Vector3.new(gate * 2 + 2, 1.6, 2.2), CFrame = at(0, fh + archHeight + 0.8, z0), Color = classic.Pedestal, Material = classic.PedestalMaterial })
+	pen.Parent = plot
 end
 
 function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	local cf = Layout.PlotCFrame(plotIndex, worldId)
-	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
-	local classic = Config.Skins[1]
+	local d, fh = Layout.PlotDepth, Layout.PlotFloorHeight
 
 	local plot = Instance.new("Model")
 	plot.Name = "Plot" .. plotIndex
@@ -1217,65 +1215,11 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
+	local hd = d / 2
 
-	local function skinned(role: string, props): BasePart
-		props.Parent = props.Parent or plot
-		local part = Build.Part(props)
-		part:SetAttribute("SkinRole", role)
-		return part
-	end
-
-	-- Floor (checker, raised slightly above the hub)
-	local floor = Instance.new("Folder")
-	floor.Name = "Floor"
-	floor.Parent = plot
-	local tile = 14
-	for ix = 0, w / tile - 1 do
-		for iz = 0, d / tile - 1 do
-			local role = if (ix + iz) % 2 == 0 then "Floor" else "FloorAlt"
-			skinned(role, {
-				Parent = floor, Name = "Tile",
-				Size = Vector3.new(tile, fh + 0.5, tile),
-				CFrame = at(-w / 2 + tile / 2 + ix * tile, (fh - 0.5) / 2, -d / 2 + tile / 2 + iz * tile),
-				Color = if role == "Floor" then classic.Floor else classic.FloorAlt,
-				Material = classic.FloorMaterial,
-			})
-		end
-	end
-
-	-- Fence with an opening at the front
-	local fence = Instance.new("Folder")
-	fence.Name = "Fence"
-	fence.Parent = plot
-	local fenceHeight = 5
-	local function fenceLine(from: Vector3, to: Vector3)
-		local length = (to - from).Magnitude
-		local dir = (to - from).Unit
-		local posts = math.max(1, math.floor(length / 7))
-		for i = 0, posts do
-			local p = from + dir * (length * i / posts)
-			skinned("Fence", { Parent = fence, Name = "Post", Size = Vector3.new(1.2, fenceHeight + 1, 1.2), CFrame = at(p.X, fh + (fenceHeight + 1) / 2, p.Z), Color = classic.Fence, Material = classic.FenceMaterial })
-			skinned("Trim", { Parent = fence, Name = "PostCap", Size = Vector3.new(1.5, 0.4, 1.5), CFrame = at(p.X, fh + fenceHeight + 1.2, p.Z), Color = classic.Trim, Material = classic.TrimMaterial })
-		end
-		local mid = (from + to) / 2
-		for _, y in { 1.8, 4 } do
-			local rail = CFrame.lookAt(Vector3.new(mid.X, 0, mid.Z), Vector3.new(to.X, 0, to.Z))
-			skinned("Fence", { Parent = fence, Name = "Rail", Size = Vector3.new(0.5, 0.7, length), CFrame = cf * rail * CFrame.new(0, fh + y, 0), Color = classic.Fence, Material = classic.FenceMaterial })
-		end
-	end
-	local hw, hd, gap = w / 2, d / 2, 9
-	fenceLine(Vector3.new(-hw, 0, hd), Vector3.new(hw, 0, hd)) -- back
-	fenceLine(Vector3.new(-hw, 0, -hd), Vector3.new(-hw, 0, hd)) -- left
-	fenceLine(Vector3.new(hw, 0, -hd), Vector3.new(hw, 0, hd)) -- right
-	fenceLine(Vector3.new(-hw, 0, -hd), Vector3.new(-gap, 0, -hd)) -- front left
-	fenceLine(Vector3.new(gap, 0, -hd), Vector3.new(hw, 0, -hd)) -- front right
-	addPlotWalls(plot, cf)
-
-	buildSlots(plot, plotIndex, worldId)
-
-	-- Anchors used by other services
-	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, -hd + 12), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 20, hd - 6), Transparency = 1, CanCollide = false, CanQuery = false })
+	-- Anchors used by other services (the sign moves to the back of the pen as it grows)
+	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, Layout.PenFront + 8), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 20, Layout.PenFront + 20), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-17, 0, -hd - 12), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(17, 0, -hd - 11), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, 0, -hd - 22), Transparency = 1, CanCollide = false, CanQuery = false })
@@ -1285,7 +1229,7 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 	skinFx.Parent = plot
 
 	plot.PrimaryPart = plot:FindFirstChild("Spawn") :: BasePart
-	MapBuilder.BuildShell(plot, 1)
+	MapBuilder.BuildPen(plot, Config.Plots.Sizes[1].Slots)
 	plot.Parent = parent
 end
 
@@ -1431,8 +1375,9 @@ end
 function MapBuilder.Build(): Folder
 	setupLighting()
 	local existing = workspace:FindFirstChild("Map")
-	if existing and existing:IsA("Folder") then
-		-- A baked map (saved in the place file) can't store model references, so reconnect them.
+	if existing and existing:IsA("Folder") and ((existing:GetAttribute("MapVersion") or 1) :: number) >= MAP_VERSION then
+		-- A baked map (saved in the place file): reconnect the model references a saved copy may
+		-- have lost, and refresh what can change between updates.
 		for _, instance in existing:GetDescendants() do
 			local primaryName = instance:GetAttribute("PrimaryPartName")
 			if instance:IsA("Model") and not instance.PrimaryPart and type(primaryName) == "string" then
@@ -1444,192 +1389,9 @@ function MapBuilder.Build(): Folder
 				reconnectAttachments(instance)
 			end
 		end
-		-- Older saved maps: add things introduced later.
 		local hub = existing:FindFirstChild("Hub")
-		local version = (existing:GetAttribute("MapVersion") or 1) :: number
-		if version < 10 then
-			-- Versions 9 and 10: longer (and in 9 wider) areas (Config.Map). Rebuild every lane and world
-			-- hub (below); for 9 also the main hub's safe zone line, entrance gate, ground and walls (cut
-			-- to the lane's width).
-			for _, name in { "Lane", "Worlds" } do
-				local old = existing:FindFirstChild(name)
-				if old then
-					old:Destroy()
-				end
-			end
-			if hub and version < 9 then
-				local rebuildGround = version >= 5 -- (older maps get a new hub ground below anyway)
-				for _, name in { "SafeZoneLine", "SafeZoneLabel", "EntranceGate", if rebuildGround then "Floor" else "", if rebuildGround then "Walls" else "" } do
-					local old = if name ~= "" then hub:FindFirstChild(name) else nil
-					if old then
-						old:Destroy()
-					end
-				end
-				buildSafeZoneLine(hub)
-				buildEntranceGate(hub)
-				if rebuildGround then
-					buildHubGround(hub)
-				end
-			end
-		end
-		if version < 4 then
-			-- Version 4: two more areas in every world and World 4 (Cyber City), so area numbers changed.
-			-- Rebuild the lanes, the world hubs and the hub's portals from scratch (below).
-			for _, name in { "Lane", "Worlds" } do
-				local old = existing:FindFirstChild(name)
-				if old then
-					old:Destroy()
-				end
-			end
-			local portals = hub and hub:FindFirstChild("Portals")
-			if portals then
-				portals:Destroy()
-			end
-		end
-		if version < 5 then
-			-- Version 5: bases are much further apart (Layout.PlotRowSpacing), so every hub is deeper
-			-- (Config.Map.HubDepth), and every base is a building (BuildShell). Rebuild the bases, the
-			-- world hubs, and the main hub's floor and outer walls; the shop, boards, portals and the
-			-- spawn in the middle of the hub are kept as they are.
-			for _, name in { "Plots", "Worlds" } do
-				local old = existing:FindFirstChild(name)
-				if old then
-					old:Destroy()
-				end
-			end
-			if hub then
-				for _, name in { "Floor", "Walls" } do
-					local old = hub:FindFirstChild(name)
-					if old then
-						old:Destroy()
-					end
-				end
-				buildHubGround(hub)
-			end
-		end
-		if version < 8 then
-			-- Version 8: World 2 is now The Underworld, so rebuild its hub, bridge and lane.
-			local lane = existing:FindFirstChild("Lane")
-			for _, area in Areas.ByWorld[2] do
-				local old = lane and lane:FindFirstChild("Area" .. area.Id)
-				if old then
-					old:Destroy()
-				end
-			end
-			local worlds = existing:FindFirstChild("Worlds")
-			local world2 = worlds and worlds:FindFirstChild("World2")
-			if world2 then
-				world2:Destroy()
-			end
-		end
-		if version < 7 then
-			-- Version 7: The Black Hole's black holes, lab chamber and decor were rebuilt.
-			local lane = existing:FindFirstChild("Lane")
-			local blackHole = lane and lane:FindFirstChild("Area34")
-			if blackHole then
-				blackHole:Destroy()
-			end
-		end
-		if version < 7 then
-			-- Version 7: World 2 is galactic (purple ground, galaxy over the hub), so rebuild its hub and lane.
-			local lane = existing:FindFirstChild("Lane")
-			for index = 1, 12 do
-				local area = lane and lane:FindFirstChild("Area" .. (Areas.CosmicOffset + index))
-				if area then
-					area:Destroy()
-				end
-			end
-			local worlds = existing:FindFirstChild("Worlds")
-			local ultimate = worlds and worlds:FindFirstChild("World" .. Areas.UltimateWorld)
-			if ultimate then
-				ultimate:Destroy()
-			end
-		end
-		if version < 6 then
-			-- Version 6: The Black Hole comes after The Mainframe, so rebuild The Mainframe without
-			-- its end wall; the hub's portals and leaderboards moved to the back of the hub.
-			local lane = existing:FindFirstChild("Lane")
-			local mainframe = lane and lane:FindFirstChild("Area33")
-			if mainframe then
-				mainframe:Destroy()
-			end
-			for _, name in { "Portals", "Leaderboards" } do
-				local old = hub and hub:FindFirstChild(name)
-				if old then
-					old:Destroy()
-				end
-			end
-		end
 		if hub then
-			local shop = hub:FindFirstChild("ShopStall")
-			if shop and shop:GetAttribute("ShopTab") == nil then
-				shop:SetAttribute("ShopTab", "Upgrades")
-			end
-			if not hub:FindFirstChild("ItemShopStall") then
-				buildStall(hub, "ItemShopStall", 86, "⚔️ ITEM SHOP", rgb(255, 70, 70), "Items", 3)
-			end
-			if not hub:FindFirstChild("Portals") then
-				buildHubPortals(hub)
-			end
 			refreshPortalSigns(hub)
-		end
-		if version < 2 then
-			-- Version 2: donut stands moved to the front of each base (and more of them).
-			local plots = existing:FindFirstChild("Plots")
-			for plotIndex = 1, Config.Plots.Count do
-				local plot = plots and plots:FindFirstChild("Plot" .. plotIndex)
-				if plot and plot:IsA("Model") then
-					buildSlots(plot, plotIndex, 1)
-				end
-			end
-		end
-		if version < 3 then
-			-- Version 3: Domer is HUGE now, so his blanket is bigger.
-			local lane = existing:FindFirstChild("Lane")
-			for _, area in Areas.List do
-				local folder = lane and lane:FindFirstChild("Area" .. area.Id)
-				local oldBed = folder and folder:FindFirstChild("GuardBed")
-				if folder and oldBed then
-					oldBed:Destroy()
-					buildGuardBed(folder, area.Id)
-					local offset = Layout.WorldOffset(area.World)
-					local bed = folder:FindFirstChild("GuardBed")
-					if bed and offset ~= 0 then
-						for _, part in bed:GetDescendants() do
-							if part:IsA("BasePart") then
-								part.CFrame += Vector3.new(offset, 0, 0)
-							end
-						end
-					end
-				end
-			end
-			-- Version 3: every world has a full hub with its own base plots (and incubators).
-			local worlds = existing:FindFirstChild("Worlds")
-			if worlds then
-				worlds:Destroy()
-			end
-			local plots = existing:FindFirstChild("Plots")
-			for plotIndex = 1, Config.Plots.Count do
-				local plot = plots and plots:FindFirstChild("Plot" .. plotIndex)
-				if plot and plot:IsA("Model") then
-					plot:SetAttribute("WorldId", 1)
-					if not plot:FindFirstChild("IncubatorAnchor") then
-						Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = Layout.PlotCFrame(plotIndex, 1) * CFrame.new(0, 0, -Layout.PlotDepth / 2 - 22), Transparency = 1, CanCollide = false, CanQuery = false })
-					end
-				end
-			end
-		end
-		-- Walls between neighbouring bases (added later): World 1's plots are kept from the saved map.
-		local savedPlots = existing:FindFirstChild("Plots")
-		for plotIndex = 1, Config.Plots.Count do
-			local plot = savedPlots and savedPlots:FindFirstChild("Plot" .. plotIndex)
-			if plot then
-				addPlotWalls(plot, Layout.PlotCFrame(plotIndex, 1))
-			end
-		end
-		existing:SetAttribute("MapVersion", MAP_VERSION)
-		refreshAreaSigns(existing)
-		if hub then
 			-- New leaderboards (e.g. donations): rebuild the row of boards.
 			local boards = hub:FindFirstChild("Leaderboards")
 			local missing = boards == nil
@@ -1645,14 +1407,18 @@ function MapBuilder.Build(): Folder
 				buildLeaderboards(hub)
 			end
 		end
+		refreshAreaSigns(existing)
 		buildLane(existing) -- adds any areas that are missing (new worlds)
-		if not existing:FindFirstChild("Plots") then
-			buildPlots(existing)
-		end
 		buildWorlds(existing) -- adds any world hubs that are missing
 		optimize(existing)
 		mapFolder = existing
 		return existing
+	end
+	-- No map, or one saved by an older version of the game: build it all from scratch. (Version 11:
+	-- bases are open pens and there are 6 of them, every hub is bigger, every area is longer and
+	-- wider - nothing of an older map fits any more.)
+	if existing then
+		existing:Destroy()
 	end
 	local folder = Instance.new("Folder")
 	folder.Name = "Map"

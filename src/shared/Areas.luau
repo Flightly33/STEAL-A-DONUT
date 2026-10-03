@@ -411,7 +411,7 @@ Areas.List = {
 		-- window, and the big red ULTIMATE REBIRTH button sends you to World 2.
 		Id = 34, Name = "The Black Hole", Theme = "BlackHole",
 		RecommendedSpeed = 2_970, GuardSpeedBonus = 11, WakeDelay = 0.59, World = 4, Index = 8,
-		Length = AREA * 1.5, HalfWidth = 95, Lab = true,
+		Length = AREA * 1.5, HalfWidth = 135, Lab = true,
 		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,

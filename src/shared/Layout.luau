@@ -163,14 +163,19 @@ Layout.PortalRadius = 6
 --------------------------------------------------------------------------------
 -- Plots: odd numbers on the left (-X), even on the right (+X), row 0 nearest the lane.
 -- Every world's hub has the same plots around its own lane (worldId, default 1).
+--
+-- A base is an open pen on its plot (like Steal an Egg): a fenced patch of ground with a gate at
+-- the front, where the donuts roam. The pen grows with the base's size (Config.Plots.Sizes): its
+-- front stays at the front of the plot and it grows sideways and backwards, so the plot is as big
+-- as the biggest pen (Config.Admin.MaxSlots donuts).
 --------------------------------------------------------------------------------
-Layout.PlotWidth = 56
-Layout.PlotDepth = 98
--- Bases in a row are this far apart (centre to centre): 44 studs of open ground between two bases,
--- so a thief has a real run from someone's base to their own.
-Layout.PlotRowSpacing = 100
-Layout.PlotFirstRowZ = 40 -- the first row's centre, this far behind the safe-zone line
+Layout.PlotWidth = 180 -- plot space X (sideways)
+Layout.PlotDepth = 180 -- plot space Z (front, by the plaza, to back)
+-- Bases in a row are this far apart (centre to centre): 40 studs of open ground between two plots.
+Layout.PlotRowSpacing = 220
+Layout.PlotFirstRowZ = 102 -- the first row's centre, this far behind the safe-zone line
 Layout.PlotFloorHeight = 0.4
+Layout.PenFront = -Layout.PlotDepth / 2 + 3 -- (plot space) the pen's front fence, where the gate is
 
 function Layout.PlotCFrame(plotIndex: number, worldId: number?): CFrame
 	local side = if plotIndex % 2 == 1 then -1 else 1
@@ -182,62 +187,46 @@ function Layout.PlotCFrame(plotIndex: number, worldId: number?): CFrame
 	return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
 end
 
--- Donut stands, in plot space: rows from the FRONT (entrance) to the back, 4 per row, so the
--- first stands you own are the ones everybody walks past.
-Layout.SlotColumns = { -19.5, -6.5, 6.5, 19.5 }
-Layout.SlotRows = { -26, -12, 2, 16, 30, 42 }
--- Floors: the ground floor has SlotsPerPlot stands, every upper floor UpperFloors.Slots more
--- (stands SlotsPerPlot+1 .. are upstairs, same layout, UpperFloors.Height studs per floor).
--- MaxFloors is what can be bought; the game's owner can build more (Config.Admin.MaxFloors).
-Layout.MaxFloors = 1 + #Config.Plots.UpperFloors.Costs
-
--- How many stands a base with `floors` floors has (all of them unlocked).
-function Layout.SlotsForFloors(floors: number): number
-	return Config.Plots.SlotsPerPlot + Config.Plots.UpperFloors.Slots * (math.max(floors, 1) - 1)
+-- The pen's grid for a base with room for `slots` donuts: one CellSize patch per donut, about as
+-- many columns as rows. Returns columns, rows, width (plot X) and depth (plot Z) in studs.
+function Layout.PenGrid(slots: number): (number, number, number, number)
+	local cell = Config.Plots.CellSize
+	local count = math.max(slots, 1)
+	local columns = math.ceil(math.sqrt(count) - 1e-9)
+	local rows = math.ceil(count / columns)
+	return columns, rows, columns * cell, rows * cell
 end
 
-Layout.MaxSlots = Layout.SlotsForFloors(Layout.MaxFloors)
--- Lift pads (plot space) at the front of the base, clear of the entrance and the stands. The lift
--- between floor k and floor k + 1 uses LiftOffsets[k], taking turns left / right, so a floor's
--- "up" and "down" pads are never on top of each other (pads stacked exactly above each other).
-Layout.LiftOffsets = { Vector3.new(-18, 0, -40), Vector3.new(18, 0, -40) }
-
-function Layout.LiftOffset(lift: number): Vector3
-	return Layout.LiftOffsets[(lift - 1) % #Layout.LiftOffsets + 1]
+-- The pen's middle (plot space) and its size (X, Z).
+function Layout.PenBounds(slots: number): (Vector3, Vector2)
+	local _, _, width, depth = Layout.PenGrid(slots)
+	return Vector3.new(0, 0, Layout.PenFront + depth / 2), Vector2.new(width, depth)
 end
 
--- Height of a floor's surface above the plot's floor (floor 1 = ground = 0).
-function Layout.FloorY(floor: number): number
-	return (floor - 1) * Config.Plots.UpperFloors.Height
-end
-
--- Which floor (1 = ground) a stand is on.
-function Layout.SlotFloor(slotIndex: number): number
-	local ground = Config.Plots.SlotsPerPlot
-	if slotIndex <= ground then
-		return 1
+-- Where donut number `slotIndex` lives in the pen (plot space, on the ground): the middle of its
+-- patch. Patches fill the pen from the front row (by the gate) to the back.
+function Layout.SlotHome(slotIndex: number, slots: number): Vector3
+	local columns, _, width = Layout.PenGrid(slots)
+	local cell = Config.Plots.CellSize
+	local index = slotIndex - 1
+	local column = index % columns
+	local row = index // columns
+	-- (rows alternate direction so neighbours along the fill order stay close)
+	if row % 2 == 1 then
+		column = columns - 1 - column
 	end
-	return 2 + (slotIndex - ground - 1) // Config.Plots.UpperFloors.Slots
+	return Vector3.new(-width / 2 + cell * (column + 0.5), 0, Layout.PenFront + cell * (row + 0.5))
 end
 
-function Layout.SlotOffset(slotIndex: number): Vector3
-	local floor = Layout.SlotFloor(slotIndex)
-	local ground = Config.Plots.SlotsPerPlot
-	local index = if floor == 1 then slotIndex else (slotIndex - ground - 1) % Config.Plots.UpperFloors.Slots + 1
-	local columns = #Layout.SlotColumns
-	local row = (index - 1) // columns + 1
-	local column = (index - 1) % columns + 1
-	return Vector3.new(Layout.SlotColumns[column], Layout.FloorY(floor), Layout.SlotRows[row])
-end
-
--- Is `position` inside the plot's fenced area? (`floors`: how many floors the base has)
-function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?, floors: number?): boolean
+-- Is `position` inside a base's pen (`slots`: how many donuts it holds)? `margin` widens it.
+function Layout.IsInPlot(plotIndex: number, position: Vector3, worldId: number?, slots: number?, margin: number?): boolean
 	local localPos = Layout.PlotCFrame(plotIndex, worldId):PointToObjectSpace(position)
-	local top = math.max(floors or 1, Layout.MaxFloors)
-	return math.abs(localPos.X) <= Layout.PlotWidth / 2
-		and math.abs(localPos.Z) <= Layout.PlotDepth / 2
+	local center, size = Layout.PenBounds(slots or Config.Plots.Sizes[1].Slots)
+	local m = margin or 2
+	return math.abs(localPos.X - center.X) <= size.X / 2 + m
+		and math.abs(localPos.Z - center.Z) <= size.Y / 2 + m
 		and localPos.Y > -5
-		and localPos.Y < Layout.FloorY(top) + Config.Plots.UpperFloors.Height + 10
+		and localPos.Y < 60
 end
 
 return Layout

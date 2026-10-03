@@ -16,6 +16,7 @@ local CollectionService = game:GetService("CollectionService")
 
 local Build = require(script.Parent.Build)
 local BlackHoleModel = require(script.Parent.BlackHoleModel)
+local Areas = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("Areas"))
 
 local Decor = {}
 
@@ -1019,13 +1020,19 @@ function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
 	local px, pz = Decor.LabPit(zs)
 	local pitHalf = Decor.LabPitSize / 2 + 1
 	local gridColor = rgb(130, 70, 255)
+	local half = 95 -- (the area's half width: Areas.luau)
+	for _, area in Areas.List do
+		if area.Theme == "BlackHole" and area.HalfWidth then
+			half = area.HalfWidth
+		end
+	end
 	local function line(x0: number, x1: number, z0: number, z1: number)
 		if x1 - x0 > 0.5 or z1 - z0 > 0.5 then
 			Build.Decor({ Parent = folder, Name = "GridLine", Size = Vector3.new(math.max(0.3, x1 - x0), 0.1, math.max(0.3, z1 - z0)), Position = Vector3.new((x0 + x1) / 2, 0.06, (z0 + z1) / 2), Color = gridColor, Material = Enum.Material.Neon, Transparency = 0.55 })
 		end
 	end
-	local x = -75
-	while x < 95 do
+	local x = -half + 20
+	while x < half do
 		if math.abs(x - px) <= pitHalf then
 			line(x, x, zs, pz - pitHalf)
 			line(x, x, pz + pitHalf, ze)
@@ -1037,10 +1044,10 @@ function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
 	local z = zs + 20
 	while z < ze do
 		if math.abs(z - pz) <= pitHalf then
-			line(-95, px - pitHalf, z, z)
-			line(px + pitHalf, 95, z, z)
+			line(-half, px - pitHalf, z, z)
+			line(px + pitHalf, half, z, z)
 		else
-			line(-95, 95, z, z)
+			line(-half, half, z, z)
 		end
 		z += 20
 	end
@@ -1050,10 +1057,10 @@ function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
 	while z < ze - 10 do
 		local pull = (z - zs) / (ze - zs)
 		for _, side in { -1, 1 } do
-			if side * 86 > px - pitHalf and math.abs(z - pz) < pitHalf + 3 then
+			if side * (half - 9) > px - pitHalf and math.abs(z - pz) < pitHalf + 3 then
 				continue -- not on the edge of the pit
 			end
-			local cf = CFrame.new(side * 86, 0, z)
+			local cf = CFrame.new(side * (half - 9), 0, z)
 			for segment = 1, 3 do
 				cf *= CFrame.Angles(pull * 0.12, 0, side * pull * 0.04)
 				Build.Decor({ Parent = folder, Name = "Pillar", Shape = Enum.PartType.Cylinder, Size = Vector3.new(13, 3, 3), CFrame = cf * CFrame.new(0, 6.5, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = dark, Material = Enum.Material.Glass })

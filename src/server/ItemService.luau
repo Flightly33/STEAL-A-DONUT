@@ -271,26 +271,23 @@ function ItemService.StopLock(player: Player)
 	field:Destroy()
 end
 
--- Put a force field on ALL four sides of the player's base, far too tall to jump over. It pushes
--- other players away, and anyone who still gets inside (hopping the walls, lag) is put outside the
--- entrance. `duration` in seconds, or nil for a lock that stays until StopLock (admin panel).
-local function startLock(player: Player, duration: number?): boolean
-	local plot = PlotService.GetPlotModel(player)
+-- The lock's walls: a force field on ALL four sides of the player's pen (just outside its fence),
+-- far too tall to jump over. Built again when the base gets bigger.
+local function buildLockWalls(player: Player, field: Model, permanent: boolean)
 	local plotIndex = PlotService.GetPlotIndex(player)
-	if not plot or not plotIndex then
-		return false
+	if not plotIndex then
+		return
 	end
-	ItemService.StopLock(player)
+	for _, child in field:GetChildren() do
+		child:Destroy()
+	end
 	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
-	-- (well above the roof, however many floors the base has)
-	local profile = DataService.Get(player)
-	local floors = if profile then profile.Data.Floors else 1
-	local w, d, h = Layout.PlotWidth, Layout.PlotDepth, math.max(LOCK_HEIGHT, Layout.FloorY(floors + 1) + 30)
-	local field = Instance.new("Model")
-	field.Name = "LockLaser"
+	local center, size = Layout.PenBounds(PlotService.GetSlotCount(player))
+	local w, d, h = size.X + 8, size.Y + 8, LOCK_HEIGHT
+	local middle = cf * CFrame.new(center)
 	type Side = { Offset: CFrame, Size: Vector3 }
 	local sides: { Side } = {
-		{ Offset = CFrame.new(0, h / 2, -d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- front (entrance)
+		{ Offset = CFrame.new(0, h / 2, -d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- front (the gate)
 		{ Offset = CFrame.new(0, h / 2, d / 2), Size = Vector3.new(w + 2, h, 0.6) }, -- back
 		{ Offset = CFrame.new(-w / 2, h / 2, 0), Size = Vector3.new(0.6, h, d + 2) }, -- left
 		{ Offset = CFrame.new(w / 2, h / 2, 0), Size = Vector3.new(0.6, h, d + 2) }, -- right
@@ -299,17 +296,34 @@ local function startLock(player: Player, duration: number?): boolean
 		local wall = Build.Part({
 			Parent = field, Name = "LockWall",
 			Size = side.Size,
-			CFrame = cf * side.Offset,
-			Color = if duration then rgb(255, 40, 40) else rgb(255, 200, 40),
+			CFrame = middle * side.Offset,
+			Color = if permanent then rgb(255, 200, 40) else rgb(255, 40, 40),
 			Material = Enum.Material.ForceField, Transparency = 0.2, CanCollide = false,
 		})
 		wall.Touched:Connect(function(hit: BasePart)
 			local victim = playerFromPart(hit)
 			if victim and victim ~= player then
-				ItemService.Fling(victim, cf.Position, 90)
+				ItemService.Fling(victim, middle.Position, 90)
 			end
 		end)
 	end
+end
+
+-- Lock the player's base: the walls push other players away, and anyone who still gets inside
+-- (hopping in, lag) is put outside the gate. `duration` in seconds, or nil for a lock that stays
+-- until StopLock (admin panel).
+local function startLock(player: Player, duration: number?): boolean
+	local plot = PlotService.GetPlotModel(player)
+	local plotIndex = PlotService.GetPlotIndex(player)
+	if not plot or not plotIndex then
+		return false
+	end
+	ItemService.StopLock(player)
+	local cf = Layout.PlotCFrame(plotIndex, PlotService.GetBaseWorld(player))
+	local field = Instance.new("Model")
+	field.Name = "LockLaser"
+	field:SetAttribute("Permanent", duration == nil)
+	buildLockWalls(player, field, duration == nil)
 	field.Parent = plot
 	lockParts[player] = field
 	plot:SetAttribute("Locked", true)
@@ -318,10 +332,10 @@ local function startLock(player: Player, duration: number?): boolean
 		while lockParts[player] == field and field.Parent do
 			for _, other in Players:GetPlayers() do
 				local root = if other ~= player then rootOf(other) else nil
-				if root and Layout.IsInPlot(plotIndex, root.Position, PlotService.GetBaseWorld(player), PlotService.GetFloors(player)) then
+				if root and Layout.IsInPlot(plotIndex, root.Position, PlotService.GetBaseWorld(player), PlotService.GetSlotCount(player), 4) then
 					local character = other.Character
 					if character then
-						character:PivotTo(cf * CFrame.new(0, 4, -d / 2 - 12) * CFrame.Angles(0, math.pi, 0))
+						character:PivotTo(cf * CFrame.new(0, 4, Layout.PenFront - 14) * CFrame.Angles(0, math.pi, 0))
 						notify(other, "🔒 That base is locked!", "error")
 					end
 				end
@@ -509,6 +523,13 @@ function ItemService.Init()
 		local index = PlotService.GetPlotIndex(player)
 		clearBaseItems(player, if index then MapBuilder.GetPlot(index, oldWorld) else nil)
 		ItemService.RestoreLock(player)
+	end)
+	-- A bigger base: the lock's walls move out to the new fence.
+	PlotService.Resized:Connect(function(player: Player)
+		local field = lockParts[player]
+		if field and field:IsA("Model") and field.Parent then
+			buildLockWalls(player, field, field:GetAttribute("Permanent") == true)
+		end
 	end)
 end
 

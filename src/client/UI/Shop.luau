@@ -1,6 +1,6 @@
 --[[
 	Shop window with five tabs:
-	  Upgrades  - Speed Multiplier, Treadmill tiers, Base Expansions and Incubator upgrades (money)
+	  Upgrades  - Speed Multiplier, Treadmill tiers, a Bigger Base and Incubator upgrades (money)
 	  Boosts    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
 	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
 	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
@@ -103,17 +103,14 @@ local function buildUpgrades(page: ScrollingFrame)
 		State.Action("BuyTreadmill")
 	end)
 
-	-- Base expansion
+	-- Bigger base
 	local expandCard = card(page, 3, Theme.Colors.Blue)
-	local expandTitle = Theme.Label({ Text = "🏗 BASE EXPANSION", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
+	local expandTitle = Theme.Label({ Text = "🏢 BIGGER BASE", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
 	local expandInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = expandCard })
 	local expandButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = expandCard })
 	expandButton.Activated:Connect(function()
-		local expansions = State.Number("Expansions")
-		if Economy.ExpansionCost(expansions) then
-			State.Action("BuyExpansion")
-		elseif Economy.NextFloorCost(expansions, math.max(1, State.Number("Floors"))) then
-			State.Action("BuyFloor")
+		if Economy.BaseSizeCost(math.max(1, State.Number("BaseLevel"))) then
+			State.Action("BuyBaseSize")
 		end
 	end)
 
@@ -176,25 +173,17 @@ local function buildUpgrades(page: ScrollingFrame)
 			end
 		end
 
-		local expansions = State.Number("Expansions")
-		local floors = math.max(1, State.Number("Floors"))
-		local slots = Economy.SlotCount(expansions, floors)
-		local expandCost = Economy.ExpansionCost(expansions)
-		local floorCost = Economy.NextFloorCost(expansions, floors)
-		if expandCost then
-			expandTitle.Text = "🏗 BASE EXPANSION"
-			expandInfo.Text = `{slots} → {slots + Config.Plots.ExpansionSlots} donut stands\nKept forever, even when you rebirth`
-			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(expandCost))
-			Theme.SetButtonColor(expandButton, if money >= expandCost then Theme.Colors.Green else Theme.Colors.Gray)
-		elseif floorCost then
-			-- Ground floor full: the next step is a whole new floor
-			expandTitle.Text = if floors >= 2 then "🏢 THIRD FLOOR" else "🏢 SECOND FLOOR"
-			expandInfo.Text = `{slots} → {slots + Config.Plots.UpperFloors.Slots} donut stands on a new floor\nKept forever, even when you rebirth`
-			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(floorCost))
-			Theme.SetButtonColor(expandButton, if money >= floorCost then Theme.Colors.Green else Theme.Colors.Gray)
+		local baseLevel = math.max(1, State.Number("BaseLevel"))
+		local slots = Economy.SlotCount(baseLevel)
+		local sizeCost = Economy.BaseSizeCost(baseLevel)
+		if sizeCost then
+			expandTitle.Text = "🏢 BIGGER BASE"
+			expandInfo.Text = `Room for {slots} → {Economy.SlotCount(baseLevel + 1)} donuts\nKept forever, even when you rebirth`
+			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(sizeCost))
+			Theme.SetButtonColor(expandButton, if money >= sizeCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
 			expandTitle.Text = "🏢 BASE"
-			expandInfo.Text = `{slots} donut stands on {floors} floors - fully built!`
+			expandInfo.Text = `Room for {slots} donuts - as big as it gets!`
 			Theme.SetButtonText(expandButton, "MAXED")
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
 		end
@@ -605,7 +594,7 @@ function Shop.Init()
 	buildItems(newPage("Items", body, 2, 175))
 	buildSkins(newPage("Skins", body, 3, 180))
 
-	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "Expansions", "Floors", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
+	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "BaseLevel", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
 		State.OnAttribute(name, function()
 			if modal:IsOpen() then
 				refreshAll()

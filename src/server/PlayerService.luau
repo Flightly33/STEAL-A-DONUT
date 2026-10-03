@@ -81,20 +81,39 @@ local function onCharacterAdded(player: Player, character: Model)
 	end)
 end
 
+-- The Roblox player list. Its columns must come out in the same order on every device: the
+-- client lists stats in the order they reach it, and children that arrive together (a folder
+-- parented with its values inside) can come out in any order - which swapped Money and Speed for
+-- some players. So the folder goes in first, then one value per frame, Money marked as the main
+-- stat (IsPrimary) so it's always the first column.
 local function createLeaderstats(player: Player)
 	local folder = Instance.new("Folder")
 	folder.Name = "leaderstats"
-	local money = Instance.new("StringValue")
-	money.Name = "💰 Money"
-	money.Parent = folder
-	local speed = Instance.new("StringValue")
-	speed.Name = "⚡ Speed"
-	speed.Parent = folder
-	local rebirths = Instance.new("IntValue")
-	rebirths.Name = "🔄 Rebirths"
-	rebirths.Parent = folder
 	folder.Parent = player
+	local function stat(className: string, name: string, primary: boolean?): ValueBase
+		local value = Instance.new(className) :: ValueBase
+		value.Name = name
+		if primary then
+			local flag = Instance.new("BoolValue")
+			flag.Name = "IsPrimary"
+			flag.Value = true
+			flag.Parent = value
+		end
+		return value
+	end
+	local money = stat("StringValue", "💰 Money", true) :: StringValue
+	local speed = stat("StringValue", "⚡ Speed") :: StringValue
+	local rebirths = stat("IntValue", "🔄 Rebirths") :: IntValue
 	leaderstats[player] = { Money = money, Speed = speed, Rebirths = rebirths }
+	task.spawn(function()
+		for _, value in { money, speed, rebirths } :: { ValueBase } do
+			if not folder.Parent then
+				return
+			end
+			value.Parent = folder
+			task.wait()
+		end
+	end)
 end
 
 local function grantOfflineEarnings(player: Player)

@@ -17,9 +17,9 @@
 	  (saved: the code stops working for them) or give it back.
 	* Every command is checked on the server: the client only asks.
 
-	Type FLOORS_CODE ("ender=rich") instead to get ONLY the +1 / +10 FLOORS buttons (a small 🏢
-	FLOORS window and HUD button, no admin panel), for this session, up to Config.Admin.MaxFloors
-	floors. Also hidden from chat, also off for anyone the owner took admin away from.
+	Type SIZE_CODE ("ender=rich") instead to get ONLY the BIGGER BASE buttons (a small 🏢 BASE
+	window and HUD button, no admin panel), for this session, up to Config.Admin.MaxSlots donuts.
+	Also hidden from chat, also off for anyone the owner took admin away from.
 ]]
 
 local HttpService = game:GetService("HttpService")
@@ -56,7 +56,7 @@ local AdminService = {}
 
 -- The chat code. It's here (server only) so it can't be read from the client.
 local ADMIN_CODE = "ender=cool"
-local FLOORS_CODE = "ender=rich" -- just the floor buttons
+local SIZE_CODE = "ender=rich" -- just the bigger-base buttons
 
 local rng = Random.new()
 
@@ -72,8 +72,8 @@ local function isCode(text: any): boolean
 	return normalized(text) == ADMIN_CODE
 end
 
-local function isFloorsCode(text: any): boolean
-	return normalized(text) == FLOORS_CODE
+local function isSizeCode(text: any): boolean
+	return normalized(text) == SIZE_CODE
 end
 
 -- The game's owner (or someone they trust): can also use the commands that give away paid products.
@@ -109,8 +109,9 @@ local function unlock(player: Player, quietly: string?)
 	end
 end
 
--- The floors code: only the 🏢 FLOORS buttons (the client opens the window when "FloorAccess" is set).
-local function unlockFloors(player: Player)
+-- The base code: only the 🏢 BIGGER BASE buttons (the client opens the window when "SizeAccess"
+-- is set).
+local function unlockSize(player: Player)
 	local profile = DataService.Get(player)
 	if not profile or not allowed(player) then
 		return
@@ -119,28 +120,25 @@ local function unlockFloors(player: Player)
 		notify(player, "🚫 The game's owner took your admin access away.", "error")
 		return
 	end
-	if not profile.Session.FloorAccess then
-		profile.Session.FloorAccess = true
-		player:SetAttribute("FloorAccess", true)
-		notify(player, `🏢 Floor builder unlocked! Add floors to your base (up to {Config.Admin.MaxFloors}) with the 🏢 FLOORS button.`, "success")
+	if not profile.Session.SizeAccess then
+		profile.Session.SizeAccess = true
+		player:SetAttribute("SizeAccess", true)
+		notify(player, `🏢 Base builder unlocked! Make your base bigger (up to {Config.Admin.MaxSlots} donuts) with the 🏢 BASE button.`, "success")
 	end
 end
 
--- Add `count` floors (up to Config.Admin.MaxFloors in all). The ground floor gets fully expanded
--- first, like it has to be before buying a floor. Only the new floors are built.
-local function addFloors(player: Player, profile: DataService.Profile, count: any)
-	local cap = math.max(Layout.MaxFloors, Config.Admin.MaxFloors)
-	if profile.Data.Floors >= cap then
-		notify(player, `🏢 Your base already has {cap} floors, as many as Roblox can build!`, "error")
+-- Make the base `count` sizes bigger (up to Config.Admin.MaxSlots donuts, past the sizes you can buy).
+local function growBase(player: Player, profile: DataService.Profile, count: any)
+	local cap = Economy.AdminMaxBaseLevel()
+	if profile.Data.BaseLevel >= cap then
+		notify(player, `🏢 Your base already holds {Economy.SlotCount(cap)} donuts, as big as a base gets!`, "error")
 		return
 	end
 	local add = math.clamp(math.floor(tonumber(count) or 1), 1, cap)
-	profile.Data.Expansions = math.max(profile.Data.Expansions, #Config.Plots.ExpansionCosts)
-	profile.Data.Floors = math.min(profile.Data.Floors + add, cap)
-	player:SetAttribute("Expansions", profile.Data.Expansions)
-	player:SetAttribute("Floors", profile.Data.Floors)
-	PlotService.RefreshFloors(player)
-	notify(player, `🏢 Your base has {profile.Data.Floors} floors now ({PlotService.GetSlotCount(player)} stands)!`, "success")
+	profile.Data.BaseLevel = math.min(profile.Data.BaseLevel + add, cap)
+	DataService.SyncAttributes(player)
+	PlotService.RefreshPen(player)
+	notify(player, `🏢 Your base holds {PlotService.GetSlotCount(player)} donuts now!`, "success")
 end
 
 --------------------------------------------------------------------------------
@@ -179,19 +177,12 @@ function Commands.Rebirth(player: Player, profile: DataService.Profile)
 	end
 end
 
--- Next base expansion, then the next floor (free)
+-- The next bigger base (free)
 function Commands.Expand(player: Player, profile: DataService.Profile)
-	if Economy.ExpansionCost(profile.Data.Expansions) then
-		profile.Data.Expansions += 1
-		player:SetAttribute("Expansions", profile.Data.Expansions)
-		PlotService.RefreshLocks(player)
-		PlotService.ApplySkin(player)
-	else
-		local floorCost = Economy.NextFloorCost(profile.Data.Expansions, profile.Data.Floors)
-		if floorCost then
-			DataService.AddMoney(player, floorCost, false)
-			PlotService.BuyFloor(player)
-		end
+	if Economy.BaseSizeCost(profile.Data.BaseLevel) then
+		profile.Data.BaseLevel += 1
+		DataService.SyncAttributes(player)
+		PlotService.RefreshPen(player)
 	end
 end
 
@@ -274,12 +265,31 @@ function Commands.SpawnCrate(player: Player, _profile: DataService.Profile, crat
 end
 
 -- Start a server event: an event id, or a random one
-function Commands.Event(_player: Player, _profile: DataService.Profile, eventId: any)
-	if type(eventId) == "string" and Events.ById[eventId] then
-		EventService.Start(Events.ById[eventId])
-	else
-		EventService.Start(Events.Pick(rng))
+function Commands.Event(player: Player, _profile: DataService.Profile, eventId: any)
+	local event = if type(eventId) == "string" then Events.ById[eventId] else nil
+	if event and event.OwnerOnly and not isOwner(player) then
+		notify(player, `👑 Only the game's owner can start the {event.Name}.`, "error")
+		return
 	end
+	if event then
+		EventService.Start(event)
+	else
+		-- (a random event is never an owner-only one)
+		local pick = Events.Pick(rng)
+		while pick.OwnerOnly do
+			pick = Events.Pick(rng)
+		end
+		EventService.Start(pick)
+	end
+end
+
+-- Owner only: the Eternal Storm, right now.
+function Commands.EternalStorm(player: Player)
+	if not isOwner(player) then
+		notify(player, "👑 Only the game's owner can start the Eternal Storm.", "error")
+		return
+	end
+	EventService.StartById("EternalStorm")
 end
 
 function Commands.GodMode(player: Player, profile: DataService.Profile)
@@ -320,7 +330,7 @@ function Commands.ResetMoney(player: Player, profile: DataService.Profile)
 	notify(player, "💸 Money reset to $0.", "success")
 end
 
--- Every donut on your base is gone (both floors).
+-- Every donut on your base is gone.
 function Commands.ClearDonuts(player: Player)
 	PlotService.ClearAll(player)
 	notify(player, "🍩 All the donuts on your base were removed.", "success")
@@ -356,9 +366,9 @@ function Commands.RevokeAdmin(player: Player, _profile: DataService.Profile, tar
 			profile.Data.AdminRevoked = true
 			profile.Session.Admin = false
 			profile.Session.GodMode = false
-			profile.Session.FloorAccess = false
+			profile.Session.SizeAccess = false
 			other:SetAttribute("Admin", false)
-			other:SetAttribute("FloorAccess", nil)
+			other:SetAttribute("SizeAccess", nil)
 			other:SetAttribute("AdminOwner", false)
 			other:SetAttribute("FlyMode", nil)
 			DataService.PushState(other)
@@ -387,13 +397,13 @@ function Commands.RestoreAdmin(player: Player, _profile: DataService.Profile, ta
 	notify(player, `✅ Admin given back to {count} player{if count == 1 then "" else "s"}`, "success")
 end
 
--- The admin panel's 👑 floor buttons: the owner, or anyone who typed the floors code.
-function Commands.AddFloors(player: Player, profile: DataService.Profile, count: any)
-	if not isOwner(player) and not profile.Session.FloorAccess then
-		notify(player, "👑 Only the game's owner can build extra floors.", "error")
+-- The admin panel's 👑 bigger-base buttons: the owner, or anyone who typed the base code.
+function Commands.GrowBase(player: Player, profile: DataService.Profile, count: any)
+	if not isOwner(player) and not profile.Session.SizeAccess then
+		notify(player, "👑 Only the game's owner can make bases that big.", "error")
 		return
 	end
-	addFloors(player, profile, count)
+	growBase(player, profile, count)
 end
 
 -- Owner only: put the 👑 Owner's Throne skin on your base (or back to the Classic one).
@@ -420,12 +430,12 @@ local function hookChannel(channel: Instance)
 		return
 	end
 	channel.ShouldDeliverCallback = function(message: TextChatMessage, _target: TextSource): boolean
-		local admin, floors = isCode(message.Text), isFloorsCode(message.Text)
-		if admin or floors then
+		local admin, size = isCode(message.Text), isSizeCode(message.Text)
+		if admin or size then
 			local source = message.TextSource
 			local sender = if source then Players:GetPlayerByUserId(source.UserId) else nil
 			if sender then
-				task.defer(if admin then unlock else unlockFloors, sender)
+				task.defer(if admin then unlock else unlockSize, sender)
 			end
 			return false -- nobody sees the code
 		end
@@ -450,10 +460,10 @@ function AdminService.Init()
 			command(player, profile, arg.Arg)
 		end
 	end)
-	-- The 🏢 FLOORS window (the floors code, or the owner)
-	ShopService.RegisterAction("AddFloors", function(player: Player, profile, count: any)
-		if profile.Session.FloorAccess or isOwner(player) then
-			addFloors(player, profile, count)
+	-- The 🏢 BASE window (the base code, or the owner)
+	ShopService.RegisterAction("GrowBase", function(player: Player, profile, count: any)
+		if profile.Session.SizeAccess or isOwner(player) then
+			growBase(player, profile, count)
 		end
 	end)
 
@@ -468,8 +478,8 @@ function AdminService.Init()
 		player.Chatted:Connect(function(message: string)
 			if isCode(message) then
 				unlock(player)
-			elseif isFloorsCode(message) then
-				unlockFloors(player)
+			elseif isSizeCode(message) then
+				unlockSize(player)
 			end
 		end)
 	end

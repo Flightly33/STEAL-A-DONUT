@@ -174,8 +174,9 @@ local function refresh()
 		if mutation.Order > 0 then
 			local counts = stats and stats.M[mutation.Id]
 			local foundCount = if counts then counts[2] or 0 else 0
-			local boosted = if lucky then ` → 🍀 {percent(mutation.Chance * Config.LuckEvent.MutationLuck, 1)}` else ""
-			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {percent(mutation.Chance, 1)}{boosted} ({if stats then Format.Number(foundCount) else "?"} found)`)
+			local boosted = if lucky and not mutation.EventOnly then ` → 🍀 {percent(mutation.Chance * Config.LuckEvent.MutationLuck, 1)}` else ""
+			local chance = if mutation.EventOnly then "⚡ Eternal Storm only" else percent(mutation.Chance, 1)
+			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {chance}{boosted} ({if stats then Format.Number(foundCount) else "?"} found)`)
 		end
 	end
 	legend.Text = "🌍 " .. table.concat(parts, "  ")

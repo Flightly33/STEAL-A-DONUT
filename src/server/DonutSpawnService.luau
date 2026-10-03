@@ -209,6 +209,18 @@ function DonutSpawnService.ForceSpawn(record: SpawnRecord, donutId: string, muta
 	record.Planted = true
 end
 
+-- The Eternal Storm's purple lightning struck this donut: it becomes Eternal (same donut, same
+-- size). Returns true if it changed.
+function DonutSpawnService.Eternalize(record: SpawnRecord): boolean
+	local donutId = record.DonutId
+	if record.Taken or not record.Model or not donutId or record.Mutation == "Eternal" then
+		return false
+	end
+	spawnDonut(record, false, { DonutId = donutId, Mutation = "Eternal", Size = record.Size })
+	DonutSpawnService.Spawned:Fire(donutId, "Eternal")
+	return true
+end
+
 -- Rare Donut Rain: a rare donut crashes onto a random free spot of the area (with a boom).
 -- Returns the spot's record, or nil if the area has no free spot.
 function DonutSpawnService.DropRare(areaId: number): SpawnRecord?

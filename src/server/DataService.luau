@@ -43,7 +43,8 @@ export type Data = {
 	BestSpeed: number,
 	Rebirths: number,
 	UltimateRebirths: number, -- times pressed ULTIMATE REBIRTH (unlocks World 2)
-	Expansions: number,
+	Expansions: number, -- (old saves: base expansions, before bases were pens - see BaseLevel)
+	BaseLevel: number, -- base size (Config.Plots.Sizes): how many donuts the pen holds
 	PlayTime: number,
 	LastOnline: number,
 	OwnedSkins: { [string]: boolean },
@@ -61,7 +62,7 @@ export type Data = {
 	Purchases: { string }, -- the last developer product receipts granted (PurchaseIds), newest last
 	UsedAdmin: boolean, -- opened the admin panel (kept off the global leaderboards)
 	SpeedBoostSeconds: number, -- crate Speed Boost time left (only counts down while online)
-	Floors: number, -- 2 once the second floor is bought
+	Floors: number, -- (old saves: floors bought, before bases were pens - see BaseLevel)
 	SpeedChoice: number, -- speed slider: 0 = normal walking speed (16) ... 1 = as fast as you can go
 	IncubatorSpeed: number, -- incubator upgrade levels
 	IncubatorSize: number,
@@ -82,11 +83,11 @@ export type Profile = {
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
 	-- TestDonated / TestDonorTier: Studio test tips (shown for the session, never saved)
-	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, FloorAccess: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number },
+	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, SizeAccess: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number },
 	NoSave: boolean,
 }
 
-local DATA_VERSION = 4
+local DATA_VERSION = 5
 
 local TEMPLATE: Data = {
 	Version = DATA_VERSION,
@@ -104,6 +105,7 @@ local TEMPLATE: Data = {
 	Rebirths = 0,
 	UltimateRebirths = 0,
 	Expansions = 0,
+	BaseLevel = 1,
 	PlayTime = 0,
 	LastOnline = 0,
 	OwnedSkins = { Classic = true },
@@ -197,6 +199,16 @@ local function migrate(data: Data, isNew: boolean)
 			data.MusicVolume = Config.Music.DefaultVolume
 		end
 		data.Version = 4
+	end
+	if data.Version < 5 then
+		-- Version 5: bases are open pens that you make bigger (BaseLevel), instead of rows of stands
+		-- (8 + 4 per expansion, up to 24) with 24 more on every floor. Everyone gets a pen that
+		-- holds at least as many donuts as they had stands.
+		if not isNew then
+			local stands = math.min(8 + 4 * data.Expansions, 24) + 24 * math.max(data.Floors - 1, 0)
+			data.BaseLevel = math.max(data.BaseLevel, Economy.LevelForSlots(stands))
+		end
+		data.Version = 5
 	end
 end
 
@@ -331,7 +343,7 @@ function DataService.Load(player: Player): Profile?
 		Data = data,
 		Passes = {},
 		SessionSkins = {},
-		Session = { Stunned = false, Ready = false, World = 1, Admin = false, FloorAccess = false, GodMode = false, TestDonated = 0, TestDonorTier = 0 },
+		Session = { Stunned = false, Ready = false, World = 1, Admin = false, SizeAccess = false, GodMode = false, TestDonated = 0, TestDonorTier = 0 },
 		NoSave = noSave,
 	}
 	profiles[player] = profile
@@ -452,8 +464,8 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("IncubatorSize", data.IncubatorSize)
 	player:SetAttribute("Rebirths", data.Rebirths)
 	player:SetAttribute("UltimateRebirths", data.UltimateRebirths)
-	player:SetAttribute("Expansions", data.Expansions)
-	player:SetAttribute("Floors", data.Floors)
+	player:SetAttribute("BaseLevel", data.BaseLevel)
+	player:SetAttribute("BaseSlots", Economy.SlotCount(data.BaseLevel))
 	player:SetAttribute("BestSpeed", data.BestSpeed)
 	player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
 	player:SetAttribute("PetSpeedBonus", DataService.PetSpeedBonus(data))

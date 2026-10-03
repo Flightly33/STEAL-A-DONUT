@@ -89,6 +89,30 @@ local function emitter(parent: Instance, color: ColorSequence, rate: number, siz
 	return e
 end
 
+-- Particle textures: Roblox's own (always there), unless Config.DonutFX.Textures names others.
+local TEXTURES: { [string]: string } = {
+	Spark = "rbxasset://textures/particles/sparkles_main.dds",
+	Fire = "rbxasset://textures/particles/fire_main.dds",
+	Smoke = "rbxasset://textures/particles/smoke_main.dds",
+	Swirl = "rbxasset://textures/particles/forcefield_vortex_main.dds",
+}
+local function texture(name: string): string
+	local custom = Config.DonutFX.Textures[name]
+	return if type(custom) == "string" and custom ~= "" then custom else TEXTURES[name]
+end
+DonutModel.Texture = texture
+
+local function keys(colors: { Color3 }): ColorSequence
+	if #colors == 1 then
+		return ColorSequence.new(colors[1])
+	end
+	local list = {}
+	for i, color in colors do
+		table.insert(list, ColorSequenceKeypoint.new((i - 1) / (#colors - 1), color))
+	end
+	return ColorSequence.new(list)
+end
+
 function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	local opts: BuildOptions = options or {}
 	local rarity = Rarities.Get(donut.Rarity)
@@ -756,12 +780,6 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 	end
 
-	-- Secret donuts get a shimmering force-field aura
-	if rarity.Id == "Secret" then
-		local aura = ball(6.5, rarity.Color, at(0, 0, 0), Enum.Material.ForceField, "Aura")
-		aura.Transparency = 0.3
-	end
-
 	-- Studded (Config.DonutModels): every solid part becomes a block with the classic studs on all
 	-- six sides, like Domer (see-through glows, force fields and the invisible root are left alone)
 	if STUDDED then
@@ -889,9 +907,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	function themeParts.Void(_theme: FXThemes.Theme)
-		-- Rainbow particles pouring into the donut like a black hole, a prismatic star of rays,
+		-- Purple particles pouring into the donut like a black hole, a prismatic star of rays,
 		-- and stars popping all around it
-		shell(3.4, true, RAINBOW_SEQUENCE, 45, 0.3, 6)
+		shell(3.4, true, ColorSequence.new(rgb(200, 120, 255), rgb(60, 10, 120)), 24, 0.3, 6)
 		burst(12, 5.2, { rgb(255, 90, 90), rgb(255, 220, 60), rgb(80, 255, 140), rgb(80, 180, 255), rgb(200, 100, 255), rgb(255, 255, 255) }, -0.5)
 		twinkles(4.2, ColorSequence.new(rgb(255, 255, 255), rgb(200, 150, 255)), 18, 0.5)
 	end
@@ -901,7 +919,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	function themeParts.Glitter(_theme: FXThemes.Theme)
-		shell(1.9, false, ColorSequence.new(rgb(200, 250, 255), rgb(120, 220, 255)), 22, 0.18, 2.5)
+		twinkles(2.2, ColorSequence.new(rgb(220, 250, 255), rgb(140, 225, 255)), 5, 0.4)
 	end
 
 	function themeParts.Hellfire(_theme: FXThemes.Theme)
@@ -960,13 +978,132 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	function themeParts.Nova(_theme: FXThemes.Theme)
 		-- A blue star of light rays behind it and a shell of stars bursting out
 		burst(12, 5.6, { rgb(40, 140, 255), rgb(140, 220, 255), rgb(255, 255, 255) }, 0.45)
-		shell(3.2, false, ColorSequence.new(rgb(140, 220, 255), rgb(40, 110, 255)), 30, 0.28, 3.5)
-		twinkles(4.4, ColorSequence.new(rgb(255, 255, 255), rgb(120, 190, 255)), 20, 0.55)
+		shell(3.2, false, ColorSequence.new(rgb(140, 220, 255), rgb(40, 110, 255)), 20, 0.28, 3.5)
+		twinkles(4.4, ColorSequence.new(rgb(255, 255, 255), rgb(120, 190, 255)), 14, 0.55)
+	end
+
+	function themeParts.Overload(_theme: FXThemes.Theme)
+		-- A red star of rays and red sparks raining off it
+		burst(10, 5.2, { rgb(255, 40, 40), rgb(255, 160, 160), rgb(120, 0, 0) }, -0.6)
+		twinkles(4, ColorSequence.new(rgb(255, 90, 90), rgb(255, 255, 255)), 12, 0.5)
+	end
+
+	function themeParts.Eternal(_theme: FXThemes.Theme)
+		-- Purple light rays, a purple vortex pulling in, purple stars all round
+		burst(12, 6, { rgb(180, 80, 255), rgb(235, 200, 255), rgb(110, 20, 220) }, 0.55)
+		shell(3.6, true, ColorSequence.new(rgb(230, 180, 255), rgb(120, 20, 230)), 28, 0.32, 6)
+		twinkles(4.6, ColorSequence.new(rgb(255, 255, 255), rgb(190, 110, 255)), 16, 0.55)
 	end
 
 	function themeParts.Prism(_theme: FXThemes.Theme)
 		burst(10, 4.6, { rgb(255, 70, 70), rgb(255, 170, 40), rgb(255, 240, 60), rgb(80, 240, 110), rgb(70, 170, 255), rgb(190, 90, 255) }, 0.6)
 		shell(2.8, false, RAINBOW_SEQUENCE, 18, 0.22, 3)
+	end
+
+	-- The big effects of the mid-to-late game themes (FXThemes): fire, spirals, smoke and the
+	-- points the electric sparks burst from (the client sets those off, and adds the shards).
+	local function themeEffects(theme: FXThemes.Theme)
+		local low = bottom * 0.55
+		if theme.Flames then
+			local base = holder("FlameFX", Vector3.new(3.4, 0.5, 2.2) * s, CFrame.new(0, low, 0))
+			local fire = Instance.new("ParticleEmitter")
+			fire.Name = "Flames"
+			fire.Texture = texture("Fire")
+			fire.Color = keys(theme.Flames)
+			fire.LightEmission = 1
+			fire.LightInfluence = 0
+			fire.Brightness = 2.2
+			fire.Rate = 30
+			fire.Lifetime = NumberRange.new(0.55, 1)
+			fire.Speed = NumberRange.new(3 * s, 6 * s)
+			fire.SpreadAngle = Vector2.new(14, 14)
+			fire.EmissionDirection = Enum.NormalId.Top
+			fire.Acceleration = Vector3.new(0, 5 * s, 0)
+			fire.Rotation = NumberRange.new(-25, 25)
+			fire.RotSpeed = NumberRange.new(-60, 60)
+			fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4 * s), NumberSequenceKeypoint.new(0.35, 2.4 * s), NumberSequenceKeypoint.new(1, 0.3 * s) })
+			fire.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.1), NumberSequenceKeypoint.new(0.7, 0.45), NumberSequenceKeypoint.new(1, 1) })
+			fire.Parent = base
+			-- embers flying up out of it
+			local embers = emitter(base, keys({ theme.Flames[1], theme.Flames[#theme.Flames] }), 16, 0.22 * s, 7 * s, 1.6)
+			embers.Name = "Embers"
+			embers.EmissionDirection = Enum.NormalId.Top
+			embers.SpreadAngle = Vector2.new(30, 30)
+			embers.Brightness = 4
+			embers.Acceleration = Vector3.new(0, 3 * s, 0)
+		end
+		if theme.Swirl then
+			local sphere = holder("SwirlFX", Vector3.one * 3.4 * s, CFrame.identity)
+			local swirl = Instance.new("ParticleEmitter")
+			swirl.Name = "Swirl"
+			swirl.Texture = texture("Swirl")
+			swirl.Color = if theme.Rainbow
+				then ColorSequence.new({ ColorSequenceKeypoint.new(0, rgb(255, 80, 80)), ColorSequenceKeypoint.new(0.33, rgb(255, 230, 60)), ColorSequenceKeypoint.new(0.66, rgb(80, 255, 140)), ColorSequenceKeypoint.new(1, rgb(120, 140, 255)) })
+				else keys(theme.Colors)
+			swirl.LightEmission = 1
+			swirl.LightInfluence = 0
+			swirl.Brightness = 1.6
+			swirl.Rate = 5
+			swirl.Lifetime = NumberRange.new(1.4, 2.2)
+			swirl.Speed = NumberRange.new(0)
+			swirl.Shape = Enum.ParticleEmitterShape.Sphere
+			swirl.LockedToPart = true
+			swirl.Rotation = NumberRange.new(0, 360)
+			swirl.RotSpeed = NumberRange.new(140, 220)
+			swirl.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * s), NumberSequenceKeypoint.new(1, 6.5 * s) })
+			swirl.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.3, 0.35), NumberSequenceKeypoint.new(1, 1) })
+			swirl.Parent = sphere
+		end
+		if theme.Smoke then
+			local base = holder("SmokeFX", Vector3.new(4, 1, 3) * s, CFrame.new(0, low, 0))
+			local smoke = Instance.new("ParticleEmitter")
+			smoke.Name = "DarkSmoke"
+			smoke.Texture = texture("Smoke")
+			smoke.Color = ColorSequence.new(theme.Smoke, theme.Smoke:Lerp(BLACK, 0.5))
+			smoke.LightEmission = 0
+			smoke.LightInfluence = 0
+			smoke.Rate = 9
+			smoke.Lifetime = NumberRange.new(1.8, 2.8)
+			smoke.Speed = NumberRange.new(1.5 * s, 3 * s)
+			smoke.SpreadAngle = Vector2.new(25, 25)
+			smoke.EmissionDirection = Enum.NormalId.Top
+			smoke.Rotation = NumberRange.new(0, 360)
+			smoke.RotSpeed = NumberRange.new(-30, 30)
+			smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2.5 * s), NumberSequenceKeypoint.new(1, 6 * s) })
+			smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.45), NumberSequenceKeypoint.new(1, 1) })
+			smoke.Parent = base
+		end
+		local electric = theme.Electric
+		if electric then
+			-- Six points round the donut. The client picks one and sets off a burst there: a star
+			-- of long thin sparks (stretched along how they fly) that's gone in a blink.
+			local points = holder("ElectricFX", Vector3.one * 0.2, CFrame.identity)
+			for i = 1, 6 do
+				local direction = Vector3.new(math.cos(i * 2.1), math.sin(i * 1.3) * 0.8, math.sin(i * 2.1)).Unit
+				local point = Instance.new("Attachment")
+				point.Name = "Spark"
+				point.Position = direction * 1.7 * s
+				point.Parent = points
+				local spark = Instance.new("ParticleEmitter")
+				spark.Name = "Crackle"
+				spark.Texture = texture("Spark")
+				spark.Color = keys(electric.Colors)
+				spark.LightEmission = 1
+				spark.LightInfluence = 0
+				spark.Brightness = 6
+				spark.Rate = 0 -- (bursts only: client/DonutFX calls Emit)
+				spark.Lifetime = NumberRange.new(0.08, 0.2)
+				spark.Speed = NumberRange.new(14 * s, 30 * s)
+				spark.SpreadAngle = Vector2.new(180, 180)
+				spark.Orientation = Enum.ParticleOrientation.VelocityParallel
+				spark.Squash = NumberSequence.new(2.6)
+				spark.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9 * s), NumberSequenceKeypoint.new(1, 0.15 * s) })
+				spark.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.6) })
+				spark.Drag = 6
+				spark.Parent = point
+			end
+			points:SetAttribute("ElectricRate", electric.Rate)
+		end
 	end
 
 	-- Effects: rarity and mutation effects stack
@@ -1076,6 +1213,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				if build then
 					build(theme)
 				end
+				themeEffects(theme)
 			end
 		end
 	end
@@ -1085,9 +1223,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	if opts.Calm then
 		for _, effect in model:GetDescendants() do
 			if effect:IsA("ParticleEmitter") then
-				effect.Rate *= 0.35
-				effect.Brightness = math.min(effect.Brightness, 1)
-				effect.LightEmission *= 0.6
+				effect.Rate *= 0.55
+				effect.Brightness = math.min(effect.Brightness, if effect.Name == "Crackle" then 3 else 1.4)
+				effect.LightEmission *= 0.75
 			elseif effect:IsA("Beam") then
 				effect.Brightness = math.min(effect.Brightness, 0.8)
 				effect.LightEmission *= 0.6
