@@ -11,6 +11,7 @@
 	fall, the SAME donut pops back onto the spot it was taken from (Return).
 ]]
 
+local CollectionService = game:GetService("CollectionService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
@@ -105,6 +106,10 @@ local function spawnDonut(record: SpawnRecord, announce: boolean, forced: Forced
 	local model = DonutModel.Build(donut, { Scale = 0.95, Pillar = true, Mutation = mutation.Id, Size = size.Id })
 	DonutModel.PlaceOn(model, record.Point.CFrame)
 	model:SetAttribute("Area", record.AreaId)
+	-- Clients make lane donuts bounce, blink and watch you (client/DonutIdle.luau)
+	local spot = record.Point.Position
+	model:SetAttribute("IdleSeed", math.floor(math.abs(spot.X * 7 + spot.Z * 13)) % 997)
+	CollectionService:AddTag(model, "LaneDonut")
 	local root = model.PrimaryPart :: BasePart
 
 	local income = Economy.DonutIncome(donut.Id, 1, mutation.Id, size.Id)

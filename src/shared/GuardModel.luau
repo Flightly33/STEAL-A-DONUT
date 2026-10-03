@@ -367,6 +367,152 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 	return model, status
 end
 
+-- Lay a built guard down to sleep (the sleeping guard each client draws on his blanket): on his
+-- back with his head on a pillow and turned a little to the side, one arm flung up over his head and
+-- the other by his side with the hand on his hip (both bent at the elbow), legs flopped apart with
+-- the feet falling outwards, mouth open, eyes shut (thick "◡" lines, easy to see from far away).
+-- A wide-brimmed hat is taken off and put down next to him. Every part ends up anchored and the joints are removed. Then
+-- PivotTo(GuardModel.SleepCFrame(home)). Returns the mouth (the Z's come out of it).
+function GuardModel.Sleep(model: Model): BasePart?
+	local root = model.PrimaryPart :: BasePart
+	local torso = model:FindFirstChild("Torso") :: BasePart?
+	local head = model:FindFirstChild("Head") :: BasePart?
+	if not root or not torso or not head then
+		return nil
+	end
+	local s = torso.Size.Y / 2 -- the model's scale (Model:ScaleTo)
+	local origin = root.CFrame
+	-- Which body part every piece belongs to (pieces are welded to it)
+	local groups: { [BasePart]: { BasePart } } = {}
+	local joints = {}
+	for _, item in model:GetDescendants() do
+		if item:IsA("BasePart") then
+			item.Anchored = true
+			local weld = item:FindFirstChildOfClass("Weld")
+			local base = if weld and weld.Part0 then weld.Part0 else item
+			groups[base] = groups[base] or {}
+			table.insert(groups[base], item)
+		elseif item:IsA("JointInstance") then
+			table.insert(joints, item)
+		end
+	end
+	for _, joint in joints do
+		joint:Destroy()
+	end
+	-- Turn `parts` by `rotation` around `pivot` (in the standing guard's own unscaled space)
+	local function turn(parts: { BasePart }, pivot: Vector3, rotation: CFrame)
+		local at = origin * CFrame.new(pivot * s)
+		local change = at * rotation * at:Inverse()
+		for _, part in parts do
+			part.CFrame = change * part.CFrame
+		end
+	end
+	local function piece(name: string, size: Vector3, color: Color3, cf: CFrame, studs: boolean): Part
+		local part = newPart(model, name, size * s, color, cf, nil)
+		part.Anchored = true
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
+		part.CastShadow = false
+		if studs then
+			for _, face in { "TopSurface", "BottomSurface", "FrontSurface", "BackSurface", "LeftSurface", "RightSurface" } do
+				(part :: any)[face] = Enum.SurfaceType.Studs
+			end
+			part.Material = Enum.Material.Plastic
+		end
+		return part
+	end
+
+	-- Face: eyes shut, mouth open (snoring). Done before the head turns, so they turn with it.
+	local headParts: { BasePart } = groups[head] or { head :: BasePart }
+	local eyeLine = rgb(35, 20, 20)
+	for _, part in headParts do
+		if part.Name == "Eye" or part.Name == "Pupil" then
+			part.Transparency = 1
+		elseif part.Name == "Mouth" then
+			part.Size = Vector3.new(0.3, 0.2, 0.06) * s
+			part.Color = rgb(70, 25, 25)
+		end
+	end
+	for _, side in { -1, 1 } do
+		local x = side * 0.27
+		local function bar(dx: number, dy: number, width: number, tilt: number)
+			local cf = head.CFrame * CFrame.new((x + dx) * s, (0.1 + dy) * s, -0.67 * s) * CFrame.Angles(0, 0, tilt)
+			table.insert(headParts, piece("ClosedEye", Vector3.new(width, 0.075, 0.05), eyeLine, cf, false))
+		end
+		bar(0, 0, 0.24, 0) -- ◡
+		bar(-0.15, 0.04, 0.13, math.rad(-38))
+		bar(0.15, 0.04, 0.13, math.rad(38))
+	end
+
+	-- A wide-brimmed hat comes off and stands on the blanket beside his head (lying down, the brim
+	-- would stick up through the ground like a wall)
+	local area = Areas.List[(model:GetAttribute("Area") :: number?) or 0]
+	local hat = area and area.Guard.Hat
+	if hat == "Sombrero" or hat == "Sunhat" or hat == "Safari" or hat == "Witch" then
+		local top = head.CFrame * CFrame.new(0, 0.62 * s, 0)
+		local beside = origin * CFrame.new(-3 * s, 2.4 * s, 0.54 * s) * CFrame.Angles(math.rad(-90), 0, 0)
+		local kept = {}
+		for _, part in headParts do
+			if part.Name == "Hat" or part.Name == "HatTop" or part.Name == "HatBand" or part.Name == "HatCone" or part.Name == "Flower" then
+				part.CFrame = beside * top:ToObjectSpace(part.CFrame)
+			else
+				table.insert(kept, part)
+			end
+		end
+		headParts = kept
+	end
+
+	-- Arms: the upper arm swings out (the right one all the way up past his head), then the forearm
+	-- bends at the elbow: over the top of his head, or down onto his hip. (The straight arm block
+	-- underneath is hidden: it can't bend.)
+	local armPoses = {
+		[1] = { Raise = CFrame.Angles(0, 0, math.rad(150)), Forearm = Vector3.new(-0.87, 0.5, -0.05) },
+		[-1] = { Raise = CFrame.Angles(0, 0, math.rad(-24)), Forearm = Vector3.new(0.4, -0.92, -0.08) },
+	}
+	for _, side in { -1, 1 } do
+		local arm = model:FindFirstChild(if side < 0 then "Left Arm" else "Right Arm") :: BasePart?
+		local parts = arm and groups[arm]
+		if arm and parts then
+			arm.Transparency = 1
+			local lower = {}
+			for _, part in parts do
+				if part.Name == "Forearm" or part.Name == "Hand" then
+					table.insert(lower, part)
+				end
+			end
+			local pose = armPoses[side]
+			local shoulder = Vector3.new(side * 1.5, 0.5, 0)
+			local raise = pose.Raise
+			turn(parts, shoulder, raise)
+			local elbow = shoulder + raise * Vector3.new(0, -0.9, 0)
+			local from = raise * Vector3.new(0, -1, 0)
+			local to = pose.Forearm.Unit
+			local axis = from:Cross(to)
+			if axis.Magnitude > 1e-4 then
+				turn(lower, elbow, CFrame.fromAxisAngle(axis.Unit, math.acos(math.clamp(from:Dot(to), -1, 1))))
+			end
+		end
+	end
+
+	-- Legs: flopped apart, feet falling outwards
+	for _, side in { -1, 1 } do
+		local leg = model:FindFirstChild(if side < 0 then "Left Leg" else "Right Leg") :: BasePart?
+		local parts = leg and groups[leg]
+		if parts then
+			turn(parts, Vector3.new(side * 0.5, -1, 0), CFrame.Angles(0, 0, side * math.rad(9)) * CFrame.Angles(0, -side * math.rad(22), 0))
+		end
+	end
+
+	-- Head: chin down a little (off the ground, onto the pillow) and turned to one side
+	turn(headParts, Vector3.new(0, 1, 0), CFrame.Angles(0, math.rad(16), 0) * CFrame.Angles(math.rad(-20), 0, 0))
+	-- A big studded pillow under his head (behind it, before he's laid down)
+	piece("Pillow", Vector3.new(2.8, 1.4, 0.36), rgb(150, 200, 255), origin * CFrame.new(0, 1.8 * s, 0.47 * s), true)
+
+	local mouth = model:FindFirstChild("Mouth", true)
+	return if mouth and mouth:IsA("BasePart") then mouth else nil
+end
+
 -- Pose for a guard sleeping on his blanket at `home` (a CFrame on the floor).
 function GuardModel.SleepCFrame(home: CFrame): CFrame
 	return home * CFrame.new(0, 0.2 + 0.55 * Config.Guard.Scale, 0) * CFrame.Angles(math.rad(90), 0, 0)

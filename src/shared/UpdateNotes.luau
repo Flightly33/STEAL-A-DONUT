@@ -119,6 +119,12 @@ UpdateNotes.List = {
 				"A brand new loading screen with tips while the game loads",
 				"Don't want to wait? Press SKIP!",
 			} },
+			{ Title = "Sleepy Domer", Tag = "NEW", Lines = {
+				"Domer really sleeps now: eyes shut, head on a pillow, one arm over his head",
+				"Z's float out of his mouth and you can hear him snore when you sneak close",
+				"Grab a donut and he wakes up with an angry grunt!",
+				"Donuts in the lane hop, blink and watch you walk by",
+			} },
 			{ Title = "Cleaner Buttons", Tag = "Improvements", Lines = {
 				"Shiny new cartoon icons on every button",
 				"Music on/off, next song and volume are now in ⚙️ Settings",

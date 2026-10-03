@@ -79,6 +79,10 @@ Config.Guard = {
 	-- he doesn't stand frozen for a moment the first time he wakes up.
 	WalkAnimation = "rbxassetid://180426354",
 	IdleAnimation = "rbxassetid://180435571",
+	-- His snore (heard near his blanket) and the angry grunt when he wakes up. "" = made from
+	-- Roblox's own sounds; paste "rbxassetid://..." from the Creator Store to use a real recording.
+	SnoreSoundId = "",
+	GruntSoundId = "",
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
 	-- Every Domer runs this much faster than the area's base guard speed (1.075 = +7.5%).
 	SpeedMultiplier = 1.075,
