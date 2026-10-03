@@ -142,19 +142,32 @@ local function hideBanner()
 	setEdges(false)
 end
 
--- One heavy footstep from the guard (a 3D sound on him, so you hear where he is).
+-- One heavy footstep from the guard (a 3D sound on him, so you hear where he is). A few sounds
+-- are made once per chase and reused, instead of a new one every step.
+local steps: { Sound } = {}
+local stepIndex = 0
 local function footstep(guardRoot: BasePart, volume: number)
-	local sound = Instance.new("Sound")
-	sound.SoundId = STEP_SOUND
+	if not steps[1] or steps[1].Parent ~= guardRoot then
+		for _, old in steps do
+			old:Destroy()
+		end
+		steps = {}
+		for i = 1, 3 do
+			local sound = Instance.new("Sound")
+			sound.Name = "Footstep" .. i
+			sound.SoundId = STEP_SOUND
+			sound.RollOffMinDistance = 20
+			sound.RollOffMaxDistance = Config.Guard.FootstepRange * 2
+			sound.Parent = guardRoot
+			steps[i] = sound
+		end
+	end
+	stepIndex = stepIndex % #steps + 1
+	local sound = steps[stepIndex]
 	sound.Volume = volume
 	sound.PlaybackSpeed = 0.42 + math.random() * 0.08
-	sound.RollOffMinDistance = 20
-	sound.RollOffMaxDistance = Config.Guard.FootstepRange * 2
-	sound.Parent = guardRoot
+	sound.TimePosition = 0
 	sound:Play()
-	task.delay(2, function()
-		sound:Destroy()
-	end)
 end
 
 type ChaseInfo = { DonutId: string, AreaId: number, Kind: string?, Guard: Model?, GuardSpeed: number?, Raid: boolean?, Mutation: string?, Size: string?, Victim: Player? }
@@ -194,6 +207,9 @@ local function onChaseStarted(info: ChaseInfo)
 	end
 	local pulse = 0
 	local nextStep = 0
+	local lastText = ""
+	local nextText = 0
+	local nextGlow = 0
 	chaseConnection = RunService.RenderStepped:Connect(function(dt)
 		pulse += dt
 		local root = rootPart()
@@ -221,7 +237,7 @@ local function onChaseStarted(info: ChaseInfo)
 			if gap < Config.Guard.FootstepRange and speed > 2 and pulse >= nextStep then
 				local stride = 2.2 * Config.Guard.Scale
 				nextStep = pulse + math.clamp(stride / speed, 0.17, 0.6)
-				footstep(guardRoot, math.clamp(1.4 * (1 - gap / Config.Guard.FootstepRange), 0.15, 1.4))
+				footstep(guardRoot, math.clamp(0.9 * (1 - gap / Config.Guard.FootstepRange), 0.1, 0.9))
 			end
 			closeness = math.clamp(1 - gap / Config.Guard.ShakeRange, 0, 1)
 		end
@@ -234,10 +250,19 @@ local function onChaseStarted(info: ChaseInfo)
 				h.CameraOffset = Vector3.zero
 			end
 		end
-		bannerInfo.Text = text
-		-- The red glow pulses faster and stronger the closer he gets
-		local rate = 5 + closeness * 10
-		setEdgeStrength(0.6 - closeness * 0.35 + math.sin(pulse * rate) * 0.1)
+		-- (only touch the label when the numbers change, at most 10 times a second: re-fitting
+		-- scaled text every frame is slow on phones)
+		if text ~= lastText and pulse >= nextText then
+			lastText = text
+			nextText = pulse + 0.1
+			bannerInfo.Text = text
+		end
+		-- The red glow pulses faster and stronger the closer he gets (30 updates a second is plenty)
+		if pulse >= nextGlow then
+			nextGlow = pulse + 1 / 30
+			local rate = 5 + closeness * 10
+			setEdgeStrength(0.6 - closeness * 0.35 + math.sin(pulse * rate) * 0.1)
+		end
 	end)
 end
 

@@ -100,6 +100,8 @@ UpdateNotes.List = {
 				"Half as many shadows, lighter lighting and calmer particles",
 				"Way fewer particles everywhere",
 				"Empty areas stop re-rolling their donuts, so there's less to download",
+				"Grabbing a donut no longer stutters on phones: your device draws the donut in your arms itself",
+				"Running down the lane is smoother: areas appear bit by bit and far donuts move less often",
 			} },
 			{ Title = "Studded Donuts", Tag = "NEW Looks", Lines = {
 				"Every donut is now built from classic studded blocks, just like Domer!",
@@ -107,7 +109,7 @@ UpdateNotes.List = {
 			{ Title = "Bigger Lanes", Tag = "Balance", Lines = {
 				"Every area is longer and a bit wider (same number of donuts)",
 				"You start at 24 walk speed, and the first Domers speed up to match",
-				"New scary chase music: a pounding heartbeat that speeds up the longer Domer chases you!",
+				"New chase music: a heartbeat that speeds up the longer Domer chases you (soft, not too loud)",
 			} },
 			{ Title = "Brighter Graphics", Tag = "NEW Looks", Lines = {
 				"Sunnier, more colourful lighting with puffy 3D clouds",

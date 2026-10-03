@@ -343,10 +343,7 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 	spot.Taken = true
 	model:Destroy()
 	spot.Model = nil
-	local visual = PetModel.BuildEgg(egg, { Scale = 0.6 })
-	if not StealService.AttachAboveHead(player, visual) then
-		visual:Destroy()
-	end
+	-- (the egg in your hands is drawn by every client from your Carry* attributes)
 	local started = StealService.StartCustom(player, {
 		Kind = "Egg",
 		DonutId = eggId,
@@ -357,7 +354,6 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 		VictimSlot = nil,
 		Record = nil,
 		AreaId = spot.AreaId,
-		Visual = visual,
 		Secured = false,
 		LastPos = Vector3.zero,
 		LastTime = 0,
@@ -384,7 +380,6 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 		end,
 	})
 	if not started then
-		visual:Destroy()
 		spot.Taken = false
 		spawnEgg(spot, eggId, false)
 	end

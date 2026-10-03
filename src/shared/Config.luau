@@ -75,6 +75,10 @@ Config.Guard = {
 	-- Every player has their OWN guards: you only ever see (and get chased by) yours, so other
 	-- players can't wake him up for you. When a chase ends he poofs back to his blanket.
 	Scale = 4, -- model scale (1 = normal player size). He's HUGE: about 20 studs tall.
+	-- His walk and idle animations (Roblox's R6 ones). Clients preload them when the game starts, so
+	-- he doesn't stand frozen for a moment the first time he wakes up.
+	WalkAnimation = "rbxassetid://180426354",
+	IdleAnimation = "rbxassetid://180435571",
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
 	-- Every Domer runs this much faster than the area's base guard speed (1.075 = +7.5%).
 	SpeedMultiplier = 1.075,
@@ -671,7 +675,7 @@ Config.Particles = {
 }
 
 Config.Music = {
-	DefaultVolume = 0.3, -- 0 to 1 (players change it, or turn music off, in ⚙️ Settings)
+	DefaultVolume = 0.25, -- 0 to 1 (players change it, or turn music off, in ⚙️ Settings)
 	Tracks = {
 		{ Name = "Morning Mood", Id = 1846088038 }, -- Grieg, Peer Gynt (Roblox's licensed music)
 	} :: { { Name: string, Id: number } },
@@ -679,8 +683,8 @@ Config.Music = {
 	Fallback = {
 		{ Name = "Relaxed Scene", Id = 1848354536 },
 	} :: { { Name: string, Id: number } },
-	-- Music while Domer chases you. 0 = the built-in scary chase loop (a pounding heartbeat that speeds
-	-- up, a dark drone and creepy pings: UI/ChaseMusic.luau). To use a real track instead, paste the
+	-- Music while Domer chases you. 0 = the built-in chase loop (a heartbeat that speeds up, a low drone
+	-- and a faint creepy note, mixed soft so it's never harsh: UI/ChaseMusic.luau). To use a real track instead, paste the
 	-- id of one from the Creator Store (Toolbox > Audio > Music; public or uploaded by you).
 	Chase = { Name = "Chase", Id = 0 },
 }

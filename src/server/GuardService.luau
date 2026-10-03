@@ -38,8 +38,8 @@ local DataService = require(script.Parent.DataService)
 local GuardService = {}
 GuardService.Caught = Signal.new() -- (player, areaId)
 
-local R6_WALK = "rbxassetid://180426354"
-local R6_IDLE = "rbxassetid://180435571"
+local R6_WALK = Config.Guard.WalkAnimation
+local R6_IDLE = Config.Guard.IdleAnimation
 local UPDATE_INTERVAL = 0.05
 
 type Sample = { Time: number, Position: Vector3 }

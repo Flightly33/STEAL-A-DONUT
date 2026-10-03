@@ -182,6 +182,7 @@ function Settings.SetMusicOn(on: boolean)
 end
 
 function Settings.Init()
+	ChaseMusic.Preload()
 	sound = Instance.new("Sound")
 	sound.Name = "Soundtrack"
 	sound.Looped = false

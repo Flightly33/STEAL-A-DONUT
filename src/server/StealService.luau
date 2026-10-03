@@ -10,6 +10,11 @@
 	  If the guard catches you, you get hit, or you fall, the donut goes BACK to where you took it
 	  from (the same donut, on the same spot) and you're sent back to your base.
 
+	What you carry is drawn by every client (client/Carried.luau) from the player's attributes:
+	CarryingDonut (the donut's or egg's id), CarryKind, CarryMutation and CarrySize. The server never
+	builds or welds a model for it (a donut is ~110 parts: sending that to every phone and welding it
+	into the thief's character at the moment of the grab made the first second of a steal laggy).
+
 	Everything you can carry uses the same system:
 	  Lane -> a donut from the lane (returns to its spawn spot when lost)
 	  Raid -> a donut stolen from another player's base (see RaidService). You're in slow mode while
@@ -27,7 +32,6 @@ local Rarities = require(Shared.Rarities)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local Layout = require(Shared.Layout)
-local DonutModel = require(Shared.DonutModel)
 local Remotes = require(Shared.Remotes)
 
 local DataService = require(script.Parent.DataService)
@@ -48,7 +52,6 @@ export type Carry = {
 	VictimSlot: number?, -- raids: the stand it was taken from
 	Record: DonutSpawnService.SpawnRecord?, -- lane donuts: the spot it was taken from
 	AreaId: number,
-	Visual: Model?,
 	Secured: boolean,
 	LastPos: Vector3,
 	LastTime: number,
@@ -81,22 +84,22 @@ local function clearCarry(player: Player): Carry?
 		return nil
 	end
 	carriers[player] = nil
-	if carry.Visual then
-		carry.Visual:Destroy()
-	end
 	if player.Parent then
 		player:SetAttribute("CarryingDonut", nil)
 		player:SetAttribute("CarrySize", nil)
 		player:SetAttribute("CarryKind", nil)
+		player:SetAttribute("CarryMutation", nil)
 	end
 	return carry
 end
 
 local function startCarry(player: Player, carry: Carry)
 	carriers[player] = carry
-	player:SetAttribute("CarryingDonut", carry.DonutId)
+	-- (clients draw what's carried from these: see client/Carried.luau)
+	player:SetAttribute("CarryMutation", carry.Mutation)
 	player:SetAttribute("CarrySize", carry.Size)
 	player:SetAttribute("CarryKind", carry.Kind)
+	player:SetAttribute("CarryingDonut", carry.DonutId)
 end
 
 -- Put whatever the player was carrying back where it came from.
@@ -155,89 +158,6 @@ function StealService.Knock(player: Player)
 	end
 end
 
--- Weld a model above the player's head (the thing they carry).
-function StealService.AttachAboveHead(player: Player, model: Model): boolean
-	local character = player.Character
-	local head = character and (character:FindFirstChild("Head") :: BasePart?)
-	local root = model.PrimaryPart
-	if not character or not head or not root then
-		return false
-	end
-	local lift = 1.2 + ((model:GetAttribute("Bottom") :: number?) or 1.4)
-	model:PivotTo(head.CFrame * CFrame.new(0, lift, 0))
-	root.Anchored = false
-	local weld = Instance.new("Weld")
-	weld.Part0 = head
-	weld.Part1 = root
-	weld.C0 = CFrame.new(0, lift, 0)
-	weld.Parent = root
-	model.Name = "CarriedDonut"
-	model.Parent = character
-	return true
-end
-
--- Arms reach forward while holding a donut (R15 and R6 shoulder joints); undone when it's gone.
-local ARM_JOINTS = { "RightShoulder", "LeftShoulder", "Right Shoulder", "Left Shoulder" }
-local function raiseArms(character: Model, model: Model)
-	local saved: { [Motor6D]: CFrame } = {}
-	for _, joint in character:GetDescendants() do
-		if joint:IsA("Motor6D") and table.find(ARM_JOINTS, joint.Name) then
-			saved[joint] = joint.C0
-			-- R6 shoulders point sideways (rotate about their own Z), R15 about X
-			joint.C0 = joint.C0 * (if string.find(joint.Name, " ") then CFrame.Angles(0, 0, if joint.Name == "Right Shoulder" then math.rad(80) else math.rad(-80)) else CFrame.Angles(math.rad(80), 0, 0))
-		end
-	end
-	model.Destroying:Connect(function()
-		for joint, c0 in saved do
-			if joint.Parent then
-				joint.C0 = c0
-			end
-		end
-	end)
-end
-
--- Weld a donut in front of the player's chest, held in both arms.
-function StealService.AttachInArms(player: Player, model: Model): boolean
-	local character = player.Character
-	local torso = character and ((character:FindFirstChild("UpperTorso") or character:FindFirstChild("Torso")) :: BasePart?)
-	local root = model.PrimaryPart
-	if not character or not torso or not root then
-		return false
-	end
-	local _, size = model:GetBoundingBox()
-	local offset = CFrame.new(0, 0.2, -(torso.Size.Z / 2 + size.Z / 2 + 0.3))
-	model:PivotTo(torso.CFrame * offset)
-	for _, part in model:GetDescendants() do
-		if part:IsA("BasePart") then
-			part.Massless = true
-			part.CanCollide = false
-		end
-	end
-	root.Anchored = false
-	local weld = Instance.new("Weld")
-	weld.Part0 = torso
-	weld.Part1 = root
-	weld.C0 = offset
-	weld.Parent = root
-	model.Name = "CarriedDonut"
-	model.Parent = character
-	raiseArms(character, model)
-	return true
-end
-
-local function attachVisual(player: Player, donutId: string, mutationId: string, sizeId: string): Model?
-	local donut = Donuts.ById[donutId]
-	if not donut then
-		return nil
-	end
-	local model = DonutModel.Build(donut, { Scale = 0.45, Mutation = mutationId, Size = sizeId })
-	if not StealService.AttachInArms(player, model) and not StealService.AttachAboveHead(player, model) then
-		model:Destroy()
-		return nil
-	end
-	return model
-end
-
 -- Anything else that can be carried (eggs). The guard of `areaId` wakes up if areaId > 0.
 function StealService.StartCustom(player: Player, carry: Carry): boolean
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -275,7 +195,6 @@ function StealService.StartRaid(thief: Player, victim: Player, slot: DataService
 		VictimSlot = slotIndex,
 		Record = nil,
 		AreaId = 0,
-		Visual = attachVisual(thief, slot.Id, mutation, size),
 		Secured = true, -- no guard: the danger is the owner hitting you
 		LastPos = root.Position,
 		LastTime = os.clock(),
@@ -335,7 +254,6 @@ local function trySteal(player: Player, record: DonutSpawnService.SpawnRecord)
 		VictimSlot = nil,
 		Record = record,
 		AreaId = record.AreaId,
-		Visual = attachVisual(player, donutId, mutation, size),
 		Secured = false,
 		LastPos = root.Position,
 		LastTime = os.clock(),

@@ -24,6 +24,9 @@ local PLOT_DISTANCE = 520
 local WORLD_DISTANCE = 800
 local MARGIN = 60 -- hide only this much further out than we show (no flicker at the edge)
 local CHECK_EVERY = 0.35
+-- Hiding or showing an area touches thousands of parts (every lane donut is ~100), so the work is
+-- spread over a few frames instead of one big stutter while you run down the lane.
+local BATCH = 1500 -- parts (and lights, emitters...) handled per frame
 
 -- Parts of a lane area / world that always stay
 local KEEP = {
@@ -93,14 +96,27 @@ local function addChunk(name: string, containers: { Instance }, boundsFrom: { In
 	})
 end
 
--- (protected: only runs when an area is hidden or shown, never every frame)
+-- LocalTransparencyModifier is set directly on parts and decals; only if this engine can't (the
+-- offline test runner) does every access go through pcall.
+local direct = pcall(function()
+	local probe = Instance.new("Part")
+	probe.LocalTransparencyModifier = probe.LocalTransparencyModifier
+	probe:Destroy()
+end)
 local function getLocalTransparency(item: Instance): number
+	if direct then
+		return (item :: any).LocalTransparencyModifier
+	end
 	local ok, value = pcall(function()
 		return (item :: any).LocalTransparencyModifier
 	end)
 	return if ok and type(value) == "number" then value else 0
 end
 local function setLocalTransparency(item: Instance, value: number)
+	if direct then
+		(item :: any).LocalTransparencyModifier = value
+		return
+	end
 	pcall(function()
 		(item :: any).LocalTransparencyModifier = value
 	end)
@@ -137,17 +153,27 @@ local function restoreOne(chunk: Chunk, item: Instance)
 	end
 end
 
+-- Unfinished hide / show work, a batch of items per frame (showing comes first)
+type Job = { Chunk: Chunk, Hide: boolean, Items: { Instance }, Next: number }
+local jobs: { Job } = {}
+
 local function setHidden(chunk: Chunk, hidden: boolean)
 	if chunk.Hidden == hidden then
 		return
 	end
 	chunk.Hidden = hidden
+	-- an unfinished job for this chunk was going the other way: drop it
+	for i = #jobs, 1, -1 do
+		if jobs[i].Chunk == chunk then
+			table.remove(jobs, i)
+		end
+	end
+	local items: { Instance } = {}
 	if hidden then
 		for _, container in chunk.Containers do
-			hideOne(chunk, container)
-			for _, item in container:GetDescendants() do
-				hideOne(chunk, item)
-			end
+			table.insert(items, container)
+			local descendants = container:GetDescendants()
+			table.move(descendants, 1, #descendants, #items + 1, items)
 			table.insert(chunk.Connections, container.DescendantAdded:Connect(function(item: Instance)
 				hideOne(chunk, item)
 			end))
@@ -156,13 +182,39 @@ local function setHidden(chunk: Chunk, hidden: boolean)
 				restoreOne(chunk, item)
 			end))
 		end
+		table.insert(jobs, { Chunk = chunk, Hide = true, Items = items, Next = 1 })
 	else
 		for _, connection in chunk.Connections do
 			connection:Disconnect()
 		end
 		table.clear(chunk.Connections)
 		for item in chunk.Saved do
-			restoreOne(chunk, item)
+			table.insert(items, item)
+		end
+		table.insert(jobs, 1, { Chunk = chunk, Hide = false, Items = items, Next = 1 })
+	end
+end
+
+-- Do up to `budget` items of the queued hide / show work.
+local function work(budget: number)
+	while budget > 0 and #jobs > 0 do
+		local job = jobs[1]
+		local items, chunk = job.Items, job.Chunk
+		local last = math.min(#items, job.Next + budget - 1)
+		for i = job.Next, last do
+			local item = items[i]
+			if job.Hide then
+				if item.Parent then
+					hideOne(chunk, item)
+				end
+			else
+				restoreOne(chunk, item)
+			end
+		end
+		budget -= last - job.Next + 1
+		job.Next = last + 1
+		if job.Next > #items then
+			table.remove(jobs, 1)
 		end
 	end
 end
@@ -263,6 +315,7 @@ end
 
 function Culling.Update()
 	update()
+	work(math.huge)
 end
 
 function Culling.Init()
@@ -279,6 +332,9 @@ function Culling.Init()
 			if elapsed >= CHECK_EVERY then
 				elapsed = 0
 				update()
+			end
+			if #jobs > 0 then
+				work(BATCH)
 			end
 		end)
 	end)

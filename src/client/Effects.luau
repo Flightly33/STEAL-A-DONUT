@@ -61,7 +61,7 @@ end
 --------------------------------------------------------------------------------
 -- Donut motion + rainbow
 --------------------------------------------------------------------------------
-type Floater = { Root: BasePart, Base: CFrame, Phase: number, Spin: number, Bob: number }
+type Floater = { Root: BasePart, Base: CFrame, Phase: number, Spin: number, Bob: number, Accum: number }
 
 local function makeFloater(spin: number, bob: number): (Instance) -> Floater?
 	return function(instance: Instance): Floater?
@@ -72,7 +72,7 @@ local function makeFloater(spin: number, bob: number): (Instance) -> Floater?
 		if not root or not root:IsA("BasePart") then
 			return nil
 		end
-		return { Root = root, Base = root.CFrame, Phase = math.random() * 6, Spin = spin, Bob = bob }
+		return { Root = root, Base = root.CFrame, Phase = math.random() * 6, Spin = spin, Bob = bob, Accum = 0 }
 	end
 end
 
@@ -107,24 +107,61 @@ local function startDonutEffects()
 		return nil
 	end)
 
-	RunService.RenderStepped:Connect(function()
+	local colourClock = 0
+	local spinClock = 0
+	RunService.RenderStepped:Connect(function(dt: number)
 		local t = os.clock()
-		local cam = cameraPosition()
+		local camera = workspace.CurrentCamera
+		local cam = if camera then camera.CFrame.Position else Vector3.zero
+		local look = if camera then camera.CFrame.LookVector else Vector3.zero
 
+		-- Every donut is ~100 parts, so moving one isn't free: the ones behind the camera wait, and
+		-- the further away they are the less often they move (60 / 30 / 15 times a second).
 		local function animate(set: { [Instance]: Floater })
 			for model, f in set do
 				local root = f.Root
-				-- Only animate anchored donuts (a carried donut is welded to its owner's head).
-				if root.Parent and root.Anchored and (root.Position - cam).Magnitude < ANIMATE_DISTANCE then
-					root.CFrame = f.Base * CFrame.new(0, math.sin(t * 2 + f.Phase) * f.Bob, 0) * CFrame.Angles(0, t * f.Spin + f.Phase, 0)
-				elseif not model.Parent then
+				if not model.Parent then
 					set[model] = nil
+					continue
+				end
+				-- Only animate anchored donuts (not one that's being carried).
+				if not root.Anchored then
+					continue
+				end
+				f.Accum += dt
+				local toward = f.Base.Position - cam
+				local distance = toward.Magnitude
+				if distance > ANIMATE_DISTANCE then
+					continue
+				end
+				local interval = if distance < 45 then 0 elseif distance < 100 then 1 / 30 else 1 / 15
+				local inView = distance < 25 or toward:Dot(look) > distance * 0.3
+				if inView and f.Accum >= interval then
+					f.Accum = 0
+					root.CFrame = f.Base * CFrame.new(0, math.sin(t * 2 + f.Phase) * f.Bob, 0) * CFrame.Angles(0, t * f.Spin + f.Phase, 0)
 				end
 			end
 		end
 		animate(floaters)
 		animate(podiums)
 
+		-- Slow spinners (30 times a second) and colour cycling (15) don't need every frame either
+		spinClock += dt
+		if spinClock >= 1 / 30 then
+			spinClock = 0
+			for model, s in spinners do
+				if not model.Parent then
+					spinners[model] = nil
+				elseif (s.Base.Position - cam).Magnitude < 350 then
+					s.Model:PivotTo(s.Base * CFrame.Angles(0, t * 0.5, math.sin(t) * 0.2))
+				end
+			end
+		end
+		colourClock += dt
+		if colourClock < 1 / 15 then
+			return
+		end
+		colourClock = 0
 		local hue = (t * 0.2) % 1
 		for model, r in rainbows do
 			if not model.Parent then
@@ -142,13 +179,10 @@ local function startDonutEffects()
 			end
 		end
 		for label in rainbowTexts do
-			(label :: TextLabel).TextColor3 = Color3.fromHSV(hue, 0.6, 1)
-		end
-		for model, s in spinners do
-			if not model.Parent then
-				spinners[model] = nil
-			elseif (s.Base.Position - cam).Magnitude < 350 then
-				s.Model:PivotTo(s.Base * CFrame.Angles(0, t * 0.5, math.sin(t) * 0.2))
+			if label.Parent then
+				(label :: TextLabel).TextColor3 = Color3.fromHSV(hue, 0.6, 1)
+			else
+				rainbowTexts[label] = nil
 			end
 		end
 	end)

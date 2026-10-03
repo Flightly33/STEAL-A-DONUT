@@ -3,17 +3,20 @@
 	====================
 	* Builds YOUR sleeping guard on every blanket (only you can see him; everyone has their own).
 	* When you steal a donut the server spawns your chasing guard: your sleeping one disappears in a
-	  puff of smoke, and pops back onto the blanket when the chase is over.
+	  puff of smoke, and pops back onto the blanket when the chase is over. His animations are
+	  preloaded at the start, so he never freezes the first time he wakes up.
 	* Other players' chasing guards are hidden, so you never see anyone else's Domers.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
+local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
+local Config = require(Shared.Config)
 local GuardModel = require(Shared.GuardModel)
 
 local player = Players.LocalPlayer :: Player
@@ -163,6 +166,19 @@ local function onGuardAdded(instance: Instance)
 end
 
 function Guards.Init()
+	-- Load his animations now, not the moment he first wakes up
+	task.spawn(function()
+		local list = {}
+		for _, id in { Config.Guard.WalkAnimation, Config.Guard.IdleAnimation } do
+			local animation = Instance.new("Animation")
+			animation.AnimationId = id
+			table.insert(list, animation)
+		end
+		pcall(function()
+			ContentProvider:PreloadAsync(list)
+		end)
+	end)
+
 	folder = Instance.new("Folder")
 	folder.Name = "MyGuards"
 	folder.Parent = workspace
