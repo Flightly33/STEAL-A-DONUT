@@ -3,8 +3,8 @@
 	(chat top-left, player list top-right, hotbar bottom-centre):
 	  left   - big Shop / Index / Pets / Rebirth buttons + the speed slider (middle of the screen)
 	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
-	           is in there) / Hide UI (+ Admin, + Teleport for Teleporter pass owners), centred on the
-	           right edge. Everyone else travels between worlds through the hub's portals.
+	           is in there) / Hide UI (+ Admin, + Floors after the floors code, + Teleport for
+	           Teleporter pass owners), centred on the right edge. Everyone else travels between worlds through the hub's portals.
 	  stats  - Speed, Money, income per second (bottom-left)
 	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
@@ -35,6 +35,7 @@ export type Callbacks = {
 	OpenSettings: () -> (),
 	OpenRebirth: () -> (),
 	OpenWorlds: () -> (),
+	OpenFloors: () -> (),
 	OpenPets: () -> (),
 	OpenDonate: () -> (),
 	OpenUpdates: () -> (),
@@ -212,6 +213,11 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end
 	local admin = square("🛠", "ADMIN", Theme.Colors.Red, 0, callbacks.OpenAdmin)
 	admin.Visible = false
+	-- The floors code ("ender=rich"): just the floor buttons
+	local floors = square("🏢", "FLOORS", Theme.Colors.Blue, 0, callbacks.OpenFloors)
+	State.OnAttribute("FloorAccess", function(value)
+		floors.Visible = value == true
+	end)
 	square("🏠", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)

@@ -101,7 +101,7 @@ end
 -- How many floors the player's base has (more than can be bought for the game's owner).
 function PlotService.GetFloors(player: Player): number
 	local profile = DataService.Get(player)
-	return if profile then math.clamp(profile.Data.Floors, 1, math.max(Layout.MaxFloors, Config.Admin.OwnerMaxFloors)) else 1
+	return if profile then math.clamp(profile.Data.Floors, 1, math.max(Layout.MaxFloors, Config.Admin.MaxFloors)) else 1
 end
 
 function PlotService.IsInOwnPlot(player: Player, position: Vector3): boolean
@@ -1005,8 +1005,25 @@ function buildUpperFloors(player: Player)
 	if not plot or not index then
 		return
 	end
-	removeUpperFloors(plot)
 	local floors = if profile then PlotService.GetFloors(player) else 1
+	-- Floors that are already built stay as they are (adding floors only sends the new ones to
+	-- everyone's device); any above the new top are removed.
+	for _, child in plot:GetChildren() do
+		local number = tonumber(string.match(child.Name, "^Floor(%d+)$"))
+		if child.Name == "SecondFloor" or (number and number > floors) then
+			child:Destroy()
+		end
+	end
+	local slotFolder = plot:FindFirstChild("Slots")
+	if slotFolder then
+		local last = Layout.SlotsForFloors(floors)
+		for _, pedestal in slotFolder:GetChildren() do
+			local slotIndex = tonumber(string.match(pedestal.Name, "^Slot(%d+)$"))
+			if slotIndex and slotIndex > last then
+				pedestal:Destroy()
+			end
+		end
+	end
 	MapBuilder.BuildShell(plot, floors)
 	local cf = Layout.PlotCFrame(index, PlotService.GetBaseWorld(player))
 	local w, d, fh = Layout.PlotWidth, Layout.PlotDepth, Layout.PlotFloorHeight
@@ -1016,6 +1033,9 @@ function buildUpperFloors(player: Player)
 		return cf * CFrame.new(x, y, z)
 	end
 	for floor = 2, floors do
+		if plot:FindFirstChild("Floor" .. floor) then
+			continue -- already built
+		end
 		local height = Layout.FloorY(floor)
 		local below = Layout.FloorY(floor - 1)
 		local deck = Instance.new("Model")

@@ -188,7 +188,7 @@ Layout.SlotColumns = { -19.5, -6.5, 6.5, 19.5 }
 Layout.SlotRows = { -26, -12, 2, 16, 30, 42 }
 -- Floors: the ground floor has SlotsPerPlot stands, every upper floor UpperFloors.Slots more
 -- (stands SlotsPerPlot+1 .. are upstairs, same layout, UpperFloors.Height studs per floor).
--- MaxFloors is what can be bought; the game's owner can build more (Config.Admin.OwnerMaxFloors).
+-- MaxFloors is what can be bought; the game's owner can build more (Config.Admin.MaxFloors).
 Layout.MaxFloors = 1 + #Config.Plots.UpperFloors.Costs
 
 -- How many stands a base with `floors` floors has (all of them unlocked).

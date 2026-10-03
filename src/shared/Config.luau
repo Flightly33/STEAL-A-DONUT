@@ -405,10 +405,12 @@ Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
 	OwnerOnlyCommands = {} :: { string }, -- e.g. { "Luck", "OpenCrate", "SpawnCrate", "Event" }
-	-- The owner's 👑 +FLOORS buttons build floors past the normal limit, up to this many in all.
-	-- (Roblox parts can't be taller than 2048 studs, and the base's glass walls and corner
-	-- pillars run from the ground to the roof: 75 floors x 26 studs is about as high as they go.)
-	OwnerMaxFloors = 75,
+	-- The +FLOORS buttons (the owner's 👑 ones in the admin panel, and everyone who typed the floors
+	-- code "ender=rich") build floors past the normal limit, up to this many in all. It can't be
+	-- infinite: Roblox parts can't be taller than 2048 studs, and the base's glass walls and corner
+	-- pillars run from the ground to the roof, so 75 floors x 26 studs is about as high as they go.
+	-- (Every floor is also ~65 more parts that every player's device has to draw.)
+	MaxFloors = 75,
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	HideFromLeaderboards = false, -- admin-panel users show up on the global boards too
 }

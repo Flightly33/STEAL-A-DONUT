@@ -82,7 +82,7 @@ export type Profile = {
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
 	-- TestDonated / TestDonorTier: Studio test tips (shown for the session, never saved)
-	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number },
+	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, FloorAccess: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number },
 	NoSave: boolean,
 }
 
@@ -331,7 +331,7 @@ function DataService.Load(player: Player): Profile?
 		Data = data,
 		Passes = {},
 		SessionSkins = {},
-		Session = { Stunned = false, Ready = false, World = 1, Admin = false, GodMode = false, TestDonated = 0, TestDonorTier = 0 },
+		Session = { Stunned = false, Ready = false, World = 1, Admin = false, FloorAccess = false, GodMode = false, TestDonated = 0, TestDonorTier = 0 },
 		NoSave = noSave,
 	}
 	profiles[player] = profile

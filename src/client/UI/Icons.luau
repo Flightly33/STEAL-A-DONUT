@@ -2,7 +2,7 @@
 	Icons: chunky cartoon icons for the HUD and windows (like the big simulator games): a soft white
 	body with a thick black outline, a drop shadow, a bit of shading and a shiny highlight, drawn
 	from plain Frames so there's nothing to upload. They replace these emojis wherever a
-	Theme.Button or a HUD square uses one: 🛒 📖 🐾 🔄 🛠 🏠 🌀 🚀 🎨 💖 📰 🎵 ⚙️ 👁
+	Theme.Button or a HUD square uses one: 🛒 📖 🐾 🔄 🛠 🏠 🏢 🌀 🚀 🎨 💖 📰 🎵 ⚙️ 👁
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -206,6 +206,24 @@ SHAPES.house = {
 	shine(0.39, 0.3, 0.12, 0.04, -45),
 }
 
+-- A tall building with an antenna, rows of windows (two of them lit) and a door
+SHAPES.building = {
+	box(0.5, 0.07, 0.035, 0.09, { fill = "ink" }),
+	circle(0.5, 0.035, 0.06, { fill = Color3.fromRGB(255, 80, 80) }),
+	box(0.5, 0.15, 0.3, 0.08, { r = 0.25 }),
+	box(0.5, 0.55, 0.52, 0.74, { r = 0.06 }),
+	box(0.39, 0.3, 0.12, 0.08, { fill = "ink", r = 0.2 }),
+	box(0.61, 0.3, 0.12, 0.08, { fill = Color3.fromRGB(255, 215, 70), r = 0.2, plain = true }),
+	box(0.39, 0.43, 0.12, 0.08, { fill = "ink", r = 0.2 }),
+	box(0.61, 0.43, 0.12, 0.08, { fill = "ink", r = 0.2 }),
+	box(0.39, 0.56, 0.12, 0.08, { fill = Color3.fromRGB(255, 215, 70), r = 0.2, plain = true }),
+	box(0.61, 0.56, 0.12, 0.08, { fill = "ink", r = 0.2 }),
+	box(0.39, 0.69, 0.12, 0.08, { fill = "ink", r = 0.2 }),
+	box(0.61, 0.69, 0.12, 0.08, { fill = "ink", r = 0.2 }),
+	box(0.5, 0.85, 0.14, 0.14, { fill = "ink", r = 0.2 }),
+	shine(0.31, 0.24, 0.035, 0.1, 0),
+}
+
 -- A globe with a meridian and lines of latitude (every line reaches the outline)
 SHAPES.globe = {
 	circle(0.5, 0.5, 0.8),
@@ -346,6 +364,7 @@ local BY_EMOJI: { [string]: string } = {
 	["🛠"] = "tools",
 	["🛠️"] = "tools",
 	["🏠"] = "house",
+	["🏢"] = "building",
 	["🌀"] = "globe",
 	["🌍"] = "globe",
 	["🚀"] = "rocket",

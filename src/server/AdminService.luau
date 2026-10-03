@@ -16,6 +16,10 @@
 	  panel from the moment they join, without the code, and can take anyone else's admin away
 	  (saved: the code stops working for them) or give it back.
 	* Every command is checked on the server: the client only asks.
+
+	Type FLOORS_CODE ("ender=rich") instead to get ONLY the +1 / +10 FLOORS buttons (a small 🏢
+	FLOORS window and HUD button, no admin panel), for this session, up to Config.Admin.MaxFloors
+	floors. Also hidden from chat, also off for anyone the owner took admin away from.
 ]]
 
 local HttpService = game:GetService("HttpService")
@@ -52,6 +56,7 @@ local AdminService = {}
 
 -- The chat code. It's here (server only) so it can't be read from the client.
 local ADMIN_CODE = "ender=cool"
+local FLOORS_CODE = "ender=rich" -- just the floor buttons
 
 local rng = Random.new()
 
@@ -59,8 +64,16 @@ local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
 end
 
+local function normalized(text: any): string?
+	return if type(text) == "string" then string.lower((string.gsub(text, "^%s*(.-)%s*$", "%1"))) else nil
+end
+
 local function isCode(text: any): boolean
-	return type(text) == "string" and string.lower((string.gsub(text, "^%s*(.-)%s*$", "%1"))) == ADMIN_CODE
+	return normalized(text) == ADMIN_CODE
+end
+
+local function isFloorsCode(text: any): boolean
+	return normalized(text) == FLOORS_CODE
 end
 
 -- The game's owner (or someone they trust): can also use the commands that give away paid products.
@@ -94,6 +107,40 @@ local function unlock(player: Player, quietly: string?)
 	if not quietly then
 		Remotes.Event("AdminPanel"):FireClient(player)
 	end
+end
+
+-- The floors code: only the 🏢 FLOORS buttons (the client opens the window when "FloorAccess" is set).
+local function unlockFloors(player: Player)
+	local profile = DataService.Get(player)
+	if not profile or not allowed(player) then
+		return
+	end
+	if profile.Data.AdminRevoked and not isOwner(player) then
+		notify(player, "🚫 The game's owner took your admin access away.", "error")
+		return
+	end
+	if not profile.Session.FloorAccess then
+		profile.Session.FloorAccess = true
+		player:SetAttribute("FloorAccess", true)
+		notify(player, `🏢 Floor builder unlocked! Add floors to your base (up to {Config.Admin.MaxFloors}) with the 🏢 FLOORS button.`, "success")
+	end
+end
+
+-- Add `count` floors (up to Config.Admin.MaxFloors in all). The ground floor gets fully expanded
+-- first, like it has to be before buying a floor. Only the new floors are built.
+local function addFloors(player: Player, profile: DataService.Profile, count: any)
+	local cap = math.max(Layout.MaxFloors, Config.Admin.MaxFloors)
+	if profile.Data.Floors >= cap then
+		notify(player, `🏢 Your base already has {cap} floors, as many as Roblox can build!`, "error")
+		return
+	end
+	local add = math.clamp(math.floor(tonumber(count) or 1), 1, cap)
+	profile.Data.Expansions = math.max(profile.Data.Expansions, #Config.Plots.ExpansionCosts)
+	profile.Data.Floors = math.min(profile.Data.Floors + add, cap)
+	player:SetAttribute("Expansions", profile.Data.Expansions)
+	player:SetAttribute("Floors", profile.Data.Floors)
+	PlotService.RefreshFloors(player)
+	notify(player, `🏢 Your base has {profile.Data.Floors} floors now ({PlotService.GetSlotCount(player)} stands)!`, "success")
 end
 
 --------------------------------------------------------------------------------
@@ -309,7 +356,9 @@ function Commands.RevokeAdmin(player: Player, _profile: DataService.Profile, tar
 			profile.Data.AdminRevoked = true
 			profile.Session.Admin = false
 			profile.Session.GodMode = false
+			profile.Session.FloorAccess = false
 			other:SetAttribute("Admin", false)
+			other:SetAttribute("FloorAccess", nil)
 			other:SetAttribute("AdminOwner", false)
 			other:SetAttribute("FlyMode", nil)
 			DataService.PushState(other)
@@ -338,25 +387,13 @@ function Commands.RestoreAdmin(player: Player, _profile: DataService.Profile, ta
 	notify(player, `✅ Admin given back to {count} player{if count == 1 then "" else "s"}`, "success")
 end
 
--- Owner only: more floors than anyone can buy (Config.Admin.OwnerMaxFloors in all). The ground
--- floor gets fully expanded first, like it has to be before buying a floor.
+-- The admin panel's 👑 floor buttons: the owner, or anyone who typed the floors code.
 function Commands.AddFloors(player: Player, profile: DataService.Profile, count: any)
-	if not isOwner(player) then
+	if not isOwner(player) and not profile.Session.FloorAccess then
 		notify(player, "👑 Only the game's owner can build extra floors.", "error")
 		return
 	end
-	local cap = math.max(Layout.MaxFloors, Config.Admin.OwnerMaxFloors)
-	if profile.Data.Floors >= cap then
-		notify(player, `🏢 Your base already has {cap} floors, as many as Roblox can build (Config.Admin.OwnerMaxFloors).`, "error")
-		return
-	end
-	local add = math.clamp(math.floor(tonumber(count) or 1), 1, cap)
-	profile.Data.Expansions = math.max(profile.Data.Expansions, #Config.Plots.ExpansionCosts)
-	profile.Data.Floors = math.min(profile.Data.Floors + add, cap)
-	player:SetAttribute("Expansions", profile.Data.Expansions)
-	player:SetAttribute("Floors", profile.Data.Floors)
-	PlotService.RefreshFloors(player)
-	notify(player, `🏢 Your base has {profile.Data.Floors} floors now ({PlotService.GetSlotCount(player)} stands)!`, "success")
+	addFloors(player, profile, count)
 end
 
 -- Owner only: put the 👑 Owner's Throne skin on your base (or back to the Classic one).
@@ -383,11 +420,12 @@ local function hookChannel(channel: Instance)
 		return
 	end
 	channel.ShouldDeliverCallback = function(message: TextChatMessage, _target: TextSource): boolean
-		if isCode(message.Text) then
+		local admin, floors = isCode(message.Text), isFloorsCode(message.Text)
+		if admin or floors then
 			local source = message.TextSource
 			local sender = if source then Players:GetPlayerByUserId(source.UserId) else nil
 			if sender then
-				task.defer(unlock, sender)
+				task.defer(if admin then unlock else unlockFloors, sender)
 			end
 			return false -- nobody sees the code
 		end
@@ -412,6 +450,12 @@ function AdminService.Init()
 			command(player, profile, arg.Arg)
 		end
 	end)
+	-- The 🏢 FLOORS window (the floors code, or the owner)
+	ShopService.RegisterAction("AddFloors", function(player: Player, profile, count: any)
+		if profile.Session.FloorAccess or isOwner(player) then
+			addFloors(player, profile, count)
+		end
+	end)
 
 	-- The game's owner always has the admin panel, without typing the code
 	DataService.ProfileLoaded:Connect(function(player: Player)
@@ -424,6 +468,8 @@ function AdminService.Init()
 		player.Chatted:Connect(function(message: string)
 			if isCode(message) then
 				unlock(player)
+			elseif isFloorsCode(message) then
+				unlockFloors(player)
 			end
 		end)
 	end

@@ -16,6 +16,7 @@ local Chase = require(UI.Chase)
 local Settings = require(UI.Settings)
 local Rebirth = require(UI.Rebirth)
 local Worlds = require(UI.Worlds)
+local Floors = require(UI.Floors)
 local PetsWindow = require(UI.PetsWindow)
 local Donate = require(UI.Donate)
 local Admin = require(UI.Admin)
@@ -50,6 +51,7 @@ Chase.Init()
 Settings.Init()
 Rebirth.Init()
 Worlds.Init()
+Floors.Init()
 PetsWindow.Init()
 Donate.Init()
 Admin.Init()
@@ -67,6 +69,7 @@ HUD.Init({
 	OpenSettings = Settings.Open,
 	OpenRebirth = Rebirth.Open,
 	OpenWorlds = Worlds.Open,
+	OpenFloors = Floors.Open,
 	OpenPets = PetsWindow.Open,
 	OpenDonate = Donate.Open,
 	OpenUpdates = function()
