@@ -99,6 +99,9 @@ end
 function Settings.SetStorm(on: boolean)
 	if on ~= storming then
 		storming = on
+		if on and not musicOn then
+			print("[Music] The Eternal Storm's song is muted because music is switched off (the music button or Settings).")
+		end
 		applyVolume()
 	end
 end

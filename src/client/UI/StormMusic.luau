@@ -2,7 +2,7 @@
 	StormMusic: the Eternal Storm's song, the Radetzky March (Settings starts and stops it).
 
 	The recording in Config.EternalStorm.MusicId (the Radetzky March from the Creator Store) plays,
-	looped. With no id (or if it can't load) a built-in version plays,
+	looped. With no id (or if it can't load: a warning says so in the Output window) a built-in version plays,
 	made from sounds every Roblox client already has: the march's tune on a bright bell, an
 	"oom-pah" bass and chords under it, a bass drum and snare, and a drum roll to start. (It was
 	written out from memory, so it's the tune's style more than an exact copy of the score.)
@@ -24,6 +24,7 @@ local BELL = "rbxasset://sounds/electronicpingshort.wav"
 local THUMP = "rbxasset://sounds/action_jump_land.mp3"
 local TICK = "rbxasset://sounds/button.wav"
 local D5_SPEED = 0.6 -- the bell's speed for the note D5 (every other note is worked out from it)
+local LOAD_TIMEOUT = 8 -- seconds the recording may take to load before the built-in march takes over
 
 -- Note names -> MIDI numbers (D major: F# and C# are sharp)
 local NOTES: { [string]: number } = {
@@ -63,6 +64,7 @@ local CHORDS: { [string]: { Root: string, Fifth: string, Upper: { string } } } =
 local group: SoundGroup? = nil
 local voices: { [string]: { Sounds: { Sound }, Next: number } } = {}
 local recording: Sound? = nil
+local recordingFailed = false
 local playing = false
 local token = 0
 
@@ -78,6 +80,14 @@ local function voice(name: string, id: string, volume: number, count: number)
 		table.insert(list, sound)
 	end
 	voices[name] = { Sounds = list, Next = 1 }
+end
+
+-- "1844280451" works as well as "rbxassetid://1844280451"
+local function contentId(id: string): string
+	if string.match(id, "^%s*%d+%s*$") then
+		return "rbxassetid://" .. (string.gsub(id, "%s", ""))
+	end
+	return id
 end
 
 local function setup()
@@ -114,7 +124,7 @@ local function setup()
 	if id ~= "" then
 		local sound = Instance.new("Sound")
 		sound.Name = "Recording"
-		sound.SoundId = id
+		sound.SoundId = contentId(id)
 		sound.Looped = true
 		sound.Volume = 0.8
 		sound.SoundGroup = g
@@ -151,7 +161,11 @@ function StormMusic.Preload()
 			table.insert(list, recording)
 		end
 		pcall(function()
-			ContentProvider:PreloadAsync(list)
+			ContentProvider:PreloadAsync(list, function(id: string, status: Enum.AssetFetchStatus)
+				if recording and id == recording.SoundId and status == Enum.AssetFetchStatus.Failure then
+					recordingFailed = true
+				end
+			end)
 		end)
 	end)
 end
@@ -241,17 +255,28 @@ function StormMusic.Start(volume: number)
 	local g = group :: SoundGroup
 	TweenService:Create(g, TweenInfo.new(0.8), { Volume = volume * LOUDNESS * Config.EternalStorm.MusicVolume }):Play()
 	local track = recording
-	if track then
+	if track and not recordingFailed then
 		track.TimePosition = 0
 		track:Play()
-		-- a recording that can't load (deleted, private) falls back to the built-in march
-		task.delay(8, function()
-			if playing and token == myToken and track and not track.IsLoaded then
+		print(`[Music] Eternal Storm: playing {track.SoundId}`)
+		-- a recording that can't load (private, deleted, not an audio) falls back to the built-in march
+		task.spawn(function()
+			local function ready(): boolean
+				return track.IsLoaded and track.TimeLength > 0
+			end
+			local waited = 0
+			while waited < LOAD_TIMEOUT and not recordingFailed and not ready() do
+				waited += task.wait(0.25)
+			end
+			if playing and token == myToken and not ready() then
+				recordingFailed = true
 				track:Stop()
+				warn(`[Music] Couldn't load the Eternal Storm song ({track.SoundId}). Audio must be public or uploaded by the game's owner. Playing the built-in march instead.`)
 				task.spawn(march, myToken)
 			end
 		end)
 	else
+		print("[Music] Eternal Storm: playing the built-in march")
 		task.spawn(march, myToken)
 	end
 end
