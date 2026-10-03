@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 9
+local MAP_VERSION = 10
 
 --------------------------------------------------------------------------------
 -- Portals (hub -> other worlds, and back home)
@@ -1447,16 +1447,17 @@ function MapBuilder.Build(): Folder
 		-- Older saved maps: add things introduced later.
 		local hub = existing:FindFirstChild("Hub")
 		local version = (existing:GetAttribute("MapVersion") or 1) :: number
-		if version < 9 then
-			-- Version 9: longer, wider areas (Config.Map). Rebuild every lane and world hub (below), and
-			-- the main hub's safe zone line, entrance gate, ground and walls (cut to the lane's width).
+		if version < 10 then
+			-- Versions 9 and 10: longer (and in 9 wider) areas (Config.Map). Rebuild every lane and world
+			-- hub (below); for 9 also the main hub's safe zone line, entrance gate, ground and walls (cut
+			-- to the lane's width).
 			for _, name in { "Lane", "Worlds" } do
 				local old = existing:FindFirstChild(name)
 				if old then
 					old:Destroy()
 				end
 			end
-			if hub then
+			if hub and version < 9 then
 				local rebuildGround = version >= 5 -- (older maps get a new hub ground below anyway)
 				for _, name in { "SafeZoneLine", "SafeZoneLabel", "EntranceGate", if rebuildGround then "Floor" else "", if rebuildGround then "Walls" else "" } do
 					local old = if name ~= "" then hub:FindFirstChild(name) else nil

@@ -101,7 +101,7 @@ Config.Guard = {
 --------------------------------------------------------------------------------
 Config.Map = {
 	LaneHalfWidth = 70, -- the lane runs along +Z, from X = -70 to X = 70
-	AreaLength = 200, -- each area is this long in Z (must be a multiple of TileSize)
+	AreaLength = 240, -- each area is this long in Z (must be a multiple of TileSize)
 	TileSize = 20,
 	LaneWallHeight = 60,
 
@@ -152,23 +152,23 @@ Config.Plots = {
 -- Speed
 -- The "Speed" stat turns into a real Roblox WalkSpeed in a straight line: every SpeedPerWalk Speed
 -- is +1 WalkSpeed, so twice the training really is twice the extra speed.
---   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 21, 90 = 30, 810 = 102)
+--   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 24, 90 = 33, 810 = 105)
 -- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
 -- There's no maximum: the more you train, the faster you run. (Around WalkSpeed 1000+ Roblox physics
 -- can let a player slip through a thin wall; the speed slider on the HUD lets players slow down.)
 --------------------------------------------------------------------------------
 Config.Speed = {
-	BaseWalkSpeed = 21,
-	-- Domer's speeds are worked out from this instead (Economy.GuardWalkSpeed): 18 makes the early
-	-- Domers a bit faster than before (Area 1: ~24.7), while players still start 3 ahead of it.
-	GuardBaseWalkSpeed = 18,
+	BaseWalkSpeed = 24,
+	-- Domer's speeds are worked out from this instead (Economy.GuardWalkSpeed). It goes up with
+	-- BaseWalkSpeed (players start 3 ahead of it), so the early Domers keep pace (Area 1: ~27.9).
+	GuardBaseWalkSpeed = 21,
 	SpeedPerWalk = 10,
 }
 
 -- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
 -- The last tiers need rebirths (they only make sense in the later worlds).
 -- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 2 in ~7 min,
--- Area 10 in ~1.8 h and rebirths at ~36 min, ~1.9 h, ~4.3 h and ~8.5 h (Config.Rebirth). Real players
+-- Area 10 in ~1.9 h and rebirths at ~37 min, ~2 h, ~4.6 h and ~9.2 h (Config.Rebirth). Real players
 -- take longer (breaks, getting caught).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
@@ -243,7 +243,7 @@ Config.Rebirth = {
 	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
 	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
-	-- a simulated good player (no passes or pets) rebirths at ~36 min, ~1.9 h, ~4.3 h and ~8.5 h.
+	-- a simulated good player (no passes or pets) rebirths at ~37 min, ~2 h, ~4.6 h and ~9.2 h.
 	Levels = {
 		{ Speed = 400, Cost = 5_000_000 }, -- early in World 1 -> unlocks The Underworld
 		{ Speed = 700, Cost = 200_000_000_000 }, -- unlocks Dream Dimension

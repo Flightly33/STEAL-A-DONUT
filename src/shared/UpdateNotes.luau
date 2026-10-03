@@ -103,10 +103,11 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Studded Donuts", Tag = "NEW Looks", Lines = {
 				"Every donut is now built from classic studded blocks, just like Domer!",
+				"New chunky white icons on the buttons",
 			} },
 			{ Title = "Bigger Lanes", Tag = "Balance", Lines = {
 				"Every area is longer and a bit wider (same number of donuts)",
-				"You start at 21 walk speed, and the first Domers are a little faster",
+				"You start at 24 walk speed, and the first Domers speed up to match",
 				"New scary chase music: a pounding heartbeat that speeds up the longer Domer chases you!",
 			} },
 			{ Title = "Brighter Graphics", Tag = "NEW Looks", Lines = {

@@ -20,6 +20,7 @@ local Events = require(Shared.Events)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
+local Icons = require(script.Parent.Icons)
 local Notifications = require(script.Parent.Notifications)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
@@ -132,7 +133,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		local base = Config.Speed.BaseWalkSpeed
 		local full = math.max(State.Number("WalkSpeed"), base)
 		local chosen = base + (full - base) * choice
-		sliderLabel.Text = `🏃 Speed <font color="#9dff7a">{math.floor(chosen)}</font> / {math.floor(full)}`
+		sliderLabel.Text = `Speed <font color="#9dff7a">{math.floor(chosen)}</font> / {math.floor(full)}`
 	end
 	local function send(force: boolean?)
 		local now = os.clock()
@@ -195,7 +196,15 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 
 	local function square(icon: string, caption: string, color: Color3, order: number, onClick: () -> ()): TextButton
 		local button = Theme.Button({ Text = "", Color = color, Size = UDim2.fromOffset(74, 74), LayoutOrder = order, Parent = right })
-		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.62, 0), Position = UDim2.fromScale(0, 0.06), Parent = button })
+		local drawn = Icons.For(icon)
+		if drawn then
+			local art = Icons.Draw(drawn, button, color)
+			art.Size = UDim2.fromScale(0.56, 0.56)
+			art.AnchorPoint = Vector2.new(0.5, 0)
+			art.Position = UDim2.fromScale(0.5, 0.08)
+		else
+			Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.62, 0), Position = UDim2.fromScale(0, 0.06), Parent = button })
+		end
 		Theme.Label({ Name = "Caption", Text = caption, Font = Theme.Title, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 2, Parent = button })
 		button.Activated:Connect(onClick)
 		return button
@@ -383,7 +392,7 @@ local function buildAreaInfo(gui: ScreenGui)
 		else
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
-			local rec = if recommended > 0 then `Recommended speed ⚡{Format.Number(recommended)} (🏃 {math.floor(Economy.RecommendedWalkSpeed(areaId))})` else "Anyone can make it back from here!"
+			local rec = if recommended > 0 then `Recommended speed ⚡{Format.Number(recommended)}` else "Anyone can make it back from here!"
 			Notifications.Banner(`AREA {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{Config.Guard.Name} speed {math.floor(Economy.GuardWalkSpeed(areaId))} • {rec}`)
 		end
 	end)

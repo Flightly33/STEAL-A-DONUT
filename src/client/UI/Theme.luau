@@ -9,6 +9,8 @@ local SoundService = game:GetService("SoundService")
 local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local Icons = require(script.Parent.Icons)
+
 local Theme = {}
 
 local rgb = Color3.fromRGB
@@ -382,16 +384,25 @@ function Theme.Button(props: {
 	button:SetAttribute("BaseColor", props.Color)
 	local textX = 0
 	if props.Icon then
-		Theme.Label({
-			Name = "Icon",
-			Text = props.Icon,
-			Font = Enum.Font.GothamBold,
-			Size = UDim2.fromScale(0.8, 0.8), -- square: both relative to the button height
-			SizeConstraint = Enum.SizeConstraint.RelativeYY,
-			AnchorPoint = Vector2.new(0, 0.5),
-			Position = UDim2.new(0, 6, 0.5, 0),
-			Parent = button,
-		})
+		local drawn = Icons.For(props.Icon)
+		if drawn then
+			-- a chunky white outlined icon (UI/Icons) instead of the emoji
+			local icon = Icons.Draw(drawn, button, props.Color)
+			icon.Size = UDim2.fromScale(0.74, 0.74)
+			icon.AnchorPoint = Vector2.new(0, 0.5)
+			icon.Position = UDim2.new(0, 8, 0.5, 0)
+		else
+			Theme.Label({
+				Name = "Icon",
+				Text = props.Icon,
+				Font = Enum.Font.GothamBold,
+				Size = UDim2.fromScale(0.8, 0.8), -- square: both relative to the button height
+				SizeConstraint = Enum.SizeConstraint.RelativeYY,
+				AnchorPoint = Vector2.new(0, 0.5),
+				Position = UDim2.new(0, 6, 0.5, 0),
+				Parent = button,
+			})
+		end
 		textX = 0.3
 	end
 	Theme.Label({
