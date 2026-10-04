@@ -77,21 +77,33 @@ UpdateNotes.List = {
 				"BOX RUSH every 2:30: boxes in pens open 30x faster for 10 seconds",
 				"Every 5 minutes, all the boxes are replaced with new ones",
 			} },
-			{ Title = "20 Biomes", Tag = "NEW Map", Lines = {
-				"One long lane of 20 huge biomes, from Sprinkle Park to The Black Hole",
-				"Each biome needs some Speed to get in (Frosting Falls 900, Sugar Dunes 10K...)",
-				"Too slow? You're bumped back into the biome before it, never all the way home",
+			{ Title = "17 Biomes", Tag = "NEW Map", Lines = {
+				"One long lane of 17 huge biomes, from Sprinkle Park to The Black Hole",
+				"Walk into any biome you like: there are no speed gates",
+				"Every biome is full of little things: igloos and penguins, pyramids, mine carts, gingerbread houses, friendly ghosts...",
 			} },
 			{ Title = "Domer", Tag = "Changed", Lines = {
 				"Domer naps in a corner of every biome: on his comfy couch in the first ones",
-				"He runs as fast as the Speed his biome needs, so get faster to escape!",
-				"Caught in his biome? He takes the box back. Caught outside it? You drop it for anyone",
+				"Each biome shows the Speed you need to escape its Domer: with it, you just make it out of his biome",
+				"Caught in his biome? He takes the box back. Caught outside it? The box stays on the ground",
+				"He walks back to his corner afterwards. Grab the box again and he turns around and runs at you!",
+			} },
+			{ Title = "Speed", Tag = "Changed", Lines = {
+				"Your Speed counts double: 100 Speed runs like 200",
+				"Choose how fast you run in Settings: type a number, or MAX",
+			} },
+			{ Title = "Trails", Tag = "NEW", Lines = {
+				"Open Trails on the left to wear one",
+				"FAST GUY: leave frozen afterimages and shattering glass behind you",
+				"It unlocks when you reach 40K Speed (biome 4's Speed)",
 			} },
 			{ Title = "Bases & Shop", Tag = "Changed", Lines = {
 				"Every base is a donut shop with a pen: upgrade it at the sign by the gate (7 to 20 donuts)",
+				"Pick up a donut from your base to move it, or sell it at the sell stall",
 				"12 treadmills, from Rusty to the Heavenly treadmill",
 				"A sell stall in the lobby, and a free bat for everyone: hit a thief to make them drop their box",
-				"No more base locks or shop items",
+				"The Index has a Claim All button",
+				"No more base locks, raids, rebirths or shop items",
 			} },
 		},
 		Sidebar = {

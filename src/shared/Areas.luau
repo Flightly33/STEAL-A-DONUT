@@ -2,13 +2,12 @@
 	Areas ("biomes"): one long lane running out of the lobby, biome 1 next to it. Every biome has its
 	own Domer asleep in a back corner, guarding Config.Boxes.PerBiome donut boxes (Boxes.luau).
 
-	RecommendedSpeed is the Speed (the big number in the HUD) you need to ENTER the biome: anyone
-	slower bumps into an invisible wall at its entrance (and is put back in the biome before it if
-	they get in anyway). It's also what the biome's Domer runs at: the WalkSpeed of a player with
-	exactly that Speed, times Config.Guard.ChaseFactor (Economy.GuardWalkSpeed).
+	RecommendedSpeed is the Speed (the big number in the HUD) you need to get AWAY from the biome's
+	Domer: with exactly that Speed you just make it out of his biome before he catches you
+	(Economy.GuardWalkSpeed works out how fast he runs from that). Anyone can walk into any biome.
 
 	Every biome is as long as a fair run at its Speed: the faster you are, the longer the map
-	(Areas.Length). The first four are the same length, Glacier Glaze and Molten Bakery a little
+	(Areas.Length; worked out with the plain Speed curve, before Config.Speed.StatMultiplier). The first four are the same length, Glacier Glaze and Molten Bakery a little
 	longer, and from there each one is longer than the last.
 
 	Couch = true: Domer naps lying on his couch (the first biomes). Later Domers sleep standing up,

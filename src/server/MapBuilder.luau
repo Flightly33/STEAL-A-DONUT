@@ -19,7 +19,8 @@
 	    can walk in: there are no speed gates),
 	  * its Domer's spot in a back corner (GuardHome; the first biomes have his couch there) and
 	    the box spots around it (BoxSpots: BoxService puts the boxes on them),
-	  * its theme's decorations (Decor.luau), cleared away from Domer's corner.
+	  * its theme's decorations (Decor.luau) and lots of little props (DecorProps.luau: igloos,
+	    benches, mine carts...), cleared away from Domer's corner.
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -35,6 +36,7 @@ local DonutModel = require(Shared.DonutModel)
 
 local Build = require(script.Parent.Build)
 local Decor = require(script.Parent.Decor)
+local DecorProps = require(script.Parent.DecorProps)
 
 local MapBuilder = {}
 
@@ -474,7 +476,8 @@ local function clearCorner(decor: Instance, areaId: number)
 				table.insert(parts, d)
 			end
 		end
-		if #parts > 0 then
+		-- (DecorProps keeps away from his corner by itself)
+		if #parts > 0 and item.Name ~= "Props" then
 			local sum = Vector3.zero
 			for _, part in parts do
 				sum += part.Position
@@ -529,6 +532,7 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	if not area.HalfWidth then
 		widenDecor(decor, half)
 	end
+	DecorProps.Build(area.Theme, decor, area.Id, zs, ze) -- (the little things: igloos, benches...)
 	clearCorner(decor, area.Id)
 
 	-- Close the lane after the last biome
