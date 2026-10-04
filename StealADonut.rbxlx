@@ -1284,7 +1284,7 @@ Config.Guard = {
 	Name = "Domer",
 
 	-- Every player has their OWN guards: you only ever see (and get chased by) yours, so other
-	-- players can't wake him up for you. When a chase ends he poofs back to his blanket.
+	-- players can't wake him up for you. When a chase ends he walks back to his corner.
 	Scale = 4, -- model scale (1 = normal player size). He's HUGE: about 20 studs tall.
 	-- His walk and idle animations (Roblox's R6 ones). Clients preload them when the game starts, so
 	-- he doesn't stand frozen for a moment the first time he wakes up.
@@ -1295,10 +1295,19 @@ Config.Guard = {
 	SnoreSoundId = "",
 	GruntSoundId = "",
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
-	-- Each biome's Domer runs at the WalkSpeed of a player with exactly the biome's Speed
-	-- requirement, times ChaseFactor: a player who just meets the requirement escapes with a small
-	-- box, but a big or GIANT one slows you down enough that he catches up unless you're faster.
-	ChaseFactor = 0.97,
+	-- A biome's Speed is the Speed you need to get away from its Domer: each Domer is just fast
+	-- enough that a player with exactly that Speed, running a small box straight back, gets out of
+	-- his biome and is caught EscapeMargin studs past its entrance (outside his biome, so the box
+	-- stays on the ground there). Any slower and he catches you inside (he takes the box back); a
+	-- big or GIANT box slows you down, so you need more. He's about 1.2-1.3x as fast as a player
+	-- with exactly the biome's Speed (Economy.GuardWalkSpeed).
+	EscapeMargin = 60,
+	-- After a catch (or once you reach the lobby) he walks back to his corner at this share of
+	-- his chase speed. Pick the box up again and he turns around and runs at you from wherever
+	-- he is.
+	ReturnSpeedFactor = 0.45,
+	TurnDelay = 0.4, -- seconds he takes to turn around when you grab his box again on his way home
+	MaxReturnSeconds = 240, -- a walk home that takes longer than this ends with him back asleep
 	-- The first biome's Domer is slower than anyone (beginners always get away).
 	BeginnerSpeed = 18,
 	-- Shown in the RUN! warning while he chases you.
@@ -1308,7 +1317,7 @@ Config.Guard = {
 	-- connection can't catch you while he still looks 40 studs away. Capped so lag can't be abused.
 	InterpolationDelay = 0.1,
 	MaxRewind = 0.35,
-	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before teleporting home
+	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before walking home
 	StunTime = 2.3, -- seconds after being caught (and flung) before you can grab anything again
 
 	-- Footsteps + screen shake while he's close (client side, only for your own guard).
@@ -1373,13 +1382,15 @@ Config.Plots = {
 --------------------------------------------------------------------------------
 -- Speed
 -- The "Speed" stat is the big number in the HUD (it climbs into the hundreds of millions). How fast
--- you actually run grows more gently with it, or late-game players would break Roblox's physics:
---   WalkSpeed = BaseWalkSpeed + CurveScale * Speed ^ CurvePower
---   (Speed 0 = 24, 900 = 42, 10K = 53, 700K = 92, 35M = 174, 400M = 266)
--- Each biome needs a Speed to enter (Areas.luau), and is as long as that speed makes a fair run.
+-- you actually run grows more gently with it, or late-game players would break Roblox's physics.
+-- Your Speed counts StatMultiplier times when you run (100 Speed runs like 200):
+--   WalkSpeed = BaseWalkSpeed + CurveScale * (StatMultiplier * Speed) ^ CurvePower
+--   (Speed 0 = 24, 900 = 45, 10K = 57, 700K = 102, 30M = 189, 400M = 302)
+-- Each biome shows the Speed you need to get away from its Domer (Areas.luau; anyone can walk in).
 --------------------------------------------------------------------------------
 Config.Speed = {
 	BaseWalkSpeed = 24,
+	StatMultiplier = 2, -- your Speed counts double when you run
 	MinRunSpeed = 16, -- the slowest run speed you can type in Settings
 	CurveScale = 4.6,
 	CurvePower = 0.2,
@@ -1486,7 +1497,8 @@ Config.Boxes = {
 	-- Box Rush: every Interval seconds, for Duration seconds, every box in every pen opens Speed
 	-- times faster (so 10 seconds of it is 5 minutes of waiting).
 	Rush = { Interval = 150, Duration = 10, Speed = 30 },
-	-- A box knocked out of someone's hands outside its own biome stays on the ground this long.
+	-- A box dropped outside its own biome (caught by Domer out there, knocked out of your hands)
+	-- stays on the ground this long.
 	DroppedLifetime = 120,
 	StealSeconds = 0.6, -- hold E this long to grab a box
 	MaxInventory = 60, -- boxes + donuts you can carry in your inventory
@@ -1565,7 +1577,7 @@ Config.GamePasses = {
 	-- (speed passes don't stack: see Economy.SpeedPassMultiplier).
 	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255) },
 	{ Key = "Speed2b", Name = "2x Speed (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999838937, SuggestedPrice = 50, Color = Color3.fromRGB(110, 90, 255) },
-	-- Teleport menu: jump to any world you've unlocked, or the start of any area you're fast enough for.
+	-- Teleport menu: jump to the start of any biome.
 	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 1999581396, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
 } :: { GamePass }
 
@@ -6186,7 +6198,7 @@ local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
 local Boxes = require(script.Parent.Boxes)
 local Pets = require(script.Parent.Pets)
-local _Layout = require(script.Parent.Layout)
+local Layout = require(script.Parent.Layout)
 
 local Economy = {}
 
@@ -6194,10 +6206,11 @@ local Economy = {}
 -- Speed
 --------------------------------------------------------------------------------
 -- WalkSpeed from the Speed stat, before the carry slowdown (Config.Speed): grows with Speed, but
--- more gently the bigger it gets (Speed reaches the hundreds of millions).
+-- more gently the bigger it gets (Speed reaches the hundreds of millions). The stat counts
+-- Config.Speed.StatMultiplier times (100 Speed runs like 200).
 function Economy.WalkSpeedFromStat(stat: number): number
 	local s = Config.Speed
-	return s.BaseWalkSpeed + s.CurveScale * math.max(stat, 0) ^ s.CurvePower
+	return s.BaseWalkSpeed + s.CurveScale * (s.StatMultiplier * math.max(stat, 0)) ^ s.CurvePower
 end
 
 function Economy.StatForWalkSpeed(walkSpeed: number): number
@@ -6206,7 +6219,7 @@ function Economy.StatForWalkSpeed(walkSpeed: number): number
 	if extra <= 0 then
 		return 0
 	end
-	return (extra / s.CurveScale) ^ (1 / s.CurvePower)
+	return (extra / s.CurveScale) ^ (1 / s.CurvePower) / s.StatMultiplier
 end
 
 -- The old logarithmic curve (saves from before the Speed stat became linear are converted with it).
@@ -6233,14 +6246,38 @@ function Economy.PlayerWalkSpeed(stat: number, _worldId: number?, carrySizeId: s
 	return walk
 end
 
--- A biome's Domer runs at the WalkSpeed of a player with exactly the biome's Speed requirement,
--- times Config.Guard.ChaseFactor. The first biome's Domer is slower than anyone.
+-- How fast a biome's Domer runs. A biome's Speed is the Speed that just gets you away from him:
+-- with exactly that Speed you grab a box (they sit `ahead` studs in front of him, `run` studs from
+-- the biome's entrance), run straight back while he wakes up (WakeDelay seconds), get out of his
+-- biome - and he catches you (Config.Guard.CatchRadius) EscapeMargin studs past the entrance.
+-- Solving that for his speed gives runner * (run + margin + ahead - catch) / (run + margin -
+-- runner * wake): about 1.2-1.3x the runner. The first biome's Domer is slower than anyone.
+local guardSpeeds: { [number]: number } = {}
 function Economy.GuardWalkSpeed(areaId: number): number
+	local cached = guardSpeeds[areaId]
+	if cached then
+		return cached
+	end
 	local area = Areas.List[areaId]
 	if not area or area.RecommendedSpeed <= 0 then
 		return Config.Guard.BeginnerSpeed
 	end
-	return Economy.WalkSpeedFromStat(area.RecommendedSpeed) * Config.Guard.ChaseFactor
+	local runner = Economy.WalkSpeedFromStat(area.RecommendedSpeed)
+	local home = Layout.GuardHome(areaId)
+	local boxZ = 0
+	local spots = Layout.BoxSpots(areaId)
+	for _, spot in spots do
+		boxZ += spot.Z / #spots
+	end
+	local ahead = home.Z - boxZ
+	local run = boxZ - Layout.AreaStart(areaId)
+	local g = Config.Guard
+	local distance = run + g.EscapeMargin
+	local headStart = math.max(distance - runner * area.WakeDelay, distance * 0.25)
+	local speed = runner * (distance + ahead - g.CatchRadius) / headStart
+	speed = math.clamp(speed, runner * 1.05, runner * 2)
+	guardSpeeds[areaId] = speed
+	return speed
 end
 
 -- The Speed you need to get into a biome.
@@ -6252,11 +6289,6 @@ end
 -- WalkSpeed of a player with exactly the biome's Speed requirement.
 function Economy.RecommendedWalkSpeed(areaId: number): number
 	return Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(areaId))
-end
-
--- Can a player with this much Speed walk into the biome?
-function Economy.CanEnter(areaId: number, speed: number): boolean
-	return speed >= Economy.RecommendedSpeed(areaId)
 end
 
 -- Treadmill multiplier from the Speed Multiplier upgrade (+5% per level, adds up).
@@ -7253,9 +7285,9 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 	return model, status
 end
 
--- Lay a built guard down to sleep (the sleeping guard each client draws on his blanket): on his
--- back with his head on a pillow and turned a little to the side, one arm flung up over his head and
--- the other by his side with the hand on his hip (both bent at the elbow), legs flopped apart with
+-- Lay a built guard down to sleep (the sleeping guard each client draws on his couch): on his back
+-- with his head on a pillow and turned a little to the side, one arm flung up over his head and the
+-- other draped over the back of the couch (both bent at the elbow), legs flopped apart with
 -- the feet falling outwards, mouth open, eyes shut (thick "◡" lines, easy to see from far away).
 -- A wide-brimmed hat is taken off and put down next to him. Every part ends up anchored and the joints are removed. Then
 -- PivotTo(GuardModel.SleepCFrame(home)). Returns the mouth (the Z's come out of it).
@@ -7349,12 +7381,19 @@ function GuardModel.Sleep(model: Model): BasePart?
 		headParts = kept
 	end
 
-	-- Arms: the upper arm swings out (the right one all the way up past his head), then the forearm
-	-- bends at the elbow: over the top of his head, or down onto his hip. (The straight arm block
-	-- underneath is hidden: it can't bend.)
+	-- Arms: the upper arm swings out, then the forearm bends at the elbow. The right one goes all the
+	-- way up past his head, forearm over the top of it. The left one (the side against the couch's
+	-- back) goes up along the back and drapes over the top of it, the hand hanging down behind it,
+	-- so it never pokes through the couch. (The straight arm block underneath is hidden: it can't
+	-- bend.) Lying on his back, his -Z (front) is up and his -X (left) is towards the couch's back.
+	local function aim(to: Vector3): CFrame
+		local from = Vector3.new(0, -1, 0)
+		local axis = from:Cross(to.Unit)
+		return CFrame.fromAxisAngle(axis.Unit, math.acos(math.clamp(from:Dot(to.Unit), -1, 1)))
+	end
 	local armPoses = {
 		[1] = { Raise = CFrame.Angles(0, 0, math.rad(150)), Forearm = Vector3.new(-0.87, 0.5, -0.05) },
-		[-1] = { Raise = CFrame.Angles(0, 0, math.rad(-24)), Forearm = Vector3.new(0.4, -0.92, -0.08) },
+		[-1] = { Raise = aim(Vector3.new(-0.2, 0.12, -0.97)), Forearm = Vector3.new(-0.93, 0.15, 0.3) },
 	}
 	for _, side in { -1, 1 } do
 		local arm = model:FindFirstChild(if side < 0 then "Left Arm" else "Right Arm") :: BasePart?
@@ -7476,7 +7515,7 @@ end
 -- Lying on his couch (the first biomes): `couch` is the couch's frame on the floor (its front,
 -- LookVector, facing the lane); he lies along it with his head on the arm at its +X end.
 function GuardModel.CouchCFrame(couch: CFrame): CFrame
-	return GuardModel.SleepCFrame(couch * CFrame.new(1, 6.6, -1) * CFrame.Angles(0, math.rad(90), 0))
+	return GuardModel.SleepCFrame(couch * CFrame.new(1, 6.6, -2) * CFrame.Angles(0, math.rad(90), 0))
 end
 
 -- Pose for a guard sleeping on his blanket at `home` (a CFrame on the floor).
@@ -7748,13 +7787,6 @@ end
 function Layout.AreaArrival(areaId: number): CFrame
 	local z = Layout.AreaStart(areaId) + 10
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
-end
-
--- Just outside a biome's entrance, in the biome before it (where a player who's too slow is put).
-function Layout.GateBounce(areaId: number, x: number?): CFrame
-	local z = Layout.AreaStart(areaId) - 8
-	local px = math.clamp(x or 0, -(map.LaneHalfWidth - 12), map.LaneHalfWidth - 12)
-	return CFrame.lookAt(Vector3.new(px, 3.5, z), Vector3.new(px, 3.5, z - 10))
 end
 
 -- Where you land in the lobby (the middle of the plaza, facing the lane).
@@ -9332,7 +9364,6 @@ return Rarities
 		EggHatched(info)                   { EggId, PetId, Uid } - play the hatch animation
 		AdminPanel()                       open the admin panel (you typed the code)
 		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
-		SpeedGate(areaId)                  you're too slow for that biome (you were put back outside it)
 		BoxesReset()                       every biome's boxes were just replaced ("ALL BOXES RESET!")
 		BoxOpened(info)                    a box in a pen opened: { Owner, Slot, DonutId, Mutation, Size }
 
@@ -9351,7 +9382,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "SpeedGate", "BoxesReset", "BoxOpened" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "BoxesReset", "BoxOpened" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats", "GetSellList" }
 
 local Remotes = {}
@@ -9765,7 +9796,7 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Fair Leaderboards", Tag = "Improvements", Lines = {
 				"Admins don't show up on the global leaderboards",
-				"The player list's Money / Speed / Rebirths columns never swap any more",
+				"The player list's Money / Speed columns never swap any more",
 			} },
 		},
 		Sidebar = {
@@ -9774,17 +9805,13 @@ UpdateNotes.List = {
 	},
 	{
 		Version = 4,
-		Name = "Faster Rebirths",
+		Name = "Faster Progress",
 		Date = "Oct 1, 2026",
 		Color = Color3.fromRGB(30, 110, 60),
 		Accent = Color3.fromRGB(255, 220, 90),
 		Decor = "Rise",
 		Emblem = { Frosting = Color3.fromRGB(130, 235, 140), Sprinkles = { Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 245, 170) } },
 		Sections = {
-			{ Title = "Rebirths", Tag = "Balance", Lines = {
-				"Rebirths are easier: less Speed and money needed",
-				"No more rebirth limit: keep rebirthing forever!",
-			} },
 			{ Title = "Chases", Tag = "NEW", Lines = {
 				"You now carry stolen donuts in your arms",
 				"Intense music plays while Domer chases you",
@@ -9793,13 +9820,7 @@ UpdateNotes.List = {
 			{ Title = "Head Start", Tag = "Balance", Lines = {
 				"The treadmill gives x4 Speed when you're just starting, slowly fading by Area 6",
 				"Area 2 takes about 4 minutes of running instead of 15!",
-				"It comes back after every rebirth too",
 				"Everyone now starts at 18 walk speed (was 16)",
-			} },
-			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
-				"Rebirths need half the Speed and far less money",
-				"Every rebirth now gives +50% treadmill speed (was +25%)",
-				"Reaching each new world takes about half as long",
 			} },
 			{ Title = "New Tutorial", Tag = "NEW", Lines = {
 				"Follow the red arrow to learn the game step by step",
@@ -14703,11 +14724,14 @@ return EventService
 
 	When you steal a box, the server spawns YOUR chasing guard in his corner: he wakes up, yells,
 	and chases you - through every biome on the way, keeping his own speed - until he catches you
-	or you reach the lobby. Then he poofs away and your client puts him back to sleep. Other
-	players' clients hide your guard, so you never see anyone else's Domers. (Pick up a box someone
-	dropped and its Domer appears a little way behind you instead.)
+	or you reach the lobby. Then he walks back to his corner (Config.Guard.ReturnSpeedFactor of his
+	chase speed) and, once he's there, your client puts him back to sleep. Pick up one of his boxes
+	again while he's still on his way and he turns around and comes after you from wherever he is;
+	if he's already home, he wakes up in his corner as usual. Other players' clients hide your
+	guard, so you never see anyone else's Domers.
 
-	Guard speed per biome comes from Economy.GuardWalkSpeed (the biome's Speed requirement).
+	Guard speed per biome comes from Economy.GuardWalkSpeed (the biome's Speed is the Speed that
+	just gets you away from him).
 
 	Catching is lag compensated: the server keeps a short history of where the guard was and judges
 	the catch against where he was on YOUR screen when you were at your current position (your ping
@@ -14746,10 +14770,12 @@ export type Guard = {
 	Model: Model,
 	Humanoid: Humanoid,
 	Root: BasePart,
-	State: string, -- "Waking" | "Chasing" | "Celebrating" | "GivingUp"
+	State: string, -- "Waking" | "Chasing" | "Celebrating" | "GivingUp" | "Returning"
 	Token: number,
 	Status: TextLabel,
 	ChaseSpeed: number,
+	Home: CFrame, -- his corner (where he walks back to)
+	ReturnStarted: number,
 	LastCheckPos: Vector3,
 	LastCheckTime: number,
 	StuckTime: number,
@@ -14817,36 +14843,61 @@ local function vanish(guard: Guard)
 	guard.Model:Destroy()
 end
 
-local function vanishAfter(guard: Guard, seconds: number)
+-- Stand still for `seconds` (cheering or fuming), then walk back to his corner.
+local function returnAfter(guard: Guard, seconds: number)
 	guard.Token += 1
 	local token = guard.Token
 	guard.Humanoid.WalkSpeed = 0
 	guard.Humanoid:MoveTo(guard.Root.Position)
 	task.delay(seconds, function()
-		if guard.Token == token then
-			vanish(guard)
+		if guard.Token == token and guard.Model.Parent then
+			guard.State = "Returning"
+			guard.ReturnStarted = os.clock()
+			guard.Humanoid.WalkSpeed = guard.ChaseSpeed * Config.Guard.ReturnSpeedFactor
+			guard.LastCheckPos = guard.Root.Position
+			guard.LastCheckTime = os.clock()
+			guard.StuckTime = 0
 		end
 	end)
+end
+
+local function startChasing(guard: Guard)
+	guard.State = "Chasing"
+	guard.Humanoid.WalkSpeed = guard.ChaseSpeed
+	guard.LastCheckPos = guard.Root.Position
+	guard.LastCheckTime = os.clock()
+	guard.StuckTime = 0
 end
 
 --------------------------------------------------------------------------------
 -- Public API
 --------------------------------------------------------------------------------
 
--- `player` stole a box from `areaId`: their own guard wakes up and gives chase. `spawnAt`: where
--- he appears (default: his corner).
-function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): Guard?
+-- `player` stole a box (or an egg) from `areaId`: their own guard of that biome gives chase - from
+-- wherever he is if he's still walking back from the last chase (he turns around), otherwise he
+-- wakes up in his corner.
+function GuardService.Alert(areaId: number, player: Player): Guard?
 	local existing = guards[player]
+	if existing and existing.AreaId == areaId and existing.Model.Parent and existing.State ~= "Chasing" and existing.State ~= "Waking" then
+		existing.Token += 1
+		existing.State = "Waking"
+		existing.Humanoid.WalkSpeed = 0
+		existing.Humanoid:MoveTo(existing.Root.Position)
+		existing.History = {}
+		shout(existing, Config.Guard.WakeShouts, Color3.fromRGB(255, 70, 70))
+		local token = existing.Token
+		task.delay(Config.Guard.TurnDelay, function()
+			if existing.Token == token and existing.Model.Parent then
+				startChasing(existing)
+			end
+		end)
+		return existing
+	end
 	if existing then
 		vanish(existing)
 	end
 	local model, status = GuardModel.Build(areaId, { Humanoid = true, CollisionGroup = "Guards" })
 	local home = homeCFrame(areaId)
-	if spawnAt then
-		local limit = Layout.AreaHalfWidth(math.max(Layout.AreaAt(spawnAt), 1)) - 12
-		local z = math.min(spawnAt.Z, Layout.LaneEnd() - 12)
-		home = CFrame.new(math.clamp(spawnAt.X, -limit, limit), 0, z)
-	end
 	model:PivotTo(GuardModel.StandCFrame(home))
 	model:SetAttribute("OwnerUserId", player.UserId)
 	CollectionService:AddTag(model, "Guard")
@@ -14862,6 +14913,8 @@ function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): 
 		Token = 0,
 		Status = status,
 		ChaseSpeed = Economy.GuardWalkSpeed(areaId),
+		Home = home,
+		ReturnStarted = 0,
 		LastCheckPos = Vector3.zero,
 		LastCheckTime = 0,
 		StuckTime = 0,
@@ -14879,34 +14932,36 @@ function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): 
 	local token = guard.Token
 	task.delay(Areas.List[areaId].WakeDelay, function()
 		if guard.Token == token and guard.Model.Parent then
-			guard.State = "Chasing"
-			guard.Humanoid.WalkSpeed = guard.ChaseSpeed
-			guard.LastCheckPos = guard.Root.Position
-			guard.LastCheckTime = os.clock()
-			guard.StuckTime = 0
+			startChasing(guard)
 		end
 	end)
 	return guard
 end
 
--- The chase is over (reached safety, deposited, dropped the donut, left the game...).
+-- The chase is over (reached safety, deposited, dropped the box, left the game...): he walks home.
 function GuardService.StopChase(player: Player, reason: string?)
 	local guard = guards[player]
-	if not guard or guard.State == "Celebrating" or guard.State == "GivingUp" then
+	if not guard or guard.State == "Celebrating" or guard.State == "GivingUp" or guard.State == "Returning" then
 		return
 	end
-	if reason == "Safe" then
+	if not player.Parent then
+		vanish(guard)
+	elseif reason == "Safe" then
 		guard.State = "GivingUp"
 		shout(guard, { "NOOO! MY DONUT!", "D'OH!", "I'LL GET YOU NEXT TIME!", "WHY YOU LITTLE...!" }, Color3.fromRGB(255, 180, 60))
-		vanishAfter(guard, Config.Guard.GiveUpDelay)
-	elseif player.Parent then
+		returnAfter(guard, Config.Guard.GiveUpDelay)
+	else
 		guard.State = "GivingUp"
 		guard.Status.Text = "..."
 		guard.Status.TextColor3 = Color3.fromRGB(220, 220, 220)
-		vanishAfter(guard, 0.6)
-	else
-		vanish(guard)
+		returnAfter(guard, 0.6)
 	end
+end
+
+-- Is the player's guard of `areaId` out of his corner (chasing, cheering or walking back)?
+function GuardService.IsAway(player: Player, areaId: number): boolean
+	local guard = guards[player]
+	return guard ~= nil and guard.AreaId == areaId and guard.Model.Parent ~= nil
 end
 
 function GuardService.GetGuard(player: Player): Guard?
@@ -14949,15 +15004,50 @@ function GuardService.PerceivedDistance(guard: Guard, targetPos: Vector3): numbe
 	return flatDistance(seen, targetPos)
 end
 
+-- Walking back to his corner after a chase; once he's there, he's gone (your client shows him
+-- asleep in his corner again).
+local function updateReturning(guard: Guard, now: number)
+	local guardPos = guard.Root.Position
+	local home = guard.Home.Position
+	local toHome = Vector2.new(home.X - guardPos.X, home.Z - guardPos.Z).Magnitude
+	if not guard.Owner.Parent or toHome < 6 or now - guard.ReturnStarted > Config.Guard.MaxReturnSeconds then
+		vanish(guard)
+		return
+	end
+	guard.Humanoid:MoveTo(Vector3.new(home.X, guardPos.Y, home.Z))
+	if now - guard.LastCheckTime > 0.5 then
+		if (guardPos - guard.LastCheckPos).Magnitude < 0.5 * Config.Guard.Scale then
+			guard.StuckTime += now - guard.LastCheckTime
+			guard.Humanoid.Jump = true
+			if guard.StuckTime > 3 then
+				vanish(guard) -- (stuck on the way home: just go to sleep)
+				return
+			end
+		else
+			guard.StuckTime = 0
+		end
+		guard.LastCheckPos = guardPos
+		guard.LastCheckTime = now
+	end
+end
+
 local function updateGuard(guard: Guard, now: number)
+	if guard.State == "Returning" then
+		updateReturning(guard, now)
+		return
+	end
 	if guard.State ~= "Chasing" then
 		return
 	end
 	local target = guard.Owner
 	local character = target.Character
 	local targetRoot = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not target.Parent or not targetRoot then
+	if not target.Parent then
 		vanish(guard)
+		return
+	end
+	if not targetRoot then
+		GuardService.StopChase(target)
 		return
 	end
 	local targetPos = targetRoot.Position
@@ -14978,7 +15068,7 @@ local function updateGuard(guard: Guard, now: number)
 	if not godMode and GuardService.PerceivedDistance(guard, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
 		guard.State = "Celebrating"
 		shout(guard, Config.Guard.CatchShouts, Color3.fromRGB(120, 255, 120))
-		vanishAfter(guard, 1.5)
+		returnAfter(guard, 1.5)
 		GuardService.Caught:Fire(target, guard.AreaId)
 		return
 	end
@@ -15498,7 +15588,8 @@ return HDAdmin
 	  * Hold a box or donut and click / tap while you're in your pen: it goes down there - a box's
 	    timer starts (PlotService.AddBox; click it to open it once it's ready), a donut starts
 	    roaming and earning (PlotService.AddDonut).
-	  * Donuts can be sold from the inventory at the sell stall in the lobby (UI/Sell).
+	  * Donuts can be sold from the inventory at the sell stall in the lobby (UI/Sell). Donuts on
+	    your base can be picked up back into the inventory ("Pick up" on them, PlotService).
 	  * The free bat isn't in here: ItemService hands it out.
 	Tools are rebuilt from the saved list every time you spawn, so nothing is ever lost.
 ]]
@@ -15723,7 +15814,7 @@ function InventoryService.Place(player: Player, uid: string)
 		return
 	end
 	if not PlotService.HasFreeSlot(player) then
-		notify(player, "Your pen is full! Sell a donut or upgrade your base at the sign by the gate.", "error")
+		notify(player, "Your pen is full! Pick up a donut or upgrade your base at the sign by the gate.", "error")
 		return
 	end
 	if item.Kind == "Box" then
@@ -15828,6 +15919,15 @@ end
 function InventoryService.Init()
 	PlotService.BoxOpened:Connect(function(player: Player, donutId: string, mutation: string, size: string)
 		InventoryService.AddDonut(player, donutId, 1, mutation, size)
+	end)
+	-- A donut picked up off your base (its "Pick up" prompt)
+	PlotService.SetPickupHandler(function(player: Player, slot: DataService.SlotData): boolean
+		if InventoryService.IsFull(player) then
+			notify(player, "Your inventory is full! Sell some donuts at the sell stall first.", "error")
+			return false
+		end
+		InventoryService.AddDonut(player, slot.Id, slot.Level, slot.Mutation, slot.Size)
+		return true
 	end)
 	Remotes.Function("GetSellList").OnServerInvoke = function(player: Player)
 		return InventoryService.SellList(player)
@@ -16502,20 +16602,18 @@ return LuckService
 		2. A "Map" folder appears in Workspace. Move/replace/restyle anything you like and save.
 		3. When the game runs and Workspace.Map already exists, it is used instead of rebuilding.
 		Keep the names of: Plots/PlotN (+ Spawn, TreadmillAnchor, PodiumAnchor, SignAnchor,
-		IncubatorAnchor, UpgradeSign), Lane/AreaN (+ GuardHome, BoxSpots/BoxSpot, SpeedGate),
+		IncubatorAnchor, UpgradeSign), Lane/AreaN (+ GuardHome, BoxSpots/BoxSpot),
 		Hub/SellStall/PromptPart and Hub/Leaderboards/Board_X/Screen.
 
 	Biomes (Lane/AreaN) run one after another along +Z from the lobby. Each one has:
 	  * thick grassy walls (Config.Map.WallThickness) and a checker floor,
-	  * an arch at its entrance with its name and the Speed you need, and an invisible SpeedGate
-	    (clients make it solid for players who are too slow; WorldService puts back anyone who gets
-	    in anyway),
+	  * an arch at its entrance with its name and the Speed you need to escape its Domer (anyone
+	    can walk in: there are no speed gates),
 	  * its Domer's spot in a back corner (GuardHome; the first biomes have his couch there) and
 	    the box spots around it (BoxSpots: BoxService puts the boxes on them),
 	  * its theme's decorations (Decor.luau), cleared away from Domer's corner.
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -16538,7 +16636,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 13
+local MAP_VERSION = 14
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -16769,7 +16867,7 @@ local function speedText(area: Areas.Area): string
 	if area.RecommendedSpeed <= 0 then
 		return "🌱 No speed needed - start here!"
 	end
-	return "⚡ Needs " .. Format.Number(area.RecommendedSpeed) .. " Speed to enter"
+	return "⚡ " .. Format.Number(area.RecommendedSpeed) .. " Speed to escape " .. Config.Guard.Name
 end
 
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
@@ -16813,24 +16911,12 @@ local function refreshAreaSigns(folder: Instance)
 		if label and label:IsA("TextLabel") then
 			label.Text = speedText(area)
 		end
+		-- (old saved maps: the speed gates are gone)
 		local gate = biome and biome:FindFirstChild("SpeedGate")
 		if gate then
-			gate:SetAttribute("Speed", area.RecommendedSpeed)
+			gate:Destroy()
 		end
 	end
-end
-
--- An invisible wall across a biome's entrance. Clients make it solid for players whose Speed is
--- below the biome's (client/AreaTracker), so they can't walk in.
-local function buildSpeedGate(parent: Instance, area: Areas.Area, zs: number)
-	if area.RecommendedSpeed <= 0 then
-		return
-	end
-	local half = Layout.AreaHalfWidth(area.Id)
-	local gate = Build.Part({ Parent = parent, Name = "SpeedGate", Size = Vector3.new(half * 2, 90, 3), Position = Vector3.new(0, 45, zs + 1.5), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
-	gate:SetAttribute("Area", area.Id)
-	gate:SetAttribute("Speed", area.RecommendedSpeed)
-	CollectionService:AddTag(gate, "SpeedGate")
 end
 
 -- Domer's couch (the first biomes): a big, comfy, orange-brown three-seater made of studded bricks,
@@ -16842,7 +16928,9 @@ local COUCH_DARK = rgb(150, 78, 34)
 local function buildCouch(parent: Instance, cf: CFrame): Model
 	local couch = Instance.new("Model")
 	couch.Name = "Couch"
-	local L, D = 30, 12 -- length (local X) and depth (local Z, front = -Z)
+	-- (deep, with a low back: Domer is huge, and the arm on the back's side drapes over the top of
+	-- it - see GuardModel.Sleep)
+	local L, D = 30, 18 -- length (local X) and depth (local Z, front = -Z)
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
@@ -16862,15 +16950,15 @@ local function buildCouch(parent: Instance, cf: CFrame): Model
 	for i = -1, 1 do
 		brick("Cushion", Vector3.new(seatW - 0.3, 2.4, D - 4), at(i * seatW, 5.4, -1), COUCH_LIGHT)
 	end
-	brick("Back", Vector3.new(L - 6, 8, 3), at(0, 7.5, D / 2 - 1.5), COUCH)
-	Build.Decor({ Parent = couch, Name = "BackTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(L - 6, 3.6, 3.6), CFrame = at(0, 11.5, D / 2 - 1.5), Color = COUCH, Material = Enum.Material.Plastic })
+	brick("Back", Vector3.new(L - 6, 4.5, 2.5), at(0, 6.25, D / 2 - 1.25), COUCH)
+	Build.Decor({ Parent = couch, Name = "BackTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(L - 6, 3.6, 3.6), CFrame = at(0, 8.5, D / 2 - 1.25), Color = COUCH, Material = Enum.Material.Plastic })
 	for _, side in { -1, 1 } do
 		brick("Arm", Vector3.new(3.4, 5.5, D), at(side * (L / 2 - 1.7), 5.6, 0), COUCH)
 		Build.Decor({ Parent = couch, Name = "ArmTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(D, 4, 4), CFrame = at(side * (L / 2 - 1.7), 8.4, 0) * CFrame.Angles(0, math.pi / 2, 0), Color = COUCH, Material = Enum.Material.Plastic })
 	end
 	-- three buttons in the back
 	for i = -1, 1 do
-		Build.Decor({ Parent = couch, Name = "Button", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, CFrame = at(i * seatW, 9.4, D / 2 - 3.05), Color = COUCH_DARK, Material = Enum.Material.SmoothPlastic })
+		Build.Decor({ Parent = couch, Name = "Button", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, CFrame = at(i * seatW, 7.4, D / 2 - 2.55), Color = COUCH_DARK, Material = Enum.Material.SmoothPlastic })
 	end
 	-- pillow on one arm, blanket thrown over the other
 	studs(Build.Decor({ Parent = couch, Name = "Pillow", Size = Vector3.new(3, 2.2, 6), CFrame = at(L / 2 - 4.6, 7.8, 0) * CFrame.Angles(0, 0, math.rad(-18)), Color = rgb(225, 225, 230), Material = Enum.Material.Fabric }))
@@ -17023,7 +17111,6 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	Build.Part({ Parent = folder, Name = "AreaLine", Size = Vector3.new(half * 2, 0.2, 2), Position = Vector3.new(0, 0.1, zs + 1), Color = area.Trim, Material = if area.Id > 1 then Enum.Material.Neon else Enum.Material.SmoothPlastic, CanCollide = false })
 
 	buildArch(folder, area, zs)
-	buildSpeedGate(folder, area, zs)
 	buildGuardSpot(folder, area)
 	buildBoxSpots(folder, area)
 
@@ -17466,11 +17553,6 @@ function MapBuilder.Build(): Folder
 					boards:Destroy()
 				end
 				buildLeaderboards(hub)
-			end
-		end
-		for _, gate in existing:GetDescendants() do
-			if gate.Name == "SpeedGate" and gate:IsA("BasePart") then
-				CollectionService:AddTag(gate, "SpeedGate")
 			end
 		end
 		refreshAreaSigns(existing)
@@ -18494,7 +18576,7 @@ return PlayerService
           <string name="Source"><![CDATA[--[[
 	PlotService
 	===========
-	Player bases: plot assignment, what's in them (donuts with Upgrade / Sell / Favorite prompts,
+	Player bases: plot assignment, what's in them (donuts with Upgrade / Pick up / Favorite prompts,
 	and donut boxes waiting to open), base income, the owner sign, the upgrade sign by the gate,
 	base skins, and the podium that shows off the player's rarest or best-earning donut.
 
@@ -18980,7 +19062,7 @@ function updateSlotLabels(player: Player, slotIndex: number)
 	info.Parent = root
 
 	local upgrade = root:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
-	local sell = root:FindFirstChild("SellPrompt") :: ProximityPrompt?
+	local pickUp = root:FindFirstChild("PickUpPrompt") :: ProximityPrompt?
 	if upgrade then
 		if slot.Level >= Config.DonutUpgrade.MaxLevel then
 			upgrade.ActionText = "MAX LEVEL"
@@ -18991,9 +19073,8 @@ function updateSlotLabels(player: Player, slotIndex: number)
 		local gain = Economy.DonutBaseIncome(slot.Id, slot.Mutation, slot.Size) * Config.DonutUpgrade.IncomePerLevel * DataService.MoneyMultiplier(profile)
 		upgrade.ObjectText = `Lv. {slot.Level} → {slot.Level + 1}  (+{Format.Money(gain)}/s)`
 	end
-	if sell then
-		sell.ActionText = "Sell " .. Format.Money(Economy.SellPrice(slot.Id, slot.Level, slot.Mutation, slot.Size))
-		sell.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
+	if pickUp then
+		pickUp.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
 	end
 end
 
@@ -19039,16 +19120,18 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	upgrade:SetAttribute("OwnerUserId", player.UserId)
 	upgrade.Parent = root
 
-	local sell = Instance.new("ProximityPrompt")
-	sell.Name = "SellPrompt"
-	sell.KeyboardKeyCode = Enum.KeyCode.F
-	sell.GamepadKeyCode = Enum.KeyCode.ButtonY
-	sell.HoldDuration = 1
-	sell.MaxActivationDistance = 12
-	sell.RequiresLineOfSight = false
-	sell.UIOffset = Vector2.new(0, 70)
-	sell:SetAttribute("OwnerUserId", player.UserId)
-	sell.Parent = root
+	-- Pick it up: back into your inventory (sell it at the sell stall, or put it down somewhere else)
+	local pickUp = Instance.new("ProximityPrompt")
+	pickUp.Name = "PickUpPrompt"
+	pickUp.ActionText = "Pick up"
+	pickUp.KeyboardKeyCode = Enum.KeyCode.F
+	pickUp.GamepadKeyCode = Enum.KeyCode.ButtonY
+	pickUp.HoldDuration = 0.3
+	pickUp.MaxActivationDistance = 12
+	pickUp.RequiresLineOfSight = false
+	pickUp.UIOffset = Vector2.new(0, 70)
+	pickUp:SetAttribute("OwnerUserId", player.UserId)
+	pickUp.Parent = root
 
 	local favorite = Instance.new("ProximityPrompt")
 	favorite.Name = "FavoritePrompt"
@@ -19068,9 +19151,9 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 			PlotService.UpgradeSlot(player, slotIndex)
 		end
 	end)
-	sell.Triggered:Connect(function(who)
+	pickUp.Triggered:Connect(function(who)
 		if who == player then
-			PlotService.SellSlot(player, slotIndex)
+			PlotService.PickUpSlot(player, slotIndex)
 		end
 	end)
 	favorite.Triggered:Connect(function(who)
@@ -19088,7 +19171,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 end
 
 -- The favourite donut: a 1/3-size copy follows its owner around (every client draws it from the
--- "Favorite" attribute). It's cleared when that donut leaves the base (sold, cleared).
+-- "Favorite" attribute). It's cleared when that donut leaves the base (picked up, sold, cleared).
 local function syncFavorite(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
@@ -19197,6 +19280,31 @@ function PlotService.SellSlot(player: Player, slotIndex: number)
 	end
 	afterSlotsChanged(player)
 	notify(player, `Sold {if donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "donut"} for {Format.Money(price)}`, "success")
+end
+
+-- Pick a donut up off your base: it goes back into your inventory as it is (level, mutation, size).
+-- InventoryService decides whether there's room (SetPickupHandler).
+local pickupHandler: ((player: Player, slot: DataService.SlotData) -> boolean)? = nil
+function PlotService.SetPickupHandler(handler: (player: Player, slot: DataService.SlotData) -> boolean)
+	pickupHandler = handler
+end
+
+function PlotService.PickUpSlot(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local key = tostring(slotIndex)
+	local slot = profile and profile.Data.Slots[key]
+	if not profile or not slot or not pickupHandler or not pickupHandler(player, slot) then
+		return
+	end
+	profile.Data.Slots[key] = nil
+	local model = slotModels[player] and slotModels[player][slotIndex]
+	if model then
+		model:Destroy()
+		slotModels[player][slotIndex] = nil
+	end
+	afterSlotsChanged(player)
+	local donut = Donuts.ById[slot.Id]
+	notify(player, `Picked up {if donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "the donut"}. Sell it at the sell stall or put it down again.`, "success")
 end
 
 -- Remove every donut from a base (admin "clear donuts").
@@ -21053,15 +21161,16 @@ return StatsService
 	============
 	The core loop:
 	  1. Hold E on a donut box by a biome's Domer -> you pick it up (you carry it in your arms) and
-	     YOUR Domer of that biome wakes up and chases you, as fast as the biome's Speed requirement.
-	     Big boxes slow you down while you carry them.
+	     YOUR Domer of that biome wakes up and chases you. With the biome's Speed you just get out
+	     of his biome before he catches you (Economy.GuardWalkSpeed); big boxes slow you down.
 	  2. Get back to the lobby (cross the safe-zone line) -> Domer gives up and the box goes into
 	     your inventory (InventoryService). Put it down in your pen and its timer starts.
-	  If Domer catches you, you're flung and he takes the box back to his corner (BoxService.
-	  ReturnToDomer), wherever he caught you. Get hit by someone's bat while carrying a box and it
-	  drops on the ground right there: anyone can pick it up - and whoever does gets chased by that
-	  same biome's Domer. Drop it yourself (the Drop button) and it goes back onto its spot if
-	  you're still in its biome, or onto the ground anywhere else.
+	  If Domer catches you, you're flung. Inside his biome he takes the box back to his corner
+	  (BoxService.ReturnToDomer); outside it the box drops on the ground right there and he walks
+	  home. Anyone can pick a box up off the ground - and whoever does gets chased by that biome's
+	  Domer (from wherever he is: see GuardService.Alert). Get hit by someone's bat while carrying
+	  a box and it drops right there too. Drop it yourself (the Drop button) and it goes back onto
+	  its spot if you're still in its biome, or onto the ground anywhere else.
 
 	What you carry is drawn by every client (client/Carried.luau) from the player's attributes:
 	CarryingDonut (the box's tier, the donut's id or the egg's id), CarryKind, CarryMutation and
@@ -21109,8 +21218,6 @@ export type Carry = {
 
 -- A single jump longer than this (studs) while carrying something is treated as a teleport hack.
 local TELEPORT_DISTANCE = 400
--- How far behind you a box's Domer appears when you pick it up off the ground.
-local GROUND_CHASE_DISTANCE = 45
 
 local carriers: { [Player]: Carry } = {}
 local lastFullWarning: { [Player]: number } = {}
@@ -21159,22 +21266,28 @@ local function positionOf(player: Player, carry: Carry): Vector3
 end
 
 -- What happens to whatever the player was carrying when they lose it. `how`:
---   "Caught"  Domer got you: he takes the box back to his corner, wherever you were
+--   "Caught"  Domer got you: in his own biome he takes the box back to his corner; anywhere else
+--             it drops on the ground right there
 --   "Knocked" hit by a bat: the box drops on the ground right there, so the hitter can grab it
 --   nil       dropped it, left, teleported...: back on its spot in its own biome, else the ground
-local function lose(player: Player, carry: Carry, how: string?)
+-- Returns true when the box went back to Domer's corner.
+local function lose(player: Player, carry: Carry, how: string?): boolean
 	if carry.OnLost then
 		carry.OnLost(player)
 	elseif carry.Kind == "Box" and carry.Record then
 		local position = positionOf(player, carry)
-		if how == "Caught" then
+		local inHisBiome = Layout.AreaAt(position) == carry.AreaId
+		if how == "Caught" and inHisBiome then
 			BoxService.ReturnToDomer(carry.Record)
-		elseif how ~= "Knocked" and Layout.AreaAt(position) == carry.AreaId then
+			return true
+		elseif how == nil and inHisBiome then
 			BoxService.Return(carry.Record, position)
+			return true
 		else
 			BoxService.Drop(carry.Record, position)
 		end
 	end
+	return false
 end
 
 -- Move a player somewhere without tripping the carry speed check (teleports, speed gates).
@@ -21278,8 +21391,6 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 		notify(player, "Your inventory is full! Put some boxes in your pen or sell donuts first.", "error")
 		return
 	end
-	local fromGround = record.Spot == nil
-	local groundAt = model:GetPivot().Position
 	if not BoxService.Take(record) then
 		return
 	end
@@ -21296,13 +21407,9 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 		LastTime = os.clock(),
 	})
 
-	-- The box's own Domer gives chase: from his corner, or (a box picked up off the ground) from a
-	-- little further down the lane behind you.
-	local spawnAt: Vector3? = nil
-	if fromGround then
-		spawnAt = groundAt + Vector3.new(0, 0, GROUND_CHASE_DISTANCE)
-	end
-	local guard = GuardService.Alert(record.AreaId, player, spawnAt)
+	-- The box's own Domer gives chase: from his corner, or from wherever he is if he's still walking
+	-- back there after the last chase.
+	local guard = GuardService.Alert(record.AreaId, player)
 	Remotes.Event("ChaseStarted"):FireClient(player, {
 		DonutId = record.Tier,
 		AreaId = record.AreaId,
@@ -21357,10 +21464,10 @@ local function onCaught(player: Player, areaId: number)
 	if not carry then
 		return
 	end
-	lose(player, carry, "Caught")
+	local back = lose(player, carry, "Caught")
 	clearCarry(player)
 	local profile = DataService.Get(player)
-	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind, BoxBack = carry.Kind == "Box" })
+	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind, BoxBack = back })
 	if not profile then
 		return
 	end
@@ -21805,21 +21912,14 @@ return TreadmillService
           <string name="Source"><![CDATA[--[[
 	WorldService
 	============
-	* Speed gates: every biome needs a Speed to get in (Areas.luau). Clients make the invisible wall
-	  at a too-fast biome's entrance solid for slow players (client/AreaTracker); this is the check
-	  on the server. Anyone standing in a biome they're too slow for (lag, spending Speed
-	  on a skin...) is put back just outside it - in the furthest biome they ARE fast enough for, not
-	  all the way back in the lobby.
-	* Teleporter game pass: jump to the start of any biome you're fast enough for, or home.
+	* Teleporter game pass: jump to the start of any biome, or home. (There are no speed gates:
+	  anyone can walk into any biome. A biome's Speed is what you need to get away from its Domer.)
 ]]
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
-local Economy = require(Shared.Economy)
-local Format = require(Shared.Format)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 
@@ -21830,51 +21930,9 @@ local StealService = require(script.Parent.StealService)
 local WorldService = {}
 
 local lastTeleport: { [Player]: number } = {}
-local lastWarning: { [Player]: number } = {}
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
-end
-
---------------------------------------------------------------------------------
--- Speed gates
---------------------------------------------------------------------------------
--- The furthest biome up to `areaId` that this Speed gets you into.
-local function allowedArea(areaId: number, speed: number): number
-	local allowed = areaId
-	while allowed > 1 and not Economy.CanEnter(allowed, speed) do
-		allowed -= 1
-	end
-	return allowed
-end
-
--- Is anything letting this player ignore the gates (an admin flying or with "Domer can't catch me")?
-local function exempt(player: Player, profile: DataService.Profile): boolean
-	return profile.Session.GodMode or player:GetAttribute("Flying") == true
-end
-
-local function checkGates(player: Player, profile: DataService.Profile, root: BasePart)
-	local position = root.Position
-	local areaId = Layout.AreaAt(position)
-	if areaId <= 1 or exempt(player, profile) then
-		return
-	end
-	local speed = profile.Data.Speed
-	if Economy.CanEnter(areaId, speed) then
-		return
-	end
-	-- Back out to just before the first biome they're too slow for.
-	local allowed = allowedArea(areaId, speed)
-	local blocked = allowed + 1
-	StealService.Teleport(player, Layout.GateBounce(blocked, position.X))
-	root.AssemblyLinearVelocity = Vector3.zero
-	local now = os.clock()
-	if not lastWarning[player] or now - lastWarning[player] > 3 then
-		lastWarning[player] = now
-		local area = Areas.List[blocked]
-		notify(player, `⚡ You need {Format.Number(area.RecommendedSpeed)} Speed to get into {area.Name}!`, "error")
-		Remotes.Event("SpeedGate"):FireClient(player, blocked)
-	end
 end
 
 --------------------------------------------------------------------------------
@@ -21886,7 +21944,7 @@ local function canTeleport(player: Player): boolean
 		return false
 	end
 	if not profile.Passes.Teleporter then
-		notify(player, "The Teleporter game pass lets you teleport to any biome you're fast enough for!", "error")
+		notify(player, "The Teleporter game pass lets you teleport to any biome!", "error")
 		return false
 	end
 	if StealService.IsCarrying(player) then
@@ -21909,10 +21967,6 @@ function WorldService.TeleportToArea(player: Player, areaId: any)
 	if not profile or type(areaId) ~= "number" or not Areas.List[areaId] then
 		return
 	end
-	if not Economy.CanEnter(areaId, profile.Data.Speed) then
-		notify(player, `You need {Format.Number(Economy.RecommendedSpeed(areaId))} Speed for {Areas.List[areaId].Name}!`, "error")
-		return
-	end
 	if canTeleport(player) then
 		StealService.Teleport(player, Layout.AreaArrival(areaId))
 	end
@@ -21929,24 +21983,9 @@ end
 
 function WorldService.OnPlayerRemoving(player: Player)
 	lastTeleport[player] = nil
-	lastWarning[player] = nil
 end
 
-function WorldService.Init()
-	task.spawn(function()
-		while true do
-			task.wait(0.2)
-			for _, player in Players:GetPlayers() do
-				local profile = DataService.Get(player)
-				local character = player.Character
-				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-				if profile and profile.Session.Ready and root then
-					checkGates(player, profile, root)
-				end
-			end
-		end
-	end)
-end
+function WorldService.Init() end
 
 return WorldService
 ]]></string>
@@ -22081,15 +22120,10 @@ require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild
           <Properties>
             <string name="Name">AreaTracker</string>
             <string name="Source"><![CDATA[--[[
-	Tracks which biome the local player is standing in (0 = the lobby), and handles the speed
-	gates: every biome needs a Speed to get in (Areas.luau). Each biome's entrance has an invisible
-	wall (tagged "SpeedGate", attributes Area + Speed); it's solid - and shows as a faint red
-	force field - only on the computer of a player whose Speed is too low, so slow players bump into
-	it while everyone else walks through. The server double-checks (WorldService).
-	AreaTracker.Blocked fires (areaId) when you walk up to a gate you're too slow for.
+	Tracks which biome the local player is standing in (0 = the lobby). Anyone can walk into any
+	biome: a biome's Speed is what you need to get away from its Domer, not to get in.
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -22102,72 +22136,12 @@ local player = Players.LocalPlayer :: Player
 local AreaTracker = {}
 AreaTracker.Current = -1
 AreaTracker.Changed = Signal.new() -- (newArea, oldArea)
-AreaTracker.Blocked = Signal.new() -- (areaId) you walked up to a biome you're too slow for
-
-local BLOCKED_COLOR = Color3.fromRGB(255, 70, 70)
-local WARN_DISTANCE = 10
-local lastBlocked = 0
 
 function AreaTracker.Position(): Vector3?
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	return root and root.Position
 end
-
--- Can the local player walk into this biome? (admins flying go anywhere)
-local function canPass(gate: BasePart): boolean
-	if player:GetAttribute("Flying") == true then
-		return true
-	end
-	local need = gate:GetAttribute("Speed")
-	local speed = player:GetAttribute("Speed")
-	return type(need) ~= "number" or (type(speed) == "number" and speed >= need)
-end
-
-local function updateGate(gate: Instance)
-	if not gate:IsA("BasePart") then
-		return
-	end
-	local blocked = not canPass(gate)
-	if gate.CanCollide ~= blocked then
-		gate.CanCollide = blocked
-		gate.Material = Enum.Material.ForceField
-		gate.Color = BLOCKED_COLOR
-		gate.Transparency = if blocked then 0.2 else 1
-	end
-end
-
-local function updateGates()
-	for _, gate in CollectionService:GetTagged("SpeedGate") do
-		updateGate(gate)
-	end
-end
-
--- Walking up to a gate you can't get through: tell the HUD (at most every few seconds).
-local function checkNearGates(position: Vector3)
-	local now = os.clock()
-	if now - lastBlocked < 3 then
-		return
-	end
-	for _, gate in CollectionService:GetTagged("SpeedGate") do
-		if gate:IsA("BasePart") and gate.CanCollide then
-			local ahead = gate.Position.Z - position.Z
-			if ahead > 0 and ahead < WARN_DISTANCE and math.abs(position.X - gate.Position.X) < gate.Size.X / 2 then
-				lastBlocked = now
-				local areaId = gate:GetAttribute("Area")
-				if type(areaId) == "number" then
-					AreaTracker.Blocked:Fire(areaId)
-				end
-				return
-			end
-		end
-	end
-end
-
-CollectionService:GetInstanceAddedSignal("SpeedGate"):Connect(updateGate)
-player:GetAttributeChangedSignal("Speed"):Connect(updateGates)
-player:GetAttributeChangedSignal("Flying"):Connect(updateGates)
-updateGates()
 
 task.spawn(function()
 	while true do
@@ -22179,7 +22153,6 @@ task.spawn(function()
 				AreaTracker.Current = area
 				AreaTracker.Changed:Fire(area, old)
 			end
-			checkNearGates(position)
 		end
 		task.wait(0.2)
 	end
@@ -26027,9 +26000,9 @@ return Followers
 	  a few Z's out of his open mouth, and up close you hear him snore (a deep rattling breath in, a
 	  soft breath out: made from Roblox's own sounds, or Config.Guard.SnoreSoundId).
 	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId).
-	* When you steal a donut the server spawns your chasing guard: your sleeping one disappears in a
-	  puff of smoke, and pops back onto the blanket when the chase is over. His animations are
-	  preloaded at the start, so he never freezes the first time he wakes up.
+	* When you steal a box the server spawns your chasing guard: your sleeping one disappears in a
+	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
+	  animations are preloaded at the start, so he never freezes the first time he wakes up.
 	* Other players' chasing guards are hidden, so you never see anyone else's Domers.
 ]]
 
@@ -26376,8 +26349,11 @@ local function onGuardAdded(instance: Instance)
 			lastPosition = instance:GetPivot().Position
 		else
 			connection:Disconnect()
-			-- The chase is over: he teleports back to his blanket.
-			Guards.Poof(lastPosition + Vector3.new(0, 2, 0))
+			-- The chase is over and he walked back to his corner: he lies back down there. (A puff
+			-- where he was too, if he didn't make it all the way.)
+			if not sleeper or (lastPosition - sleeper.Home.Position).Magnitude > 20 then
+				Guards.Poof(lastPosition + Vector3.new(0, 2, 0))
+			end
 			if sleeper then
 				setHidden(sleeper, false)
 			end
@@ -29708,7 +29684,6 @@ local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
 local Events = require(Shared.Events)
 local Format = require(Shared.Format)
-local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
 local Icons = require(script.Parent.Icons)
@@ -29853,7 +29828,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	square("🏠", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)
-	-- Teleporter pass owners: jump to any biome they're fast enough for. Everyone else walks.
+	-- Teleporter pass owners: jump to any biome. Everyone else walks.
 	local teleport = square("🌀", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenTeleport)
 	local function showTeleport()
 		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
@@ -29990,7 +29965,7 @@ local function buildAreaInfo(gui: ScreenGui)
 		nameLabel.Text = `📍 {areaId}. {area.Name}`
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
 		detail.Text = if recommended > 0
-			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Needs <font color="#ffd54a"><b>⚡{Format.Number(recommended)}</b></font>`
+			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Escape: <font color="#ffd54a"><b>⚡{Format.Number(recommended)}</b></font>`
 			else `😴 {Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
 	end
 
@@ -30017,22 +29992,13 @@ local function buildAreaInfo(gui: ScreenGui)
 		if areaId == 0 then
 			Notifications.Banner("🛡 LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
 		else
-			-- Walked into a biome: its name and the Speed it needs at the top, then it fades
+			-- Walked into a biome: its name and the Speed you need to get away from its Domer
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
-			local need = if recommended > 0 then `⚡ Needs {Format.Number(recommended)} Speed` else "⚡ Any speed!"
+			local need = if recommended > 0 then `⚡ {Format.Number(recommended)} Speed to escape` else "⚡ Any speed escapes!"
 			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`)
 		end
 	end)
-	-- Too slow for the next biome (bumped into its gate, or the server put you back outside it)
-	local function tooSlow(areaId: number)
-		local area = Areas.List[areaId]
-		if area then
-			Notifications.Banner("⚡ TOO SLOW!", Color3.fromRGB(255, 90, 90), 2.5, `{area.Name} needs {Format.Number(area.RecommendedSpeed)} Speed - get faster on your treadmill!`)
-		end
-	end
-	AreaTracker.Blocked:Connect(tooSlow)
-	Remotes.Event("SpeedGate").OnClientEvent:Connect(tooSlow)
 end
 
 -- Luck Event pill at the top of the screen (only while one is running).
@@ -31186,7 +31152,7 @@ local function buildPage(pageId: number)
 		if not area then
 			continue
 		end
-		local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} Speed` else "any speed"
+		local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} to escape` else "any speed escapes"
 		section(`BIOME {area.Id} • {string.upper(area.Name)} • {need}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), 32)
 		for _, tier in Boxes.TiersFor(biome) do
 			local list = Donuts.ByBox[biome] and Donuts.ByBox[biome][tier.Id]
@@ -33638,7 +33604,7 @@ local function buildUpgrades(page: ScrollingFrame)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
 	local tip = card(page, 7, Theme.Colors.Green)
 	Theme.Label({
-		Text = "💡 Run on your treadmill to gain Speed. Every biome needs more Speed to get in - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
+		Text = "💡 Run on your treadmill to gain Speed. Every biome shows the Speed you need to get away from its Domer - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
 	})
 
@@ -34390,7 +34356,7 @@ return StormMusic
               <string name="Name">Teleport</string>
               <string name="Source"><![CDATA[--[[
 	Teleport window: every biome and the Speed it needs. With the Teleporter game pass you can jump
-	straight to the start of any biome you're fast enough for (or home); everyone else sees what's
+	straight to the start of any biome (or home); everyone else sees what's
 	ahead of them and what it takes to get there.
 ]]
 
@@ -34398,7 +34364,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
-local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
@@ -34454,10 +34419,9 @@ function Teleport.Init()
 		end)
 		table.insert(refreshers, function()
 			local hasPass = State.Data.Passes.Teleporter == true
-			local open = Economy.CanEnter(area.Id, State.Number("Speed"))
-			local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)}` else "start here"
-			Theme.SetButtonText(button, if open then `{area.Id}. {area.Name}\n{need}` else `🔒 {area.Id}. {area.Name}\nneeds {need}`)
-			Theme.SetButtonColor(button, if open and hasPass then area.Trim else Theme.Colors.Gray)
+			local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} to escape` else "start here"
+			Theme.SetButtonText(button, `{area.Id}. {area.Name}\n{need}`)
+			Theme.SetButtonColor(button, if hasPass then area.Trim else Theme.Colors.Gray)
 		end)
 	end
 
@@ -34465,8 +34429,8 @@ function Teleport.Init()
 		local hasPass = State.Data.Passes.Teleporter == true
 		passButton.Visible = not hasPass
 		header.Text = if hasPass
-			then "🌀 <b>Teleporter active!</b> Jump to any biome you're fast enough for."
-			else "Every biome needs more Speed to get in. The <b>Teleporter</b> pass lets you jump to any of them instantly."
+			then "🌀 <b>Teleporter active!</b> Jump to any biome."
+			else "The <b>Teleporter</b> pass lets you jump to any biome instantly."
 	end)
 
 	modal.OnOpen = refreshAll

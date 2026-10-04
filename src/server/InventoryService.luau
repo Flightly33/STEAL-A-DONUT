@@ -6,7 +6,8 @@
 	  * Hold a box or donut and click / tap while you're in your pen: it goes down there - a box's
 	    timer starts (PlotService.AddBox; click it to open it once it's ready), a donut starts
 	    roaming and earning (PlotService.AddDonut).
-	  * Donuts can be sold from the inventory at the sell stall in the lobby (UI/Sell).
+	  * Donuts can be sold from the inventory at the sell stall in the lobby (UI/Sell). Donuts on
+	    your base can be picked up back into the inventory ("Pick up" on them, PlotService).
 	  * The free bat isn't in here: ItemService hands it out.
 	Tools are rebuilt from the saved list every time you spawn, so nothing is ever lost.
 ]]
@@ -231,7 +232,7 @@ function InventoryService.Place(player: Player, uid: string)
 		return
 	end
 	if not PlotService.HasFreeSlot(player) then
-		notify(player, "Your pen is full! Sell a donut or upgrade your base at the sign by the gate.", "error")
+		notify(player, "Your pen is full! Pick up a donut or upgrade your base at the sign by the gate.", "error")
 		return
 	end
 	if item.Kind == "Box" then
@@ -336,6 +337,15 @@ end
 function InventoryService.Init()
 	PlotService.BoxOpened:Connect(function(player: Player, donutId: string, mutation: string, size: string)
 		InventoryService.AddDonut(player, donutId, 1, mutation, size)
+	end)
+	-- A donut picked up off your base (its "Pick up" prompt)
+	PlotService.SetPickupHandler(function(player: Player, slot: DataService.SlotData): boolean
+		if InventoryService.IsFull(player) then
+			notify(player, "Your inventory is full! Sell some donuts at the sell stall first.", "error")
+			return false
+		end
+		InventoryService.AddDonut(player, slot.Id, slot.Level, slot.Mutation, slot.Size)
+		return true
 	end)
 	Remotes.Function("GetSellList").OnServerInvoke = function(player: Player)
 		return InventoryService.SellList(player)

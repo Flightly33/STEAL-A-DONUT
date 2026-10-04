@@ -7,11 +7,14 @@
 
 	When you steal a box, the server spawns YOUR chasing guard in his corner: he wakes up, yells,
 	and chases you - through every biome on the way, keeping his own speed - until he catches you
-	or you reach the lobby. Then he poofs away and your client puts him back to sleep. Other
-	players' clients hide your guard, so you never see anyone else's Domers. (Pick up a box someone
-	dropped and its Domer appears a little way behind you instead.)
+	or you reach the lobby. Then he walks back to his corner (Config.Guard.ReturnSpeedFactor of his
+	chase speed) and, once he's there, your client puts him back to sleep. Pick up one of his boxes
+	again while he's still on his way and he turns around and comes after you from wherever he is;
+	if he's already home, he wakes up in his corner as usual. Other players' clients hide your
+	guard, so you never see anyone else's Domers.
 
-	Guard speed per biome comes from Economy.GuardWalkSpeed (the biome's Speed requirement).
+	Guard speed per biome comes from Economy.GuardWalkSpeed (the biome's Speed is the Speed that
+	just gets you away from him).
 
 	Catching is lag compensated: the server keeps a short history of where the guard was and judges
 	the catch against where he was on YOUR screen when you were at your current position (your ping
@@ -50,10 +53,12 @@ export type Guard = {
 	Model: Model,
 	Humanoid: Humanoid,
 	Root: BasePart,
-	State: string, -- "Waking" | "Chasing" | "Celebrating" | "GivingUp"
+	State: string, -- "Waking" | "Chasing" | "Celebrating" | "GivingUp" | "Returning"
 	Token: number,
 	Status: TextLabel,
 	ChaseSpeed: number,
+	Home: CFrame, -- his corner (where he walks back to)
+	ReturnStarted: number,
 	LastCheckPos: Vector3,
 	LastCheckTime: number,
 	StuckTime: number,
@@ -121,36 +126,61 @@ local function vanish(guard: Guard)
 	guard.Model:Destroy()
 end
 
-local function vanishAfter(guard: Guard, seconds: number)
+-- Stand still for `seconds` (cheering or fuming), then walk back to his corner.
+local function returnAfter(guard: Guard, seconds: number)
 	guard.Token += 1
 	local token = guard.Token
 	guard.Humanoid.WalkSpeed = 0
 	guard.Humanoid:MoveTo(guard.Root.Position)
 	task.delay(seconds, function()
-		if guard.Token == token then
-			vanish(guard)
+		if guard.Token == token and guard.Model.Parent then
+			guard.State = "Returning"
+			guard.ReturnStarted = os.clock()
+			guard.Humanoid.WalkSpeed = guard.ChaseSpeed * Config.Guard.ReturnSpeedFactor
+			guard.LastCheckPos = guard.Root.Position
+			guard.LastCheckTime = os.clock()
+			guard.StuckTime = 0
 		end
 	end)
+end
+
+local function startChasing(guard: Guard)
+	guard.State = "Chasing"
+	guard.Humanoid.WalkSpeed = guard.ChaseSpeed
+	guard.LastCheckPos = guard.Root.Position
+	guard.LastCheckTime = os.clock()
+	guard.StuckTime = 0
 end
 
 --------------------------------------------------------------------------------
 -- Public API
 --------------------------------------------------------------------------------
 
--- `player` stole a box from `areaId`: their own guard wakes up and gives chase. `spawnAt`: where
--- he appears (default: his corner).
-function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): Guard?
+-- `player` stole a box (or an egg) from `areaId`: their own guard of that biome gives chase - from
+-- wherever he is if he's still walking back from the last chase (he turns around), otherwise he
+-- wakes up in his corner.
+function GuardService.Alert(areaId: number, player: Player): Guard?
 	local existing = guards[player]
+	if existing and existing.AreaId == areaId and existing.Model.Parent and existing.State ~= "Chasing" and existing.State ~= "Waking" then
+		existing.Token += 1
+		existing.State = "Waking"
+		existing.Humanoid.WalkSpeed = 0
+		existing.Humanoid:MoveTo(existing.Root.Position)
+		existing.History = {}
+		shout(existing, Config.Guard.WakeShouts, Color3.fromRGB(255, 70, 70))
+		local token = existing.Token
+		task.delay(Config.Guard.TurnDelay, function()
+			if existing.Token == token and existing.Model.Parent then
+				startChasing(existing)
+			end
+		end)
+		return existing
+	end
 	if existing then
 		vanish(existing)
 	end
 	local model, status = GuardModel.Build(areaId, { Humanoid = true, CollisionGroup = "Guards" })
 	local home = homeCFrame(areaId)
-	if spawnAt then
-		local limit = Layout.AreaHalfWidth(math.max(Layout.AreaAt(spawnAt), 1)) - 12
-		local z = math.min(spawnAt.Z, Layout.LaneEnd() - 12)
-		home = CFrame.new(math.clamp(spawnAt.X, -limit, limit), 0, z)
-	end
 	model:PivotTo(GuardModel.StandCFrame(home))
 	model:SetAttribute("OwnerUserId", player.UserId)
 	CollectionService:AddTag(model, "Guard")
@@ -166,6 +196,8 @@ function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): 
 		Token = 0,
 		Status = status,
 		ChaseSpeed = Economy.GuardWalkSpeed(areaId),
+		Home = home,
+		ReturnStarted = 0,
 		LastCheckPos = Vector3.zero,
 		LastCheckTime = 0,
 		StuckTime = 0,
@@ -183,34 +215,36 @@ function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): 
 	local token = guard.Token
 	task.delay(Areas.List[areaId].WakeDelay, function()
 		if guard.Token == token and guard.Model.Parent then
-			guard.State = "Chasing"
-			guard.Humanoid.WalkSpeed = guard.ChaseSpeed
-			guard.LastCheckPos = guard.Root.Position
-			guard.LastCheckTime = os.clock()
-			guard.StuckTime = 0
+			startChasing(guard)
 		end
 	end)
 	return guard
 end
 
--- The chase is over (reached safety, deposited, dropped the donut, left the game...).
+-- The chase is over (reached safety, deposited, dropped the box, left the game...): he walks home.
 function GuardService.StopChase(player: Player, reason: string?)
 	local guard = guards[player]
-	if not guard or guard.State == "Celebrating" or guard.State == "GivingUp" then
+	if not guard or guard.State == "Celebrating" or guard.State == "GivingUp" or guard.State == "Returning" then
 		return
 	end
-	if reason == "Safe" then
+	if not player.Parent then
+		vanish(guard)
+	elseif reason == "Safe" then
 		guard.State = "GivingUp"
 		shout(guard, { "NOOO! MY DONUT!", "D'OH!", "I'LL GET YOU NEXT TIME!", "WHY YOU LITTLE...!" }, Color3.fromRGB(255, 180, 60))
-		vanishAfter(guard, Config.Guard.GiveUpDelay)
-	elseif player.Parent then
+		returnAfter(guard, Config.Guard.GiveUpDelay)
+	else
 		guard.State = "GivingUp"
 		guard.Status.Text = "..."
 		guard.Status.TextColor3 = Color3.fromRGB(220, 220, 220)
-		vanishAfter(guard, 0.6)
-	else
-		vanish(guard)
+		returnAfter(guard, 0.6)
 	end
+end
+
+-- Is the player's guard of `areaId` out of his corner (chasing, cheering or walking back)?
+function GuardService.IsAway(player: Player, areaId: number): boolean
+	local guard = guards[player]
+	return guard ~= nil and guard.AreaId == areaId and guard.Model.Parent ~= nil
 end
 
 function GuardService.GetGuard(player: Player): Guard?
@@ -253,15 +287,50 @@ function GuardService.PerceivedDistance(guard: Guard, targetPos: Vector3): numbe
 	return flatDistance(seen, targetPos)
 end
 
+-- Walking back to his corner after a chase; once he's there, he's gone (your client shows him
+-- asleep in his corner again).
+local function updateReturning(guard: Guard, now: number)
+	local guardPos = guard.Root.Position
+	local home = guard.Home.Position
+	local toHome = Vector2.new(home.X - guardPos.X, home.Z - guardPos.Z).Magnitude
+	if not guard.Owner.Parent or toHome < 6 or now - guard.ReturnStarted > Config.Guard.MaxReturnSeconds then
+		vanish(guard)
+		return
+	end
+	guard.Humanoid:MoveTo(Vector3.new(home.X, guardPos.Y, home.Z))
+	if now - guard.LastCheckTime > 0.5 then
+		if (guardPos - guard.LastCheckPos).Magnitude < 0.5 * Config.Guard.Scale then
+			guard.StuckTime += now - guard.LastCheckTime
+			guard.Humanoid.Jump = true
+			if guard.StuckTime > 3 then
+				vanish(guard) -- (stuck on the way home: just go to sleep)
+				return
+			end
+		else
+			guard.StuckTime = 0
+		end
+		guard.LastCheckPos = guardPos
+		guard.LastCheckTime = now
+	end
+end
+
 local function updateGuard(guard: Guard, now: number)
+	if guard.State == "Returning" then
+		updateReturning(guard, now)
+		return
+	end
 	if guard.State ~= "Chasing" then
 		return
 	end
 	local target = guard.Owner
 	local character = target.Character
 	local targetRoot = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not target.Parent or not targetRoot then
+	if not target.Parent then
 		vanish(guard)
+		return
+	end
+	if not targetRoot then
+		GuardService.StopChase(target)
 		return
 	end
 	local targetPos = targetRoot.Position
@@ -282,7 +351,7 @@ local function updateGuard(guard: Guard, now: number)
 	if not godMode and GuardService.PerceivedDistance(guard, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
 		guard.State = "Celebrating"
 		shout(guard, Config.Guard.CatchShouts, Color3.fromRGB(120, 255, 120))
-		vanishAfter(guard, 1.5)
+		returnAfter(guard, 1.5)
 		GuardService.Caught:Fire(target, guard.AreaId)
 		return
 	end

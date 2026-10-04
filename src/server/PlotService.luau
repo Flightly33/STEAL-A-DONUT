@@ -1,7 +1,7 @@
 --[[
 	PlotService
 	===========
-	Player bases: plot assignment, what's in them (donuts with Upgrade / Sell / Favorite prompts,
+	Player bases: plot assignment, what's in them (donuts with Upgrade / Pick up / Favorite prompts,
 	and donut boxes waiting to open), base income, the owner sign, the upgrade sign by the gate,
 	base skins, and the podium that shows off the player's rarest or best-earning donut.
 
@@ -487,7 +487,7 @@ function updateSlotLabels(player: Player, slotIndex: number)
 	info.Parent = root
 
 	local upgrade = root:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
-	local sell = root:FindFirstChild("SellPrompt") :: ProximityPrompt?
+	local pickUp = root:FindFirstChild("PickUpPrompt") :: ProximityPrompt?
 	if upgrade then
 		if slot.Level >= Config.DonutUpgrade.MaxLevel then
 			upgrade.ActionText = "MAX LEVEL"
@@ -498,9 +498,8 @@ function updateSlotLabels(player: Player, slotIndex: number)
 		local gain = Economy.DonutBaseIncome(slot.Id, slot.Mutation, slot.Size) * Config.DonutUpgrade.IncomePerLevel * DataService.MoneyMultiplier(profile)
 		upgrade.ObjectText = `Lv. {slot.Level} → {slot.Level + 1}  (+{Format.Money(gain)}/s)`
 	end
-	if sell then
-		sell.ActionText = "Sell " .. Format.Money(Economy.SellPrice(slot.Id, slot.Level, slot.Mutation, slot.Size))
-		sell.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
+	if pickUp then
+		pickUp.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
 	end
 end
 
@@ -546,16 +545,18 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	upgrade:SetAttribute("OwnerUserId", player.UserId)
 	upgrade.Parent = root
 
-	local sell = Instance.new("ProximityPrompt")
-	sell.Name = "SellPrompt"
-	sell.KeyboardKeyCode = Enum.KeyCode.F
-	sell.GamepadKeyCode = Enum.KeyCode.ButtonY
-	sell.HoldDuration = 1
-	sell.MaxActivationDistance = 12
-	sell.RequiresLineOfSight = false
-	sell.UIOffset = Vector2.new(0, 70)
-	sell:SetAttribute("OwnerUserId", player.UserId)
-	sell.Parent = root
+	-- Pick it up: back into your inventory (sell it at the sell stall, or put it down somewhere else)
+	local pickUp = Instance.new("ProximityPrompt")
+	pickUp.Name = "PickUpPrompt"
+	pickUp.ActionText = "Pick up"
+	pickUp.KeyboardKeyCode = Enum.KeyCode.F
+	pickUp.GamepadKeyCode = Enum.KeyCode.ButtonY
+	pickUp.HoldDuration = 0.3
+	pickUp.MaxActivationDistance = 12
+	pickUp.RequiresLineOfSight = false
+	pickUp.UIOffset = Vector2.new(0, 70)
+	pickUp:SetAttribute("OwnerUserId", player.UserId)
+	pickUp.Parent = root
 
 	local favorite = Instance.new("ProximityPrompt")
 	favorite.Name = "FavoritePrompt"
@@ -575,9 +576,9 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 			PlotService.UpgradeSlot(player, slotIndex)
 		end
 	end)
-	sell.Triggered:Connect(function(who)
+	pickUp.Triggered:Connect(function(who)
 		if who == player then
-			PlotService.SellSlot(player, slotIndex)
+			PlotService.PickUpSlot(player, slotIndex)
 		end
 	end)
 	favorite.Triggered:Connect(function(who)
@@ -595,7 +596,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 end
 
 -- The favourite donut: a 1/3-size copy follows its owner around (every client draws it from the
--- "Favorite" attribute). It's cleared when that donut leaves the base (sold, cleared).
+-- "Favorite" attribute). It's cleared when that donut leaves the base (picked up, sold, cleared).
 local function syncFavorite(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
@@ -704,6 +705,31 @@ function PlotService.SellSlot(player: Player, slotIndex: number)
 	end
 	afterSlotsChanged(player)
 	notify(player, `Sold {if donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "donut"} for {Format.Money(price)}`, "success")
+end
+
+-- Pick a donut up off your base: it goes back into your inventory as it is (level, mutation, size).
+-- InventoryService decides whether there's room (SetPickupHandler).
+local pickupHandler: ((player: Player, slot: DataService.SlotData) -> boolean)? = nil
+function PlotService.SetPickupHandler(handler: (player: Player, slot: DataService.SlotData) -> boolean)
+	pickupHandler = handler
+end
+
+function PlotService.PickUpSlot(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local key = tostring(slotIndex)
+	local slot = profile and profile.Data.Slots[key]
+	if not profile or not slot or not pickupHandler or not pickupHandler(player, slot) then
+		return
+	end
+	profile.Data.Slots[key] = nil
+	local model = slotModels[player] and slotModels[player][slotIndex]
+	if model then
+		model:Destroy()
+		slotModels[player][slotIndex] = nil
+	end
+	afterSlotsChanged(player)
+	local donut = Donuts.ById[slot.Id]
+	notify(player, `Picked up {if donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "the donut"}. Sell it at the sell stall or put it down again.`, "success")
 end
 
 -- Remove every donut from a base (admin "clear donuts").

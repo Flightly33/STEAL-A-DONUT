@@ -9,7 +9,7 @@ local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
 local Boxes = require(script.Parent.Boxes)
 local Pets = require(script.Parent.Pets)
-local _Layout = require(script.Parent.Layout)
+local Layout = require(script.Parent.Layout)
 
 local Economy = {}
 
@@ -17,10 +17,11 @@ local Economy = {}
 -- Speed
 --------------------------------------------------------------------------------
 -- WalkSpeed from the Speed stat, before the carry slowdown (Config.Speed): grows with Speed, but
--- more gently the bigger it gets (Speed reaches the hundreds of millions).
+-- more gently the bigger it gets (Speed reaches the hundreds of millions). The stat counts
+-- Config.Speed.StatMultiplier times (100 Speed runs like 200).
 function Economy.WalkSpeedFromStat(stat: number): number
 	local s = Config.Speed
-	return s.BaseWalkSpeed + s.CurveScale * math.max(stat, 0) ^ s.CurvePower
+	return s.BaseWalkSpeed + s.CurveScale * (s.StatMultiplier * math.max(stat, 0)) ^ s.CurvePower
 end
 
 function Economy.StatForWalkSpeed(walkSpeed: number): number
@@ -29,7 +30,7 @@ function Economy.StatForWalkSpeed(walkSpeed: number): number
 	if extra <= 0 then
 		return 0
 	end
-	return (extra / s.CurveScale) ^ (1 / s.CurvePower)
+	return (extra / s.CurveScale) ^ (1 / s.CurvePower) / s.StatMultiplier
 end
 
 -- The old logarithmic curve (saves from before the Speed stat became linear are converted with it).
@@ -56,14 +57,38 @@ function Economy.PlayerWalkSpeed(stat: number, _worldId: number?, carrySizeId: s
 	return walk
 end
 
--- A biome's Domer runs at the WalkSpeed of a player with exactly the biome's Speed requirement,
--- times Config.Guard.ChaseFactor. The first biome's Domer is slower than anyone.
+-- How fast a biome's Domer runs. A biome's Speed is the Speed that just gets you away from him:
+-- with exactly that Speed you grab a box (they sit `ahead` studs in front of him, `run` studs from
+-- the biome's entrance), run straight back while he wakes up (WakeDelay seconds), get out of his
+-- biome - and he catches you (Config.Guard.CatchRadius) EscapeMargin studs past the entrance.
+-- Solving that for his speed gives runner * (run + margin + ahead - catch) / (run + margin -
+-- runner * wake): about 1.2-1.3x the runner. The first biome's Domer is slower than anyone.
+local guardSpeeds: { [number]: number } = {}
 function Economy.GuardWalkSpeed(areaId: number): number
+	local cached = guardSpeeds[areaId]
+	if cached then
+		return cached
+	end
 	local area = Areas.List[areaId]
 	if not area or area.RecommendedSpeed <= 0 then
 		return Config.Guard.BeginnerSpeed
 	end
-	return Economy.WalkSpeedFromStat(area.RecommendedSpeed) * Config.Guard.ChaseFactor
+	local runner = Economy.WalkSpeedFromStat(area.RecommendedSpeed)
+	local home = Layout.GuardHome(areaId)
+	local boxZ = 0
+	local spots = Layout.BoxSpots(areaId)
+	for _, spot in spots do
+		boxZ += spot.Z / #spots
+	end
+	local ahead = home.Z - boxZ
+	local run = boxZ - Layout.AreaStart(areaId)
+	local g = Config.Guard
+	local distance = run + g.EscapeMargin
+	local headStart = math.max(distance - runner * area.WakeDelay, distance * 0.25)
+	local speed = runner * (distance + ahead - g.CatchRadius) / headStart
+	speed = math.clamp(speed, runner * 1.05, runner * 2)
+	guardSpeeds[areaId] = speed
+	return speed
 end
 
 -- The Speed you need to get into a biome.
@@ -75,11 +100,6 @@ end
 -- WalkSpeed of a player with exactly the biome's Speed requirement.
 function Economy.RecommendedWalkSpeed(areaId: number): number
 	return Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(areaId))
-end
-
--- Can a player with this much Speed walk into the biome?
-function Economy.CanEnter(areaId: number, speed: number): boolean
-	return speed >= Economy.RecommendedSpeed(areaId)
 end
 
 -- Treadmill multiplier from the Speed Multiplier upgrade (+5% per level, adds up).

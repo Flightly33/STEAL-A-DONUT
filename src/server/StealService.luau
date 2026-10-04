@@ -3,15 +3,16 @@
 	============
 	The core loop:
 	  1. Hold E on a donut box by a biome's Domer -> you pick it up (you carry it in your arms) and
-	     YOUR Domer of that biome wakes up and chases you, as fast as the biome's Speed requirement.
-	     Big boxes slow you down while you carry them.
+	     YOUR Domer of that biome wakes up and chases you. With the biome's Speed you just get out
+	     of his biome before he catches you (Economy.GuardWalkSpeed); big boxes slow you down.
 	  2. Get back to the lobby (cross the safe-zone line) -> Domer gives up and the box goes into
 	     your inventory (InventoryService). Put it down in your pen and its timer starts.
-	  If Domer catches you, you're flung and he takes the box back to his corner (BoxService.
-	  ReturnToDomer), wherever he caught you. Get hit by someone's bat while carrying a box and it
-	  drops on the ground right there: anyone can pick it up - and whoever does gets chased by that
-	  same biome's Domer. Drop it yourself (the Drop button) and it goes back onto its spot if
-	  you're still in its biome, or onto the ground anywhere else.
+	  If Domer catches you, you're flung. Inside his biome he takes the box back to his corner
+	  (BoxService.ReturnToDomer); outside it the box drops on the ground right there and he walks
+	  home. Anyone can pick a box up off the ground - and whoever does gets chased by that biome's
+	  Domer (from wherever he is: see GuardService.Alert). Get hit by someone's bat while carrying
+	  a box and it drops right there too. Drop it yourself (the Drop button) and it goes back onto
+	  its spot if you're still in its biome, or onto the ground anywhere else.
 
 	What you carry is drawn by every client (client/Carried.luau) from the player's attributes:
 	CarryingDonut (the box's tier, the donut's id or the egg's id), CarryKind, CarryMutation and
@@ -59,8 +60,6 @@ export type Carry = {
 
 -- A single jump longer than this (studs) while carrying something is treated as a teleport hack.
 local TELEPORT_DISTANCE = 400
--- How far behind you a box's Domer appears when you pick it up off the ground.
-local GROUND_CHASE_DISTANCE = 45
 
 local carriers: { [Player]: Carry } = {}
 local lastFullWarning: { [Player]: number } = {}
@@ -109,22 +108,28 @@ local function positionOf(player: Player, carry: Carry): Vector3
 end
 
 -- What happens to whatever the player was carrying when they lose it. `how`:
---   "Caught"  Domer got you: he takes the box back to his corner, wherever you were
+--   "Caught"  Domer got you: in his own biome he takes the box back to his corner; anywhere else
+--             it drops on the ground right there
 --   "Knocked" hit by a bat: the box drops on the ground right there, so the hitter can grab it
 --   nil       dropped it, left, teleported...: back on its spot in its own biome, else the ground
-local function lose(player: Player, carry: Carry, how: string?)
+-- Returns true when the box went back to Domer's corner.
+local function lose(player: Player, carry: Carry, how: string?): boolean
 	if carry.OnLost then
 		carry.OnLost(player)
 	elseif carry.Kind == "Box" and carry.Record then
 		local position = positionOf(player, carry)
-		if how == "Caught" then
+		local inHisBiome = Layout.AreaAt(position) == carry.AreaId
+		if how == "Caught" and inHisBiome then
 			BoxService.ReturnToDomer(carry.Record)
-		elseif how ~= "Knocked" and Layout.AreaAt(position) == carry.AreaId then
+			return true
+		elseif how == nil and inHisBiome then
 			BoxService.Return(carry.Record, position)
+			return true
 		else
 			BoxService.Drop(carry.Record, position)
 		end
 	end
+	return false
 end
 
 -- Move a player somewhere without tripping the carry speed check (teleports, speed gates).
@@ -228,8 +233,6 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 		notify(player, "Your inventory is full! Put some boxes in your pen or sell donuts first.", "error")
 		return
 	end
-	local fromGround = record.Spot == nil
-	local groundAt = model:GetPivot().Position
 	if not BoxService.Take(record) then
 		return
 	end
@@ -246,13 +249,9 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 		LastTime = os.clock(),
 	})
 
-	-- The box's own Domer gives chase: from his corner, or (a box picked up off the ground) from a
-	-- little further down the lane behind you.
-	local spawnAt: Vector3? = nil
-	if fromGround then
-		spawnAt = groundAt + Vector3.new(0, 0, GROUND_CHASE_DISTANCE)
-	end
-	local guard = GuardService.Alert(record.AreaId, player, spawnAt)
+	-- The box's own Domer gives chase: from his corner, or from wherever he is if he's still walking
+	-- back there after the last chase.
+	local guard = GuardService.Alert(record.AreaId, player)
 	Remotes.Event("ChaseStarted"):FireClient(player, {
 		DonutId = record.Tier,
 		AreaId = record.AreaId,
@@ -307,10 +306,10 @@ local function onCaught(player: Player, areaId: number)
 	if not carry then
 		return
 	end
-	lose(player, carry, "Caught")
+	local back = lose(player, carry, "Caught")
 	clearCarry(player)
 	local profile = DataService.Get(player)
-	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind, BoxBack = carry.Kind == "Box" })
+	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind, BoxBack = back })
 	if not profile then
 		return
 	end

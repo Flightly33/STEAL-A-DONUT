@@ -21,7 +21,6 @@ local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
 local Events = require(Shared.Events)
 local Format = require(Shared.Format)
-local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
 local Icons = require(script.Parent.Icons)
@@ -166,7 +165,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	square("🏠", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)
-	-- Teleporter pass owners: jump to any biome they're fast enough for. Everyone else walks.
+	-- Teleporter pass owners: jump to any biome. Everyone else walks.
 	local teleport = square("🌀", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenTeleport)
 	local function showTeleport()
 		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
@@ -303,7 +302,7 @@ local function buildAreaInfo(gui: ScreenGui)
 		nameLabel.Text = `📍 {areaId}. {area.Name}`
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
 		detail.Text = if recommended > 0
-			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Needs <font color="#ffd54a"><b>⚡{Format.Number(recommended)}</b></font>`
+			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Escape: <font color="#ffd54a"><b>⚡{Format.Number(recommended)}</b></font>`
 			else `😴 {Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
 	end
 
@@ -330,22 +329,13 @@ local function buildAreaInfo(gui: ScreenGui)
 		if areaId == 0 then
 			Notifications.Banner("🛡 LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
 		else
-			-- Walked into a biome: its name and the Speed it needs at the top, then it fades
+			-- Walked into a biome: its name and the Speed you need to get away from its Domer
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
-			local need = if recommended > 0 then `⚡ Needs {Format.Number(recommended)} Speed` else "⚡ Any speed!"
+			local need = if recommended > 0 then `⚡ {Format.Number(recommended)} Speed to escape` else "⚡ Any speed escapes!"
 			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`)
 		end
 	end)
-	-- Too slow for the next biome (bumped into its gate, or the server put you back outside it)
-	local function tooSlow(areaId: number)
-		local area = Areas.List[areaId]
-		if area then
-			Notifications.Banner("⚡ TOO SLOW!", Color3.fromRGB(255, 90, 90), 2.5, `{area.Name} needs {Format.Number(area.RecommendedSpeed)} Speed - get faster on your treadmill!`)
-		end
-	end
-	AreaTracker.Blocked:Connect(tooSlow)
-	Remotes.Event("SpeedGate").OnClientEvent:Connect(tooSlow)
 end
 
 -- Luck Event pill at the top of the screen (only while one is running).

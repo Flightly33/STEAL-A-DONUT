@@ -7,9 +7,9 @@
 	  a few Z's out of his open mouth, and up close you hear him snore (a deep rattling breath in, a
 	  soft breath out: made from Roblox's own sounds, or Config.Guard.SnoreSoundId).
 	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId).
-	* When you steal a donut the server spawns your chasing guard: your sleeping one disappears in a
-	  puff of smoke, and pops back onto the blanket when the chase is over. His animations are
-	  preloaded at the start, so he never freezes the first time he wakes up.
+	* When you steal a box the server spawns your chasing guard: your sleeping one disappears in a
+	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
+	  animations are preloaded at the start, so he never freezes the first time he wakes up.
 	* Other players' chasing guards are hidden, so you never see anyone else's Domers.
 ]]
 
@@ -356,8 +356,11 @@ local function onGuardAdded(instance: Instance)
 			lastPosition = instance:GetPivot().Position
 		else
 			connection:Disconnect()
-			-- The chase is over: he teleports back to his blanket.
-			Guards.Poof(lastPosition + Vector3.new(0, 2, 0))
+			-- The chase is over and he walked back to his corner: he lies back down there. (A puff
+			-- where he was too, if he didn't make it all the way.)
+			if not sleeper or (lastPosition - sleeper.Home.Position).Magnitude > 20 then
+				Guards.Poof(lastPosition + Vector3.new(0, 2, 0))
+			end
 			if sleeper then
 				setHidden(sleeper, false)
 			end

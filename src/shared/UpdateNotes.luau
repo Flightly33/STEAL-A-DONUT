@@ -139,7 +139,7 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Fair Leaderboards", Tag = "Improvements", Lines = {
 				"Admins don't show up on the global leaderboards",
-				"The player list's Money / Speed / Rebirths columns never swap any more",
+				"The player list's Money / Speed columns never swap any more",
 			} },
 		},
 		Sidebar = {
@@ -148,17 +148,13 @@ UpdateNotes.List = {
 	},
 	{
 		Version = 4,
-		Name = "Faster Rebirths",
+		Name = "Faster Progress",
 		Date = "Oct 1, 2026",
 		Color = Color3.fromRGB(30, 110, 60),
 		Accent = Color3.fromRGB(255, 220, 90),
 		Decor = "Rise",
 		Emblem = { Frosting = Color3.fromRGB(130, 235, 140), Sprinkles = { Color3.fromRGB(255, 215, 60), Color3.fromRGB(255, 255, 255), Color3.fromRGB(255, 245, 170) } },
 		Sections = {
-			{ Title = "Rebirths", Tag = "Balance", Lines = {
-				"Rebirths are easier: less Speed and money needed",
-				"No more rebirth limit: keep rebirthing forever!",
-			} },
 			{ Title = "Chases", Tag = "NEW", Lines = {
 				"You now carry stolen donuts in your arms",
 				"Intense music plays while Domer chases you",
@@ -167,13 +163,7 @@ UpdateNotes.List = {
 			{ Title = "Head Start", Tag = "Balance", Lines = {
 				"The treadmill gives x4 Speed when you're just starting, slowly fading by Area 6",
 				"Area 2 takes about 4 minutes of running instead of 15!",
-				"It comes back after every rebirth too",
 				"Everyone now starts at 18 walk speed (was 16)",
-			} },
-			{ Title = "Easier Rebirths", Tag = "Balance", Lines = {
-				"Rebirths need half the Speed and far less money",
-				"Every rebirth now gives +50% treadmill speed (was +25%)",
-				"Reaching each new world takes about half as long",
 			} },
 			{ Title = "New Tutorial", Tag = "NEW", Lines = {
 				"Follow the red arrow to learn the game step by step",

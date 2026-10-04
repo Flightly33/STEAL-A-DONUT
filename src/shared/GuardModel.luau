@@ -367,9 +367,9 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 	return model, status
 end
 
--- Lay a built guard down to sleep (the sleeping guard each client draws on his blanket): on his
--- back with his head on a pillow and turned a little to the side, one arm flung up over his head and
--- the other by his side with the hand on his hip (both bent at the elbow), legs flopped apart with
+-- Lay a built guard down to sleep (the sleeping guard each client draws on his couch): on his back
+-- with his head on a pillow and turned a little to the side, one arm flung up over his head and the
+-- other draped over the back of the couch (both bent at the elbow), legs flopped apart with
 -- the feet falling outwards, mouth open, eyes shut (thick "◡" lines, easy to see from far away).
 -- A wide-brimmed hat is taken off and put down next to him. Every part ends up anchored and the joints are removed. Then
 -- PivotTo(GuardModel.SleepCFrame(home)). Returns the mouth (the Z's come out of it).
@@ -463,12 +463,19 @@ function GuardModel.Sleep(model: Model): BasePart?
 		headParts = kept
 	end
 
-	-- Arms: the upper arm swings out (the right one all the way up past his head), then the forearm
-	-- bends at the elbow: over the top of his head, or down onto his hip. (The straight arm block
-	-- underneath is hidden: it can't bend.)
+	-- Arms: the upper arm swings out, then the forearm bends at the elbow. The right one goes all the
+	-- way up past his head, forearm over the top of it. The left one (the side against the couch's
+	-- back) goes up along the back and drapes over the top of it, the hand hanging down behind it,
+	-- so it never pokes through the couch. (The straight arm block underneath is hidden: it can't
+	-- bend.) Lying on his back, his -Z (front) is up and his -X (left) is towards the couch's back.
+	local function aim(to: Vector3): CFrame
+		local from = Vector3.new(0, -1, 0)
+		local axis = from:Cross(to.Unit)
+		return CFrame.fromAxisAngle(axis.Unit, math.acos(math.clamp(from:Dot(to.Unit), -1, 1)))
+	end
 	local armPoses = {
 		[1] = { Raise = CFrame.Angles(0, 0, math.rad(150)), Forearm = Vector3.new(-0.87, 0.5, -0.05) },
-		[-1] = { Raise = CFrame.Angles(0, 0, math.rad(-24)), Forearm = Vector3.new(0.4, -0.92, -0.08) },
+		[-1] = { Raise = aim(Vector3.new(-0.2, 0.12, -0.97)), Forearm = Vector3.new(-0.93, 0.15, 0.3) },
 	}
 	for _, side in { -1, 1 } do
 		local arm = model:FindFirstChild(if side < 0 then "Left Arm" else "Right Arm") :: BasePart?
@@ -590,7 +597,7 @@ end
 -- Lying on his couch (the first biomes): `couch` is the couch's frame on the floor (its front,
 -- LookVector, facing the lane); he lies along it with his head on the arm at its +X end.
 function GuardModel.CouchCFrame(couch: CFrame): CFrame
-	return GuardModel.SleepCFrame(couch * CFrame.new(1, 6.6, -1) * CFrame.Angles(0, math.rad(90), 0))
+	return GuardModel.SleepCFrame(couch * CFrame.new(1, 6.6, -2) * CFrame.Angles(0, math.rad(90), 0))
 end
 
 -- Pose for a guard sleeping on his blanket at `home` (a CFrame on the floor).

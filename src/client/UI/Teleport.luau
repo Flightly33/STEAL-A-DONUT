@@ -1,6 +1,6 @@
 --[[
 	Teleport window: every biome and the Speed it needs. With the Teleporter game pass you can jump
-	straight to the start of any biome you're fast enough for (or home); everyone else sees what's
+	straight to the start of any biome (or home); everyone else sees what's
 	ahead of them and what it takes to get there.
 ]]
 
@@ -8,7 +8,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
-local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
@@ -64,10 +63,9 @@ function Teleport.Init()
 		end)
 		table.insert(refreshers, function()
 			local hasPass = State.Data.Passes.Teleporter == true
-			local open = Economy.CanEnter(area.Id, State.Number("Speed"))
-			local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)}` else "start here"
-			Theme.SetButtonText(button, if open then `{area.Id}. {area.Name}\n{need}` else `🔒 {area.Id}. {area.Name}\nneeds {need}`)
-			Theme.SetButtonColor(button, if open and hasPass then area.Trim else Theme.Colors.Gray)
+			local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} to escape` else "start here"
+			Theme.SetButtonText(button, `{area.Id}. {area.Name}\n{need}`)
+			Theme.SetButtonColor(button, if hasPass then area.Trim else Theme.Colors.Gray)
 		end)
 	end
 
@@ -75,8 +73,8 @@ function Teleport.Init()
 		local hasPass = State.Data.Passes.Teleporter == true
 		passButton.Visible = not hasPass
 		header.Text = if hasPass
-			then "🌀 <b>Teleporter active!</b> Jump to any biome you're fast enough for."
-			else "Every biome needs more Speed to get in. The <b>Teleporter</b> pass lets you jump to any of them instantly."
+			then "🌀 <b>Teleporter active!</b> Jump to any biome."
+			else "The <b>Teleporter</b> pass lets you jump to any biome instantly."
 	end)
 
 	modal.OnOpen = refreshAll

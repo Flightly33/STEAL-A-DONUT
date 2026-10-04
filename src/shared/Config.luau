@@ -73,7 +73,7 @@ Config.Guard = {
 	Name = "Domer",
 
 	-- Every player has their OWN guards: you only ever see (and get chased by) yours, so other
-	-- players can't wake him up for you. When a chase ends he poofs back to his blanket.
+	-- players can't wake him up for you. When a chase ends he walks back to his corner.
 	Scale = 4, -- model scale (1 = normal player size). He's HUGE: about 20 studs tall.
 	-- His walk and idle animations (Roblox's R6 ones). Clients preload them when the game starts, so
 	-- he doesn't stand frozen for a moment the first time he wakes up.
@@ -84,10 +84,19 @@ Config.Guard = {
 	SnoreSoundId = "",
 	GruntSoundId = "",
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
-	-- Each biome's Domer runs at the WalkSpeed of a player with exactly the biome's Speed
-	-- requirement, times ChaseFactor: a player who just meets the requirement escapes with a small
-	-- box, but a big or GIANT one slows you down enough that he catches up unless you're faster.
-	ChaseFactor = 0.97,
+	-- A biome's Speed is the Speed you need to get away from its Domer: each Domer is just fast
+	-- enough that a player with exactly that Speed, running a small box straight back, gets out of
+	-- his biome and is caught EscapeMargin studs past its entrance (outside his biome, so the box
+	-- stays on the ground there). Any slower and he catches you inside (he takes the box back); a
+	-- big or GIANT box slows you down, so you need more. He's about 1.2-1.3x as fast as a player
+	-- with exactly the biome's Speed (Economy.GuardWalkSpeed).
+	EscapeMargin = 60,
+	-- After a catch (or once you reach the lobby) he walks back to his corner at this share of
+	-- his chase speed. Pick the box up again and he turns around and runs at you from wherever
+	-- he is.
+	ReturnSpeedFactor = 0.45,
+	TurnDelay = 0.4, -- seconds he takes to turn around when you grab his box again on his way home
+	MaxReturnSeconds = 240, -- a walk home that takes longer than this ends with him back asleep
 	-- The first biome's Domer is slower than anyone (beginners always get away).
 	BeginnerSpeed = 18,
 	-- Shown in the RUN! warning while he chases you.
@@ -97,7 +106,7 @@ Config.Guard = {
 	-- connection can't catch you while he still looks 40 studs away. Capped so lag can't be abused.
 	InterpolationDelay = 0.1,
 	MaxRewind = 0.35,
-	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before teleporting home
+	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before walking home
 	StunTime = 2.3, -- seconds after being caught (and flung) before you can grab anything again
 
 	-- Footsteps + screen shake while he's close (client side, only for your own guard).
@@ -162,13 +171,15 @@ Config.Plots = {
 --------------------------------------------------------------------------------
 -- Speed
 -- The "Speed" stat is the big number in the HUD (it climbs into the hundreds of millions). How fast
--- you actually run grows more gently with it, or late-game players would break Roblox's physics:
---   WalkSpeed = BaseWalkSpeed + CurveScale * Speed ^ CurvePower
---   (Speed 0 = 24, 900 = 42, 10K = 53, 700K = 92, 35M = 174, 400M = 266)
--- Each biome needs a Speed to enter (Areas.luau), and is as long as that speed makes a fair run.
+-- you actually run grows more gently with it, or late-game players would break Roblox's physics.
+-- Your Speed counts StatMultiplier times when you run (100 Speed runs like 200):
+--   WalkSpeed = BaseWalkSpeed + CurveScale * (StatMultiplier * Speed) ^ CurvePower
+--   (Speed 0 = 24, 900 = 45, 10K = 57, 700K = 102, 30M = 189, 400M = 302)
+-- Each biome shows the Speed you need to get away from its Domer (Areas.luau; anyone can walk in).
 --------------------------------------------------------------------------------
 Config.Speed = {
 	BaseWalkSpeed = 24,
+	StatMultiplier = 2, -- your Speed counts double when you run
 	MinRunSpeed = 16, -- the slowest run speed you can type in Settings
 	CurveScale = 4.6,
 	CurvePower = 0.2,
@@ -275,7 +286,8 @@ Config.Boxes = {
 	-- Box Rush: every Interval seconds, for Duration seconds, every box in every pen opens Speed
 	-- times faster (so 10 seconds of it is 5 minutes of waiting).
 	Rush = { Interval = 150, Duration = 10, Speed = 30 },
-	-- A box knocked out of someone's hands outside its own biome stays on the ground this long.
+	-- A box dropped outside its own biome (caught by Domer out there, knocked out of your hands)
+	-- stays on the ground this long.
 	DroppedLifetime = 120,
 	StealSeconds = 0.6, -- hold E this long to grab a box
 	MaxInventory = 60, -- boxes + donuts you can carry in your inventory
@@ -354,7 +366,7 @@ Config.GamePasses = {
 	-- (speed passes don't stack: see Economy.SpeedPassMultiplier).
 	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255) },
 	{ Key = "Speed2b", Name = "2x Speed (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999838937, SuggestedPrice = 50, Color = Color3.fromRGB(110, 90, 255) },
-	-- Teleport menu: jump to any world you've unlocked, or the start of any area you're fast enough for.
+	-- Teleport menu: jump to the start of any biome.
 	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 1999581396, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
 } :: { GamePass }
 

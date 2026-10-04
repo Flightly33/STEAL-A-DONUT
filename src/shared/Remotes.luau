@@ -13,7 +13,6 @@
 		EggHatched(info)                   { EggId, PetId, Uid } - play the hatch animation
 		AdminPanel()                       open the admin panel (you typed the code)
 		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
-		SpeedGate(areaId)                  you're too slow for that biome (you were put back outside it)
 		BoxesReset()                       every biome's boxes were just replaced ("ALL BOXES RESET!")
 		BoxOpened(info)                    a box in a pen opened: { Owner, Slot, DonutId, Mutation, Size }
 
@@ -32,7 +31,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "SpeedGate", "BoxesReset", "BoxOpened" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "BoxesReset", "BoxOpened" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats", "GetSellList" }
 
 local Remotes = {}

@@ -120,13 +120,6 @@ function Layout.AreaArrival(areaId: number): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Just outside a biome's entrance, in the biome before it (where a player who's too slow is put).
-function Layout.GateBounce(areaId: number, x: number?): CFrame
-	local z = Layout.AreaStart(areaId) - 8
-	local px = math.clamp(x or 0, -(map.LaneHalfWidth - 12), map.LaneHalfWidth - 12)
-	return CFrame.lookAt(Vector3.new(px, 3.5, z), Vector3.new(px, 3.5, z - 10))
-end
-
 -- Where you land in the lobby (the middle of the plaza, facing the lane).
 function Layout.LobbyArrival(): CFrame
 	local z = map.SafeZoneZ - 40

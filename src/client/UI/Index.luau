@@ -286,7 +286,7 @@ local function buildPage(pageId: number)
 		if not area then
 			continue
 		end
-		local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} Speed` else "any speed"
+		local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} to escape` else "any speed escapes"
 		section(`BIOME {area.Id} • {string.upper(area.Name)} • {need}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), 32)
 		for _, tier in Boxes.TiersFor(biome) do
 			local list = Donuts.ByBox[biome] and Donuts.ByBox[biome][tier.Id]

@@ -10,20 +10,18 @@
 		2. A "Map" folder appears in Workspace. Move/replace/restyle anything you like and save.
 		3. When the game runs and Workspace.Map already exists, it is used instead of rebuilding.
 		Keep the names of: Plots/PlotN (+ Spawn, TreadmillAnchor, PodiumAnchor, SignAnchor,
-		IncubatorAnchor, UpgradeSign), Lane/AreaN (+ GuardHome, BoxSpots/BoxSpot, SpeedGate),
+		IncubatorAnchor, UpgradeSign), Lane/AreaN (+ GuardHome, BoxSpots/BoxSpot),
 		Hub/SellStall/PromptPart and Hub/Leaderboards/Board_X/Screen.
 
 	Biomes (Lane/AreaN) run one after another along +Z from the lobby. Each one has:
 	  * thick grassy walls (Config.Map.WallThickness) and a checker floor,
-	  * an arch at its entrance with its name and the Speed you need, and an invisible SpeedGate
-	    (clients make it solid for players who are too slow; WorldService puts back anyone who gets
-	    in anyway),
+	  * an arch at its entrance with its name and the Speed you need to escape its Domer (anyone
+	    can walk in: there are no speed gates),
 	  * its Domer's spot in a back corner (GuardHome; the first biomes have his couch there) and
 	    the box spots around it (BoxSpots: BoxService puts the boxes on them),
 	  * its theme's decorations (Decor.luau), cleared away from Domer's corner.
 ]]
 
-local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -46,7 +44,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 13
+local MAP_VERSION = 14
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -277,7 +275,7 @@ local function speedText(area: Areas.Area): string
 	if area.RecommendedSpeed <= 0 then
 		return "🌱 No speed needed - start here!"
 	end
-	return "⚡ Needs " .. Format.Number(area.RecommendedSpeed) .. " Speed to enter"
+	return "⚡ " .. Format.Number(area.RecommendedSpeed) .. " Speed to escape " .. Config.Guard.Name
 end
 
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
@@ -321,24 +319,12 @@ local function refreshAreaSigns(folder: Instance)
 		if label and label:IsA("TextLabel") then
 			label.Text = speedText(area)
 		end
+		-- (old saved maps: the speed gates are gone)
 		local gate = biome and biome:FindFirstChild("SpeedGate")
 		if gate then
-			gate:SetAttribute("Speed", area.RecommendedSpeed)
+			gate:Destroy()
 		end
 	end
-end
-
--- An invisible wall across a biome's entrance. Clients make it solid for players whose Speed is
--- below the biome's (client/AreaTracker), so they can't walk in.
-local function buildSpeedGate(parent: Instance, area: Areas.Area, zs: number)
-	if area.RecommendedSpeed <= 0 then
-		return
-	end
-	local half = Layout.AreaHalfWidth(area.Id)
-	local gate = Build.Part({ Parent = parent, Name = "SpeedGate", Size = Vector3.new(half * 2, 90, 3), Position = Vector3.new(0, 45, zs + 1.5), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
-	gate:SetAttribute("Area", area.Id)
-	gate:SetAttribute("Speed", area.RecommendedSpeed)
-	CollectionService:AddTag(gate, "SpeedGate")
 end
 
 -- Domer's couch (the first biomes): a big, comfy, orange-brown three-seater made of studded bricks,
@@ -350,7 +336,9 @@ local COUCH_DARK = rgb(150, 78, 34)
 local function buildCouch(parent: Instance, cf: CFrame): Model
 	local couch = Instance.new("Model")
 	couch.Name = "Couch"
-	local L, D = 30, 12 -- length (local X) and depth (local Z, front = -Z)
+	-- (deep, with a low back: Domer is huge, and the arm on the back's side drapes over the top of
+	-- it - see GuardModel.Sleep)
+	local L, D = 30, 18 -- length (local X) and depth (local Z, front = -Z)
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
@@ -370,15 +358,15 @@ local function buildCouch(parent: Instance, cf: CFrame): Model
 	for i = -1, 1 do
 		brick("Cushion", Vector3.new(seatW - 0.3, 2.4, D - 4), at(i * seatW, 5.4, -1), COUCH_LIGHT)
 	end
-	brick("Back", Vector3.new(L - 6, 8, 3), at(0, 7.5, D / 2 - 1.5), COUCH)
-	Build.Decor({ Parent = couch, Name = "BackTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(L - 6, 3.6, 3.6), CFrame = at(0, 11.5, D / 2 - 1.5), Color = COUCH, Material = Enum.Material.Plastic })
+	brick("Back", Vector3.new(L - 6, 4.5, 2.5), at(0, 6.25, D / 2 - 1.25), COUCH)
+	Build.Decor({ Parent = couch, Name = "BackTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(L - 6, 3.6, 3.6), CFrame = at(0, 8.5, D / 2 - 1.25), Color = COUCH, Material = Enum.Material.Plastic })
 	for _, side in { -1, 1 } do
 		brick("Arm", Vector3.new(3.4, 5.5, D), at(side * (L / 2 - 1.7), 5.6, 0), COUCH)
 		Build.Decor({ Parent = couch, Name = "ArmTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(D, 4, 4), CFrame = at(side * (L / 2 - 1.7), 8.4, 0) * CFrame.Angles(0, math.pi / 2, 0), Color = COUCH, Material = Enum.Material.Plastic })
 	end
 	-- three buttons in the back
 	for i = -1, 1 do
-		Build.Decor({ Parent = couch, Name = "Button", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, CFrame = at(i * seatW, 9.4, D / 2 - 3.05), Color = COUCH_DARK, Material = Enum.Material.SmoothPlastic })
+		Build.Decor({ Parent = couch, Name = "Button", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, CFrame = at(i * seatW, 7.4, D / 2 - 2.55), Color = COUCH_DARK, Material = Enum.Material.SmoothPlastic })
 	end
 	-- pillow on one arm, blanket thrown over the other
 	studs(Build.Decor({ Parent = couch, Name = "Pillow", Size = Vector3.new(3, 2.2, 6), CFrame = at(L / 2 - 4.6, 7.8, 0) * CFrame.Angles(0, 0, math.rad(-18)), Color = rgb(225, 225, 230), Material = Enum.Material.Fabric }))
@@ -531,7 +519,6 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	Build.Part({ Parent = folder, Name = "AreaLine", Size = Vector3.new(half * 2, 0.2, 2), Position = Vector3.new(0, 0.1, zs + 1), Color = area.Trim, Material = if area.Id > 1 then Enum.Material.Neon else Enum.Material.SmoothPlastic, CanCollide = false })
 
 	buildArch(folder, area, zs)
-	buildSpeedGate(folder, area, zs)
 	buildGuardSpot(folder, area)
 	buildBoxSpots(folder, area)
 
@@ -974,11 +961,6 @@ function MapBuilder.Build(): Folder
 					boards:Destroy()
 				end
 				buildLeaderboards(hub)
-			end
-		end
-		for _, gate in existing:GetDescendants() do
-			if gate.Name == "SpeedGate" and gate:IsA("BasePart") then
-				CollectionService:AddTag(gate, "SpeedGate")
 			end
 		end
 		refreshAreaSigns(existing)

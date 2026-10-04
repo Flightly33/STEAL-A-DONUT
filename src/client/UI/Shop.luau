@@ -129,7 +129,7 @@ local function buildUpgrades(page: ScrollingFrame)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
 	local tip = card(page, 7, Theme.Colors.Green)
 	Theme.Label({
-		Text = "💡 Run on your treadmill to gain Speed. Every biome needs more Speed to get in - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
+		Text = "💡 Run on your treadmill to gain Speed. Every biome shows the Speed you need to get away from its Domer - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
 	})
 
