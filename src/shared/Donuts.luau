@@ -297,6 +297,9 @@ Donuts.List = {
 	D("wormholio", "Wormholio Infinitoni", "Secret", 34, 2.9e27, 0.012, rgb(0, 0, 0), rgb(170, 90, 255), STARS, { "Wings", "Halo", "Crown", "Orbit", "Tentacles", "Wormhole" }),
 	-- The first ICON donut: the rarest natural spawn (about 1 in 70,000 spawns in The Black Hole)
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
+	-- ICON: Miha Jon - glossy pink glaze pouring off it (over its edges and down into its hole) and
+	-- big anime eyes with heart-shaped shines (its look: DonutLooks.Overrides)
+	D("mihajon", "Miha Jon", "Icon", 34, 2.5e29, 0.0015, rgb(222, 160, 95), rgb(255, 140, 190), { rgb(255, 255, 255), rgb(255, 205, 225), rgb(255, 90, 140) }, { "Legs", "Arms" }),
 } :: { Donut }
 
 --------------------------------------------------------------------------------

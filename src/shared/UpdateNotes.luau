@@ -77,6 +77,21 @@ UpdateNotes.List = {
 				"BOX RUSH every 2:30: boxes in pens open 30x faster for 10 seconds",
 				"Every 5 minutes, all the boxes are replaced with new ones",
 			} },
+			{ Title = "New Donut Looks", Tag = "NEW", Lines = {
+				"Every donut got a makeover: two layers of glaze, shines, drips and patterns that match its name",
+				"Faces with feelings: angry brows, sleepy eyes, silly tongues, glowing ghost eyes and robot screens",
+				"Strong donuts flex big muscles and wear a champion belt; animals get paws, hooves or claws",
+				"Everyone has their own shoes: sneakers, high-tops, boots, sandals, robot feet...",
+				"Rare donuts twinkle, and Epic and up glow with a shiny outline when you're close",
+			} },
+			{ Title = "Miha Jon", Tag = "NEW Icon", Lines = {
+				"A brand new ICON donut: find it in The Black Hole's Mythic boxes, if you're very lucky",
+				"Glaze pours off it, over its edges and down into its hole, and it has big anime eyes with hearts",
+			} },
+			{ Title = "Fancier Boxes", Tag = "Changed", Lines = {
+				"Every box rarity looks different now: ribbons, bows, gold corners and a lid you can see",
+				"Legendary and Mythic boxes sit open a crack with light pouring out",
+			} },
 			{ Title = "17 Biomes", Tag = "NEW Map", Lines = {
 				"One long lane of 17 huge biomes, from Sprinkle Park to The Black Hole",
 				"Walk into any biome you like: there are no speed gates",
@@ -107,6 +122,7 @@ UpdateNotes.List = {
 			} },
 		},
 		Sidebar = {
+			{ Title = "New Icon", Items = donuts({ "mihajon" }) },
 			{ Title = "Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
 		},
 	},

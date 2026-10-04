@@ -38,7 +38,11 @@ local BoxFX = {}
 local player = Players.LocalPlayer :: Player
 
 local BOB_RANGE = 180 -- biome boxes further away than this don't bob
-local LID_PARTS = { Lid = true, Bow = true, BowKnot = true, LidEdge = true }
+-- the lid's parts fly off together: BoxModel names them all "Lid..." or "Bow..."
+local function isLidPart(name: string): boolean
+	local start = string.sub(name, 1, 3)
+	return start == "Lid" or start == "Bow"
+end
 
 type Bobbing = { Model: Model, Parts: { BasePart }, Offsets: { CFrame }, Pivot: CFrame, Phase: number }
 
@@ -348,7 +352,7 @@ local function onBoxOpened(info: Opened)
 	local lidParts, bodyParts, lidOffsets, bodyOffsets = {}, {}, {}, {}
 	for _, part in copy:GetDescendants() do
 		if part:IsA("BasePart") then
-			if LID_PARTS[part.Name] then
+			if isLidPart(part.Name) then
 				table.insert(lidParts, part)
 				table.insert(lidOffsets, pivot:ToObjectSpace(part.CFrame))
 			else

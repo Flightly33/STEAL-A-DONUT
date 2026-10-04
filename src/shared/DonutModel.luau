@@ -34,6 +34,8 @@ local Donuts = require(script.Parent.Donuts)
 local Areas = require(script.Parent.Areas)
 local FXThemes = require(script.Parent.FXThemes)
 local DonutExtras = require(script.Parent.DonutExtras)
+local DonutLooks = require(script.Parent.DonutLooks)
+local DonutLayers = require(script.Parent.DonutLayers)
 
 type Donut = Donuts.Donut
 
@@ -50,7 +52,9 @@ local FROSTING_TUBE = 1.36
 -- middle, so its front follows the round glaze closely and everything placed on it still sits on it.
 local STUDDED = Config.DonutModels.Studded
 local STUDDED_SEGMENTS, STUDDED_GLAZE_SEGMENTS = 12, 14
-local CROWN_HALF, CROWN_FRONT, SHOULDER_FRONT = 0.38, -0.98, -0.74
+-- (the shoulder stands a little proud of the dough's front, -BALL / 2, so both layers show)
+local CROWN_HALF, CROWN_FRONT, SHOULDER_FRONT = 0.38, -1.0, -0.86
+local HALF_DIP = -0.3 -- a half-dipped donut's glaze stops where sin(angle round the ring) drops below this
 local STUD_FACES = { "TopSurface", "BottomSurface", "FrontSurface", "BackSurface", "LeftSurface", "RightSurface" }
 
 local rgb = Color3.fromRGB
@@ -133,9 +137,16 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	if mutation.Horns then
 		partsSet.Horns = true
 	end
+	-- Its personality (face, feet, muscles, glaze style, markings) comes from its name
+	local look = DonutLooks.For(donut, rarity.Order)
+	if look.Muscles > 0 and not partsSet.PlaneWings and not partsSet.Tentacles then
+		partsSet.Arms = true -- strong donuts show off their arms
+	end
 
 	local doughColor = mutation.Dough or donut.Dough
 	local frostingColor = mutation.Frosting or donut.Frosting
+	-- the second colour (two-tone glaze, drizzles, markings): a mutation keeps to its own colours
+	local accent = if mutation.Frosting then frostingColor:Lerp(if mutation.Id == "Gold" then WHITE else Color3.new(0, 0, 0), 0.35) else look.Accent
 	local frostingMaterial = mutation.Material or Enum.Material.SmoothPlastic
 	local doughMaterial = if mutation.Material == Enum.Material.Neon then Enum.Material.SmoothPlastic else (mutation.Material or Enum.Material.SmoothPlastic)
 	local special = mutation.Order >= 1 -- mutated donuts look shinier
@@ -241,12 +252,16 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	-- ring, each just long enough to meet its neighbours on the outside without a notch.
 	-- `shade(angle)` lightens (+) or darkens (-) each piece a little: baked-looking dough, glossy glaze.
 	-- (studded: square blocks, `depth` deep front to back)
-	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string, shade: ((number) -> number)?, depth: number?): { BasePart }
+	-- `keep(angle)` leaves pieces out (half-dipped glaze).
+	local function ring(count: number, diameter: number, z: number, color: Color3, material: Enum.Material, name: string, shade: ((number) -> number)?, depth: number?, keep: ((number) -> boolean)?): { BasePart }
 		local step = TAU / count
 		local length = 2 * R * math.sin(step / 2) + diameter * math.tan(step / 2)
 		local pieces = {}
 		for i = 0, count - 1 do
 			local angle = i * step
+			if keep and not keep(angle) then
+				continue
+			end
 			local p = Instance.new("Part")
 			p.Shape = if STUDDED then Enum.PartType.Block else Enum.PartType.Cylinder
 			p.Size = Vector3.new(length, diameter, depth or diameter) * s
@@ -283,11 +298,11 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		return onGlaze(math.atan2(y, x), math.asin(offset / FROST_R), lift)
 	end
 
-	-- Dough ring, with a thinner glaze ring in front of it (the dough shows around its edges)
+	-- Dough ring, with the glaze in front of it (the dough shows around its edges)
 	-- (the dough is golden on top and more baked underneath; the glaze catches light from the top left)
 	for _, piece in ring(if STUDDED then STUDDED_SEGMENTS else SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough", function(angle: number): number
 		local up = math.sin(angle)
-		return if up > 0 then up * 0.08 else up * 0.16
+		return if up > 0 then up * 0.1 else up * 0.2
 	end) do
 		piece.Reflectance = shine * 0.3
 	end
@@ -295,18 +310,26 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		local light = math.cos(angle - math.rad(135))
 		return if light > 0 then light * 0.1 else light * 0.07
 	end
+	-- Glaze styles (DonutLooks): a half-dipped donut only has glaze on its top part
+	local function glazed(angle: number): boolean
+		return look.Glaze ~= "HalfDip" or math.sin(angle) > HALF_DIP
+	end
+	-- Two layers of glaze: a wide one a shade darker, and a raised middle on top of it that catches
+	-- the light (a second colour on "TwoTone" donuts)
+	local underColor = frostingColor:Lerp(Color3.new(0, 0, 0), 0.14)
+	local crownColor = if look.Glaze == "TwoTone" then accent else frostingColor
 	local glaze
 	if STUDDED then
-		-- shoulder: as wide as the round glaze, from inside the dough to SHOULDER_FRONT; crown on top
-		glaze = ring(STUDDED_GLAZE_SEGMENTS, FROSTING_TUBE, SHOULDER_FRONT / 2, frostingColor, frostingMaterial, "Frosting", glazeShade, -SHOULDER_FRONT)
+		-- shoulder: as wide as the round glaze, standing a little proud of the dough; crown on top
+		glaze = ring(STUDDED_GLAZE_SEGMENTS, FROSTING_TUBE, SHOULDER_FRONT / 2, underColor, frostingMaterial, "Frosting", glazeShade, -SHOULDER_FRONT, glazed)
 		local crownDepth = SHOULDER_FRONT - CROWN_FRONT + 0.1
-		for _, piece in ring(STUDDED_GLAZE_SEGMENTS, CROWN_HALF * 2, CROWN_FRONT + crownDepth / 2, frostingColor, frostingMaterial, "Frosting", function(angle: number): number
+		for _, piece in ring(STUDDED_GLAZE_SEGMENTS, CROWN_HALF * 2, CROWN_FRONT + crownDepth / 2, crownColor, frostingMaterial, "Frosting", function(angle: number): number
 			return glazeShade(angle) + 0.05 -- the raised middle catches a bit more light
-		end, crownDepth) do
+		end, crownDepth, glazed) do
 			table.insert(glaze, piece)
 		end
 	else
-		glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting", glazeShade)
+		glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting", glazeShade, nil, glazed)
 	end
 
 	-- Wavy glaze edge: tongues of glaze lying over the dough rim all the way round; on the lower
@@ -315,7 +338,11 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	for n = 0, edgeCount - 1 do
 		local angle = (n + rng:NextNumber(-0.25, 0.25)) / edgeCount * TAU + 0.2
 		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
-		local drip = radial.Y < -0.2 and math.abs(radial.X) > 0.4 and rng:NextNumber() < 0.75
+		local dripChance = if look.Glaze == "Drippy" or look.Glaze == "MegaDrip" then 1 else 0.75
+		local drip = radial.Y < -0.2 and math.abs(radial.X) > 0.4 and rng:NextNumber() < dripChance
+		if not glazed(angle) then
+			continue
+		end
 		-- how far round the dough tube (from its front towards the outside) the tongue sits
 		local around = math.rad(if drip then 74 else 60)
 		local normal = radial * math.sin(around) + Vector3.new(0, 0, -math.cos(around))
@@ -340,7 +367,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 	end
 
-	-- Sprinkles lying on the glaze (none on the face)
+	-- Sprinkles lying on the glaze (none on the face): rods, tiny beads, flat confetti or chunks
 	local sprinkleColors = donut.Sprinkles
 	if mutation.Id == "Gold" then
 		sprinkleColors = { rgb(255, 250, 200), rgb(255, 180, 40) }
@@ -349,17 +376,31 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 	if sprinkleColors then
 		local colors = sprinkleColors
-		for n = 1, if opts.NoFace then 26 else 16 do
+		local style = if opts.NoFace then "Jimmies" else look.Sprinkles
+		local count = if opts.NoFace then 26 elseif style == "Nonpareils" then 20 elseif style == "Chunks" then 12 else 16
+		for n = 1, count do
 			local angle
 			repeat
 				angle = rng:NextNumber(0, TAU)
-			until opts.NoFace or math.abs(angle - math.pi / 2) > 0.62
-			local cf = onGlaze(angle, rng:NextNumber(-1.0, 1.1), -0.035) * CFrame.Angles(0, 0, rng:NextNumber(0, TAU))
+			until (opts.NoFace or math.abs(angle - math.pi / 2) > 0.62) and (glazed(angle) and math.sin(angle) > HALF_DIP + 0.12 or look.Glaze ~= "HalfDip")
 			local sprinkle = Instance.new("Part")
-			sprinkle.Shape = Enum.PartType.Cylinder
-			sprinkle.Size = Vector3.new(0.4, 0.12, 0.12) * s
 			sprinkle.Name = "Sprinkle"
-			add(sprinkle, cf, colors[(n - 1) % #colors + 1], if special then Enum.Material.Neon else Enum.Material.SmoothPlastic)
+			local color = colors[(n - 1) % #colors + 1]
+			local cf = onGlaze(angle, rng:NextNumber(-1.0, 1.1), 0.0) * CFrame.Angles(0, 0, rng:NextNumber(0, TAU))
+			if style == "Nonpareils" then
+				sprinkle.Shape = Enum.PartType.Ball
+				sprinkle.Size = Vector3.one * 0.16 * s
+			elseif style == "Confetti" then
+				sprinkle.Size = Vector3.new(0.24, 0.24, 0.05) * s
+			elseif style == "Chunks" then
+				sprinkle.Size = Vector3.new(0.24, 0.2, 0.16) * s
+				cf *= CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.4, 0.4), 0)
+				color = if n % 3 == 0 then color else look.Accent:Lerp(Color3.new(0, 0, 0), 0.25)
+			else
+				sprinkle.Shape = Enum.PartType.Cylinder
+				sprinkle.Size = Vector3.new(0.4, 0.12, 0.12) * s
+			end
+			add(sprinkle, cf, color, if special then Enum.Material.Neon else Enum.Material.SmoothPlastic)
 		end
 	end
 
@@ -369,31 +410,195 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		gloss.Transparency = 0.55
 	end
 
-	-- Face: big shiny eyes, rosy cheeks and a smile.
-	-- The client squashes the eye whites ("EyeWhite") to blink, shifts the pupils and their
-	-- highlights ("Pupil") to look around, and opens the mouth (widens the middle of the smile,
-	-- "Mouth" = "Middle", and hides its corners) when the donut jumps or dances.
+	-- Face: layered eyes (a dark rim, the white, a coloured iris, the pupil and two shines), cheeks
+	-- and a mouth, all shaped by the donut's mood (DonutLooks): angry brows, sleepy lids, a toothy
+	-- grin, a tongue sticking out, glowing ghost eyes, robot screen eyes...
+	-- The client squashes the eye whites and rims ("EyeWhite") to blink, shifts the irises, pupils
+	-- and shines ("Pupil") to look around, and opens the mouth (widens the middle, "Mouth" =
+	-- "Middle", and hides the rest, "Mouth" = "Corner") when the donut jumps or dances.
 	if not opts.NoFace then
 		local eyesCovered = partsSet.Sunglasses or partsSet.Visor
 		local EYE_Y = TOP - 0.66
-		for _, side in { -1, 1 } do
-			if not eyesCovered and not (partsSet.EyePatch and side == 1) then
-				local eye = ellipsoid(Vector3.new(0.62, 0.8, 0.4), WHITE, at(side * 0.5, EYE_Y, -0.93), nil, "Eye")
-				eye:SetAttribute("EyeWhite", true)
-				local px = side * 0.5 - side * 0.04
-				ellipsoid(Vector3.new(0.4, 0.5, 0.2), BLACK, at(px, EYE_Y - 0.05, -1.06), nil, "Pupil"):SetAttribute("Pupil", true)
-				ball(0.17, WHITE, at(px - 0.07, EYE_Y + 0.07, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
-				ball(0.08, WHITE, at(px + 0.08, EYE_Y - 0.15, -1.15), Enum.Material.Neon, "Glint"):SetAttribute("Pupil", true)
+		local mood = look.Mood
+		local tiltCf = CFrame.Angles(0, 0, -look.Tilt)
+		local DARK = rgb(45, 28, 32)
+		local NEON = Enum.Material.Neon
+		-- (x, y) on the face, turned with the head tilt about the middle of the face
+		local function lean(x: number, y: number): (number, number)
+			if look.Tilt == 0 then
+				return x, y
 			end
-			ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), face(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
+			local c, sn = math.cos(-look.Tilt), math.sin(-look.Tilt)
+			local dy = y - (EYE_Y - 0.3)
+			return x * c - dy * sn, EYE_Y - 0.3 + x * sn + dy * c
 		end
+		-- a point (u, v) in an eye centred on (ex, ey), `z` deep
+		local function eyePoint(ex: number, ey: number, u: number, v: number, z: number): CFrame
+			return at(ex, ey, z) * tiltCf * CFrame.new(u * s, v * s, 0)
+		end
+		local function onFace(x: number, y: number, lift: number): CFrame
+			local lx, ly = lean(x, y)
+			return face(lx, ly, lift) * tiltCf
+		end
+		local function tag(part: BasePart, key: string, value: any): BasePart
+			part:SetAttribute(key, value)
+			return part
+		end
+		local skin = crownColor:Lerp(Color3.new(0, 0, 0), 0.08) -- eyelids are glaze-coloured
+
+		local function roundEye(side: number)
+			local W, H = 0.62, 0.8
+			if mood == "Fierce" or mood == "Mighty" then
+				W, H = 0.66, 0.6
+			elseif mood == "Spooky" then
+				W, H = 0.66, 0.74
+			elseif mood == "Robot" then
+				W, H = 0.72, 0.46
+			elseif mood == "Silly" then
+				local k = if side < 0 then 1.15 else 0.86
+				W, H = 0.62 * k, 0.8 * k
+			end
+			local ex, ey = lean(side * 0.5, EYE_Y + (if mood == "Fierce" or mood == "Mighty" then -0.05 else 0))
+			local white = if mood == "Spooky" then rgb(25, 14, 36) elseif mood == "Robot" then rgb(14, 22, 34) else WHITE
+			local rimColor = if mood == "Robot" then rgb(95, 100, 115) elseif mood == "Spooky" then rgb(8, 4, 12) else DARK
+			if mood == "Robot" or mood == "Spooky" then
+				-- a screen's metal bezel / a dark socket
+				tag(ellipsoid(Vector3.new(W + 0.12, H + 0.12, 0.36), rimColor, eyePoint(ex, ey, 0, 0, CROWN_FRONT + 0.04), if mood == "Robot" then Enum.Material.Metal else nil, "EyeRim"), "EyeWhite", true)
+			end
+			tag(ellipsoid(Vector3.new(W, H, 0.36), white, eyePoint(ex, ey, 0, 0, CROWN_FRONT + 0.01), nil, "Eye"), "EyeWhite", true)
+			local px = if mood == "Silly" then -side * 0.1 else -side * 0.04 -- looking a little inwards
+			local k = W / 0.62
+			if mood == "Robot" then
+				tag(block(Vector3.new(W * 0.78, H * 0.36, 0.06), look.Iris, eyePoint(ex, ey, 0, 0, CROWN_FRONT - 0.19), NEON, "Pupil"), "Pupil", true)
+				tag(block(Vector3.new(W * 0.26, H * 0.1, 0.05), WHITE, eyePoint(ex, ey, -W * 0.2, H * 0.06, CROWN_FRONT - 0.23), NEON, "Glint"), "Pupil", true)
+			elseif mood == "Spooky" then
+				tag(ellipsoid(Vector3.new(W * 0.5, H * 0.54, 0.06), look.Iris, eyePoint(ex, ey, px, -0.04, CROWN_FRONT - 0.19), NEON, "Pupil"), "Pupil", true)
+				tag(ball(0.08, WHITE, eyePoint(ex, ey, px - 0.05, 0.05, CROWN_FRONT - 0.24), NEON, "Glint"), "Pupil", true)
+			else
+				tag(ellipsoid(Vector3.new(W * 0.7, H * 0.7, 0.06), look.Iris, eyePoint(ex, ey, px, -0.04, CROWN_FRONT - 0.19), if look.GlowEyes then NEON else nil, "Iris"), "Pupil", true)
+				tag(ellipsoid(Vector3.new(W * 0.38, H * 0.42, 0.06), BLACK, eyePoint(ex, ey, px, -0.05, CROWN_FRONT - 0.22), nil, "Pupil"), "Pupil", true)
+				tag(ball(0.17 * k, WHITE, eyePoint(ex, ey, px - 0.08 * k, 0.09 * k, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
+				tag(ball(0.08 * k, WHITE, eyePoint(ex, ey, px + 0.08 * k, -0.14 * k, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
+			end
+			-- sleepy / cool / regal eyelids, lashes and brows
+			local top = (H + 0.12) / 2
+			local lid = if mood == "Dreamy" then 0.46 elseif mood == "Cool" then 0.38 elseif mood == "Royal" then 0.3 else 0
+			if lid > 0 then
+				local lh = (H + 0.12) * lid
+				block(Vector3.new(W + 0.16, lh, 0.1), skin, eyePoint(ex, ey, 0, top - lh / 2 + 0.02, CROWN_FRONT - 0.31), nil, "EyeLid")
+				block(Vector3.new(W + 0.18, 0.07, 0.11), DARK, eyePoint(ex, ey, 0, top - lh + 0.02, CROWN_FRONT - 0.315), nil, "LashLine")
+				top -= lh
+			end
+			if look.Lashes then
+				for i = 0, 1 do
+					block(Vector3.new(0.22, 0.06, 0.08), DARK, eyePoint(ex, ey, side * (W / 2 + 0.04), top - i * 0.12, CROWN_FRONT - 0.3) * CFrame.Angles(0, 0, side * (0.6 - i * 0.45)), nil, "Lash")
+				end
+			end
+			if mood == "Fierce" or mood == "Mighty" or mood == "Royal" or mood == "Silly" then
+				local bw, bh, angle, rise = 0.66, 0.17, side * 0.38, 0.14
+				if mood == "Mighty" then
+					bw, bh, angle = 0.72, 0.2, side * 0.22
+				elseif mood == "Royal" then
+					bw, bh, angle = 0.5, 0.08, -side * 0.18
+				elseif mood == "Silly" then
+					bw, bh = 0.5, 0.1
+					angle, rise = if side < 0 then side * 0.25 else 0, if side < 0 then 0.3 else 0.12
+				end
+				block(Vector3.new(bw, bh, 0.3), rgb(55, 32, 28), eyePoint(ex, ey, -side * 0.02, (H + 0.12) / 2 + rise, CROWN_FRONT - 0.03) * CFrame.Angles(0, 0, angle), nil, "Brow")
+			end
+		end
+
+		-- Big anime eyes: a thick dark lash line with a flick at the corner, a big grey iris with a
+		-- white heart for its shine, and little drops at the outer corners (Miha Jon)
+		local function heartEye(side: number)
+			local W, H = 0.86, 0.7
+			local ex, ey = lean(side * 0.55, EYE_Y - 0.04)
+			local LASH = rgb(22, 20, 26)
+			tag(ellipsoid(Vector3.new(W, H, 0.34), WHITE, eyePoint(ex, ey, 0, 0, CROWN_FRONT), nil, "Eye"), "EyeWhite", true)
+			local ix = -side * 0.04
+			tag(ellipsoid(Vector3.new(0.6, 0.66, 0.06), look.Iris, eyePoint(ex, ey, ix, -0.02, CROWN_FRONT - 0.19), nil, "Iris"), "Pupil", true)
+			tag(block(Vector3.new(0.58, 0.2, 0.05), look.Iris:Lerp(Color3.new(0, 0, 0), 0.6), eyePoint(ex, ey, ix, 0.21, CROWN_FRONT - 0.215), nil, "Pupil"), "Pupil", true)
+			-- the heart: two diamond lobes and a bigger diamond for its point
+			for _, lobe in { -1, 1 } do
+				tag(block(Vector3.new(0.16, 0.16, 0.05), WHITE, eyePoint(ex, ey, ix + lobe * 0.078, 0.02, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, math.rad(45)), NEON, "Heart"), "Pupil", true)
+			end
+			tag(block(Vector3.new(0.2, 0.2, 0.05), WHITE, eyePoint(ex, ey, ix, -0.08, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, math.rad(45)), NEON, "Heart"), "Pupil", true)
+			tag(ball(0.07, WHITE, eyePoint(ex, ey, ix - side * 0.19, -0.2, CROWN_FRONT - 0.25), NEON, "Glint"), "Pupil", true)
+			-- lashes: the thick top line, its flick past the outer corner and a soft line underneath
+			block(Vector3.new(W + 0.08, 0.15, 0.12), LASH, eyePoint(ex, ey, side * 0.02, H / 2 + 0.03, CROWN_FRONT - 0.25), nil, "Lash")
+			block(Vector3.new(0.32, 0.12, 0.12), LASH, eyePoint(ex, ey, side * (W / 2 + 0.1), H / 2 - 0.07, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, -side * 0.55), nil, "Lash")
+			block(Vector3.new(0.14, 0.1, 0.12), LASH, eyePoint(ex, ey, -side * (W / 2 + 0.02), H / 2 - 0.02, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, side * 0.35), nil, "Lash")
+			block(Vector3.new(0.42, 0.05, 0.08), rgb(95, 88, 100), eyePoint(ex, ey, side * 0.14, -H / 2 - 0.01, CROWN_FRONT - 0.2), nil, "Lash")
+			-- the drops at the outer corner
+			for i, drop in { { 0, 0.15, 0.22 }, { 0.18, 0.12, 0.17 } } do
+				local tear = ellipsoid(Vector3.new(drop[2], drop[3], 0.08), rgb(195, 228, 255), eyePoint(ex, ey, side * (W / 2 - 0.04 - drop[1]), -H / 2 - 0.09 - i * 0.03, CROWN_FRONT - 0.14), Enum.Material.Glass, "Tear")
+				tear.Transparency = 0.15
+				tear.Reflectance = 0.3
+			end
+		end
+
+		for _, side in { -1, 1 } do
+			if look.Eyes == "Heart" then
+				heartEye(side)
+			elseif not eyesCovered and not (partsSet.EyePatch and side == 1) then
+				roundEye(side)
+			end
+			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" then
+				ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), onFace(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
+				if look.Eyes == "Heart" then
+					-- anime blush lines
+					for i = -1, 1 do
+						block(Vector3.new(0.05, 0.22, 0.06), rgb(255, 95, 135), onFace(side * (0.92 + i * 0.11), TOP - 1.1, 0.04) * CFrame.Angles(0, 0, -0.45), nil, "Blush")
+					end
+				end
+			end
+		end
+
 		if not partsSet.Mustache and not partsSet.Beak and not partsSet.Fangs then
 			local mouthY = TOP - 1.2
 			local dark = rgb(90, 30, 35)
-			ellipsoid(Vector3.new(0.28, 0.11, 0.1), dark, face(0, mouthY - 0.035, 0), nil, "Mouth"):SetAttribute("Mouth", "Middle")
-			for _, side in { -1, 1 } do
-				local corner = ellipsoid(Vector3.new(0.22, 0.1, 0.1), dark, face(side * 0.18, mouthY, 0) * CFrame.Angles(0, 0, side * math.rad(30)), nil, "Mouth")
-				corner:SetAttribute("Mouth", "Corner")
+			local pink = rgb(255, 120, 140)
+			local function middle(part: BasePart)
+				part:SetAttribute("Mouth", "Middle")
+			end
+			local function corner(part: BasePart)
+				part:SetAttribute("Mouth", "Corner")
+			end
+			if mood == "Happy" then
+				middle(ellipsoid(Vector3.new(0.44, 0.24, 0.1), dark, onFace(0, mouthY - 0.06, 0.02), nil, "Mouth"))
+				corner(ellipsoid(Vector3.new(0.24, 0.1, 0.1), pink, onFace(0, mouthY - 0.12, 0.05), nil, "Tongue"))
+				for _, side in { -1, 1 } do
+					corner(ellipsoid(Vector3.new(0.14, 0.09, 0.1), dark, onFace(side * 0.25, mouthY + 0.03, 0.02) * CFrame.Angles(0, 0, side * math.rad(40)), nil, "Mouth"))
+				end
+			elseif mood == "Fierce" or mood == "Mighty" then
+				local wide = if mood == "Fierce" then 0.62 else 0.5
+				middle(block(Vector3.new(wide, if mood == "Fierce" then 0.22 else 0.17, 0.1), dark, onFace(0, mouthY - 0.04, 0.02), nil, "Mouth"))
+				corner(block(Vector3.new(wide - 0.08, 0.07, 0.1), WHITE, onFace(0, mouthY + 0.02, 0.04), nil, "Teeth"))
+				if mood == "Fierce" then
+					for _, side in { -1, 1 } do
+						corner(block(Vector3.new(0.08, 0.13, 0.1), WHITE, onFace(side * 0.17, mouthY - 0.04, 0.05), nil, "Teeth"))
+					end
+				end
+			elseif mood == "Silly" then
+				middle(ellipsoid(Vector3.new(0.4, 0.2, 0.1), dark, onFace(0.04, mouthY - 0.05, 0.02), nil, "Mouth"))
+				corner(block(Vector3.new(0.22, 0.3, 0.1), pink, onFace(0.1, mouthY - 0.2, 0.05) * CFrame.Angles(0, 0, -0.25), nil, "Tongue"))
+			elseif mood == "Cool" then
+				middle(ellipsoid(Vector3.new(0.3, 0.09, 0.1), dark, onFace(0.06, mouthY - 0.02, 0.02) * CFrame.Angles(0, 0, 0.12), nil, "Mouth"))
+				corner(ellipsoid(Vector3.new(0.16, 0.08, 0.1), dark, onFace(0.24, mouthY + 0.03, 0.02) * CFrame.Angles(0, 0, 0.6), nil, "Mouth"))
+			elseif mood == "Spooky" then
+				middle(ellipsoid(Vector3.new(0.26, 0.32, 0.1), rgb(20, 10, 25), onFace(0, mouthY - 0.08, 0.02), nil, "Mouth"))
+			elseif mood == "Robot" then
+				middle(block(Vector3.new(0.46, 0.08, 0.06), look.Iris, onFace(0, mouthY - 0.03, 0.03), NEON, "Mouth"))
+				for _, side in { -1, 1 } do
+					corner(block(Vector3.new(0.08, 0.08, 0.06), look.Iris, onFace(side * 0.27, mouthY + 0.03, 0.03), NEON, "Mouth"))
+				end
+			else
+				-- a smile (smaller and calmer on dreamy and royal donuts)
+				local small = mood == "Dreamy" or mood == "Royal"
+				middle(ellipsoid(Vector3.new(if small then 0.2 else 0.28, if small then 0.09 else 0.11, 0.1), dark, onFace(0, mouthY - 0.035, 0.02), nil, "Mouth"))
+				for _, side in { -1, 1 } do
+					corner(ellipsoid(Vector3.new(if small then 0.16 else 0.22, if small then 0.08 else 0.1, 0.1), dark, onFace(side * (if small then 0.13 else 0.18), mouthY, 0.02) * CFrame.Angles(0, 0, side * math.rad(if small then 35 else 30)), nil, "Mouth"))
+				end
 			end
 		end
 	end
@@ -401,22 +606,105 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	-- Brainrot accessories
 	local accessories = {}
 
+	-- Legs, and feet that match the donut (DonutLooks): layered sneakers (sole, toe cap, stripe,
+	-- laces), high-tops, boots with a buckle, paws with toe beans, hooves, claws, webbed feet, robot
+	-- feet or sandals. Strong donuts have thicker legs.
 	function accessories.Legs()
+		local thick = if look.Muscles >= 2 then 0.5 elseif look.Muscles == 1 then 0.44 else 0.36
+		local shoe, stripe, sole = look.Shoe, look.ShoeAccent, look.Sole
 		for _, side in { -1, 1 } do
 			local hipX, hipY = side * 0.55, -TOP + 0.2
-			limb(cylinder(1.25, 0.36, doughColor, at(side * 0.55, -TOP - 0.42, 0)), "Leg", side, hipX, hipY, 0)
-			-- Chunky sneakers
-			limb(ellipsoid(Vector3.new(0.62, 0.46, 0.92), rgb(235, 50, 60), at(side * 0.55, -TOP - 1.08, -0.16), nil, "Shoe"), "Leg", side, hipX, hipY, 0)
-			limb(ellipsoid(Vector3.new(0.7, 0.2, 1.0), WHITE, at(side * 0.55, -TOP - 1.24, -0.17), nil, "Sole"), "Leg", side, hipX, hipY, 0)
+			local x = side * 0.55
+			local function leg(part: BasePart): BasePart
+				return limb(part, "Leg", side, hipX, hipY, 0)
+			end
+			leg(block(Vector3.new(thick, 1.25, thick), doughColor, at(x, -TOP - 0.42, 0), nil, "Leg"))
+			local feet = look.Feet
+			if feet == "Plain" then
+				-- (restyled by ballet slippers, flamingo legs...)
+				leg(ellipsoid(Vector3.new(0.62, 0.46, 0.92), rgb(235, 50, 60), at(x, -TOP - 1.08, -0.16), nil, "Shoe"))
+				leg(ellipsoid(Vector3.new(0.7, 0.2, 1.0), WHITE, at(x, -TOP - 1.24, -0.17), nil, "Sole"))
+			elseif feet == "Sneakers" or feet == "HighTops" then
+				local high = feet == "HighTops"
+				leg(block(Vector3.new(0.72, 0.2, 1.04), sole, at(x, -TOP - 1.24, -0.17), nil, "Sole"))
+				leg(block(Vector3.new(0.64, if high then 0.62 else 0.4, 0.92), shoe, at(x, -TOP - (if high then 0.95 else 1.04), -0.14), nil, "Shoe"))
+				leg(block(Vector3.new(0.62, 0.24, 0.3), sole:Lerp(shoe, 0.12), at(x, -TOP - 1.1, -0.53), nil, "ToeCap"))
+				leg(block(Vector3.new(0.68, 0.1, 0.5), stripe, at(x, -TOP - 1.02, -0.02), nil, "ShoeStripe"))
+				if high then
+					leg(block(Vector3.new(0.68, 0.14, 0.62), stripe, at(x, -TOP - 0.66, 0), nil, "Collar"))
+				else
+					leg(block(Vector3.new(0.34, 0.07, 0.3), WHITE, at(x, -TOP - 0.83, -0.36), nil, "Laces"))
+				end
+			elseif feet == "Boots" then
+				leg(block(Vector3.new(0.72, 0.18, 1.0), sole, at(x, -TOP - 1.25, -0.16), nil, "Sole"))
+				leg(block(Vector3.new(0.66, 0.44, 0.94), shoe, at(x, -TOP - 1.06, -0.15), nil, "Shoe"))
+				leg(block(Vector3.new(0.6, 0.62, 0.62), shoe, at(x, -TOP - 0.62, 0.02), nil, "BootShaft"))
+				leg(block(Vector3.new(0.68, 0.14, 0.68), shoe:Lerp(WHITE, 0.3), at(x, -TOP - 0.32, 0.02), nil, "BootCuff"))
+				leg(block(Vector3.new(0.22, 0.16, 0.06), stripe, at(x, -TOP - 0.86, -0.31), Enum.Material.Foil, "Buckle"))
+			elseif feet == "Paws" then
+				leg(block(Vector3.new(0.66, 0.1, 0.78), sole, at(x, -TOP - 1.3, -0.16), nil, "Sole"))
+				leg(block(Vector3.new(0.72, 0.46, 0.86), shoe, at(x, -TOP - 1.08, -0.16), nil, "Shoe"))
+				for i = -1, 1 do
+					leg(block(Vector3.new(0.16, 0.13, 0.06), stripe, at(x + i * 0.21, -TOP - 1.02, -0.61), nil, "ToeBean"))
+				end
+			elseif feet == "Hooves" then
+				leg(block(Vector3.new(0.6, 0.46, 0.7), shoe, at(x, -TOP - 1.12, -0.08), nil, "Shoe"))
+				leg(block(Vector3.new(0.7, 0.2, 0.78), stripe, at(x, -TOP - 0.86, -0.08), nil, "FurCuff"))
+				leg(block(Vector3.new(0.06, 0.42, 0.06), sole, at(x, -TOP - 1.13, -0.44), nil, "HoofSplit"))
+			elseif feet == "Claws" then
+				leg(block(Vector3.new(0.68, 0.4, 0.84), shoe, at(x, -TOP - 1.14, -0.12), nil, "Shoe"))
+				leg(block(Vector3.new(0.7, 0.12, 0.88), sole, at(x, -TOP - 0.95, -0.1), nil, "Scale"))
+				for i = -1, 1 do
+					leg(wedge(Vector3.new(0.14, 0.2, 0.3), stripe, at(x + i * 0.22, -TOP - 1.24, -0.68)))
+				end
+			elseif feet == "Webbed" then
+				leg(block(Vector3.new(0.84, 0.16, 0.95), shoe, at(x, -TOP - 1.28, -0.2), nil, "Shoe"))
+				for i = -1, 1, 2 do
+					leg(block(Vector3.new(0.05, 0.18, 0.6), stripe, at(x + i * 0.2, -TOP - 1.27, -0.32), nil, "Webbing"))
+				end
+			elseif feet == "Robot" then
+				leg(block(Vector3.new(0.74, 0.16, 1.02), sole, at(x, -TOP - 1.27, -0.16), nil, "Sole"))
+				leg(block(Vector3.new(0.68, 0.4, 0.94), shoe, at(x, -TOP - 1.06, -0.15), Enum.Material.Metal, "Shoe"))
+				leg(block(Vector3.new(0.7, 0.08, 0.5), stripe, at(x, -TOP - 1.0, -0.3), Enum.Material.Neon, "ShoeLight"))
+				leg(ball(0.42, shoe:Lerp(WHITE, 0.2), at(x, -TOP - 0.8, 0), Enum.Material.Metal, "Ankle"))
+			else -- Sandals
+				leg(block(Vector3.new(0.7, 0.14, 1.0), sole, at(x, -TOP - 1.27, -0.16), nil, "Sole"))
+				leg(block(Vector3.new(0.56, 0.26, 0.86), shoe, at(x, -TOP - 1.08, -0.15), nil, "Shoe"))
+				for _, z in { -0.36, 0.04 } do
+					leg(block(Vector3.new(0.62, 0.08, 0.14), stripe, at(x, -TOP - 0.98, z), nil, "Strap"))
+				end
+			end
 		end
 	end
 
 	function accessories.Arms()
+		local shoulderY = -0.25
+		if look.Muscles > 0 then
+			-- Flexing: a round shoulder, a big bicep, the forearm up, a sweatband and a fist
+			local k = if look.Muscles >= 2 then 1.15 else 1
+			local arm = doughColor
+			local band = if look.Feet == "Boots" then rgb(225, 40, 50) else look.Shoe
+			for _, side in { -1, 1 } do
+				local shoulderX = side * (R + 0.74)
+				local function piece(part: BasePart)
+					limb(part, "Arm", side, shoulderX, shoulderY, -0.1)
+				end
+				piece(ball(0.6 * k, arm:Lerp(WHITE, 0.05), at(side * (R + 0.8), 0.02, -0.1), nil, "Shoulder"))
+				piece(block(Vector3.new(1.0, 0.46 * k, 0.46 * k), arm, at(side * (R + 1.28), -0.12, -0.1) * CFrame.Angles(0, 0, side * -0.06), nil, "UpperArm"))
+				piece(block(Vector3.new(0.62 * k, 0.5 * k, 0.52 * k), arm:Lerp(WHITE, 0.14), at(side * (R + 1.05), 0.2 + 0.08 * k, -0.12), nil, "Bicep"))
+				piece(block(Vector3.new(0.42 * k, 0.7, 0.42 * k), arm:Lerp(Color3.new(0, 0, 0), 0.08), at(side * (R + 1.66), 0.2, -0.1) * CFrame.Angles(0, 0, side * -0.12), nil, "Forearm"))
+				piece(block(Vector3.new(0.5 * k, 0.16, 0.5 * k), band, at(side * (R + 1.62), 0.56, -0.1), nil, "Wristband"))
+				piece(ball(0.56 * k, WHITE, at(side * (R + 1.58), 0.84, -0.1), nil, "Glove"))
+			end
+			return
+		end
 		for _, side in { -1, 1 } do
 			local cf = at(side * (R + 1.05), 0.2, -0.1) * CFrame.Angles(0, 0, side * math.rad(-35))
 			-- The shoulder is the arm's inner end, where it meets the ring
-			local shoulderX, shoulderY = side * (R + 0.74), -0.25
+			local shoulderX = side * (R + 0.74)
 			limb(cylinder(1.1, 0.3, doughColor, cf), "Arm", side, shoulderX, shoulderY, -0.1)
+			-- a cuff in the colour of its shoes, then the glove
+			limb(block(Vector3.new(0.4, 0.16, 0.4), look.Shoe, at(side * (R + 1.29), 0.5, -0.1) * CFrame.Angles(0, 0, side * math.rad(-35)), nil, "Cuff"), "Arm", side, shoulderX, shoulderY, -0.1)
 			limb(ball(0.52, WHITE, at(side * (R + 1.42), 0.72, -0.1), nil, "Glove"), "Arm", side, shoulderX, shoulderY, -0.1)
 		end
 	end
@@ -779,6 +1067,18 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			DonutExtras.Theme(kit, area.Theme, false)
 		end
 	end
+	-- Drips, shine, markings, beads and gems on top of the glaze (DonutLayers)
+	DonutLayers.Build(kit, look, {
+		Accent = accent,
+		Crown = crownColor,
+		Material = frostingMaterial,
+		ShoulderFront = if STUDDED then SHOULDER_FRONT else FROSTING_OFFSET - FROST_R,
+		CrownFront = if STUDDED then CROWN_FRONT else FROSTING_OFFSET - FROST_R,
+		HalfDip = HALF_DIP,
+		Glow = if mutation.Order > 0 then mutation.Color else rarity.Color,
+		NoEffects = opts.NoEffects == true,
+		NoFace = opts.NoFace == true,
+	})
 
 	-- Studded (Config.DonutModels): every solid part becomes a block with the classic studs on all
 	-- six sides, like Domer (see-through glows, force fields and the invisible root are left alone)
@@ -1163,10 +1463,19 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			add(glow, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
 			glow.Transparency = 0.5
 		end
-		-- The rarest donuts glow: a haze of light rising around them (the bloom makes it shine), and
-		-- Celestial and up stand in a ring of glowing crystals
+		-- The rarer donuts glow: stars twinkling round them (Rare and up), a haze of light rising
+		-- around them (Epic and up; the bloom makes it shine), a glowing outline near the camera
+		-- (client/DonutGlow) and Celestial and up stand in a ring of glowing crystals
 		local auraColor = if mutation.Order >= 3 then mutation.Color else rarity.Color
-		if rarity.Order >= 5 or mutation.Order >= 3 then
+		if rarity.Order >= 3 or mutation.Order >= 1 then
+			local starColor = (if mutation.Order >= 1 then mutation.Color else rarity.Color):Lerp(WHITE, 0.45)
+			twinkles(2.9, ColorSequence.new(starColor, WHITE), if rarity.Order >= 5 then 6 elseif rarity.Order >= 4 then 4 else 2.5, 0.42)
+		end
+		if rarity.Order >= 4 or mutation.Order >= 1 then
+			CollectionService:AddTag(model, "DonutOutline")
+			model:SetAttribute("OutlineColor", if mutation.Order >= 1 then mutation.Color else rarity.Color)
+		end
+		if rarity.Order >= 4 or mutation.Order >= 3 then
 			local aura = holder("GlowAura", Vector3.new(4, 0.5, 4) * s, at(0, -TOP * 0.7, 0))
 			local mist = Instance.new("ParticleEmitter")
 			mist.Name = "GlowMist"
@@ -1174,7 +1483,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			mist.Color = ColorSequence.new(auraColor, auraColor:Lerp(WHITE, 0.5))
 			mist.LightEmission = 1
 			mist.LightInfluence = 0
-			mist.Rate = 5 + math.max(rarity.Order, mutation.Order + 2) * 1.5
+			mist.Rate = if rarity.Order <= 4 and mutation.Order < 3 then 3 else 5 + math.max(rarity.Order, mutation.Order + 2) * 1.5
 			mist.Lifetime = NumberRange.new(1.6, 2.6)
 			mist.Speed = NumberRange.new(1.5 * s, 3 * s)
 			mist.SpreadAngle = Vector2.new(25, 25)
@@ -1216,6 +1525,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			CollectionService:AddTag(model, "DonutFX")
 			model:SetAttribute("FXScale", s)
 			for _, theme in themes do
+				if theme.Outline then
+					model:SetAttribute("FXOutline", true) -- (DonutFX draws its outline, not DonutGlow)
+				end
 				local build = themeParts[theme.Id]
 				if build then
 					build(theme)

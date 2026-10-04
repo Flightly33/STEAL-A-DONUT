@@ -144,8 +144,10 @@ local function glazeAngle(k: Kit): number
 end
 
 -- Where the right (side 1) or left (-1) hand is. Donuts without arms get a floating glove there.
+-- (strong donuts flex their arms, so their fists are a little further out and up)
 local function hand(k: Kit, side: number): Vector3
-	local point = Vector3.new(side * (k.R + 1.42), 0.72, -0.1)
+	local flexing = #k.find("Bicep") > 0
+	local point = if flexing then Vector3.new(side * (k.R + 1.58), 0.84, -0.1) else Vector3.new(side * (k.R + 1.42), 0.72, -0.1)
 	if not k.has("Arms") then
 		local existing = false
 		for _, glove in k.find("FloatingGlove") do
@@ -753,7 +755,7 @@ end
 
 function A.FlamingoLegs(k: Kit)
 	local pink = rgb(255, 120, 165)
-	for _, part in k.find("Cylinder") do
+	for _, part in k.find("Leg") do
 		if part:GetAttribute("Limb") == "Leg" then
 			part.Color = pink
 			part.Size = Vector3.new(part.Size.X, part.Size.Y * 0.6, part.Size.Z * 0.6)
