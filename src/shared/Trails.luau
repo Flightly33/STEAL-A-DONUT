@@ -6,9 +6,9 @@
 	UnlockBiome: the trail unlocks for good the first time your Speed is enough to get into that
 	biome (the HUD shows a "!" on the Trails button, and it's put on for you if you wear none).
 
-	Fast Guy: you run so fast you leave frozen frames of yourself behind - see-through blue-white
-	afterimages with glowing outlines, a streak of light, and now and then a pane of glass that
-	cracks and shatters behind you.
+	Fast Guy: you run so fast you leave frozen frames of yourself behind - 24 a second, glowing
+	blue-white afterimages - a streak of light, and now and then a pane of glass that cracks and
+	shatters behind you.
 ]]
 
 local Areas = require(script.Parent.Areas)

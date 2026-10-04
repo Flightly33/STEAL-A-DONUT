@@ -2,9 +2,9 @@
 	TrailFX: draws every player's trail (their "Trail" attribute, see shared/Trails) on this screen.
 
 	Fast Guy, while its wearer runs faster than Trails.MinSpeed:
-	  * afterimages: FRAME_RATE times a second a see-through blue-white copy of their body is left
-	    where they are (ForceField material: mostly a glowing outline), and every copy fades a step
-	    each frame after that, so the run looks like it's made of frozen frames
+	  * afterimages: FRAME_RATE times a second a glowing blue-white copy of their body is left where
+	    they are (Neon, so it shows up even in the brightest biomes), and every copy fades a little
+	    every other frame after that, so the run looks like it's made of frozen frames
 	  * a streak of light behind the torso
 	  * every PANE_EVERY seconds a pane of glass with white edges is left behind them; a moment
 	    later it shatters into shards that fly back and fall
@@ -23,9 +23,11 @@ local Trails = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Tr
 local TrailFX = {}
 
 local VIEW_DISTANCE = 220
-local FRAME_RATE = 12 -- afterimages a second
-local GHOSTS = 4 -- afterimages alive at once
-local GHOST_FADE = { 0.4, 0.6, 0.76, 0.88 } -- transparency of an afterimage 1, 2, 3, 4 frames old
+local FRAME_RATE = 24 -- afterimages a second (24 frames a second, like Naoya's technique)
+local GHOSTS = 8 -- afterimages alive at once (a third of a second of them)
+-- Transparency of an afterimage 1, 2, 3 ... frames old. It changes every other frame, so only
+-- half the afterimages need their parts updated each frame.
+local GHOST_FADE = { 0.15, 0.15, 0.32, 0.32, 0.5, 0.5, 0.7, 0.7 }
 local MAX_GHOST_PARTS = 20 -- body parts + accessories copied per afterimage
 local PANE_EVERY = 0.85
 local PANE_HOLD = 0.12 -- seconds the pane stays whole before it shatters
@@ -138,7 +140,7 @@ local function ghostPart(source: BasePart, color: Color3): BasePart?
 		end)
 	end
 	effectPart(copy)
-	copy.Material = Enum.Material.ForceField
+	copy.Material = Enum.Material.Neon
 	copy.Color = color
 	copy.Reflectance = 0
 	copy.Transparency = 1
@@ -315,9 +317,9 @@ local function streakFor(runner: Runner, character: Model, trail: Trails.Trail):
 	streak.Attachment0 = top
 	streak.Attachment1 = bottom
 	streak.Color = ColorSequence.new(trail.Accent, trail.Color)
-	streak.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 1) })
+	streak.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(1, 1) })
 	streak.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.3) })
-	streak.Lifetime = 0.22
+	streak.Lifetime = 0.32
 	streak.LightEmission = 1
 	streak.FaceCamera = true
 	streak.Enabled = false
@@ -398,7 +400,10 @@ local function ageGhosts(runner: Runner)
 	for _, ghost in runner.Ghosts do
 		if ghost.Age <= GHOSTS then
 			ghost.Age += 1
-			setGhostTransparency(ghost, GHOST_FADE[ghost.Age] or 1)
+			local fade = GHOST_FADE[ghost.Age] or 1
+			if fade ~= GHOST_FADE[ghost.Age - 1] then
+				setGhostTransparency(ghost, fade)
+			end
 		end
 	end
 end
