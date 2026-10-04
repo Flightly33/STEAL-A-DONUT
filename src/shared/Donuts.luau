@@ -299,6 +299,9 @@ Donuts.List = {
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
 	-- ICON: Miha Jon - glossy white glaze pouring off it (over its edges and down into its hole) and
 	-- big anime eyes with heart-shaped shines (its look: DonutLooks.Overrides)
+	-- ICON: Nasmean Man - a small donut: tan glaze with pink round its rim and inside its hole,
+	-- sprinkles, dizzy spiral eyes and a drooling "o" mouth (its look: DonutLooks.Overrides)
+	D("nasmeanman", "Nasmean Man", "Icon", 34, 2.5e29, 0.0015, rgb(200, 140, 80), rgb(214, 178, 130), { rgb(255, 90, 150), rgb(90, 180, 255), rgb(255, 225, 70), rgb(255, 255, 255), rgb(120, 220, 120) }, { "Legs", "Arms" }),
 	D("mihajon", "Miha Jon", "Icon", 34, 2.5e29, 0.0015, rgb(222, 160, 95), rgb(250, 246, 240), { rgb(255, 120, 175), rgb(255, 80, 130), rgb(140, 200, 255) }, { "Legs", "Arms" }),
 } :: { Donut }
 

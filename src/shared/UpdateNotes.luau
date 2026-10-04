@@ -82,7 +82,8 @@ UpdateNotes.List = {
 				"Faces with feelings: angry brows, sleepy eyes, silly tongues, glowing ghost eyes and robot screens",
 				"Strong donuts flex big muscles and wear a champion belt; animals get paws, hooves or claws",
 				"Everyone has their own shoes: sneakers, high-tops, boots, sandals, robot feet...",
-				"Rare donuts twinkle, and Epic and up glow with a shiny outline when you're close",
+				"Every Epic and rarer donut has its OWN aura, made from its name: flames, falling snow, lightning, god rays, hearts, coins or snowflakes circling it... no two are the same",
+				"The rarer the donut, the more its aura does (Icon donuts have 6 effects!), and they glow with a shiny outline when you're close",
 			} },
 			{ Title = "Miha Jon", Tag = "NEW Icon", Lines = {
 				"A brand new ICON donut: find it in The Black Hole's Mythic boxes, if you're very lucky",

@@ -253,7 +253,7 @@ function Markings.Scales(k, look, _info, _color, material)
 		local tangent = Vector3.new(-radial.Y, radial.X, 0)
 		for row, zz in { -0.35, 0.15 } do
 			local point = radial * (k.R + half + 0.03) + Vector3.new(0, 0, zz)
-			local cf = CFrame.fromMatrix(point * k.s, tangent, radial, Vector3.zAxis) * CFrame.Angles(math.rad(-18), 0, 0)
+			local cf = CFrame.fromMatrix(point * k.s, tangent, radial, -Vector3.zAxis) * CFrame.Angles(math.rad(-18), 0, 0)
 			k.block(Vector3.new(0.42, 0.08, 0.44), if (i + row) % 2 == 0 then plate else plate:Lerp(WHITE, 0.15), cf, material, "Scale")
 		end
 	end

@@ -36,6 +36,7 @@ local FXThemes = require(script.Parent.FXThemes)
 local DonutExtras = require(script.Parent.DonutExtras)
 local DonutLooks = require(script.Parent.DonutLooks)
 local DonutLayers = require(script.Parent.DonutLayers)
+local DonutAuras = require(script.Parent.DonutAuras)
 
 type Donut = Donuts.Donut
 
@@ -122,13 +123,15 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	local rarity = Rarities.Get(donut.Rarity)
 	local mutation = Rarities.Mutation(opts.Mutation)
 	local size = Rarities.Size(opts.Size)
-	local s = (opts.Scale or 1) * size.Scale
+	-- Its personality (face, feet, muscles, glaze style, markings, size) comes from its name
+	local look = DonutLooks.For(donut, rarity.Order)
+	local s = (opts.Scale or 1) * size.Scale * look.Scale
 	local rng = Random.new(hashString(donut.Id))
 	local partsSet = {}
 	for _, name in donut.Parts do
 		partsSet[name] = true
 	end
-	if rarity.Halo or mutation.Halo then
+	if mutation.Halo then
 		partsSet.Halo = true
 	end
 	if mutation.Wings then
@@ -137,8 +140,6 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	if mutation.Horns then
 		partsSet.Horns = true
 	end
-	-- Its personality (face, feet, muscles, glaze style, markings) comes from its name
-	local look = DonutLooks.For(donut, rarity.Order)
 	if look.Muscles > 0 and not partsSet.PlaneWings and not partsSet.Tentacles then
 		partsSet.Arms = true -- strong donuts show off their arms
 	end
@@ -316,7 +317,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 	-- Two layers of glaze: a wide one a shade darker, and a raised middle on top of it that catches
 	-- the light (a second colour on "TwoTone" donuts)
-	local underColor = frostingColor:Lerp(Color3.new(0, 0, 0), 0.14)
+	local underColor = if look.Rim and not mutation.Frosting then look.Rim else frostingColor:Lerp(Color3.new(0, 0, 0), 0.14)
 	local crownColor = if look.Glaze == "TwoTone" then accent else frostingColor
 	local glaze
 	if STUDDED then
@@ -358,7 +359,21 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			cf = CFrame.fromMatrix(center, tangent, radial, Vector3.new(0, 0, 1))
 			length = depth
 		end
-		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), frostingColor, cf, frostingMaterial, "Frosting"))
+		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), if look.Rim and not mutation.Frosting then underColor else frostingColor, cf, frostingMaterial, "Frosting"))
+	end
+	-- glaze lining the inside of the hole too (HoleLining)
+	if look.HoleLining then
+		local count = 12
+		local inner = R - BALL / 2 - 0.04
+		for n = 0, count - 1 do
+			local angle = (n + 0.5) / count * TAU
+			local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
+			local tangent = Vector3.new(-radial.Y, radial.X, 0)
+			local piece = Instance.new("Part")
+			piece.Size = Vector3.new(2 * inner * math.sin(math.pi / count) + 0.1, 0.1, BALL * 0.92) * s
+			piece.Name = "Frosting"
+			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), underColor, frostingMaterial))
+		end
 	end
 	for _, piece in glaze do
 		piece.Reflectance = shine
@@ -537,13 +552,39 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			end
 		end
 
+		-- Dizzy anime eyes: a thick lash line, a swirly iris (rings getting smaller and turning as they
+		-- go in, dark and light in turn), grey shadows under them and worried brows (Nasmean Man)
+		local function spiralEye(side: number)
+			local W, H = 0.84, 0.66
+			local ex, ey = lean(side * 0.52, EYE_Y - 0.04)
+			local LASH = rgb(22, 20, 26)
+			tag(ellipsoid(Vector3.new(W, H, 0.34), WHITE, eyePoint(ex, ey, 0, 0, CROWN_FRONT), nil, "Eye"), "EyeWhite", true)
+			local ix = -side * 0.03
+			for ring = 0, 4 do
+				local size = 0.58 - ring * 0.11
+				local color = if ring % 2 == 0 then look.Iris else rgb(235, 235, 240)
+				local cf = eyePoint(ex, ey, ix, -0.02, CROWN_FRONT - 0.19 - ring * 0.012) * CFrame.Angles(0, 0, side * ring * 0.32)
+				tag(block(Vector3.new(size, size, 0.05), color, cf, nil, if ring == 0 then "Pupil" else "Iris"), "Pupil", true)
+			end
+			tag(ball(0.07, WHITE, eyePoint(ex, ey, ix - side * 0.2, 0.17, CROWN_FRONT - 0.27), NEON, "Glint"), "Pupil", true)
+			-- lashes: the thick top line with a flick at the corner, a soft line underneath
+			block(Vector3.new(W + 0.08, 0.15, 0.12), LASH, eyePoint(ex, ey, side * 0.02, H / 2 + 0.03, CROWN_FRONT - 0.27), nil, "Lash")
+			block(Vector3.new(0.3, 0.11, 0.12), LASH, eyePoint(ex, ey, side * (W / 2 + 0.09), H / 2 - 0.06, CROWN_FRONT - 0.27) * CFrame.Angles(0, 0, -side * 0.5), nil, "Lash")
+			block(Vector3.new(0.4, 0.05, 0.08), rgb(95, 88, 100), eyePoint(ex, ey, side * 0.12, -H / 2 - 0.01, CROWN_FRONT - 0.2), nil, "Lash")
+			-- grey shadows under the eyes and worried brows, high up and slanting up to the middle
+			block(Vector3.new(W * 0.8, 0.14, 0.04), rgb(150, 140, 150), eyePoint(ex, ey, side * 0.04, -H / 2 - 0.1, CROWN_FRONT - 0.13), nil, "EyeBag").Transparency = 0.35
+			block(Vector3.new(0.5, 0.06, 0.2), rgb(50, 40, 45), eyePoint(ex, ey, -side * 0.06, H / 2 + 0.24, CROWN_FRONT - 0.06) * CFrame.Angles(0, 0, -side * 0.28), nil, "Brow")
+		end
+
 		for _, side in { -1, 1 } do
 			if look.Eyes == "Heart" then
 				heartEye(side)
+			elseif look.Eyes == "Spiral" then
+				spiralEye(side)
 			elseif not eyesCovered and not (partsSet.EyePatch and side == 1) then
 				roundEye(side)
 			end
-			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" then
+			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" and look.Eyes ~= "Spiral" then
 				ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), onFace(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
 				if look.Eyes == "Heart" then
 					-- anime blush lines
@@ -564,7 +605,19 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			local function corner(part: BasePart)
 				part:SetAttribute("Mouth", "Corner")
 			end
-			if mood == "Happy" then
+			if look.Eyes == "Spiral" then
+				-- a little nose mark, and a small open "o" mouth with a drip of drool
+				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.5, 0.03), nil, "Nose")
+				middle(ellipsoid(Vector3.new(0.2, 0.3, 0.1), rgb(40, 25, 30), onFace(0, mouthY - 0.08, 0.02), nil, "Mouth"))
+				corner(ellipsoid(Vector3.new(0.13, 0.11, 0.1), rgb(150, 140, 150), onFace(0, mouthY - 0.17, 0.04), nil, "Mouth"))
+				local drool = rgb(205, 225, 240)
+				for _, piece in { { Size = Vector3.new(0.07, 0.3, 0.06), Y = -0.36 }, { Size = Vector3.new(0.11, 0.11, 0.08), Y = -0.53 } } do
+					local part = block(piece.Size, drool, onFace(0.03, mouthY + piece.Y, 0.04), Enum.Material.Glass, "Drool")
+					part.Transparency = 0.2
+					part.Reflectance = 0.3
+					corner(part)
+				end
+			elseif mood == "Happy" then
 				middle(ellipsoid(Vector3.new(0.44, 0.24, 0.1), dark, onFace(0, mouthY - 0.06, 0.02), nil, "Mouth"))
 				corner(ellipsoid(Vector3.new(0.24, 0.1, 0.1), pink, onFace(0, mouthY - 0.12, 0.05), nil, "Tongue"))
 				for _, side in { -1, 1 } do
@@ -1061,7 +1114,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			DonutExtras.Build(kit, name)
 		end
 	end
-	if not opts.NoFace then
+	if not opts.NoFace and look.BiomeDetails then
 		local area = Areas.Get(donut.Area)
 		if area then
 			DonutExtras.Theme(kit, area.Theme, false)
@@ -1196,23 +1249,38 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		e.Transparency = NumberSequence.new(0)
 	end
 
+	-- Rays of light shining down from the sky onto the donut, and flecks of light drifting down.
+	local function godRays(colors: { Color3 })
+		local sky = holder("HolySky", Vector3.new(4 * s, 0.2, 4 * s), at(0, 16, 0))
+		local target = Instance.new("Attachment")
+		target.Parent = root
+		for i = 1, 5 do
+			local angle = i / 5 * TAU
+			local top = Instance.new("Attachment")
+			top.Position = Vector3.new(math.cos(angle) * 2.4 * s, 0, math.sin(angle) * 2.4 * s)
+			top.Parent = sky
+			local ray = Instance.new("Beam")
+			ray.Attachment0 = top
+			ray.Attachment1 = target
+			ray.FaceCamera = true
+			ray.Segments = 1
+			ray.Width0 = 2.6 * s
+			ray.Width1 = 0.7 * s
+			ray.LightEmission = 1
+			ray.Brightness = 1.5
+			ray.Color = ColorSequence.new(colors[1], colors[#colors])
+			ray.Transparency = NumberSequence.new(0.92, 0.55)
+			ray.Parent = sky
+		end
+		local motes = emitter(sky, ColorSequence.new(colors[1], colors[#colors]), 14, 0.28 * s, 5 * s, 3)
+		motes.EmissionDirection = Enum.NormalId.Bottom
+		motes.Shape = Enum.ParticleEmitterShape.Box
+		motes.SpreadAngle = Vector2.new(8, 8)
+		motes.Brightness = 3
+	end
+
+	-- The mutations' own extras (their flames, spirals and lightning are in themeEffects)
 	local themeParts: { [string]: (FXThemes.Theme) -> () } = {}
-
-	function themeParts.Radiance(theme: FXThemes.Theme)
-		burst(8, 4.2, theme.Colors, 0.35)
-	end
-
-	function themeParts.Starlight(_theme: FXThemes.Theme)
-		twinkles(3.6, ColorSequence.new(rgb(255, 170, 240), rgb(150, 230, 255)), 14, 0.45)
-	end
-
-	function themeParts.Void(_theme: FXThemes.Theme)
-		-- Purple particles pouring into the donut like a black hole, a prismatic star of rays,
-		-- and stars popping all around it
-		shell(3.4, true, ColorSequence.new(rgb(200, 120, 255), rgb(60, 10, 120)), 24, 0.3, 6)
-		burst(12, 5.2, { rgb(255, 90, 90), rgb(255, 220, 60), rgb(80, 255, 140), rgb(80, 180, 255), rgb(200, 100, 255), rgb(255, 255, 255) }, -0.5)
-		twinkles(4.2, ColorSequence.new(rgb(255, 255, 255), rgb(200, 150, 255)), 18, 0.5)
-	end
 
 	function themeParts.Treasure(_theme: FXThemes.Theme)
 		twinkles(2.6, ColorSequence.new(rgb(255, 230, 90), rgb(255, 255, 220)), 7, 0.55)
@@ -1246,46 +1314,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	function themeParts.Holy(_theme: FXThemes.Theme)
-		-- God rays shining down from the sky, and flecks of light drifting down
-		local sky = holder("HolySky", Vector3.new(4 * s, 0.2, 4 * s), at(0, 16, 0))
-		local target = Instance.new("Attachment")
-		target.Parent = root
-		for i = 1, 5 do
-			local angle = i / 5 * TAU
-			local top = Instance.new("Attachment")
-			top.Position = Vector3.new(math.cos(angle) * 2.4 * s, 0, math.sin(angle) * 2.4 * s)
-			top.Parent = sky
-			local ray = Instance.new("Beam")
-			ray.Attachment0 = top
-			ray.Attachment1 = target
-			ray.FaceCamera = true
-			ray.Segments = 1
-			ray.Width0 = 2.6 * s
-			ray.Width1 = 0.7 * s
-			ray.LightEmission = 1
-			ray.Brightness = 1.5
-			ray.Color = ColorSequence.new(rgb(255, 245, 200), rgb(255, 215, 110))
-			ray.Transparency = NumberSequence.new(0.92, 0.55)
-			ray.Parent = sky
-		end
-		local motes = emitter(sky, ColorSequence.new(rgb(255, 250, 220), rgb(255, 210, 90)), 14, 0.28 * s, 5 * s, 3)
-		motes.EmissionDirection = Enum.NormalId.Bottom
-		motes.Shape = Enum.ParticleEmitterShape.Box
-		motes.SpreadAngle = Vector2.new(8, 8)
-		motes.Brightness = 3
-	end
-
-	function themeParts.Nova(_theme: FXThemes.Theme)
-		-- A blue star of light rays behind it and a shell of stars bursting out
-		burst(12, 5.6, { rgb(40, 140, 255), rgb(140, 220, 255), rgb(255, 255, 255) }, 0.45)
-		shell(3.2, false, ColorSequence.new(rgb(140, 220, 255), rgb(40, 110, 255)), 20, 0.28, 3.5)
-		twinkles(4.4, ColorSequence.new(rgb(255, 255, 255), rgb(120, 190, 255)), 14, 0.55)
-	end
-
-	function themeParts.Overload(_theme: FXThemes.Theme)
-		-- A red star of rays and red sparks raining off it
-		burst(10, 5.2, { rgb(255, 40, 40), rgb(255, 160, 160), rgb(120, 0, 0) }, -0.6)
-		twinkles(4, ColorSequence.new(rgb(255, 90, 90), rgb(255, 255, 255)), 12, 0.5)
+		godRays({ rgb(255, 245, 200), rgb(255, 215, 110) })
 	end
 
 	function themeParts.Eternal(_theme: FXThemes.Theme)
@@ -1298,6 +1327,146 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	function themeParts.Prism(_theme: FXThemes.Theme)
 		burst(10, 4.6, { rgb(255, 70, 70), rgb(255, 170, 40), rgb(255, 240, 60), rgb(80, 240, 110), rgb(70, 170, 255), rgb(190, 90, 255) }, 0.6)
 		shell(2.8, false, RAINBOW_SEQUENCE, 18, 0.22, 3)
+	end
+
+	-- Particles drifting round a donut (a signature aura's Drift): snow, petals and feathers falling,
+	-- embers, bubbles and steam rising, confetti bursting out, speed lines streaking back.
+	local function drift(theme: FXThemes.Theme)
+		local d = theme.Drift
+		if not d then
+			return
+		end
+		local colors: { Color3 } = theme.DriftColors or theme.Colors
+		local spread = ColorSequence.new(colors[1], colors[math.min(2, #colors)])
+		local soft = d.Texture == "Smoke"
+		local function make(parent: BasePart, color: ColorSequence, rate: number): ParticleEmitter
+			local e = Instance.new("ParticleEmitter")
+			e.Name = "Drift"
+			e.Texture = texture(d.Texture)
+			e.Color = color
+			e.Rate = rate
+			e.LightEmission = if soft then 0.25 else 0.7
+			e.LightInfluence = if soft then 0.6 else 0
+			e.Brightness = if soft then 1.2 else 2.5
+			e.Rotation = NumberRange.new(0, 360)
+			e.RotSpeed = NumberRange.new(-70, 70)
+			e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, d.Size * s), NumberSequenceKeypoint.new(1, d.Size * 0.6 * s) })
+			e.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.12, 0.15), NumberSequenceKeypoint.new(0.8, 0.35), NumberSequenceKeypoint.new(1, 1) })
+			e:SetAttribute("FXBoost", true)
+			e.Parent = parent
+			return e
+		end
+		if d.Mode == "Fall" then
+			local sky = holder("DriftFX", Vector3.new(6, 0.2, 6) * s, at(0, TOP + 2.6, 0))
+			local e = make(sky, spread, d.Rate)
+			e.Shape = Enum.ParticleEmitterShape.Box
+			e.EmissionDirection = Enum.NormalId.Bottom
+			e.SpreadAngle = Vector2.new(20, 20)
+			e.Speed = NumberRange.new(1.2 * s, 2.4 * s)
+			e.Acceleration = Vector3.new(0, -0.6 * s, 0)
+			e.Drag = 0.5
+			e.Lifetime = NumberRange.new(2.6, 3.6)
+		elseif d.Mode == "Rise" then
+			local base = holder("DriftFX", Vector3.new(4, 0.6, 3) * s, at(0, -TOP * 0.7, 0))
+			local e = make(base, spread, d.Rate)
+			e.Shape = Enum.ParticleEmitterShape.Box
+			e.EmissionDirection = Enum.NormalId.Top
+			e.SpreadAngle = Vector2.new(25, 25)
+			e.Speed = NumberRange.new(1.5 * s, 3.5 * s)
+			e.Acceleration = Vector3.new(0, 1.5 * s, 0)
+			e.Lifetime = NumberRange.new(1.6, 2.6)
+			if d.Size > 1 then -- (steam puffs grow as they rise)
+				e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, d.Size * 0.4 * s), NumberSequenceKeypoint.new(1, d.Size * s) })
+			end
+		elseif d.Mode == "Burst" then
+			-- confetti in every colour, popping out and fluttering down
+			local center = holder("DriftFX", Vector3.one * 1.5 * s, CFrame.identity)
+			for _, color in colors do
+				local e = make(center, ColorSequence.new(color), d.Rate / #colors)
+				e.Shape = Enum.ParticleEmitterShape.Sphere
+				e.SpreadAngle = Vector2.new(180, 180)
+				e.Speed = NumberRange.new(4 * s, 7 * s)
+				e.Acceleration = Vector3.new(0, -7 * s, 0)
+				e.Drag = 2
+				e.RotSpeed = NumberRange.new(-260, 260)
+				e.Lifetime = NumberRange.new(1.2, 1.8)
+			end
+		else -- Streak: speed lines flying off behind it
+			local front = holder("DriftFX", Vector3.new(4.5, 4, 0.2) * s, at(0, 0, 0.6))
+			local e = make(front, spread, d.Rate)
+			e.Shape = Enum.ParticleEmitterShape.Box
+			e.EmissionDirection = Enum.NormalId.Back
+			e.SpreadAngle = Vector2.new(3, 3)
+			e.Speed = NumberRange.new(12 * s, 18 * s)
+			e.Lifetime = NumberRange.new(0.25, 0.4)
+			e.Orientation = Enum.ParticleOrientation.VelocityParallel
+			e.Squash = NumberSequence.new(3)
+			e.RotSpeed = NumberRange.new(0)
+		end
+	end
+
+	-- A signature aura's other blocks (FXThemes): light rays, god rays, stars, a vortex or glitter,
+	-- a haze of light rising round it, glowing crystals under it.
+	local function auraEffects(theme: FXThemes.Theme)
+		local colors = theme.Colors
+		local rays = theme.Rays
+		if rays then
+			burst(rays.Count, rays.Length, colors, rays.Spin)
+		end
+		if theme.GodRays then
+			godRays({ colors[2], colors[1] })
+		end
+		local stars = theme.Stars
+		if stars then
+			twinkles(stars.Radius, ColorSequence.new(colors[1]:Lerp(WHITE, 0.4), WHITE), stars.Rate, 0.45)
+		end
+		local vortex = theme.Vortex
+		if vortex then
+			shell(vortex.Radius, true, ColorSequence.new(colors[1], colors[3]), vortex.Rate, 0.3, 5):SetAttribute("FXBoost", true)
+		end
+		local glitter = theme.Glitter
+		if glitter then
+			shell(glitter.Radius, false, ColorSequence.new(colors[1]:Lerp(WHITE, 0.3), colors[2]), glitter.Rate, 0.25, 3):SetAttribute("FXBoost", true)
+		end
+		drift(theme)
+		local mist = theme.Mist
+		if mist then
+			local aura = holder("GlowAura", Vector3.new(4, 0.5, 4) * s, at(0, -TOP * 0.7, 0))
+			local haze = Instance.new("ParticleEmitter")
+			haze.Name = "GlowMist"
+			haze.Texture = texture("Smoke")
+			haze.Color = ColorSequence.new(mist, mist:Lerp(WHITE, 0.5))
+			haze.LightEmission = 1
+			haze.LightInfluence = 0
+			haze.Rate = 7
+			haze.Lifetime = NumberRange.new(1.6, 2.6)
+			haze.Speed = NumberRange.new(1.5 * s, 3 * s)
+			haze.SpreadAngle = Vector2.new(25, 25)
+			haze.EmissionDirection = Enum.NormalId.Top
+			haze.Rotation = NumberRange.new(0, 360)
+			haze.RotSpeed = NumberRange.new(-25, 25)
+			haze.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * s), NumberSequenceKeypoint.new(1, 5 * s) })
+			haze.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.55), NumberSequenceKeypoint.new(1, 1) })
+			haze.Parent = aura
+		end
+		if theme.Crystals then
+			-- glowing shards leaning out from under it, like a crystal bloom
+			for i = 0, 4 do
+				local angle = i / 5 * TAU + 0.3
+				local height = 1.5 + (i % 3) * 0.4
+				local radius = R + 0.6
+				local crystal = ellipsoid(
+					Vector3.new(0.55, height, 0.55),
+					colors[(i % #colors) + 1]:Lerp(WHITE, 0.2),
+					CFrame.new(math.cos(angle) * radius * s, bottom + height * 0.35 * s, math.sin(angle) * radius * s)
+						* CFrame.Angles(0, -angle, 0)
+						* CFrame.Angles(0, 0, math.rad(-28)),
+					Enum.Material.Neon,
+					"Crystal"
+				)
+				crystal.Transparency = 0.2
+			end
+		end
 	end
 
 	-- The big effects of the mid-to-late game themes (FXThemes): fire, spirals, smoke and the
@@ -1413,19 +1582,22 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 	end
 
-	-- Effects: rarity and mutation effects stack
+	-- Effects: every Epic-and-up donut has its OWN signature aura (DonutAuras: picked from its name,
+	-- in its own colours) - nothing is shared by a whole rarity any more - and a mutation adds its
+	-- effects on top. (The moving parts - lightning, magic circles, comets, shapes circling it -
+	-- are animated by each client: client/DonutFX.)
 	if not opts.NoEffects then
-		local lightRange = math.max(rarity.Light or 0, mutation.Light or 0)
+		local themes = DonutAuras.Themes(donut, mutation.Id)
+		local signature = if themes[1] and themes[1].Id == "Signature" then themes[1] else nil
+		local glowColor = if mutation.Order > 0 then mutation.Color elseif signature then signature.Colors[1] else rarity.Color
+		local lightRange = math.max(if signature then rarity.Light or 0 else 0, mutation.Light or 0)
 		if lightRange > 0 then
 			local light = Instance.new("PointLight")
-			light.Color = if mutation.Order > 0 then mutation.Color else rarity.Color
+			light.Color = glowColor
 			light.Brightness = 1.5
 			light.Range = lightRange * s
 			light.Shadows = false
 			light.Parent = root
-		end
-		if rarity.Particles then
-			emitter(root, ColorSequence.new(rarity.Color, WHITE), rarity.Particles, 0.35 * s, 3 * s, 1.8)
 		end
 		if mutation.Particles then
 			local e = emitter(root, ColorSequence.new(mutation.Color, WHITE), mutation.Particles, 0.3 * s, 2 * s, 1.5)
@@ -1439,88 +1611,33 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				})
 			end
 		end
-		if mutation.Id == "Gold" or mutation.Id == "Diamond" or rarity.Order >= 5 then
+		if mutation.Id == "Gold" or mutation.Id == "Diamond" then
 			local sparkles = Instance.new("Sparkles")
-			sparkles.SparkleColor = if mutation.Order > 0 then mutation.Color else rarity.Color
+			sparkles.SparkleColor = mutation.Color
 			sparkles.Parent = root
 		end
-		if opts.Pillar and (rarity.Beam or mutation.Order >= 3) then
+		if opts.Pillar and signature and (rarity.Beam or mutation.Order >= 3) then
 			local pillar = Instance.new("Part")
 			pillar.Name = "Pillar"
 			pillar.Shape = Enum.PartType.Cylinder
 			pillar.Size = Vector3.new(60, 3.5, 3.5)
 			-- `bottom` is the lowest point of the donut, so the pillar starts at the ground.
 			local pillarCf = CFrame.new(0, bottom + 30, 0) * CFrame.Angles(0, 0, math.pi / 2)
-			add(pillar, pillarCf, if mutation.Order >= 3 then mutation.Color else rarity.Color, Enum.Material.Neon)
+			add(pillar, pillarCf, glowColor, Enum.Material.Neon)
 			pillar.Transparency = 0.8
 		end
-		if opts.Pillar and rarity.Order >= 5 then
-			-- Glowing ring on the ground under legendary+ lane donuts
-			local glow = Instance.new("Part")
-			glow.Name = "GroundGlow"
-			glow.Shape = Enum.PartType.Cylinder
-			glow.Size = Vector3.new(0.15, 6 * s, 6 * s)
-			add(glow, CFrame.new(0, bottom + 0.1, 0) * CFrame.Angles(0, 0, math.pi / 2), rarity.Color, Enum.Material.Neon)
-			glow.Transparency = 0.5
-		end
-		-- The rarer donuts glow: stars twinkling round them (Rare and up), a haze of light rising
-		-- around them (Epic and up; the bloom makes it shine), a glowing outline near the camera
-		-- (client/DonutGlow) and Celestial and up stand in a ring of glowing crystals
-		local auraColor = if mutation.Order >= 3 then mutation.Color else rarity.Color
-		if rarity.Order >= 3 or mutation.Order >= 1 then
-			local starColor = (if mutation.Order >= 1 then mutation.Color else rarity.Color):Lerp(WHITE, 0.45)
-			twinkles(2.9, ColorSequence.new(starColor, WHITE), if rarity.Order >= 5 then 6 elseif rarity.Order >= 4 then 4 else 2.5, 0.42)
-		end
-		if rarity.Order >= 4 or mutation.Order >= 1 then
+		-- a glowing outline in its aura's colour when you're close (client/DonutGlow)
+		if signature or mutation.Order >= 1 then
 			CollectionService:AddTag(model, "DonutOutline")
-			model:SetAttribute("OutlineColor", if mutation.Order >= 1 then mutation.Color else rarity.Color)
+			model:SetAttribute("OutlineColor", glowColor)
 		end
-		if rarity.Order >= 4 or mutation.Order >= 3 then
-			local aura = holder("GlowAura", Vector3.new(4, 0.5, 4) * s, at(0, -TOP * 0.7, 0))
-			local mist = Instance.new("ParticleEmitter")
-			mist.Name = "GlowMist"
-			mist.Texture = "rbxasset://textures/particles/smoke_main.dds"
-			mist.Color = ColorSequence.new(auraColor, auraColor:Lerp(WHITE, 0.5))
-			mist.LightEmission = 1
-			mist.LightInfluence = 0
-			mist.Rate = if rarity.Order <= 4 and mutation.Order < 3 then 3 else 5 + math.max(rarity.Order, mutation.Order + 2) * 1.5
-			mist.Lifetime = NumberRange.new(1.6, 2.6)
-			mist.Speed = NumberRange.new(1.5 * s, 3 * s)
-			mist.SpreadAngle = Vector2.new(25, 25)
-			mist.EmissionDirection = Enum.NormalId.Top
-			mist.Rotation = NumberRange.new(0, 360)
-			mist.RotSpeed = NumberRange.new(-25, 25)
-			mist.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 2 * s), NumberSequenceKeypoint.new(1, 5 * s) })
-			mist.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.25, 0.55), NumberSequenceKeypoint.new(1, 1) })
-			mist.Parent = aura
-		end
-		if rarity.Order >= 6 then
-			-- glowing shards leaning out from under it, like a crystal bloom
-			for i = 0, 4 do
-				local angle = i / 5 * TAU + 0.3
-				local height = 1.5 + (i % 3) * 0.4
-				local radius = R + 0.6
-				local crystal = ellipsoid(
-					Vector3.new(0.55, height, 0.55),
-					auraColor:Lerp(WHITE, 0.3),
-					CFrame.new(math.cos(angle) * radius * s, bottom + height * 0.35 * s, math.sin(angle) * radius * s)
-						* CFrame.Angles(0, -angle, 0)
-						* CFrame.Angles(0, 0, math.rad(-28)),
-					Enum.Material.Neon,
-					"Crystal"
-				)
-				crystal.Transparency = 0.2
-			end
-		end
-		if rarity.Float or mutation.Order >= 2 then
+		if (rarity.Float and look.Effects) or mutation.Order >= 2 then
 			CollectionService:AddTag(model, "DonutFloat")
 		end
-		if rarity.Rainbow or mutation.Rainbow then
+		if mutation.Rainbow then
 			CollectionService:AddTag(model, "DonutRainbow")
 		end
 
-		-- Mystical themes (the moving parts - lightning, magic circles, comets - are client-side)
-		local themes = FXThemes.For(rarity.Id, mutation.Id)
 		if #themes > 0 then
 			CollectionService:AddTag(model, "DonutFX")
 			model:SetAttribute("FXScale", s)
@@ -1533,6 +1650,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 					build(theme)
 				end
 				themeEffects(theme)
+				auraEffects(theme)
 			end
 		end
 	end

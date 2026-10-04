@@ -23,6 +23,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FXThemes = require(Shared.FXThemes)
+local Donuts = require(Shared.Donuts)
+local DonutAuras = require(Shared.DonutAuras)
 
 local DonutFX = {}
 
@@ -47,6 +49,9 @@ type Wave = { Adornment: CylinderHandleAdornment, Start: number, Theme: Theme, S
 
 type Shard = { Part: BasePart, Axis: CFrame, Radius: number, Speed: number, Offset: number, Spin: Vector3, SpinSpeed: number, Out: number }
 
+-- a little shape circling the donut (FXThemes Orbiters): a few parts moving as one
+type Orbiter = { Parts: { BasePart }, Offsets: { CFrame }, Axis: CFrame, Radius: number, Speed: number, Offset: number, Turn: number }
+
 type Visuals = {
 	Folder: Folder,
 	Anchor: BasePart?,
@@ -54,6 +59,7 @@ type Visuals = {
 	Wisps: { Wisp },
 	Waves: { Wave },
 	Shards: { Shard },
+	Orbiters: { Orbiter },
 	Outline: Highlight?,
 }
 
@@ -342,6 +348,103 @@ local function buildShards(fx: FX, visuals: Visuals, state: ThemeState)
 	end
 end
 
+-- The pieces of each Orbiters shape (in its own space, 1 = a normal donut): size, offset, colour
+-- index (0 = white), material, part shape.
+type Piece = { Size: Vector3, At: CFrame, Color: number, Material: Enum.Material?, Shape: Enum.PartType? }
+local DIAMOND = CFrame.Angles(0, 0, math.rad(45))
+local SHAPES: { [string]: { Piece } } = {
+	Heart = {
+		{ Size = Vector3.new(0.26, 0.26, 0.12), At = CFrame.new(-0.12, 0.08, 0) * DIAMOND, Color = 1 },
+		{ Size = Vector3.new(0.26, 0.26, 0.12), At = CFrame.new(0.12, 0.08, 0) * DIAMOND, Color = 1 },
+		{ Size = Vector3.new(0.34, 0.34, 0.12), At = CFrame.new(0, -0.08, 0) * DIAMOND, Color = 1 },
+	},
+	Star = {
+		{ Size = Vector3.new(0.1, 0.62, 0.08), At = CFrame.new(), Color = 1 },
+		{ Size = Vector3.new(0.62, 0.1, 0.08), At = CFrame.new(), Color = 1 },
+		{ Size = Vector3.new(0.2, 0.2, 0.1), At = DIAMOND, Color = 0 },
+	},
+	Coin = {
+		{ Size = Vector3.new(0.08, 0.5, 0.5), At = CFrame.new(), Color = 1, Material = Enum.Material.Foil, Shape = Enum.PartType.Cylinder },
+		{ Size = Vector3.new(0.1, 0.32, 0.32), At = CFrame.new(), Color = 2, Material = Enum.Material.Foil, Shape = Enum.PartType.Cylinder },
+	},
+	Bubble = {
+		{ Size = Vector3.one * 0.5, At = CFrame.new(), Color = 1, Material = Enum.Material.Glass, Shape = Enum.PartType.Ball },
+		{ Size = Vector3.one * 0.12, At = CFrame.new(-0.1, 0.12, -0.18), Color = 0, Shape = Enum.PartType.Ball },
+	},
+	Cube = {
+		{ Size = Vector3.one * 0.34, At = CFrame.new(), Color = 1 },
+	},
+	Note = {
+		{ Size = Vector3.new(0.26, 0.2, 0.12), At = CFrame.new(-0.06, -0.22, 0) * CFrame.Angles(0, 0, 0.35), Color = 1 },
+		{ Size = Vector3.new(0.06, 0.5, 0.06), At = CFrame.new(0.06, 0.02, 0), Color = 1 },
+		{ Size = Vector3.new(0.2, 0.07, 0.06), At = CFrame.new(0.14, 0.24, 0) * CFrame.Angles(0, 0, -0.5), Color = 1 },
+	},
+	Leaf = {
+		{ Size = Vector3.new(0.42, 0.06, 0.22), At = CFrame.new(), Color = 1, Material = Enum.Material.SmoothPlastic },
+		{ Size = Vector3.new(0.3, 0.07, 0.03), At = CFrame.new(), Color = 2, Material = Enum.Material.SmoothPlastic },
+	},
+	Snowflake = {
+		{ Size = Vector3.new(0.07, 0.56, 0.05), At = CFrame.new(), Color = 0 },
+		{ Size = Vector3.new(0.07, 0.56, 0.05), At = CFrame.Angles(0, 0, math.rad(60)), Color = 0 },
+		{ Size = Vector3.new(0.07, 0.56, 0.05), At = CFrame.Angles(0, 0, math.rad(-60)), Color = 1 },
+	},
+	Gear = {
+		{ Size = Vector3.new(0.1, 0.4, 0.4), At = CFrame.new(), Color = 1, Material = Enum.Material.Foil, Shape = Enum.PartType.Cylinder },
+		{ Size = Vector3.new(0.08, 0.56, 0.1), At = CFrame.new(), Color = 1, Material = Enum.Material.Foil },
+		{ Size = Vector3.new(0.08, 0.1, 0.56), At = CFrame.new(), Color = 1, Material = Enum.Material.Foil },
+	},
+	Bolt = {
+		{ Size = Vector3.new(0.1, 0.28, 0.06), At = CFrame.new(0.05, 0.18, 0) * CFrame.Angles(0, 0, -0.5), Color = 1 },
+		{ Size = Vector3.new(0.24, 0.08, 0.06), At = CFrame.new(0, 0.04, 0), Color = 1 },
+		{ Size = Vector3.new(0.1, 0.28, 0.06), At = CFrame.new(-0.05, -0.12, 0) * CFrame.Angles(0, 0, -0.5), Color = 1 },
+	},
+	Feather = {
+		{ Size = Vector3.new(0.18, 0.6, 0.04), At = CFrame.new(), Color = 0, Material = Enum.Material.SmoothPlastic },
+		{ Size = Vector3.new(0.03, 0.66, 0.05), At = CFrame.new(), Color = 1, Material = Enum.Material.SmoothPlastic },
+	},
+}
+
+-- Little shapes circling the donut on tilted orbits, bobbing and turning (FXThemes Orbiters).
+local function buildOrbiters(fx: FX, visuals: Visuals, state: ThemeState)
+	local orbiters = state.Theme.Orbiters
+	local pieces = orbiters and SHAPES[orbiters.Shape]
+	if not orbiters or not pieces then
+		return
+	end
+	local sc = fx.Scale
+	local theme = state.Theme
+	for i = 1, orbiters.Count do
+		if shardCount + #pieces > MAX_SHARDS then
+			return
+		end
+		local parts, offsets = {}, {}
+		for _, piece in pieces do
+			local part = localPart(orbiters.Shape, visuals.Folder)
+			if piece.Shape then
+				part.Shape = piece.Shape
+			end
+			part.Size = piece.Size * sc * 1.25
+			part.Material = piece.Material or Enum.Material.Neon
+			part.Color = if piece.Color == 0 then Color3.new(1, 1, 1) else themeColor(theme, piece.Color + i - 1, i / orbiters.Count)
+			if part.Material == Enum.Material.Glass then
+				part.Transparency = 0.45
+			end
+			table.insert(parts, part)
+			table.insert(offsets, piece.At.Rotation + piece.At.Position * sc * 1.25)
+		end
+		shardCount += #parts
+		table.insert(visuals.Orbiters, {
+			Parts = parts,
+			Offsets = offsets,
+			Axis = CFrame.Angles(rng:NextNumber(-0.5, 0.5), rng:NextNumber(0, TAU), rng:NextNumber(-0.5, 0.5)),
+			Radius = rng:NextNumber(2.3, 3.1) * sc,
+			Speed = rng:NextNumber(0.6, 1.1) * (if i % 2 == 0 then -1 else 1),
+			Offset = i / orbiters.Count * TAU,
+			Turn = rng:NextNumber(1.2, 2.4),
+		})
+	end
+end
+
 local function spawnWave(fx: FX, state: ThemeState)
 	local visuals = fx.Visuals
 	local anchor = visuals and visuals.Anchor
@@ -382,6 +485,9 @@ local function dropVisuals(fx: FX)
 	local visuals = fx.Visuals
 	if visuals then
 		shardCount -= #visuals.Shards
+		for _, orbiter in visuals.Orbiters do
+			shardCount -= #orbiter.Parts
+		end
 		visuals.Folder:Destroy()
 		if visuals.Outline then
 			visuals.Outline:Destroy()
@@ -398,7 +504,7 @@ local function ensureVisuals(fx: FX)
 	local visualsFolder = Instance.new("Folder")
 	visualsFolder.Name = fx.Model.Name
 	visualsFolder.Parent = folder
-	local visuals: Visuals = { Folder = visualsFolder, Anchor = nil, Spinners = {}, Wisps = {}, Waves = {}, Shards = {}, Outline = nil }
+	local visuals: Visuals = { Folder = visualsFolder, Anchor = nil, Spinners = {}, Wisps = {}, Waves = {}, Shards = {}, Orbiters = {}, Outline = nil }
 	if fx.Ground then
 		local anchor = localPart("CircleAnchor", visualsFolder)
 		anchor.Transparency = 1
@@ -412,6 +518,7 @@ local function ensureVisuals(fx: FX)
 		end
 		buildWisps(fx, visuals, state)
 		buildShards(fx, visuals, state)
+		buildOrbiters(fx, visuals, state)
 	end
 	fx.Visuals = visuals
 end
@@ -528,17 +635,27 @@ local function updateFull(fx: FX)
 			wisp.Trail.Color = ColorSequence.new(color)
 		end
 	end
-	-- Crystal shards
+	-- Crystal shards and circling shapes
 	local shards = visuals.Shards
-	if #shards > 0 then
+	if #shards > 0 or #visuals.Orbiters > 0 then
 		local parts: { BasePart } = table.create(#shards)
 		local cframes: { CFrame } = table.create(#shards)
-		for i, shard in shards do
+		for _, shard in shards do
 			local angle = clock * shard.Speed + shard.Offset
 			local radius = shard.Radius + shard.Out * (0.5 + 0.5 * math.sin(clock * 1.6 + shard.Offset * 2))
 			local offset = shard.Axis:VectorToWorldSpace(Vector3.new(math.cos(angle), 0, math.sin(angle))) * radius
-			parts[i] = shard.Part
-			cframes[i] = CFrame.new(center + offset) * CFrame.fromAxisAngle(shard.Spin, (clock * shard.SpinSpeed + shard.Offset) % TAU)
+			table.insert(parts, shard.Part)
+			table.insert(cframes, CFrame.new(center + offset) * CFrame.fromAxisAngle(shard.Spin, (clock * shard.SpinSpeed + shard.Offset) % TAU))
+		end
+		for _, orbiter in visuals.Orbiters do
+			local angle = clock * orbiter.Speed + orbiter.Offset
+			local offset = orbiter.Axis:VectorToWorldSpace(Vector3.new(math.cos(angle), 0, math.sin(angle))) * orbiter.Radius
+			local frame = CFrame.new(center + offset + Vector3.new(0, 0.25 * fx.Scale * math.sin(clock * 2 + orbiter.Offset * 3), 0))
+				* CFrame.Angles(0, (clock * orbiter.Turn + orbiter.Offset) % TAU, 0)
+			for i, part in orbiter.Parts do
+				table.insert(parts, part)
+				table.insert(cframes, frame * orbiter.Offsets[i])
+			end
 		end
 		if bulkMove then
 			local ok = pcall(function()
@@ -634,9 +751,20 @@ local function register(instance: Instance)
 	if not root or not root:IsA("BasePart") or not model.Parent then
 		return
 	end
-	local rarity = model:GetAttribute("Rarity")
-	local mutation = model:GetAttribute("Mutation")
-	local themes = FXThemes.For(if type(rarity) == "string" then rarity else "", if type(mutation) == "string" then mutation else nil)
+	-- the same effects the server built: the donut's own aura and its mutation's (DonutAuras)
+	local donutId = model:GetAttribute("DonutId")
+	local mutationAttr = model:GetAttribute("Mutation")
+	local mutation = if type(mutationAttr) == "string" then mutationAttr else nil
+	local donut = if type(donutId) == "string" then Donuts.Get(donutId) else nil
+	local themes: { Theme } = {}
+	if donut then
+		themes = DonutAuras.Themes(donut, mutation)
+	else
+		local fromMutation = FXThemes.ForMutation(mutation)
+		if fromMutation then
+			table.insert(themes, fromMutation)
+		end
+	end
 	if #themes == 0 then
 		return
 	end
