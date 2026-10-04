@@ -251,7 +251,9 @@ local function rareRain(myToken: number)
 		local areaId = reachableArea()
 		if areaId then
 			local area = Areas.List[areaId]
-			local tier = if areaId <= 1 then "Basic" elseif rng:NextNumber() < 0.3 then "Legendary" else "Epic"
+			-- (one of the biome's two rarer boxes: Epic / Legendary, or Legendary / Mythic later on)
+			local tiers = Boxes.TiersFor(areaId)
+			local tier = if #tiers == 1 then tiers[1].Id elseif rng:NextNumber() < 0.3 then tiers[#tiers].Id else tiers[#tiers - 1].Id
 			local size = Boxes.RollSize(rng).Id
 			local mutation = Rarities.RollMutation(rng, 2).Id
 			local half = Layout.AreaHalfWidth(areaId) - 20

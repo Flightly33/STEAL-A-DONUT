@@ -69,9 +69,11 @@ UpdateNotes.List = {
 			{ Title = "Donut Boxes", Tag = "NEW", Lines = {
 				"Steal donut boxes from right next to a sleeping Domer and run them back to the lobby",
 				"Every biome has Rare, Epic and Legendary boxes (the first one has the pink box)",
+				"From biome 11 the new MYTHIC boxes take the Rare boxes' place: Epic, Legendary and Mythic!",
 				"Lucky? Find a Big, Huge or GIANT box: it holds a bigger donut but slows you down",
 				"Boxes go into your inventory: hold one and click in your pen to put it down",
-				"Wait for it to open (Rare 1 min, Epic 10 min, Legendary 1 hour) and out pops a donut!",
+				"When its timer runs out, click the box to open it and out pops a donut!",
+				"Rare boxes take 1 min, Epic 10 min, Legendary 1 hour and Mythic 2 hours",
 				"BOX RUSH every 2:30: boxes in pens open 30x faster for 10 seconds",
 				"Every 5 minutes, all the boxes are replaced with new ones",
 			} },
@@ -93,7 +95,7 @@ UpdateNotes.List = {
 			} },
 		},
 		Sidebar = {
-			{ Title = "Legendary Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
+			{ Title = "Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
 		},
 	},
 	{

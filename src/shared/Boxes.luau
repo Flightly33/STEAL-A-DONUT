@@ -2,8 +2,10 @@
 	Boxes: donut boxes - what you steal from each biome's Domer (Config.Boxes has the numbers).
 
 	A box is a rarity TIER and a SIZE:
-	  * Tier: Basic (the plain pink box, first biome only), Rare, Epic or Legendary. It picks which of
-	    the biome's donuts can come out (Donuts.ByBox) and how long it takes to open.
+	  * Tier: Basic (the plain pink box, first biome only), Rare, Epic, Legendary or Mythic. Which
+	    ones a biome has (and how often) is its lineup (Config.Boxes.Lineups): Rare / Epic /
+	    Legendary, then Epic / Legendary / Mythic in the later biomes. The tier picks which of the
+	    biome's donuts can come out (Donuts.ByBox) and how long it takes to open.
 	  * Size: Small, Big, Huge or GIANT. Bigger boxes are rarer, take longer to open, slow you down
 	    while you carry them and hold a bigger donut (Rarities.Sizes) that earns more.
 
@@ -18,10 +20,11 @@ export type Tier = {
 	Name: string,
 	Order: number,
 	HatchSeconds: number,
-	Weight: number,
 	Color: Color3,
 	Trim: Color3,
 }
+
+export type LineupEntry = { Tier: Tier, Weight: number }
 
 export type Size = {
 	Id: string,
@@ -60,54 +63,78 @@ function Boxes.HatchSeconds(tierId: string, sizeId: string?): number
 	return Boxes.Tier(tierId).HatchSeconds * Boxes.Size(sizeId).HatchMultiplier
 end
 
--- The tiers a biome's Domer guards: just the pink box in the first biome, Rare / Epic /
--- Legendary everywhere else.
-function Boxes.TiersFor(biome: number): { Tier }
-	if biome <= 1 then
-		return { Boxes.TierById.Basic }
+local lineups: { { From: number, Entries: { LineupEntry } } } = {}
+for _, lineup in Config.Boxes.Lineups do
+	local entries = {}
+	for _, entry in lineup.Tiers do
+		local tier = Boxes.TierById[entry.Id]
+		assert(tier, "Unknown box tier in Config.Boxes.Lineups: " .. entry.Id)
+		table.insert(entries, { Tier = tier, Weight = entry.Weight })
 	end
-	local list = {}
-	for _, tier in Boxes.Tiers do
-		if tier.Id ~= "Basic" then
-			table.insert(list, tier)
+	table.insert(lineups, { From = lineup.From, Entries = entries })
+end
+table.sort(lineups, function(a, b)
+	return a.From < b.From
+end)
+
+-- The boxes a biome's Domer guards, most common first, with how often each turns up.
+function Boxes.Lineup(biome: number): { LineupEntry }
+	local found = lineups[1].Entries
+	for _, lineup in lineups do
+		if biome >= lineup.From then
+			found = lineup.Entries
 		end
+	end
+	return found
+end
+
+-- The tiers a biome's Domer guards, most common first.
+function Boxes.TiersFor(biome: number): { Tier }
+	local list = {}
+	for _, entry in Boxes.Lineup(biome) do
+		table.insert(list, entry.Tier)
 	end
 	return list
 end
 
--- A random tier for a fresh box in `biome`. `luck` multiplies the Epic and Legendary weights.
-function Boxes.RollTier(biome: number, rng: Random, luck: number?): Tier
-	local list = Boxes.TiersFor(biome)
-	if #list == 1 then
-		return list[1]
-	end
-	local boost = luck or 1
-	local total = 0
-	for _, tier in list do
-		total += tier.Weight * (if tier.Order >= 2 then boost else 1)
-	end
-	local left = rng:NextNumber() * total
-	for _, tier in list do
-		left -= tier.Weight * (if tier.Order >= 2 then boost else 1)
-		if left <= 0 then
-			return tier
+-- Where a tier is in its biome's lineup: 1 = the common box, 3 = the rarest (0 = not there).
+function Boxes.Rank(biome: number, tierId: string): number
+	for i, entry in Boxes.Lineup(biome) do
+		if entry.Tier.Id == tierId then
+			return i
 		end
 	end
-	return list[#list]
+	return 0
+end
+
+-- A random tier for a fresh box in `biome`. `luck` multiplies the weights of every box but the
+-- common one.
+function Boxes.RollTier(biome: number, rng: Random, luck: number?): Tier
+	local lineup = Boxes.Lineup(biome)
+	local boost = luck or 1
+	local total = 0
+	for i, entry in lineup do
+		total += entry.Weight * (if i > 1 then boost else 1)
+	end
+	local left = rng:NextNumber() * total
+	for i, entry in lineup do
+		left -= entry.Weight * (if i > 1 then boost else 1)
+		if left <= 0 then
+			return entry.Tier
+		end
+	end
+	return lineup[#lineup].Tier
 end
 
 -- Chance (0-1) that a fresh box in `biome` is this tier.
 function Boxes.TierChance(biome: number, tierId: string): number
-	local list = Boxes.TiersFor(biome)
+	local lineup = Boxes.Lineup(biome)
 	local total, mine = 0, 0
-	for _, tier in list do
-		total += tier.Weight
-		if tier.Id == tierId then
-			mine = tier.Weight
+	for _, entry in lineup do
+		total += entry.Weight
+		if entry.Tier.Id == tierId then
+			mine = entry.Weight
 		end
-	end
-	if #list == 1 then
-		return if list[1].Id == tierId then 1 else 0
 	end
 	return if total > 0 then mine / total else 0
 end

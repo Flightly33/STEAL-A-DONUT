@@ -237,18 +237,26 @@ Config.Spawns = {
 -- ResetInterval seconds ("ALL BOXES RESET!"). A box you steal leaves its spot empty until then.
 -- Bring a box back to the lobby and it goes into your inventory; take it out in your pen and it
 -- opens after its rarity's HatchSeconds x its size's HatchMultiplier (also while you're offline).
--- The first biome only has the plain pink box. Every other biome has Rare, Epic and Legendary
--- boxes (Weight = how often each turns up).
+-- Which boxes each biome's Domer guards (Lineups): the plain pink box in the first biome, Rare /
+-- Epic / Legendary after that, and from biome 11 on the Rare box makes way for the MYTHIC box:
+-- Epic / Legendary / Mythic. Weight = how often each turns up. (The economy sim checked the Mythic
+-- lineup: its boxes are worth more but take longer to open, so the 12-16 hour pace stays the same.)
 --------------------------------------------------------------------------------
 local PINK = Color3.fromRGB(255, 170, 205)
 Config.Boxes = {
 	PerBiome = 5,
 	ResetInterval = 300,
 	Tiers = {
-		{ Id = "Basic", Name = "Donut Box", Order = 0, HatchSeconds = 30, Weight = 0, Color = PINK, Trim = Color3.fromRGB(255, 255, 255) },
-		{ Id = "Rare", Name = "Rare Donut Box", Order = 1, HatchSeconds = 60, Weight = 70, Color = Color3.fromRGB(80, 160, 255), Trim = Color3.fromRGB(255, 255, 255) },
-		{ Id = "Epic", Name = "Epic Donut Box", Order = 2, HatchSeconds = 600, Weight = 25, Color = Color3.fromRGB(175, 80, 255), Trim = Color3.fromRGB(255, 220, 255) },
-		{ Id = "Legendary", Name = "Legendary Donut Box", Order = 3, HatchSeconds = 3600, Weight = 5, Color = Color3.fromRGB(255, 195, 40), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Basic", Name = "Donut Box", Order = 0, HatchSeconds = 30, Color = PINK, Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Rare", Name = "Rare Donut Box", Order = 1, HatchSeconds = 60, Color = Color3.fromRGB(80, 160, 255), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Epic", Name = "Epic Donut Box", Order = 2, HatchSeconds = 600, Color = Color3.fromRGB(175, 80, 255), Trim = Color3.fromRGB(255, 220, 255) },
+		{ Id = "Legendary", Name = "Legendary Donut Box", Order = 3, HatchSeconds = 3600, Color = Color3.fromRGB(255, 195, 40), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Mythic", Name = "Mythic Donut Box", Order = 4, HatchSeconds = 7200, Color = Color3.fromRGB(210, 25, 60), Trim = Color3.fromRGB(255, 210, 80) },
+	},
+	Lineups = {
+		{ From = 1, Tiers = { { Id = "Basic", Weight = 1 } } },
+		{ From = 2, Tiers = { { Id = "Rare", Weight = 70 }, { Id = "Epic", Weight = 25 }, { Id = "Legendary", Weight = 5 } } },
+		{ From = 11, Tiers = { { Id = "Epic", Weight = 70 }, { Id = "Legendary", Weight = 25 }, { Id = "Mythic", Weight = 5 } } },
 	},
 	-- Bigger boxes are rarer, take longer to open and hold a bigger donut (that earns more).
 	-- CarrySpeed: you run this much slower while you carry it.

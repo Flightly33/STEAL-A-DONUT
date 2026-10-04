@@ -20,6 +20,7 @@
 
 local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
+local Boxes = require(script.Parent.Boxes)
 
 export type Donut = {
 	Id: string,
@@ -334,15 +335,16 @@ local BIOME_DONUTS: { { number } } = {
 	{ 34, 33 }, -- 20 The Black Hole
 }
 
--- Money per second of an average Rare-box donut in each biome (level 1, no mutation, normal size).
+-- Money per second of an average x1 donut in each biome (level 1, no mutation, normal size); each
+-- box multiplies it (TIER_INCOME: a Rare box x1 ... a Mythic box x30).
 -- Tuned with the economy sim (see Config.Treadmill).
 local BIOME_INCOME = {
 	7, 22, 72, 230, 730, 2_350, 8_700, 32_000, 120_000, 440_000,
 	1_630_000, 6_000_000, 22_000_000, 82_000_000, 305_000_000, 1_130_000_000, 4_200_000_000, 15_500_000_000, 57_000_000_000, 212_000_000_000,
 }
-local TIER_INCOME: { [string]: number } = { Basic = 1, Rare = 1, Epic = 3, Legendary = 10 }
-local SECRET_WEIGHT = 0.4 -- % of Legendary boxes (each Secret / Icon donut)
-local SECRET_INCOME = 8 -- x the biome's Legendary average
+local TIER_INCOME: { [string]: number } = { Basic = 1, Rare = 1, Epic = 3, Legendary = 10, Mythic = 30 }
+local SECRET_WEIGHT = 0.4 -- % of the biome's rarest box (each Secret / Icon donut)
+local SECRET_INCOME = 8 -- x the average of the biome's rarest box
 
 local oldArea: { [string]: number } = {}
 for _, donut in Donuts.List do
@@ -379,6 +381,9 @@ local function assign(list: { Donut }, biome: number, box: string)
 end
 
 for biome, sources in BIOME_DONUTS do
+	-- the biome's boxes, most common first: Rare / Epic / Legendary, or Epic / Legendary / Mythic
+	local tiers = Boxes.TiersFor(biome)
+	local top = tiers[#tiers].Id
 	local regular, special = {}, {}
 	for _, area in sources do
 		for _, donut in Donuts.List do
@@ -388,7 +393,7 @@ for biome, sources in BIOME_DONUTS do
 					donut.Area = biome
 					donut.Box = nil
 					donut.Weight = 0
-					donut.Income = BIOME_INCOME[biome] * TIER_INCOME.Legendary * SECRET_INCOME * 2
+					donut.Income = BIOME_INCOME[biome] * TIER_INCOME[top] * SECRET_INCOME * 2
 				elseif donut.Rarity == "Secret" or donut.Rarity == "Icon" then
 					table.insert(special, donut)
 				else
@@ -400,27 +405,28 @@ for biome, sources in BIOME_DONUTS do
 	table.sort(regular, function(a, b)
 		return a.Income < b.Income
 	end)
-	if biome == 1 then
-		assign(regular, biome, "Basic")
+	if #tiers == 1 then
+		assign(regular, biome, tiers[1].Id)
 	else
-		local rare = math.ceil(#regular * 0.4)
-		local epic = math.ceil((#regular - rare) * 0.5)
+		-- the cheapest 40% in the common box, half the rest in the middle one, the best in the rarest
+		local common = math.ceil(#regular * 0.4)
+		local middle = math.ceil((#regular - common) * 0.5)
 		local lists = { {}, {}, {} }
 		for i, donut in regular do
-			table.insert(lists[if i <= rare then 1 elseif i <= rare + epic then 2 else 3], donut)
+			table.insert(lists[if i <= common then 1 elseif i <= common + middle then 2 else 3], donut)
 		end
-		assign(lists[1], biome, "Rare")
-		assign(lists[2], biome, "Epic")
-		assign(lists[3], biome, "Legendary")
-		local legendaryWeight = 0
+		for i, tier in tiers do
+			assign(lists[i], biome, tier.Id)
+		end
+		local topWeight = 0
 		for _, donut in lists[3] do
-			legendaryWeight += donut.Weight
+			topWeight += donut.Weight
 		end
 		for _, donut in special do
 			donut.Area = biome
-			donut.Box = "Legendary"
-			donut.Weight = legendaryWeight * SECRET_WEIGHT / 100
-			donut.Income = BIOME_INCOME[biome] * TIER_INCOME.Legendary * SECRET_INCOME * (if donut.Rarity == "Icon" then 3 else 1)
+			donut.Box = top
+			donut.Weight = topWeight * SECRET_WEIGHT / 100
+			donut.Income = BIOME_INCOME[biome] * TIER_INCOME[top] * SECRET_INCOME * (if donut.Rarity == "Icon" then 3 else 1)
 		end
 	end
 end

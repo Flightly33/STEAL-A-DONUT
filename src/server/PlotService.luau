@@ -12,10 +12,11 @@
 	really next to one (GetDonutPosition). Upgrading the base at its sign (BuySize,
 	Config.Plots.Sizes) makes the pen a little bigger, with room for more donuts.
 
-	Boxes (AddBox): a box you put down in your pen takes a slot and opens after its time
-	(Boxes.HatchSeconds - also while you're offline; Box Rushes speed it up, Robux skips it). It
-	pops open (every client plays BoxFX), and the donut inside goes into your inventory
-	(BoxOpened -> InventoryService).
+	Boxes (AddBox): a box you put down in your pen takes a slot and gets a timer (Boxes.HatchSeconds
+	- it also runs while you're offline; Box Rushes speed it up). When it runs out the box is ready
+	and waits for you: click it (or press E) to open it (OpenReadyBox). "Open now" for Robux opens it
+	straight away (SkipBox). It pops open (every client plays BoxFX), and the donut inside goes into
+	your inventory (BoxOpened -> InventoryService).
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -805,6 +806,35 @@ function PlotService.RecordFind(player: Player, donutId: string, mutationId: str
 	end
 end
 
+-- What the label over a box in the pen says right now (clients keep counting it down: client/BoxFX).
+local function boxTimerText(box: DataService.PenBox): string
+	local left = box.HatchAt - os.time()
+	return if left > 0 then Format.Duration(left) else "CLICK TO OPEN!"
+end
+
+-- A box is ready: it waits for its owner to click it (it never opens by itself).
+local function markReady(player: Player, slotIndex: number, model: Model, announce: boolean)
+	if model:GetAttribute("Ready") == true then
+		return
+	end
+	model:SetAttribute("Ready", true)
+	local root = model.PrimaryPart
+	local info = root and root:FindFirstChild("BoxInfo")
+	local timer = info and info:FindFirstChild("Timer", true)
+	if timer and timer:IsA("TextLabel") then
+		timer.Text = "CLICK TO OPEN!"
+	end
+	if announce then
+		local profile = DataService.Get(player)
+		local box = profile and profile.Data.PenBoxes[tostring(slotIndex)]
+		if box then
+			notify(player, `📦 Your {Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil)} is ready! Click it to open it.`, "success")
+		end
+	end
+end
+
+local lastNotReady: { [Player]: number } = {}
+
 local function spawnBoxModel(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local plot = PlotService.GetPlotModel(player)
@@ -832,43 +862,82 @@ local function spawnBoxModel(player: Player, slotIndex: number)
 	model:SetAttribute("OwnerUserId", player.UserId)
 	model:SetAttribute("Slot", slotIndex)
 	local root = model.PrimaryPart :: BasePart
-	-- name + time left (clients count it down from HatchAt: client/BoxFX)
+	-- Over the box: its name, and a timer (the time left, then "CLICK TO OPEN!") on a dark pill so
+	-- it's easy to read. The server writes the first value; clients count it down from HatchAt.
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "BoxInfo"
-	gui.Size = UDim2.fromScale(9, 2.6)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.4, 0)
+	gui.Size = UDim2.fromScale(10, 3.4)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.6, 0)
 	gui.LightInfluence = 0
-	gui.MaxDistance = 90
+	gui.MaxDistance = 140
 	gui.Parent = root
-	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.45), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
-	Build.Text(gui, "", { Name = "Timer", Size = UDim2.fromScale(1, 0.55), Position = UDim2.fromScale(0, 0.45), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0, Font = Enum.Font.FredokaOne })
-	-- "Open now" for Robux (only the owner sees it)
-	local skip = Instance.new("ProximityPrompt")
-	skip.Name = "SkipPrompt"
-	skip.ActionText = `Open now (R$ {Config.Boxes.SkipPrice})`
-	skip.ObjectText = "Skip the wait"
-	skip.KeyboardKeyCode = Enum.KeyCode.E
-	skip.GamepadKeyCode = Enum.KeyCode.ButtonX
-	skip.HoldDuration = 0
-	skip.MaxActivationDistance = 12
-	skip.RequiresLineOfSight = false
-	skip:SetAttribute("OwnerUserId", player.UserId)
-	skip.Parent = root
-	skip.Triggered:Connect(function(who)
+	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.4), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
+	local pill = Instance.new("Frame")
+	pill.Name = "TimerPill"
+	pill.AnchorPoint = Vector2.new(0.5, 0)
+	pill.Position = UDim2.fromScale(0.5, 0.44)
+	pill.Size = UDim2.fromScale(0.66, 0.54)
+	pill.BackgroundColor3 = rgb(25, 15, 30)
+	pill.BackgroundTransparency = 0.25
+	pill.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = pill
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = rgb(255, 255, 255)
+	stroke.Transparency = 0.6
+	stroke.Thickness = 2
+	stroke.Parent = pill
+	Build.Text(pill, boxTimerText(box), { Name = "Timer", Size = UDim2.fromScale(0.9, 0.8), Position = UDim2.fromScale(0.05, 0.1), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0, Font = Enum.Font.FredokaOne })
+	-- "Open now" for Robux while it's waiting, then "Open!" once it's ready (clients show each one
+	-- only to the owner, and only when it applies: client/BoxFX)
+	local function prompt(name: string, action: string, object: string): ProximityPrompt
+		local p = Instance.new("ProximityPrompt")
+		p.Name = name
+		p.ActionText = action
+		p.ObjectText = object
+		p.KeyboardKeyCode = Enum.KeyCode.E
+		p.GamepadKeyCode = Enum.KeyCode.ButtonX
+		p.HoldDuration = 0
+		p.MaxActivationDistance = 12
+		p.RequiresLineOfSight = false
+		p:SetAttribute("OwnerUserId", player.UserId)
+		p.Parent = root
+		return p
+	end
+	prompt("SkipPrompt", `Open now (R$ {Config.Boxes.SkipPrice})`, "Skip the wait").Triggered:Connect(function(who)
 		if who == player then
 			PlotService.SkipHandler(player, slotIndex)
 		end
 	end)
-	CollectionService:AddTag(model, "PenBox")
+	prompt("OpenPrompt", "Open!", Boxes.DisplayName(box.Tier, box.Size)).Triggered:Connect(function(who)
+		if who == player then
+			PlotService.OpenReadyBox(player, slotIndex)
+		end
+	end)
+	-- ...and click (or tap) the box itself to open it
+	local click = Instance.new("ClickDetector")
+	click.Name = "OpenClick"
+	click.MaxActivationDistance = 60
+	click.Parent = model
+	click.MouseClick:Connect(function(who)
+		if who == player then
+			PlotService.OpenReadyBox(player, slotIndex)
+		end
+	end)
+	if box.HatchAt <= os.time() then
+		markReady(player, slotIndex, model, false)
+	end
 	model.Parent = plot
+	CollectionService:AddTag(model, "PenBox") -- (after parenting: clients find it complete)
 	boxModels[player][slotIndex] = model
 end
 
 -- Set by ProductService: "Open now" was pressed on a box (prompts the Robux purchase).
 PlotService.SkipHandler = function(_player: Player, _slotIndex: number) end
 
--- Put a box down in the pen: it takes the first free slot and starts opening. `near`: where the
--- player is standing (the box goes in the free slot closest to them).
+-- Put a box down in the pen: it takes the free slot closest to `near` (where the player is
+-- standing) and its timer starts.
 function PlotService.AddBox(player: Player, tier: string, size: string, area: number, mutation: string?, near: Vector3?): number?
 	local profile = DataService.Get(player)
 	if not profile or not playerPlots[player] then
@@ -904,46 +973,6 @@ function PlotService.AddBox(player: Player, tier: string, size: string, area: nu
 	return slotIndex
 end
 
--- Open a box right away (the Robux skip, or the admin panel).
-function PlotService.SkipBox(player: Player, slotIndex: number?): boolean
-	local profile = DataService.Get(player)
-	if not profile then
-		return false
-	end
-	local key = if slotIndex then tostring(slotIndex) else nil
-	if not key or not profile.Data.PenBoxes[key] then
-		-- no slot given (or it's gone): the box with the longest wait left
-		local longest = -math.huge
-		for k, box in profile.Data.PenBoxes do
-			if box.HatchAt > longest then
-				longest, key = box.HatchAt, k
-			end
-		end
-	end
-	local box = key and profile.Data.PenBoxes[key]
-	if not box then
-		return false
-	end
-	box.HatchAt = os.time()
-	return true
-end
-
--- Box Rush (EventService): every box in every pen gets `seconds` closer to opening.
-function PlotService.RushBoxes(seconds: number)
-	for player in playerPlots do
-		local profile = DataService.Get(player)
-		if profile then
-			for key, box in profile.Data.PenBoxes do
-				box.HatchAt -= seconds
-				local model = boxModels[player] and boxModels[player][tonumber(key) or 0]
-				if model then
-					model:SetAttribute("HatchAt", box.HatchAt)
-				end
-			end
-		end
-	end
-end
-
 local function openBox(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local key = tostring(slotIndex)
@@ -970,7 +999,7 @@ local function openBox(player: Player, slotIndex: number)
 		Mutation = mutation,
 		Size = size,
 	})
-	notify(player, `📦 Your box opened: {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
+	notify(player, `📦 You got {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
 	task.delay(OPEN_ANIMATION, function()
 		if model then
 			model:Destroy()
@@ -984,16 +1013,79 @@ local function openBox(player: Player, slotIndex: number)
 	end)
 end
 
--- Open every box whose time is up (every second; offline time counts too).
+-- The owner clicked a box in their pen: it opens if its time is up.
+function PlotService.OpenReadyBox(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local box = profile and profile.Data.PenBoxes[tostring(slotIndex)]
+	if not box or (opening[player] and opening[player][slotIndex]) then
+		return
+	end
+	local left = box.HatchAt - os.time()
+	if left > 0 then
+		local now = os.clock()
+		if not lastNotReady[player] or now - lastNotReady[player] > 1.5 then
+			lastNotReady[player] = now
+			notify(player, `Not ready yet! {Format.Duration(left)} to go.`, "error")
+		end
+		return
+	end
+	openBox(player, slotIndex)
+end
+
+-- Open a box right away (the Robux skip, or the admin panel). No slot (or one that's gone): the
+-- box with the longest wait left.
+function PlotService.SkipBox(player: Player, slotIndex: number?): boolean
+	local profile = DataService.Get(player)
+	if not profile then
+		return false
+	end
+	local key = if slotIndex then tostring(slotIndex) else nil
+	if not key or not profile.Data.PenBoxes[key] then
+		local longest = -math.huge
+		for k, box in profile.Data.PenBoxes do
+			if box.HatchAt > longest then
+				longest, key = box.HatchAt, k
+			end
+		end
+	end
+	local box = key and profile.Data.PenBoxes[key]
+	local index = key and tonumber(key)
+	if not box or not index then
+		return false
+	end
+	box.HatchAt = math.min(box.HatchAt, os.time())
+	openBox(player, index)
+	return true
+end
+
+-- Box Rush (EventService): every box in every pen gets `seconds` closer to being ready.
+function PlotService.RushBoxes(seconds: number)
+	for player in playerPlots do
+		local profile = DataService.Get(player)
+		if profile then
+			for key, box in profile.Data.PenBoxes do
+				box.HatchAt -= seconds
+				local model = boxModels[player] and boxModels[player][tonumber(key) or 0]
+				if model then
+					model:SetAttribute("HatchAt", box.HatchAt)
+				end
+			end
+		end
+	end
+end
+
+-- Every second: boxes whose time is up become ready (offline time counts too) and wait for a click.
 local function updateBoxes()
 	local now = os.time()
 	for player in playerPlots do
 		local profile = DataService.Get(player)
-		if profile and profile.Session.Ready then
+		local models = boxModels[player]
+		if profile and profile.Session.Ready and models then
 			for key, box in profile.Data.PenBoxes do
 				local index = tonumber(key)
-				if index and box.HatchAt <= now and index <= PlotService.GetSlotCount(player) then
-					openBox(player, index)
+				local model = index and models[index]
+				if model and box.HatchAt <= now then
+					markReady(player, index :: number, model, true)
 				end
 			end
 		end
@@ -1003,31 +1095,58 @@ end
 --------------------------------------------------------------------------------
 -- The upgrade sign by the gate
 --------------------------------------------------------------------------------
+local UPGRADE_GREEN = rgb(60, 200, 90)
+local UPGRADE_RED = rgb(215, 55, 55)
+local UPGRADE_GREY = rgb(130, 130, 130)
+local upgradeLook: { [number]: string } = {} -- what each sign shows now (only touched when it changes)
+
+-- The sign by the gate: what the next size gives, and the button - green when the owner can afford
+-- it, red when not, grey at the biggest size (and on a free plot).
 local function refreshUpgradeSign(plotIndex: number, owner: Player?)
 	local plot = MapBuilder.GetPlot(plotIndex)
 	local sign = plot:FindFirstChild("UpgradeSign")
-	local board = sign and sign:FindFirstChild("Board")
-	local gui = board and board:FindFirstChild("SignGui")
-	local info = gui and gui:FindFirstChild("Info") :: TextLabel?
-	local promptPart = sign and sign:FindFirstChild("PromptPart")
-	local prompt = promptPart and promptPart:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
+	if not sign or not sign:IsA("Model") then
+		return
+	end
 	local profile = if owner then DataService.Get(owner) else nil
-	local text, enabled, action = "", false, "Upgrade Base"
+	local text, price, color, enabled, action = "", "", UPGRADE_GREY, false, "Upgrade Base"
 	if owner and profile then
 		local level = profile.Data.BaseLevel
 		local cost = Economy.BaseSizeCost(level)
 		local slots = PlotService.GetSlotCount(owner)
 		if cost then
-			text = `{slots} → {Economy.SlotCount(level + 1)} donuts\n{Format.Money(cost)}`
-			action = `Upgrade {Format.Money(cost)}`
+			text = `{slots} to {Economy.SlotCount(level + 1)} donuts`
+			price = Format.Money(cost)
+			color = if profile.Data.Money >= cost then UPGRADE_GREEN else UPGRADE_RED
+			action = `Upgrade {price}`
 			enabled = true
 		else
-			text = `{slots} donuts\nMAX SIZE!`
+			text = `{slots} donuts\nMAX SIZE`
+			price = "MAX SIZE"
 		end
 	end
+	local look = `{text}|{price}|{color:ToHex()}|{enabled}|{if owner then owner.UserId else -1}`
+	if upgradeLook[plotIndex] == look then
+		return
+	end
+	upgradeLook[plotIndex] = look
+	local board = sign:FindFirstChild("Board")
+	local gui = board and board:FindFirstChild("SignGui")
+	local info = gui and gui:FindFirstChild("Info") :: TextLabel?
 	if info then
 		info.Text = text
 	end
+	local button = sign:FindFirstChild("UpgradeButton") :: BasePart?
+	if button then
+		button.Color = color
+		local buttonGui = button:FindFirstChild("ButtonGui")
+		local priceLabel = buttonGui and buttonGui:FindFirstChild("Price") :: TextLabel?
+		if priceLabel then
+			priceLabel.Text = price
+		end
+	end
+	local promptPart = sign:FindFirstChild("PromptPart")
+	local prompt = promptPart and promptPart:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
 	if prompt then
 		prompt.ActionText = action
 		prompt.Enabled = enabled
@@ -1066,6 +1185,19 @@ local function setUpUpgradeSign(plotIndex: number)
 			PlotService.BuySize(who)
 		end
 	end)
+	-- the button on the sign: click or tap it
+	local button = MapBuilder.BuildUpgradeButton(sign :: Model)
+	if button and not button:FindFirstChild("UpgradeClick") then
+		local click = Instance.new("ClickDetector")
+		click.Name = "UpgradeClick"
+		click.MaxActivationDistance = 40
+		click.Parent = button
+		click.MouseClick:Connect(function(who: Player)
+			if plotOwners[plotIndex] == who then
+				PlotService.BuySize(who)
+			end
+		end)
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -1418,6 +1550,7 @@ function PlotService.Release(player: Player)
 	slotModels[player] = nil
 	boxModels[player] = nil
 	opening[player] = nil
+	lastNotReady[player] = nil
 	labelMultiplier[player] = nil
 	baseIncome[player] = nil
 	playerPlots[player] = nil
@@ -1434,6 +1567,10 @@ function PlotService.Init()
 		while true do
 			task.wait(1)
 			updateBoxes()
+			-- (the upgrade buttons turn green the moment their owner can afford the next size)
+			for player, index in playerPlots do
+				refreshUpgradeSign(index, player)
+			end
 		end
 	end)
 end

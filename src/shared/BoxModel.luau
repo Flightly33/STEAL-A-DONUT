@@ -8,6 +8,7 @@
 	  * Rare: blue, with a white ribbon round it.
 	  * Epic: purple, with a ribbon, a bow, a soft glow and a few sparkles.
 	  * Legendary: gold, with a big bow, a bright glow and a shower of sparkles.
+	  * Mythic: crimson with gold, a huge bow, glowing gold edges, a red glow, sparkles and embers.
 	A box with a mutation (Rarities.Mutations) is made of that mutation's material (gold foil,
 	diamond glass, glowing neon...). Bigger boxes are just bigger (Boxes.Sizes Scale).
 
@@ -113,16 +114,26 @@ function BoxModel.Build(tierId: string, sizeId: string?, options: Options?): Mod
 
 	-- ribbons and bows on the fancier boxes
 	if tier.Order >= 1 then
-		local ribbon = if tier.Id == "Rare" then rgb(255, 255, 255) elseif tier.Id == "Epic" then rgb(255, 215, 90) else rgb(255, 255, 255)
+		local ribbon = if tier.Id == "Epic" or tier.Id == "Mythic" then rgb(255, 215, 90) else rgb(255, 255, 255)
 		local rw = 0.5 * s
 		part(model, "Ribbon", Vector3.new(rw, h * 1.04, d * 1.07), CFrame.new(w * 0.3, h / 2, 0), ribbon, Enum.Material.SmoothPlastic)
 		part(model, "Ribbon", Vector3.new(w * 1.07, h * 1.04, rw), CFrame.new(0, h / 2, 0), ribbon, Enum.Material.SmoothPlastic)
 		if tier.Order >= 2 then
-			local bow = (if tier.Order >= 3 then 1.5 else 1.1) * s
+			local bow = (if tier.Order >= 4 then 1.9 elseif tier.Order >= 3 then 1.5 else 1.1) * s
 			for _, side in { -1, 1 } do
 				part(model, "Bow", Vector3.new(bow, bow * 0.7, bow * 0.5), CFrame.new(w * 0.3 + side * bow * 0.45, h + bow * 0.3, 0) * CFrame.Angles(0, 0, side * 0.5), ribbon, Enum.Material.SmoothPlastic)
 			end
 			part(model, "BowKnot", Vector3.one * bow * 0.45, CFrame.new(w * 0.3, h + bow * 0.25, 0), ribbon, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+		end
+	end
+
+	-- Mythic: glowing gold edges round the lid and the bottom
+	if tier.Order >= 4 then
+		for _, edge in { { Name = "LidEdge", Y = base + lidHeight }, { Name = "Edge", Y = 0.3 * s } } do
+			for _, side in { -1, 1 } do
+				part(model, edge.Name, Vector3.new(w * 1.06, 0.22 * s, 0.22 * s), CFrame.new(0, edge.Y, side * d * 0.53), trim, Enum.Material.Neon)
+				part(model, edge.Name, Vector3.new(0.22 * s, 0.22 * s, d * 1.06), CFrame.new(side * w * 0.53, edge.Y, 0), trim, Enum.Material.Neon)
+			end
 		end
 	end
 
@@ -131,11 +142,11 @@ function BoxModel.Build(tierId: string, sizeId: string?, options: Options?): Mod
 		if glow then
 			local light = Instance.new("PointLight")
 			light.Color = glow
-			light.Range = (if tier.Order >= 3 or mutation.Light then 14 else 9) * math.sqrt(s)
-			light.Brightness = if tier.Order >= 3 then 2 else 1.3
+			light.Range = (if tier.Order >= 4 then 18 elseif tier.Order >= 3 or mutation.Light then 14 else 9) * math.sqrt(s)
+			light.Brightness = if tier.Order >= 4 then 2.6 elseif tier.Order >= 3 then 2 else 1.3
 			light.Parent = bottom
 		end
-		local rate = (if tier.Order >= 3 then 10 elseif tier.Order >= 2 then 4 else 0) + (mutation.Particles or 0) * 0.5
+		local rate = (if tier.Order >= 4 then 16 elseif tier.Order >= 3 then 10 elseif tier.Order >= 2 then 4 else 0) + (mutation.Particles or 0) * 0.5
 		if rate > 0 then
 			local emitter = Instance.new("ParticleEmitter")
 			emitter.Name = "Sparkles"
@@ -147,6 +158,20 @@ function BoxModel.Build(tierId: string, sizeId: string?, options: Options?): Mod
 			emitter.SpreadAngle = Vector2.new(180, 180)
 			emitter.Size = NumberSequence.new(0.35 * math.sqrt(s), 0)
 			emitter.Parent = lid
+		end
+		if tier.Order >= 4 then
+			-- embers drifting up off a Mythic box
+			local embers = Instance.new("ParticleEmitter")
+			embers.Name = "Embers"
+			embers.Color = ColorSequence.new(rgb(255, 210, 80), rgb(255, 60, 40))
+			embers.LightEmission = 1
+			embers.Rate = 8
+			embers.Lifetime = NumberRange.new(1, 2)
+			embers.Speed = NumberRange.new(2, 4)
+			embers.SpreadAngle = Vector2.new(25, 25)
+			embers.Acceleration = Vector3.new(0, 2, 0)
+			embers.Size = NumberSequence.new(0.25 * math.sqrt(s), 0)
+			embers.Parent = lid
 		end
 	end
 

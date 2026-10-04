@@ -3,8 +3,10 @@
 	  * Boxes in the biomes ("LaneBox"): a gentle bob and turn so they catch the eye (only the ones
 	    near you move).
 	  * Boxes in pens ("PenBox"): the time left counts down on the label over each one, worked out
-	    here from its HatchAt attribute so the server doesn't send anything every second. Only the
-	    owner sees the "Open now" prompt.
+	    here from its HatchAt attribute so the server doesn't send anything every second. Once it's
+	    ready the box hops and wiggles, the label flashes CLICK TO OPEN!, and its owner clicks (or
+	    taps) it, or presses E, to open it. Only the owner sees the prompts ("Open now" for Robux
+	    while it waits, "Open!" once it's ready) and can click it.
 	  * Opening (remote "BoxOpened"): the lid flips off, the box spins faster and faster, a white
 	    flash - and the donut pops out, then drops into its owner's inventory (flies to them).
 	  * The pill at the top: the Box Rush (every Config.Boxes.Rush.Interval seconds every box in
@@ -36,13 +38,27 @@ local BoxFX = {}
 local player = Players.LocalPlayer :: Player
 
 local BOB_RANGE = 180 -- biome boxes further away than this don't bob
-local LID_PARTS = { Lid = true, Bow = true, BowKnot = true }
+local LID_PARTS = { Lid = true, Bow = true, BowKnot = true, LidEdge = true }
 
 type Bobbing = { Model: Model, Parts: { BasePart }, Offsets: { CFrame }, Pivot: CFrame, Phase: number }
 
+type PenBox = {
+	Model: Model,
+	Timer: TextLabel,
+	Mine: boolean,
+	Skip: ProximityPrompt?,
+	Open: ProximityPrompt?,
+	Parts: { BasePart },
+	Offsets: { CFrame },
+	Pivot: CFrame,
+	Phase: number,
+}
+
 local bobbing: { [Model]: Bobbing } = {}
 local bulkMove = true -- (workspace:BulkMoveTo, if this client has it)
-local penBoxes: { [Model]: TextLabel } = {}
+local penBoxes: { [Model]: PenBox } = {}
+local READY_GOLD = Color3.fromRGB(255, 215, 70)
+local WIGGLE_RANGE = 120 -- ready boxes further away than this don't wiggle
 
 local function rushing(): boolean
 	local endsAt = workspace:GetAttribute("BoxRushEndsAt")
@@ -68,23 +84,7 @@ local function addLaneBox(model: Instance)
 	bobbing[model] = { Model = model, Parts = parts, Offsets = offsets, Pivot = pivot, Phase = math.random() * math.pi * 2 }
 end
 
-local function updateBobbing(now: number, position: Vector3?)
-	local parts, frames = {}, {}
-	for model, info in bobbing do
-		if not model.Parent then
-			bobbing[model] = nil
-			continue
-		end
-		if not position or (info.Pivot.Position - position).Magnitude > BOB_RANGE then
-			continue
-		end
-		local t = now + info.Phase
-		local bob = info.Pivot * CFrame.new(0, 0.35 + math.sin(t * 2.2) * 0.3, 0) * CFrame.Angles(0, math.sin(t * 0.9) * 0.18, math.sin(t * 1.7) * 0.03)
-		for i, part in info.Parts do
-			table.insert(parts, part)
-			table.insert(frames, bob * info.Offsets[i])
-		end
-	end
+local function moveParts(parts: { BasePart }, frames: { CFrame })
 	if #parts == 0 then
 		return
 	end
@@ -101,42 +101,130 @@ local function updateBobbing(now: number, position: Vector3?)
 	end
 end
 
+local function updateBobbing(now: number, position: Vector3?, parts: { BasePart }, frames: { CFrame })
+	for model, info in bobbing do
+		if not model.Parent then
+			bobbing[model] = nil
+			continue
+		end
+		if not position or (info.Pivot.Position - position).Magnitude > BOB_RANGE then
+			continue
+		end
+		local t = now + info.Phase
+		local bob = info.Pivot * CFrame.new(0, 0.35 + math.sin(t * 2.2) * 0.3, 0) * CFrame.Angles(0, math.sin(t * 0.9) * 0.18, math.sin(t * 1.7) * 0.03)
+		for i, part in info.Parts do
+			table.insert(parts, part)
+			table.insert(frames, bob * info.Offsets[i])
+		end
+	end
+end
+
 --------------------------------------------------------------------------------
--- Pen boxes: countdowns
+-- Pen boxes: countdowns, then "CLICK TO OPEN!"
 --------------------------------------------------------------------------------
+local function setEnabled(prompt: ProximityPrompt?, on: boolean)
+	if prompt and prompt.Enabled ~= on then
+		prompt.Enabled = on
+	end
+end
+
 local function addPenBox(model: Instance)
-	if not model:IsA("Model") then
+	if not model:IsA("Model") or penBoxes[model] then
 		return
 	end
-	local root = model.PrimaryPart
-	local info = root and root:FindFirstChild("BoxInfo")
-	local timer = info and info:FindFirstChild("Timer")
-	if timer and timer:IsA("TextLabel") then
-		penBoxes[model] = timer
-	end
-	-- "Open now" is just for the box's owner
-	local prompt = root and root:FindFirstChild("SkipPrompt")
-	if prompt and prompt:IsA("ProximityPrompt") then
-		prompt.Enabled = model:GetAttribute("OwnerUserId") == player.UserId
-	end
+	task.defer(function()
+		-- (a box's parts and labels can arrive a moment after the box itself)
+		local root = model:WaitForChild("Root", 10)
+		local info = root and root:WaitForChild("BoxInfo", 10)
+		local pill = info and info:WaitForChild("TimerPill", 10)
+		local timer = pill and pill:WaitForChild("Timer", 10)
+		if not root or not timer or not timer:IsA("TextLabel") or not model.Parent or penBoxes[model] then
+			return
+		end
+		local skip = root:WaitForChild("SkipPrompt", 5)
+		local open = root:WaitForChild("OpenPrompt", 5)
+		local mine = model:GetAttribute("OwnerUserId") == player.UserId
+		-- other players' boxes: no prompts and no clicking (the server checks too)
+		local click = model:FindFirstChild("OpenClick")
+		if click and click:IsA("ClickDetector") and not mine then
+			click.MaxActivationDistance = 0
+		end
+		local pivot = model:GetPivot()
+		local parts, offsets = {}, {}
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") then
+				table.insert(parts, part)
+				table.insert(offsets, pivot:ToObjectSpace(part.CFrame))
+			end
+		end
+		penBoxes[model] = {
+			Model = model,
+			Timer = timer,
+			Mine = mine,
+			Skip = if skip and skip:IsA("ProximityPrompt") then skip else nil,
+			Open = if open and open:IsA("ProximityPrompt") then open else nil,
+			Parts = parts,
+			Offsets = offsets,
+			Pivot = pivot,
+			Phase = math.random() * 1.6,
+		}
+	end)
+end
+
+local function isReady(entry: PenBox, now: number): boolean
+	local hatchAt = entry.Model:GetAttribute("HatchAt")
+	return entry.Model:GetAttribute("Ready") == true or (type(hatchAt) == "number" and hatchAt - now <= 0.5)
 end
 
 local function updateTimers()
 	local now = workspace:GetServerTimeNow()
 	local rush = rushing()
-	for model, label in penBoxes do
+	for model, entry in penBoxes do
 		if not model.Parent then
 			penBoxes[model] = nil
 			continue
 		end
-		local hatchAt = model:GetAttribute("HatchAt")
-		local left = if type(hatchAt) == "number" then hatchAt - now else 0
-		local text = if left > 0.5
-			then `⏳ {Format.Duration(math.ceil(left))}{if rush then ` ⏩x{Config.Boxes.Rush.Speed}` else ""}`
-			else "📦 Opening!"
-		if label.Text ~= text then
-			label.Text = text
-			label.TextColor3 = if rush then Color3.fromRGB(120, 230, 255) else Color3.new(1, 1, 1)
+		local ready = isReady(entry, now)
+		setEnabled(entry.Skip, entry.Mine and not ready)
+		setEnabled(entry.Open, entry.Mine and ready)
+		local text, color
+		if ready then
+			text = if entry.Mine then "CLICK TO OPEN!" else "READY"
+			-- (flashes between gold and white)
+			color = if math.floor(os.clock() * 2.5) % 2 == 0 then READY_GOLD else Color3.new(1, 1, 1)
+		else
+			local hatchAt = model:GetAttribute("HatchAt") :: number
+			text = `{Format.Duration(math.ceil(hatchAt - now))}{if rush then ` x{Config.Boxes.Rush.Speed}` else ""}`
+			color = if rush then Color3.fromRGB(120, 230, 255) else Color3.new(1, 1, 1)
+		end
+		if entry.Timer.Text ~= text then
+			entry.Timer.Text = text
+		end
+		if entry.Timer.TextColor3 ~= color then
+			entry.Timer.TextColor3 = color
+		end
+	end
+end
+
+-- Your ready boxes hop and wiggle now and then, so you notice them.
+local function updateWiggle(now: number, position: Vector3?, parts: { BasePart }, frames: { CFrame })
+	if not position then
+		return
+	end
+	local serverNow = workspace:GetServerTimeNow()
+	for model, entry in penBoxes do
+		if not entry.Mine or not model.Parent or not isReady(entry, serverNow) or (entry.Pivot.Position - position).Magnitude > WIGGLE_RANGE then
+			continue
+		end
+		local t = (now + entry.Phase) % 1.6
+		local cf = entry.Pivot
+		if t < 0.5 then
+			local k = t / 0.5
+			cf = entry.Pivot * CFrame.new(0, math.sin(k * math.pi) * 0.8, 0) * CFrame.Angles(0, 0, math.sin(k * math.pi * 4) * 0.12 * (1 - k))
+		end
+		for i, part in entry.Parts do
+			table.insert(parts, part)
+			table.insert(frames, cf * entry.Offsets[i])
 		end
 	end
 end
@@ -408,7 +496,11 @@ function BoxFX.Init()
 		local now = os.clock()
 		if now >= nextBob then
 			nextBob = now + 1 / 30
-			updateBobbing(now, AreaTracker.Position())
+			local position = AreaTracker.Position()
+			local parts, frames = {}, {}
+			updateBobbing(now, position, parts, frames)
+			updateWiggle(now, position, parts, frames)
+			moveParts(parts, frames)
 		end
 		if now >= nextTick then
 			nextTick = now + 0.25

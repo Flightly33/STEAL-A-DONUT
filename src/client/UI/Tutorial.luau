@@ -6,7 +6,7 @@
 	  2. steal a donut box (walk up to one next to Domer and press E)
 	  3. run back to the lobby before Domer catches you (caught? steal another one)
 	  4. go into your pen, hold the box and click to put it down
-	  5. wait for it to open (the donut lands in your inventory)
+	  5. wait for its timer, then click it to open it (the donut lands in your inventory)
 	  6. hold the donut and click in your pen: it walks around and makes money
 	  7. run on your treadmill to get faster
 	Then a Claim button gives you a free egg (once ever; the server checks).
@@ -39,7 +39,7 @@ local TEXT: { [string]: string } = {
 	RunHome = `Run back to the lobby before {Config.Guard.Name} catches you!`,
 	Caught = `{Config.Guard.Name} caught you! Steal another box and try again`,
 	PlaceBox = "Go into your pen, hold the box and click to put it down",
-	Wait = "Your box is opening! Wait for the timer to run out",
+	Wait = "Wait for the timer over your box, then click the box to open it!",
 	PlaceDonut = "Your donut is in your inventory! Hold it and click in your pen",
 	Treadmill = "Your donut makes money! Now run on your treadmill to get faster",
 	Done = "Tutorial complete! Claim your free egg",

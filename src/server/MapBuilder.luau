@@ -717,6 +717,33 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	pen.Parent = plot
 end
 
+-- The big button under the upgrade sign's board: "UPGRADE" and the price. PlotService colours it
+-- (green when the owner can afford the next size, red when not, grey at the biggest size) and makes
+-- it clickable. Also called on maps saved before the sign had a button.
+function MapBuilder.BuildUpgradeButton(sign: Model): BasePart?
+	local existing = sign:FindFirstChild("UpgradeButton")
+	if existing and existing:IsA("BasePart") then
+		return existing
+	end
+	local board = sign:FindFirstChild("Board")
+	if not board or not board:IsA("BasePart") then
+		return nil
+	end
+	Build.Part({ Parent = sign, Name = "ButtonRim", Size = Vector3.new(6.4, 2.6, 0.5), CFrame = board.CFrame * CFrame.new(0, -3.6, 0), Color = rgb(70, 40, 20), Material = Enum.Material.WoodPlanks })
+	local button = Build.Part({ Parent = sign, Name = "UpgradeButton", Size = Vector3.new(5.8, 2.1, 0.7), CFrame = board.CFrame * CFrame.new(0, -3.6, -0.4), Color = rgb(130, 130, 130), Material = Enum.Material.SmoothPlastic })
+	button.TopSurface = Enum.SurfaceType.Studs
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "ButtonGui"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+	gui.LightInfluence = 0
+	gui.Parent = button
+	Build.Text(gui, "UPGRADE", { Name = "Label", Size = UDim2.fromScale(0.92, 0.58), Position = UDim2.fromScale(0.04, 0.04), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 30, 30) })
+	Build.Text(gui, "", { Name = "Price", Size = UDim2.fromScale(0.92, 0.36), Position = UDim2.fromScale(0.04, 0.6), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 30, 30), Font = Enum.Font.FredokaOne })
+	return button
+end
+
 -- The sign by the gate where you upgrade your base (PlotService writes the price on it).
 local function buildUpgradeSign(plot: Model, cf: CFrame)
 	local sign = Instance.new("Model")
@@ -736,11 +763,12 @@ local function buildUpgradeSign(plot: Model, cf: CFrame)
 	gui.PixelsPerStud = 40
 	gui.LightInfluence = 0
 	gui.Parent = board
-	Build.Text(gui, "⬆️ UPGRADE BASE", { Name = "Title", Size = UDim2.fromScale(1, 0.4), TextColor3 = rgb(255, 240, 120), TextStrokeColor3 = rgb(60, 30, 10) })
+	Build.Text(gui, "UPGRADE BASE", { Name = "Title", Size = UDim2.fromScale(1, 0.4), TextColor3 = rgb(255, 240, 120), TextStrokeColor3 = rgb(60, 30, 10) })
 	Build.Text(gui, "", { Name = "Info", Size = UDim2.fromScale(1, 0.6), Position = UDim2.fromScale(0, 0.4), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(60, 30, 10), Font = Enum.Font.FredokaOne })
 	local prompt = Build.Part({ Parent = sign, Name = "PromptPart", Size = Vector3.new(4, 4, 1), CFrame = at(0, 3, -1.5), Transparency = 1, CanCollide = false })
 	prompt:SetAttribute("UpgradeSign", true)
 	sign.PrimaryPart = board
+	MapBuilder.BuildUpgradeButton(sign)
 	sign.Parent = plot
 end
 

@@ -309,7 +309,8 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 	})
 
 	local tier = Boxes.Tier(record.Tier)
-	if tier.Order >= 3 or Rarities.Mutation(record.Mutation).Order >= 3 then
+	-- (the biome's rarest box, or a big mutation)
+	if Boxes.Rank(record.AreaId, record.Tier) >= 3 or Rarities.Mutation(record.Mutation).Order >= 3 then
 		local name = Rarities.DisplayName(Boxes.DisplayName(record.Tier, record.Size), record.Mutation, nil)
 		Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} is stealing a {string.upper(name)}!`, tier.Color)
 	end

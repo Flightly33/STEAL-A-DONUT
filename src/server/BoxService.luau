@@ -27,6 +27,7 @@ local Areas = require(Shared.Areas)
 local Boxes = require(Shared.Boxes)
 local BoxModel = require(Shared.BoxModel)
 local Rarities = require(Shared.Rarities)
+local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -139,18 +140,19 @@ local function show(record: BoxRecord, cf: CFrame)
 			stealHandler(player, record)
 		end
 	end)
-	-- its name floating over it (in its rarity's colour)
+	-- its name floating over it (in its rarity's colour) and how long it takes to open
 	local label = Instance.new("BillboardGui")
 	label.Name = "BoxLabel"
-	label.Size = UDim2.fromScale(10, 1.6)
-	label.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2, 0)
+	label.Size = UDim2.fromScale(10, 2.5)
+	label.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.3, 0)
 	label.LightInfluence = 0
 	label.MaxDistance = 140
 	label.Parent = model.PrimaryPart
-	Build.Text(label, prompt.ObjectText, { TextColor3 = (if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else Boxes.Tier(record.Tier).Color):Lerp(Color3.new(1, 1, 1), 0.25), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
+	Build.Text(label, prompt.ObjectText, { Size = UDim2.fromScale(1, 0.6), TextColor3 = (if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else Boxes.Tier(record.Tier).Color):Lerp(Color3.new(1, 1, 1), 0.25), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
+	Build.Text(label, `Opens in {Format.Duration(Boxes.HatchSeconds(record.Tier, record.Size))}`, { Name = "OpenTime", Size = UDim2.fromScale(1, 0.38), Position = UDim2.fromScale(0, 0.62), Font = Enum.Font.FredokaOne, TextColor3 = Color3.fromRGB(255, 255, 255), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
 	-- a glowing ring on the ground under the better boxes, so they stand out from far away
 	local tier = Boxes.Tier(record.Tier)
-	if tier.Order >= 2 or record.Mutation ~= "None" then
+	if Boxes.Rank(record.AreaId, record.Tier) >= 2 or record.Mutation ~= "None" then
 		local color = if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else tier.Color
 		local ring = Build.Decor({ Parent = model, Name = "GroundRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 9 * scale, 9 * scale), CFrame = cf * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.Neon, Transparency = 0.5 })
 		ring.CastShadow = false

@@ -3,8 +3,9 @@
 	================
 	Your inventory (DataService Data.Inventory): every box you bring back to the lobby, and every
 	donut that comes out of a box, is a Tool in your backpack (the hotbar at the bottom).
-	  * Hold a box or donut and click / tap while you're in your pen: it goes down there - a box
-	    starts opening (PlotService.AddBox), a donut starts roaming and earning (PlotService.AddDonut).
+	  * Hold a box or donut and click / tap while you're in your pen: it goes down there - a box's
+	    timer starts (PlotService.AddBox; click it to open it once it's ready), a donut starts
+	    roaming and earning (PlotService.AddDonut).
 	  * Donuts can be sold from the inventory at the sell stall in the lobby (UI/Sell).
 	  * The free bat isn't in here: ItemService hands it out.
 	Tools are rebuilt from the saved list every time you spawn, so nothing is ever lost.
@@ -97,7 +98,7 @@ local function makeTool(player: Player, item: DataService.InvItem): Tool
 	tool.Name = InventoryService.ItemName(item)
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	tool.ToolTip = if item.Kind == "Box" then "Click in your pen to put it down - it opens after a while" else "Click in your pen to put it down"
+	tool.ToolTip = if item.Kind == "Box" then "Click in your pen to put it down, then click it when its timer runs out" else "Click in your pen to put it down"
 	tool:SetAttribute("InvUid", item.Uid)
 	tool:SetAttribute("InvKind", item.Kind)
 	local handle = handleFor(item)

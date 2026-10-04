@@ -873,6 +873,7 @@ return Areas
 	  * Rare: blue, with a white ribbon round it.
 	  * Epic: purple, with a ribbon, a bow, a soft glow and a few sparkles.
 	  * Legendary: gold, with a big bow, a bright glow and a shower of sparkles.
+	  * Mythic: crimson with gold, a huge bow, glowing gold edges, a red glow, sparkles and embers.
 	A box with a mutation (Rarities.Mutations) is made of that mutation's material (gold foil,
 	diamond glass, glowing neon...). Bigger boxes are just bigger (Boxes.Sizes Scale).
 
@@ -978,16 +979,26 @@ function BoxModel.Build(tierId: string, sizeId: string?, options: Options?): Mod
 
 	-- ribbons and bows on the fancier boxes
 	if tier.Order >= 1 then
-		local ribbon = if tier.Id == "Rare" then rgb(255, 255, 255) elseif tier.Id == "Epic" then rgb(255, 215, 90) else rgb(255, 255, 255)
+		local ribbon = if tier.Id == "Epic" or tier.Id == "Mythic" then rgb(255, 215, 90) else rgb(255, 255, 255)
 		local rw = 0.5 * s
 		part(model, "Ribbon", Vector3.new(rw, h * 1.04, d * 1.07), CFrame.new(w * 0.3, h / 2, 0), ribbon, Enum.Material.SmoothPlastic)
 		part(model, "Ribbon", Vector3.new(w * 1.07, h * 1.04, rw), CFrame.new(0, h / 2, 0), ribbon, Enum.Material.SmoothPlastic)
 		if tier.Order >= 2 then
-			local bow = (if tier.Order >= 3 then 1.5 else 1.1) * s
+			local bow = (if tier.Order >= 4 then 1.9 elseif tier.Order >= 3 then 1.5 else 1.1) * s
 			for _, side in { -1, 1 } do
 				part(model, "Bow", Vector3.new(bow, bow * 0.7, bow * 0.5), CFrame.new(w * 0.3 + side * bow * 0.45, h + bow * 0.3, 0) * CFrame.Angles(0, 0, side * 0.5), ribbon, Enum.Material.SmoothPlastic)
 			end
 			part(model, "BowKnot", Vector3.one * bow * 0.45, CFrame.new(w * 0.3, h + bow * 0.25, 0), ribbon, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+		end
+	end
+
+	-- Mythic: glowing gold edges round the lid and the bottom
+	if tier.Order >= 4 then
+		for _, edge in { { Name = "LidEdge", Y = base + lidHeight }, { Name = "Edge", Y = 0.3 * s } } do
+			for _, side in { -1, 1 } do
+				part(model, edge.Name, Vector3.new(w * 1.06, 0.22 * s, 0.22 * s), CFrame.new(0, edge.Y, side * d * 0.53), trim, Enum.Material.Neon)
+				part(model, edge.Name, Vector3.new(0.22 * s, 0.22 * s, d * 1.06), CFrame.new(side * w * 0.53, edge.Y, 0), trim, Enum.Material.Neon)
+			end
 		end
 	end
 
@@ -996,11 +1007,11 @@ function BoxModel.Build(tierId: string, sizeId: string?, options: Options?): Mod
 		if glow then
 			local light = Instance.new("PointLight")
 			light.Color = glow
-			light.Range = (if tier.Order >= 3 or mutation.Light then 14 else 9) * math.sqrt(s)
-			light.Brightness = if tier.Order >= 3 then 2 else 1.3
+			light.Range = (if tier.Order >= 4 then 18 elseif tier.Order >= 3 or mutation.Light then 14 else 9) * math.sqrt(s)
+			light.Brightness = if tier.Order >= 4 then 2.6 elseif tier.Order >= 3 then 2 else 1.3
 			light.Parent = bottom
 		end
-		local rate = (if tier.Order >= 3 then 10 elseif tier.Order >= 2 then 4 else 0) + (mutation.Particles or 0) * 0.5
+		local rate = (if tier.Order >= 4 then 16 elseif tier.Order >= 3 then 10 elseif tier.Order >= 2 then 4 else 0) + (mutation.Particles or 0) * 0.5
 		if rate > 0 then
 			local emitter = Instance.new("ParticleEmitter")
 			emitter.Name = "Sparkles"
@@ -1012,6 +1023,20 @@ function BoxModel.Build(tierId: string, sizeId: string?, options: Options?): Mod
 			emitter.SpreadAngle = Vector2.new(180, 180)
 			emitter.Size = NumberSequence.new(0.35 * math.sqrt(s), 0)
 			emitter.Parent = lid
+		end
+		if tier.Order >= 4 then
+			-- embers drifting up off a Mythic box
+			local embers = Instance.new("ParticleEmitter")
+			embers.Name = "Embers"
+			embers.Color = ColorSequence.new(rgb(255, 210, 80), rgb(255, 60, 40))
+			embers.LightEmission = 1
+			embers.Rate = 8
+			embers.Lifetime = NumberRange.new(1, 2)
+			embers.Speed = NumberRange.new(2, 4)
+			embers.SpreadAngle = Vector2.new(25, 25)
+			embers.Acceleration = Vector3.new(0, 2, 0)
+			embers.Size = NumberSequence.new(0.25 * math.sqrt(s), 0)
+			embers.Parent = lid
 		end
 	end
 
@@ -1044,8 +1069,10 @@ return BoxModel
 	Boxes: donut boxes - what you steal from each biome's Domer (Config.Boxes has the numbers).
 
 	A box is a rarity TIER and a SIZE:
-	  * Tier: Basic (the plain pink box, first biome only), Rare, Epic or Legendary. It picks which of
-	    the biome's donuts can come out (Donuts.ByBox) and how long it takes to open.
+	  * Tier: Basic (the plain pink box, first biome only), Rare, Epic, Legendary or Mythic. Which
+	    ones a biome has (and how often) is its lineup (Config.Boxes.Lineups): Rare / Epic /
+	    Legendary, then Epic / Legendary / Mythic in the later biomes. The tier picks which of the
+	    biome's donuts can come out (Donuts.ByBox) and how long it takes to open.
 	  * Size: Small, Big, Huge or GIANT. Bigger boxes are rarer, take longer to open, slow you down
 	    while you carry them and hold a bigger donut (Rarities.Sizes) that earns more.
 
@@ -1060,10 +1087,11 @@ export type Tier = {
 	Name: string,
 	Order: number,
 	HatchSeconds: number,
-	Weight: number,
 	Color: Color3,
 	Trim: Color3,
 }
+
+export type LineupEntry = { Tier: Tier, Weight: number }
 
 export type Size = {
 	Id: string,
@@ -1102,54 +1130,78 @@ function Boxes.HatchSeconds(tierId: string, sizeId: string?): number
 	return Boxes.Tier(tierId).HatchSeconds * Boxes.Size(sizeId).HatchMultiplier
 end
 
--- The tiers a biome's Domer guards: just the pink box in the first biome, Rare / Epic /
--- Legendary everywhere else.
-function Boxes.TiersFor(biome: number): { Tier }
-	if biome <= 1 then
-		return { Boxes.TierById.Basic }
+local lineups: { { From: number, Entries: { LineupEntry } } } = {}
+for _, lineup in Config.Boxes.Lineups do
+	local entries = {}
+	for _, entry in lineup.Tiers do
+		local tier = Boxes.TierById[entry.Id]
+		assert(tier, "Unknown box tier in Config.Boxes.Lineups: " .. entry.Id)
+		table.insert(entries, { Tier = tier, Weight = entry.Weight })
 	end
-	local list = {}
-	for _, tier in Boxes.Tiers do
-		if tier.Id ~= "Basic" then
-			table.insert(list, tier)
+	table.insert(lineups, { From = lineup.From, Entries = entries })
+end
+table.sort(lineups, function(a, b)
+	return a.From < b.From
+end)
+
+-- The boxes a biome's Domer guards, most common first, with how often each turns up.
+function Boxes.Lineup(biome: number): { LineupEntry }
+	local found = lineups[1].Entries
+	for _, lineup in lineups do
+		if biome >= lineup.From then
+			found = lineup.Entries
 		end
+	end
+	return found
+end
+
+-- The tiers a biome's Domer guards, most common first.
+function Boxes.TiersFor(biome: number): { Tier }
+	local list = {}
+	for _, entry in Boxes.Lineup(biome) do
+		table.insert(list, entry.Tier)
 	end
 	return list
 end
 
--- A random tier for a fresh box in `biome`. `luck` multiplies the Epic and Legendary weights.
-function Boxes.RollTier(biome: number, rng: Random, luck: number?): Tier
-	local list = Boxes.TiersFor(biome)
-	if #list == 1 then
-		return list[1]
-	end
-	local boost = luck or 1
-	local total = 0
-	for _, tier in list do
-		total += tier.Weight * (if tier.Order >= 2 then boost else 1)
-	end
-	local left = rng:NextNumber() * total
-	for _, tier in list do
-		left -= tier.Weight * (if tier.Order >= 2 then boost else 1)
-		if left <= 0 then
-			return tier
+-- Where a tier is in its biome's lineup: 1 = the common box, 3 = the rarest (0 = not there).
+function Boxes.Rank(biome: number, tierId: string): number
+	for i, entry in Boxes.Lineup(biome) do
+		if entry.Tier.Id == tierId then
+			return i
 		end
 	end
-	return list[#list]
+	return 0
+end
+
+-- A random tier for a fresh box in `biome`. `luck` multiplies the weights of every box but the
+-- common one.
+function Boxes.RollTier(biome: number, rng: Random, luck: number?): Tier
+	local lineup = Boxes.Lineup(biome)
+	local boost = luck or 1
+	local total = 0
+	for i, entry in lineup do
+		total += entry.Weight * (if i > 1 then boost else 1)
+	end
+	local left = rng:NextNumber() * total
+	for i, entry in lineup do
+		left -= entry.Weight * (if i > 1 then boost else 1)
+		if left <= 0 then
+			return entry.Tier
+		end
+	end
+	return lineup[#lineup].Tier
 end
 
 -- Chance (0-1) that a fresh box in `biome` is this tier.
 function Boxes.TierChance(biome: number, tierId: string): number
-	local list = Boxes.TiersFor(biome)
+	local lineup = Boxes.Lineup(biome)
 	local total, mine = 0, 0
-	for _, tier in list do
-		total += tier.Weight
-		if tier.Id == tierId then
-			mine = tier.Weight
+	for _, entry in lineup do
+		total += entry.Weight
+		if entry.Tier.Id == tierId then
+			mine = entry.Weight
 		end
-	end
-	if #list == 1 then
-		return if list[1].Id == tierId then 1 else 0
 	end
 	return if total > 0 then mine / total else 0
 end
@@ -1424,18 +1476,26 @@ Config.Spawns = {
 -- ResetInterval seconds ("ALL BOXES RESET!"). A box you steal leaves its spot empty until then.
 -- Bring a box back to the lobby and it goes into your inventory; take it out in your pen and it
 -- opens after its rarity's HatchSeconds x its size's HatchMultiplier (also while you're offline).
--- The first biome only has the plain pink box. Every other biome has Rare, Epic and Legendary
--- boxes (Weight = how often each turns up).
+-- Which boxes each biome's Domer guards (Lineups): the plain pink box in the first biome, Rare /
+-- Epic / Legendary after that, and from biome 11 on the Rare box makes way for the MYTHIC box:
+-- Epic / Legendary / Mythic. Weight = how often each turns up. (The economy sim checked the Mythic
+-- lineup: its boxes are worth more but take longer to open, so the 12-16 hour pace stays the same.)
 --------------------------------------------------------------------------------
 local PINK = Color3.fromRGB(255, 170, 205)
 Config.Boxes = {
 	PerBiome = 5,
 	ResetInterval = 300,
 	Tiers = {
-		{ Id = "Basic", Name = "Donut Box", Order = 0, HatchSeconds = 30, Weight = 0, Color = PINK, Trim = Color3.fromRGB(255, 255, 255) },
-		{ Id = "Rare", Name = "Rare Donut Box", Order = 1, HatchSeconds = 60, Weight = 70, Color = Color3.fromRGB(80, 160, 255), Trim = Color3.fromRGB(255, 255, 255) },
-		{ Id = "Epic", Name = "Epic Donut Box", Order = 2, HatchSeconds = 600, Weight = 25, Color = Color3.fromRGB(175, 80, 255), Trim = Color3.fromRGB(255, 220, 255) },
-		{ Id = "Legendary", Name = "Legendary Donut Box", Order = 3, HatchSeconds = 3600, Weight = 5, Color = Color3.fromRGB(255, 195, 40), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Basic", Name = "Donut Box", Order = 0, HatchSeconds = 30, Color = PINK, Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Rare", Name = "Rare Donut Box", Order = 1, HatchSeconds = 60, Color = Color3.fromRGB(80, 160, 255), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Epic", Name = "Epic Donut Box", Order = 2, HatchSeconds = 600, Color = Color3.fromRGB(175, 80, 255), Trim = Color3.fromRGB(255, 220, 255) },
+		{ Id = "Legendary", Name = "Legendary Donut Box", Order = 3, HatchSeconds = 3600, Color = Color3.fromRGB(255, 195, 40), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Mythic", Name = "Mythic Donut Box", Order = 4, HatchSeconds = 7200, Color = Color3.fromRGB(210, 25, 60), Trim = Color3.fromRGB(255, 210, 80) },
+	},
+	Lineups = {
+		{ From = 1, Tiers = { { Id = "Basic", Weight = 1 } } },
+		{ From = 2, Tiers = { { Id = "Rare", Weight = 70 }, { Id = "Epic", Weight = 25 }, { Id = "Legendary", Weight = 5 } } },
+		{ From = 11, Tiers = { { Id = "Epic", Weight = 70 }, { Id = "Legendary", Weight = 25 }, { Id = "Mythic", Weight = 5 } } },
 	},
 	-- Bigger boxes are rarer, take longer to open and hold a bigger donut (that earns more).
 	-- CarrySpeed: you run this much slower while you carry it.
@@ -5648,6 +5708,7 @@ return DonutModel
 
 local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
+local Boxes = require(script.Parent.Boxes)
 
 export type Donut = {
 	Id: string,
@@ -5962,15 +6023,16 @@ local BIOME_DONUTS: { { number } } = {
 	{ 34, 33 }, -- 20 The Black Hole
 }
 
--- Money per second of an average Rare-box donut in each biome (level 1, no mutation, normal size).
+-- Money per second of an average x1 donut in each biome (level 1, no mutation, normal size); each
+-- box multiplies it (TIER_INCOME: a Rare box x1 ... a Mythic box x30).
 -- Tuned with the economy sim (see Config.Treadmill).
 local BIOME_INCOME = {
 	7, 22, 72, 230, 730, 2_350, 8_700, 32_000, 120_000, 440_000,
 	1_630_000, 6_000_000, 22_000_000, 82_000_000, 305_000_000, 1_130_000_000, 4_200_000_000, 15_500_000_000, 57_000_000_000, 212_000_000_000,
 }
-local TIER_INCOME: { [string]: number } = { Basic = 1, Rare = 1, Epic = 3, Legendary = 10 }
-local SECRET_WEIGHT = 0.4 -- % of Legendary boxes (each Secret / Icon donut)
-local SECRET_INCOME = 8 -- x the biome's Legendary average
+local TIER_INCOME: { [string]: number } = { Basic = 1, Rare = 1, Epic = 3, Legendary = 10, Mythic = 30 }
+local SECRET_WEIGHT = 0.4 -- % of the biome's rarest box (each Secret / Icon donut)
+local SECRET_INCOME = 8 -- x the average of the biome's rarest box
 
 local oldArea: { [string]: number } = {}
 for _, donut in Donuts.List do
@@ -6007,6 +6069,9 @@ local function assign(list: { Donut }, biome: number, box: string)
 end
 
 for biome, sources in BIOME_DONUTS do
+	-- the biome's boxes, most common first: Rare / Epic / Legendary, or Epic / Legendary / Mythic
+	local tiers = Boxes.TiersFor(biome)
+	local top = tiers[#tiers].Id
 	local regular, special = {}, {}
 	for _, area in sources do
 		for _, donut in Donuts.List do
@@ -6016,7 +6081,7 @@ for biome, sources in BIOME_DONUTS do
 					donut.Area = biome
 					donut.Box = nil
 					donut.Weight = 0
-					donut.Income = BIOME_INCOME[biome] * TIER_INCOME.Legendary * SECRET_INCOME * 2
+					donut.Income = BIOME_INCOME[biome] * TIER_INCOME[top] * SECRET_INCOME * 2
 				elseif donut.Rarity == "Secret" or donut.Rarity == "Icon" then
 					table.insert(special, donut)
 				else
@@ -6028,27 +6093,28 @@ for biome, sources in BIOME_DONUTS do
 	table.sort(regular, function(a, b)
 		return a.Income < b.Income
 	end)
-	if biome == 1 then
-		assign(regular, biome, "Basic")
+	if #tiers == 1 then
+		assign(regular, biome, tiers[1].Id)
 	else
-		local rare = math.ceil(#regular * 0.4)
-		local epic = math.ceil((#regular - rare) * 0.5)
+		-- the cheapest 40% in the common box, half the rest in the middle one, the best in the rarest
+		local common = math.ceil(#regular * 0.4)
+		local middle = math.ceil((#regular - common) * 0.5)
 		local lists = { {}, {}, {} }
 		for i, donut in regular do
-			table.insert(lists[if i <= rare then 1 elseif i <= rare + epic then 2 else 3], donut)
+			table.insert(lists[if i <= common then 1 elseif i <= common + middle then 2 else 3], donut)
 		end
-		assign(lists[1], biome, "Rare")
-		assign(lists[2], biome, "Epic")
-		assign(lists[3], biome, "Legendary")
-		local legendaryWeight = 0
+		for i, tier in tiers do
+			assign(lists[i], biome, tier.Id)
+		end
+		local topWeight = 0
 		for _, donut in lists[3] do
-			legendaryWeight += donut.Weight
+			topWeight += donut.Weight
 		end
 		for _, donut in special do
 			donut.Area = biome
-			donut.Box = "Legendary"
-			donut.Weight = legendaryWeight * SECRET_WEIGHT / 100
-			donut.Income = BIOME_INCOME[biome] * TIER_INCOME.Legendary * SECRET_INCOME * (if donut.Rarity == "Icon" then 3 else 1)
+			donut.Box = top
+			donut.Weight = topWeight * SECRET_WEIGHT / 100
+			donut.Income = BIOME_INCOME[biome] * TIER_INCOME[top] * SECRET_INCOME * (if donut.Rarity == "Icon" then 3 else 1)
 		end
 	end
 end
@@ -9778,9 +9844,11 @@ UpdateNotes.List = {
 			{ Title = "Donut Boxes", Tag = "NEW", Lines = {
 				"Steal donut boxes from right next to a sleeping Domer and run them back to the lobby",
 				"Every biome has Rare, Epic and Legendary boxes (the first one has the pink box)",
+				"From biome 11 the new MYTHIC boxes take the Rare boxes' place: Epic, Legendary and Mythic!",
 				"Lucky? Find a Big, Huge or GIANT box: it holds a bigger donut but slows you down",
 				"Boxes go into your inventory: hold one and click in your pen to put it down",
-				"Wait for it to open (Rare 1 min, Epic 10 min, Legendary 1 hour) and out pops a donut!",
+				"When its timer runs out, click the box to open it and out pops a donut!",
+				"Rare boxes take 1 min, Epic 10 min, Legendary 1 hour and Mythic 2 hours",
 				"BOX RUSH every 2:30: boxes in pens open 30x faster for 10 seconds",
 				"Every 5 minutes, all the boxes are replaced with new ones",
 			} },
@@ -9802,7 +9870,7 @@ UpdateNotes.List = {
 			} },
 		},
 		Sidebar = {
-			{ Title = "Legendary Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
+			{ Title = "Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
 		},
 	},
 	{
@@ -11248,6 +11316,7 @@ local Areas = require(Shared.Areas)
 local Boxes = require(Shared.Boxes)
 local BoxModel = require(Shared.BoxModel)
 local Rarities = require(Shared.Rarities)
+local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -11360,18 +11429,19 @@ local function show(record: BoxRecord, cf: CFrame)
 			stealHandler(player, record)
 		end
 	end)
-	-- its name floating over it (in its rarity's colour)
+	-- its name floating over it (in its rarity's colour) and how long it takes to open
 	local label = Instance.new("BillboardGui")
 	label.Name = "BoxLabel"
-	label.Size = UDim2.fromScale(10, 1.6)
-	label.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2, 0)
+	label.Size = UDim2.fromScale(10, 2.5)
+	label.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.3, 0)
 	label.LightInfluence = 0
 	label.MaxDistance = 140
 	label.Parent = model.PrimaryPart
-	Build.Text(label, prompt.ObjectText, { TextColor3 = (if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else Boxes.Tier(record.Tier).Color):Lerp(Color3.new(1, 1, 1), 0.25), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
+	Build.Text(label, prompt.ObjectText, { Size = UDim2.fromScale(1, 0.6), TextColor3 = (if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else Boxes.Tier(record.Tier).Color):Lerp(Color3.new(1, 1, 1), 0.25), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
+	Build.Text(label, `Opens in {Format.Duration(Boxes.HatchSeconds(record.Tier, record.Size))}`, { Name = "OpenTime", Size = UDim2.fromScale(1, 0.38), Position = UDim2.fromScale(0, 0.62), Font = Enum.Font.FredokaOne, TextColor3 = Color3.fromRGB(255, 255, 255), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
 	-- a glowing ring on the ground under the better boxes, so they stand out from far away
 	local tier = Boxes.Tier(record.Tier)
-	if tier.Order >= 2 or record.Mutation ~= "None" then
+	if Boxes.Rank(record.AreaId, record.Tier) >= 2 or record.Mutation ~= "None" then
 		local color = if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else tier.Color
 		local ring = Build.Decor({ Parent = model, Name = "GroundRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 9 * scale, 9 * scale), CFrame = cf * CFrame.new(0, 0.08, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.Neon, Transparency = 0.5 })
 		ring.CastShadow = false
@@ -14581,7 +14651,9 @@ local function rareRain(myToken: number)
 		local areaId = reachableArea()
 		if areaId then
 			local area = Areas.List[areaId]
-			local tier = if areaId <= 1 then "Basic" elseif rng:NextNumber() < 0.3 then "Legendary" else "Epic"
+			-- (one of the biome's two rarer boxes: Epic / Legendary, or Legendary / Mythic later on)
+			local tiers = Boxes.TiersFor(areaId)
+			local tier = if #tiers == 1 then tiers[1].Id elseif rng:NextNumber() < 0.3 then tiers[#tiers].Id else tiers[#tiers - 1].Id
 			local size = Boxes.RollSize(rng).Id
 			local mutation = Rarities.RollMutation(rng, 2).Id
 			local half = Layout.AreaHalfWidth(areaId) - 20
@@ -15492,8 +15564,9 @@ return HDAdmin
 	================
 	Your inventory (DataService Data.Inventory): every box you bring back to the lobby, and every
 	donut that comes out of a box, is a Tool in your backpack (the hotbar at the bottom).
-	  * Hold a box or donut and click / tap while you're in your pen: it goes down there - a box
-	    starts opening (PlotService.AddBox), a donut starts roaming and earning (PlotService.AddDonut).
+	  * Hold a box or donut and click / tap while you're in your pen: it goes down there - a box's
+	    timer starts (PlotService.AddBox; click it to open it once it's ready), a donut starts
+	    roaming and earning (PlotService.AddDonut).
 	  * Donuts can be sold from the inventory at the sell stall in the lobby (UI/Sell).
 	  * The free bat isn't in here: ItemService hands it out.
 	Tools are rebuilt from the saved list every time you spawn, so nothing is ever lost.
@@ -15586,7 +15659,7 @@ local function makeTool(player: Player, item: DataService.InvItem): Tool
 	tool.Name = InventoryService.ItemName(item)
 	tool.CanBeDropped = false
 	tool.RequiresHandle = true
-	tool.ToolTip = if item.Kind == "Box" then "Click in your pen to put it down - it opens after a while" else "Click in your pen to put it down"
+	tool.ToolTip = if item.Kind == "Box" then "Click in your pen to put it down, then click it when its timer runs out" else "Click in your pen to put it down"
 	tool:SetAttribute("InvUid", item.Uid)
 	tool:SetAttribute("InvKind", item.Kind)
 	local handle = handleFor(item)
@@ -17206,6 +17279,33 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	pen.Parent = plot
 end
 
+-- The big button under the upgrade sign's board: "UPGRADE" and the price. PlotService colours it
+-- (green when the owner can afford the next size, red when not, grey at the biggest size) and makes
+-- it clickable. Also called on maps saved before the sign had a button.
+function MapBuilder.BuildUpgradeButton(sign: Model): BasePart?
+	local existing = sign:FindFirstChild("UpgradeButton")
+	if existing and existing:IsA("BasePart") then
+		return existing
+	end
+	local board = sign:FindFirstChild("Board")
+	if not board or not board:IsA("BasePart") then
+		return nil
+	end
+	Build.Part({ Parent = sign, Name = "ButtonRim", Size = Vector3.new(6.4, 2.6, 0.5), CFrame = board.CFrame * CFrame.new(0, -3.6, 0), Color = rgb(70, 40, 20), Material = Enum.Material.WoodPlanks })
+	local button = Build.Part({ Parent = sign, Name = "UpgradeButton", Size = Vector3.new(5.8, 2.1, 0.7), CFrame = board.CFrame * CFrame.new(0, -3.6, -0.4), Color = rgb(130, 130, 130), Material = Enum.Material.SmoothPlastic })
+	button.TopSurface = Enum.SurfaceType.Studs
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "ButtonGui"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+	gui.LightInfluence = 0
+	gui.Parent = button
+	Build.Text(gui, "UPGRADE", { Name = "Label", Size = UDim2.fromScale(0.92, 0.58), Position = UDim2.fromScale(0.04, 0.04), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 30, 30) })
+	Build.Text(gui, "", { Name = "Price", Size = UDim2.fromScale(0.92, 0.36), Position = UDim2.fromScale(0.04, 0.6), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 30, 30), Font = Enum.Font.FredokaOne })
+	return button
+end
+
 -- The sign by the gate where you upgrade your base (PlotService writes the price on it).
 local function buildUpgradeSign(plot: Model, cf: CFrame)
 	local sign = Instance.new("Model")
@@ -17225,11 +17325,12 @@ local function buildUpgradeSign(plot: Model, cf: CFrame)
 	gui.PixelsPerStud = 40
 	gui.LightInfluence = 0
 	gui.Parent = board
-	Build.Text(gui, "⬆️ UPGRADE BASE", { Name = "Title", Size = UDim2.fromScale(1, 0.4), TextColor3 = rgb(255, 240, 120), TextStrokeColor3 = rgb(60, 30, 10) })
+	Build.Text(gui, "UPGRADE BASE", { Name = "Title", Size = UDim2.fromScale(1, 0.4), TextColor3 = rgb(255, 240, 120), TextStrokeColor3 = rgb(60, 30, 10) })
 	Build.Text(gui, "", { Name = "Info", Size = UDim2.fromScale(1, 0.6), Position = UDim2.fromScale(0, 0.4), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(60, 30, 10), Font = Enum.Font.FredokaOne })
 	local prompt = Build.Part({ Parent = sign, Name = "PromptPart", Size = Vector3.new(4, 4, 1), CFrame = at(0, 3, -1.5), Transparency = 1, CanCollide = false })
 	prompt:SetAttribute("UpgradeSign", true)
 	sign.PrimaryPart = board
+	MapBuilder.BuildUpgradeButton(sign)
 	sign.Parent = plot
 end
 
@@ -18483,10 +18584,11 @@ return PlayerService
 	really next to one (GetDonutPosition). Upgrading the base at its sign (BuySize,
 	Config.Plots.Sizes) makes the pen a little bigger, with room for more donuts.
 
-	Boxes (AddBox): a box you put down in your pen takes a slot and opens after its time
-	(Boxes.HatchSeconds - also while you're offline; Box Rushes speed it up, Robux skips it). It
-	pops open (every client plays BoxFX), and the donut inside goes into your inventory
-	(BoxOpened -> InventoryService).
+	Boxes (AddBox): a box you put down in your pen takes a slot and gets a timer (Boxes.HatchSeconds
+	- it also runs while you're offline; Box Rushes speed it up). When it runs out the box is ready
+	and waits for you: click it (or press E) to open it (OpenReadyBox). "Open now" for Robux opens it
+	straight away (SkipBox). It pops open (every client plays BoxFX), and the donut inside goes into
+	your inventory (BoxOpened -> InventoryService).
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -19276,6 +19378,35 @@ function PlotService.RecordFind(player: Player, donutId: string, mutationId: str
 	end
 end
 
+-- What the label over a box in the pen says right now (clients keep counting it down: client/BoxFX).
+local function boxTimerText(box: DataService.PenBox): string
+	local left = box.HatchAt - os.time()
+	return if left > 0 then Format.Duration(left) else "CLICK TO OPEN!"
+end
+
+-- A box is ready: it waits for its owner to click it (it never opens by itself).
+local function markReady(player: Player, slotIndex: number, model: Model, announce: boolean)
+	if model:GetAttribute("Ready") == true then
+		return
+	end
+	model:SetAttribute("Ready", true)
+	local root = model.PrimaryPart
+	local info = root and root:FindFirstChild("BoxInfo")
+	local timer = info and info:FindFirstChild("Timer", true)
+	if timer and timer:IsA("TextLabel") then
+		timer.Text = "CLICK TO OPEN!"
+	end
+	if announce then
+		local profile = DataService.Get(player)
+		local box = profile and profile.Data.PenBoxes[tostring(slotIndex)]
+		if box then
+			notify(player, `📦 Your {Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil)} is ready! Click it to open it.`, "success")
+		end
+	end
+end
+
+local lastNotReady: { [Player]: number } = {}
+
 local function spawnBoxModel(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local plot = PlotService.GetPlotModel(player)
@@ -19303,43 +19434,82 @@ local function spawnBoxModel(player: Player, slotIndex: number)
 	model:SetAttribute("OwnerUserId", player.UserId)
 	model:SetAttribute("Slot", slotIndex)
 	local root = model.PrimaryPart :: BasePart
-	-- name + time left (clients count it down from HatchAt: client/BoxFX)
+	-- Over the box: its name, and a timer (the time left, then "CLICK TO OPEN!") on a dark pill so
+	-- it's easy to read. The server writes the first value; clients count it down from HatchAt.
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "BoxInfo"
-	gui.Size = UDim2.fromScale(9, 2.6)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.4, 0)
+	gui.Size = UDim2.fromScale(10, 3.4)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.6, 0)
 	gui.LightInfluence = 0
-	gui.MaxDistance = 90
+	gui.MaxDistance = 140
 	gui.Parent = root
-	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.45), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
-	Build.Text(gui, "", { Name = "Timer", Size = UDim2.fromScale(1, 0.55), Position = UDim2.fromScale(0, 0.45), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0, Font = Enum.Font.FredokaOne })
-	-- "Open now" for Robux (only the owner sees it)
-	local skip = Instance.new("ProximityPrompt")
-	skip.Name = "SkipPrompt"
-	skip.ActionText = `Open now (R$ {Config.Boxes.SkipPrice})`
-	skip.ObjectText = "Skip the wait"
-	skip.KeyboardKeyCode = Enum.KeyCode.E
-	skip.GamepadKeyCode = Enum.KeyCode.ButtonX
-	skip.HoldDuration = 0
-	skip.MaxActivationDistance = 12
-	skip.RequiresLineOfSight = false
-	skip:SetAttribute("OwnerUserId", player.UserId)
-	skip.Parent = root
-	skip.Triggered:Connect(function(who)
+	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.4), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
+	local pill = Instance.new("Frame")
+	pill.Name = "TimerPill"
+	pill.AnchorPoint = Vector2.new(0.5, 0)
+	pill.Position = UDim2.fromScale(0.5, 0.44)
+	pill.Size = UDim2.fromScale(0.66, 0.54)
+	pill.BackgroundColor3 = rgb(25, 15, 30)
+	pill.BackgroundTransparency = 0.25
+	pill.Parent = gui
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0.5, 0)
+	corner.Parent = pill
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = rgb(255, 255, 255)
+	stroke.Transparency = 0.6
+	stroke.Thickness = 2
+	stroke.Parent = pill
+	Build.Text(pill, boxTimerText(box), { Name = "Timer", Size = UDim2.fromScale(0.9, 0.8), Position = UDim2.fromScale(0.05, 0.1), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0, Font = Enum.Font.FredokaOne })
+	-- "Open now" for Robux while it's waiting, then "Open!" once it's ready (clients show each one
+	-- only to the owner, and only when it applies: client/BoxFX)
+	local function prompt(name: string, action: string, object: string): ProximityPrompt
+		local p = Instance.new("ProximityPrompt")
+		p.Name = name
+		p.ActionText = action
+		p.ObjectText = object
+		p.KeyboardKeyCode = Enum.KeyCode.E
+		p.GamepadKeyCode = Enum.KeyCode.ButtonX
+		p.HoldDuration = 0
+		p.MaxActivationDistance = 12
+		p.RequiresLineOfSight = false
+		p:SetAttribute("OwnerUserId", player.UserId)
+		p.Parent = root
+		return p
+	end
+	prompt("SkipPrompt", `Open now (R$ {Config.Boxes.SkipPrice})`, "Skip the wait").Triggered:Connect(function(who)
 		if who == player then
 			PlotService.SkipHandler(player, slotIndex)
 		end
 	end)
-	CollectionService:AddTag(model, "PenBox")
+	prompt("OpenPrompt", "Open!", Boxes.DisplayName(box.Tier, box.Size)).Triggered:Connect(function(who)
+		if who == player then
+			PlotService.OpenReadyBox(player, slotIndex)
+		end
+	end)
+	-- ...and click (or tap) the box itself to open it
+	local click = Instance.new("ClickDetector")
+	click.Name = "OpenClick"
+	click.MaxActivationDistance = 60
+	click.Parent = model
+	click.MouseClick:Connect(function(who)
+		if who == player then
+			PlotService.OpenReadyBox(player, slotIndex)
+		end
+	end)
+	if box.HatchAt <= os.time() then
+		markReady(player, slotIndex, model, false)
+	end
 	model.Parent = plot
+	CollectionService:AddTag(model, "PenBox") -- (after parenting: clients find it complete)
 	boxModels[player][slotIndex] = model
 end
 
 -- Set by ProductService: "Open now" was pressed on a box (prompts the Robux purchase).
 PlotService.SkipHandler = function(_player: Player, _slotIndex: number) end
 
--- Put a box down in the pen: it takes the first free slot and starts opening. `near`: where the
--- player is standing (the box goes in the free slot closest to them).
+-- Put a box down in the pen: it takes the free slot closest to `near` (where the player is
+-- standing) and its timer starts.
 function PlotService.AddBox(player: Player, tier: string, size: string, area: number, mutation: string?, near: Vector3?): number?
 	local profile = DataService.Get(player)
 	if not profile or not playerPlots[player] then
@@ -19375,46 +19545,6 @@ function PlotService.AddBox(player: Player, tier: string, size: string, area: nu
 	return slotIndex
 end
 
--- Open a box right away (the Robux skip, or the admin panel).
-function PlotService.SkipBox(player: Player, slotIndex: number?): boolean
-	local profile = DataService.Get(player)
-	if not profile then
-		return false
-	end
-	local key = if slotIndex then tostring(slotIndex) else nil
-	if not key or not profile.Data.PenBoxes[key] then
-		-- no slot given (or it's gone): the box with the longest wait left
-		local longest = -math.huge
-		for k, box in profile.Data.PenBoxes do
-			if box.HatchAt > longest then
-				longest, key = box.HatchAt, k
-			end
-		end
-	end
-	local box = key and profile.Data.PenBoxes[key]
-	if not box then
-		return false
-	end
-	box.HatchAt = os.time()
-	return true
-end
-
--- Box Rush (EventService): every box in every pen gets `seconds` closer to opening.
-function PlotService.RushBoxes(seconds: number)
-	for player in playerPlots do
-		local profile = DataService.Get(player)
-		if profile then
-			for key, box in profile.Data.PenBoxes do
-				box.HatchAt -= seconds
-				local model = boxModels[player] and boxModels[player][tonumber(key) or 0]
-				if model then
-					model:SetAttribute("HatchAt", box.HatchAt)
-				end
-			end
-		end
-	end
-end
-
 local function openBox(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local key = tostring(slotIndex)
@@ -19441,7 +19571,7 @@ local function openBox(player: Player, slotIndex: number)
 		Mutation = mutation,
 		Size = size,
 	})
-	notify(player, `📦 Your box opened: {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
+	notify(player, `📦 You got {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
 	task.delay(OPEN_ANIMATION, function()
 		if model then
 			model:Destroy()
@@ -19455,16 +19585,79 @@ local function openBox(player: Player, slotIndex: number)
 	end)
 end
 
--- Open every box whose time is up (every second; offline time counts too).
+-- The owner clicked a box in their pen: it opens if its time is up.
+function PlotService.OpenReadyBox(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local box = profile and profile.Data.PenBoxes[tostring(slotIndex)]
+	if not box or (opening[player] and opening[player][slotIndex]) then
+		return
+	end
+	local left = box.HatchAt - os.time()
+	if left > 0 then
+		local now = os.clock()
+		if not lastNotReady[player] or now - lastNotReady[player] > 1.5 then
+			lastNotReady[player] = now
+			notify(player, `Not ready yet! {Format.Duration(left)} to go.`, "error")
+		end
+		return
+	end
+	openBox(player, slotIndex)
+end
+
+-- Open a box right away (the Robux skip, or the admin panel). No slot (or one that's gone): the
+-- box with the longest wait left.
+function PlotService.SkipBox(player: Player, slotIndex: number?): boolean
+	local profile = DataService.Get(player)
+	if not profile then
+		return false
+	end
+	local key = if slotIndex then tostring(slotIndex) else nil
+	if not key or not profile.Data.PenBoxes[key] then
+		local longest = -math.huge
+		for k, box in profile.Data.PenBoxes do
+			if box.HatchAt > longest then
+				longest, key = box.HatchAt, k
+			end
+		end
+	end
+	local box = key and profile.Data.PenBoxes[key]
+	local index = key and tonumber(key)
+	if not box or not index then
+		return false
+	end
+	box.HatchAt = math.min(box.HatchAt, os.time())
+	openBox(player, index)
+	return true
+end
+
+-- Box Rush (EventService): every box in every pen gets `seconds` closer to being ready.
+function PlotService.RushBoxes(seconds: number)
+	for player in playerPlots do
+		local profile = DataService.Get(player)
+		if profile then
+			for key, box in profile.Data.PenBoxes do
+				box.HatchAt -= seconds
+				local model = boxModels[player] and boxModels[player][tonumber(key) or 0]
+				if model then
+					model:SetAttribute("HatchAt", box.HatchAt)
+				end
+			end
+		end
+	end
+end
+
+-- Every second: boxes whose time is up become ready (offline time counts too) and wait for a click.
 local function updateBoxes()
 	local now = os.time()
 	for player in playerPlots do
 		local profile = DataService.Get(player)
-		if profile and profile.Session.Ready then
+		local models = boxModels[player]
+		if profile and profile.Session.Ready and models then
 			for key, box in profile.Data.PenBoxes do
 				local index = tonumber(key)
-				if index and box.HatchAt <= now and index <= PlotService.GetSlotCount(player) then
-					openBox(player, index)
+				local model = index and models[index]
+				if model and box.HatchAt <= now then
+					markReady(player, index :: number, model, true)
 				end
 			end
 		end
@@ -19474,31 +19667,58 @@ end
 --------------------------------------------------------------------------------
 -- The upgrade sign by the gate
 --------------------------------------------------------------------------------
+local UPGRADE_GREEN = rgb(60, 200, 90)
+local UPGRADE_RED = rgb(215, 55, 55)
+local UPGRADE_GREY = rgb(130, 130, 130)
+local upgradeLook: { [number]: string } = {} -- what each sign shows now (only touched when it changes)
+
+-- The sign by the gate: what the next size gives, and the button - green when the owner can afford
+-- it, red when not, grey at the biggest size (and on a free plot).
 local function refreshUpgradeSign(plotIndex: number, owner: Player?)
 	local plot = MapBuilder.GetPlot(plotIndex)
 	local sign = plot:FindFirstChild("UpgradeSign")
-	local board = sign and sign:FindFirstChild("Board")
-	local gui = board and board:FindFirstChild("SignGui")
-	local info = gui and gui:FindFirstChild("Info") :: TextLabel?
-	local promptPart = sign and sign:FindFirstChild("PromptPart")
-	local prompt = promptPart and promptPart:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
+	if not sign or not sign:IsA("Model") then
+		return
+	end
 	local profile = if owner then DataService.Get(owner) else nil
-	local text, enabled, action = "", false, "Upgrade Base"
+	local text, price, color, enabled, action = "", "", UPGRADE_GREY, false, "Upgrade Base"
 	if owner and profile then
 		local level = profile.Data.BaseLevel
 		local cost = Economy.BaseSizeCost(level)
 		local slots = PlotService.GetSlotCount(owner)
 		if cost then
-			text = `{slots} → {Economy.SlotCount(level + 1)} donuts\n{Format.Money(cost)}`
-			action = `Upgrade {Format.Money(cost)}`
+			text = `{slots} to {Economy.SlotCount(level + 1)} donuts`
+			price = Format.Money(cost)
+			color = if profile.Data.Money >= cost then UPGRADE_GREEN else UPGRADE_RED
+			action = `Upgrade {price}`
 			enabled = true
 		else
-			text = `{slots} donuts\nMAX SIZE!`
+			text = `{slots} donuts\nMAX SIZE`
+			price = "MAX SIZE"
 		end
 	end
+	local look = `{text}|{price}|{color:ToHex()}|{enabled}|{if owner then owner.UserId else -1}`
+	if upgradeLook[plotIndex] == look then
+		return
+	end
+	upgradeLook[plotIndex] = look
+	local board = sign:FindFirstChild("Board")
+	local gui = board and board:FindFirstChild("SignGui")
+	local info = gui and gui:FindFirstChild("Info") :: TextLabel?
 	if info then
 		info.Text = text
 	end
+	local button = sign:FindFirstChild("UpgradeButton") :: BasePart?
+	if button then
+		button.Color = color
+		local buttonGui = button:FindFirstChild("ButtonGui")
+		local priceLabel = buttonGui and buttonGui:FindFirstChild("Price") :: TextLabel?
+		if priceLabel then
+			priceLabel.Text = price
+		end
+	end
+	local promptPart = sign:FindFirstChild("PromptPart")
+	local prompt = promptPart and promptPart:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
 	if prompt then
 		prompt.ActionText = action
 		prompt.Enabled = enabled
@@ -19537,6 +19757,19 @@ local function setUpUpgradeSign(plotIndex: number)
 			PlotService.BuySize(who)
 		end
 	end)
+	-- the button on the sign: click or tap it
+	local button = MapBuilder.BuildUpgradeButton(sign :: Model)
+	if button and not button:FindFirstChild("UpgradeClick") then
+		local click = Instance.new("ClickDetector")
+		click.Name = "UpgradeClick"
+		click.MaxActivationDistance = 40
+		click.Parent = button
+		click.MouseClick:Connect(function(who: Player)
+			if plotOwners[plotIndex] == who then
+				PlotService.BuySize(who)
+			end
+		end)
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -19889,6 +20122,7 @@ function PlotService.Release(player: Player)
 	slotModels[player] = nil
 	boxModels[player] = nil
 	opening[player] = nil
+	lastNotReady[player] = nil
 	labelMultiplier[player] = nil
 	baseIncome[player] = nil
 	playerPlots[player] = nil
@@ -19905,6 +20139,10 @@ function PlotService.Init()
 		while true do
 			task.wait(1)
 			updateBoxes()
+			-- (the upgrade buttons turn green the moment their owner can afford the next size)
+			for player, index in playerPlots do
+				refreshUpgradeSign(index, player)
+			end
 		end
 	end)
 end
@@ -21354,7 +21592,8 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 	})
 
 	local tier = Boxes.Tier(record.Tier)
-	if tier.Order >= 3 or Rarities.Mutation(record.Mutation).Order >= 3 then
+	-- (the biome's rarest box, or a big mutation)
+	if Boxes.Rank(record.AreaId, record.Tier) >= 3 or Rarities.Mutation(record.Mutation).Order >= 3 then
 		local name = Rarities.DisplayName(Boxes.DisplayName(record.Tier, record.Size), record.Mutation, nil)
 		Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} is stealing a {string.upper(name)}!`, tier.Color)
 	end
@@ -22494,8 +22733,10 @@ return BlackHoleFX
 	  * Boxes in the biomes ("LaneBox"): a gentle bob and turn so they catch the eye (only the ones
 	    near you move).
 	  * Boxes in pens ("PenBox"): the time left counts down on the label over each one, worked out
-	    here from its HatchAt attribute so the server doesn't send anything every second. Only the
-	    owner sees the "Open now" prompt.
+	    here from its HatchAt attribute so the server doesn't send anything every second. Once it's
+	    ready the box hops and wiggles, the label flashes CLICK TO OPEN!, and its owner clicks (or
+	    taps) it, or presses E, to open it. Only the owner sees the prompts ("Open now" for Robux
+	    while it waits, "Open!" once it's ready) and can click it.
 	  * Opening (remote "BoxOpened"): the lid flips off, the box spins faster and faster, a white
 	    flash - and the donut pops out, then drops into its owner's inventory (flies to them).
 	  * The pill at the top: the Box Rush (every Config.Boxes.Rush.Interval seconds every box in
@@ -22527,13 +22768,27 @@ local BoxFX = {}
 local player = Players.LocalPlayer :: Player
 
 local BOB_RANGE = 180 -- biome boxes further away than this don't bob
-local LID_PARTS = { Lid = true, Bow = true, BowKnot = true }
+local LID_PARTS = { Lid = true, Bow = true, BowKnot = true, LidEdge = true }
 
 type Bobbing = { Model: Model, Parts: { BasePart }, Offsets: { CFrame }, Pivot: CFrame, Phase: number }
 
+type PenBox = {
+	Model: Model,
+	Timer: TextLabel,
+	Mine: boolean,
+	Skip: ProximityPrompt?,
+	Open: ProximityPrompt?,
+	Parts: { BasePart },
+	Offsets: { CFrame },
+	Pivot: CFrame,
+	Phase: number,
+}
+
 local bobbing: { [Model]: Bobbing } = {}
 local bulkMove = true -- (workspace:BulkMoveTo, if this client has it)
-local penBoxes: { [Model]: TextLabel } = {}
+local penBoxes: { [Model]: PenBox } = {}
+local READY_GOLD = Color3.fromRGB(255, 215, 70)
+local WIGGLE_RANGE = 120 -- ready boxes further away than this don't wiggle
 
 local function rushing(): boolean
 	local endsAt = workspace:GetAttribute("BoxRushEndsAt")
@@ -22559,23 +22814,7 @@ local function addLaneBox(model: Instance)
 	bobbing[model] = { Model = model, Parts = parts, Offsets = offsets, Pivot = pivot, Phase = math.random() * math.pi * 2 }
 end
 
-local function updateBobbing(now: number, position: Vector3?)
-	local parts, frames = {}, {}
-	for model, info in bobbing do
-		if not model.Parent then
-			bobbing[model] = nil
-			continue
-		end
-		if not position or (info.Pivot.Position - position).Magnitude > BOB_RANGE then
-			continue
-		end
-		local t = now + info.Phase
-		local bob = info.Pivot * CFrame.new(0, 0.35 + math.sin(t * 2.2) * 0.3, 0) * CFrame.Angles(0, math.sin(t * 0.9) * 0.18, math.sin(t * 1.7) * 0.03)
-		for i, part in info.Parts do
-			table.insert(parts, part)
-			table.insert(frames, bob * info.Offsets[i])
-		end
-	end
+local function moveParts(parts: { BasePart }, frames: { CFrame })
 	if #parts == 0 then
 		return
 	end
@@ -22592,42 +22831,130 @@ local function updateBobbing(now: number, position: Vector3?)
 	end
 end
 
+local function updateBobbing(now: number, position: Vector3?, parts: { BasePart }, frames: { CFrame })
+	for model, info in bobbing do
+		if not model.Parent then
+			bobbing[model] = nil
+			continue
+		end
+		if not position or (info.Pivot.Position - position).Magnitude > BOB_RANGE then
+			continue
+		end
+		local t = now + info.Phase
+		local bob = info.Pivot * CFrame.new(0, 0.35 + math.sin(t * 2.2) * 0.3, 0) * CFrame.Angles(0, math.sin(t * 0.9) * 0.18, math.sin(t * 1.7) * 0.03)
+		for i, part in info.Parts do
+			table.insert(parts, part)
+			table.insert(frames, bob * info.Offsets[i])
+		end
+	end
+end
+
 --------------------------------------------------------------------------------
--- Pen boxes: countdowns
+-- Pen boxes: countdowns, then "CLICK TO OPEN!"
 --------------------------------------------------------------------------------
+local function setEnabled(prompt: ProximityPrompt?, on: boolean)
+	if prompt and prompt.Enabled ~= on then
+		prompt.Enabled = on
+	end
+end
+
 local function addPenBox(model: Instance)
-	if not model:IsA("Model") then
+	if not model:IsA("Model") or penBoxes[model] then
 		return
 	end
-	local root = model.PrimaryPart
-	local info = root and root:FindFirstChild("BoxInfo")
-	local timer = info and info:FindFirstChild("Timer")
-	if timer and timer:IsA("TextLabel") then
-		penBoxes[model] = timer
-	end
-	-- "Open now" is just for the box's owner
-	local prompt = root and root:FindFirstChild("SkipPrompt")
-	if prompt and prompt:IsA("ProximityPrompt") then
-		prompt.Enabled = model:GetAttribute("OwnerUserId") == player.UserId
-	end
+	task.defer(function()
+		-- (a box's parts and labels can arrive a moment after the box itself)
+		local root = model:WaitForChild("Root", 10)
+		local info = root and root:WaitForChild("BoxInfo", 10)
+		local pill = info and info:WaitForChild("TimerPill", 10)
+		local timer = pill and pill:WaitForChild("Timer", 10)
+		if not root or not timer or not timer:IsA("TextLabel") or not model.Parent or penBoxes[model] then
+			return
+		end
+		local skip = root:WaitForChild("SkipPrompt", 5)
+		local open = root:WaitForChild("OpenPrompt", 5)
+		local mine = model:GetAttribute("OwnerUserId") == player.UserId
+		-- other players' boxes: no prompts and no clicking (the server checks too)
+		local click = model:FindFirstChild("OpenClick")
+		if click and click:IsA("ClickDetector") and not mine then
+			click.MaxActivationDistance = 0
+		end
+		local pivot = model:GetPivot()
+		local parts, offsets = {}, {}
+		for _, part in model:GetDescendants() do
+			if part:IsA("BasePart") then
+				table.insert(parts, part)
+				table.insert(offsets, pivot:ToObjectSpace(part.CFrame))
+			end
+		end
+		penBoxes[model] = {
+			Model = model,
+			Timer = timer,
+			Mine = mine,
+			Skip = if skip and skip:IsA("ProximityPrompt") then skip else nil,
+			Open = if open and open:IsA("ProximityPrompt") then open else nil,
+			Parts = parts,
+			Offsets = offsets,
+			Pivot = pivot,
+			Phase = math.random() * 1.6,
+		}
+	end)
+end
+
+local function isReady(entry: PenBox, now: number): boolean
+	local hatchAt = entry.Model:GetAttribute("HatchAt")
+	return entry.Model:GetAttribute("Ready") == true or (type(hatchAt) == "number" and hatchAt - now <= 0.5)
 end
 
 local function updateTimers()
 	local now = workspace:GetServerTimeNow()
 	local rush = rushing()
-	for model, label in penBoxes do
+	for model, entry in penBoxes do
 		if not model.Parent then
 			penBoxes[model] = nil
 			continue
 		end
-		local hatchAt = model:GetAttribute("HatchAt")
-		local left = if type(hatchAt) == "number" then hatchAt - now else 0
-		local text = if left > 0.5
-			then `⏳ {Format.Duration(math.ceil(left))}{if rush then ` ⏩x{Config.Boxes.Rush.Speed}` else ""}`
-			else "📦 Opening!"
-		if label.Text ~= text then
-			label.Text = text
-			label.TextColor3 = if rush then Color3.fromRGB(120, 230, 255) else Color3.new(1, 1, 1)
+		local ready = isReady(entry, now)
+		setEnabled(entry.Skip, entry.Mine and not ready)
+		setEnabled(entry.Open, entry.Mine and ready)
+		local text, color
+		if ready then
+			text = if entry.Mine then "CLICK TO OPEN!" else "READY"
+			-- (flashes between gold and white)
+			color = if math.floor(os.clock() * 2.5) % 2 == 0 then READY_GOLD else Color3.new(1, 1, 1)
+		else
+			local hatchAt = model:GetAttribute("HatchAt") :: number
+			text = `{Format.Duration(math.ceil(hatchAt - now))}{if rush then ` x{Config.Boxes.Rush.Speed}` else ""}`
+			color = if rush then Color3.fromRGB(120, 230, 255) else Color3.new(1, 1, 1)
+		end
+		if entry.Timer.Text ~= text then
+			entry.Timer.Text = text
+		end
+		if entry.Timer.TextColor3 ~= color then
+			entry.Timer.TextColor3 = color
+		end
+	end
+end
+
+-- Your ready boxes hop and wiggle now and then, so you notice them.
+local function updateWiggle(now: number, position: Vector3?, parts: { BasePart }, frames: { CFrame })
+	if not position then
+		return
+	end
+	local serverNow = workspace:GetServerTimeNow()
+	for model, entry in penBoxes do
+		if not entry.Mine or not model.Parent or not isReady(entry, serverNow) or (entry.Pivot.Position - position).Magnitude > WIGGLE_RANGE then
+			continue
+		end
+		local t = (now + entry.Phase) % 1.6
+		local cf = entry.Pivot
+		if t < 0.5 then
+			local k = t / 0.5
+			cf = entry.Pivot * CFrame.new(0, math.sin(k * math.pi) * 0.8, 0) * CFrame.Angles(0, 0, math.sin(k * math.pi * 4) * 0.12 * (1 - k))
+		end
+		for i, part in entry.Parts do
+			table.insert(parts, part)
+			table.insert(frames, cf * entry.Offsets[i])
 		end
 	end
 end
@@ -22899,7 +23226,11 @@ function BoxFX.Init()
 		local now = os.clock()
 		if now >= nextBob then
 			nextBob = now + 1 / 30
-			updateBobbing(now, AreaTracker.Position())
+			local position = AreaTracker.Position()
+			local parts, frames = {}, {}
+			updateBobbing(now, position, parts, frames)
+			updateWiggle(now, position, parts, frames)
+			moveParts(parts, frames)
 		end
 		if now >= nextTick then
 			nextTick = now + 0.25
@@ -22921,7 +23252,8 @@ return BoxFX
 
 	The server only sets attributes on the carrier - CarryingDonut (the box's tier, the donut's or
 	the egg's id), CarryKind ("Box" / "Raid" / "Egg"), CarryMutation and CarrySize - and every client
-	builds the model itself: donuts held in both arms (arms raised), boxes and eggs above the head. Nothing is sent over
+	builds the model itself: boxes and donuts held in both arms in front of you (arms raised), eggs
+	above the head. Nothing is sent over
 	the network and nothing is welded into a character on the server, which is what used to make the
 	first second of a steal stutter on phones (a donut is ~110 parts).
 
@@ -22980,8 +23312,23 @@ local function build(key: string): Model?
 		model = if egg then PetModel.BuildEgg(egg, { Scale = EGG_SCALE }) else nil
 	elseif fields[1] == "Box" then
 		local box = BoxModel.Build(fields[2], fields[4], { Mutation = fields[3], Scale = BOX_SCALE })
-		-- (a box sits on the head by its bottom: no Bottom offset needed)
-		box:SetAttribute("Bottom", 0.4)
+		-- A box is built to stand still: every part anchored, none joined. Weld them all to its root
+		-- so the whole box moves with you (otherwise only the invisible root came along and the box
+		-- stayed hanging in the air where you grabbed it).
+		local root = box.PrimaryPart
+		if root then
+			for _, part in box:GetDescendants() do
+				if part:IsA("BasePart") and part ~= root then
+					local weld = Instance.new("WeldConstraint")
+					weld.Part0 = root
+					weld.Part1 = part
+					weld.Parent = part
+					part.Anchored = false
+				end
+			end
+		end
+		-- (its pivot is its bottom: rest it on your forearms, a little below the chest)
+		box:SetAttribute("HoldY", -0.9)
 		model = box
 	else
 		local donut = Donuts.ById[fields[2]]
@@ -23019,7 +23366,7 @@ local function raiseArms(character: Model): { [Motor6D]: CFrame }
 	return saved
 end
 
--- Weld the model to the character: in front of the chest (donuts) or above the head (eggs, or a
+-- Weld the model to the character: in front of the chest (boxes, donuts) or above the head (eggs, or a
 -- character without a torso). The model is parented last, so it joins the character in one go.
 local function attach(character: Model, model: Model, inArms: boolean): boolean
 	local root = model.PrimaryPart :: BasePart
@@ -23028,7 +23375,7 @@ local function attach(character: Model, model: Model, inArms: boolean): boolean
 	local anchor: BasePart?, offset: CFrame
 	if inArms and torso then
 		local _, size = model:GetBoundingBox()
-		anchor, offset = torso, CFrame.new(0, 0.2, -(torso.Size.Z / 2 + size.Z / 2 + 0.3))
+		anchor, offset = torso, CFrame.new(0, (model:GetAttribute("HoldY") :: number?) or 0.2, -(torso.Size.Z / 2 + size.Z / 2 + 0.3))
 	elseif head then
 		anchor, offset = head, CFrame.new(0, 1.2 + ((model:GetAttribute("Bottom") :: number?) or 1.4), 0)
 	else
@@ -23096,12 +23443,13 @@ local function refresh(target: Player)
 	if not model then
 		return
 	end
-	local isEgg = string.sub(key, 1, 4) == "Egg|" or string.sub(key, 1, 4) == "Box|"
-	if not attach(character, model, not isEgg) then
+	-- (eggs ride on your head; boxes and donuts are held in both arms)
+	local inArms = string.sub(key, 1, 4) ~= "Egg|"
+	if not attach(character, model, inArms) then
 		model:Destroy()
 		return
 	end
-	held[target] = { Key = key, Model = model, Character = character, Arms = if isEgg then {} else raiseArms(character) }
+	held[target] = { Key = key, Model = model, Character = character, Arms = if inArms then raiseArms(character) else {} }
 end
 
 -- Several attributes change together: refresh once, after they've all arrived.
@@ -34687,7 +35035,7 @@ return Theme
 	  2. steal a donut box (walk up to one next to Domer and press E)
 	  3. run back to the lobby before Domer catches you (caught? steal another one)
 	  4. go into your pen, hold the box and click to put it down
-	  5. wait for it to open (the donut lands in your inventory)
+	  5. wait for its timer, then click it to open it (the donut lands in your inventory)
 	  6. hold the donut and click in your pen: it walks around and makes money
 	  7. run on your treadmill to get faster
 	Then a Claim button gives you a free egg (once ever; the server checks).
@@ -34720,7 +35068,7 @@ local TEXT: { [string]: string } = {
 	RunHome = `Run back to the lobby before {Config.Guard.Name} catches you!`,
 	Caught = `{Config.Guard.Name} caught you! Steal another box and try again`,
 	PlaceBox = "Go into your pen, hold the box and click to put it down",
-	Wait = "Your box is opening! Wait for the timer to run out",
+	Wait = "Wait for the timer over your box, then click the box to open it!",
 	PlaceDonut = "Your donut is in your inventory! Hold it and click in your pen",
 	Treadmill = "Your donut makes money! Now run on your treadmill to get faster",
 	Done = "Tutorial complete! Claim your free egg",

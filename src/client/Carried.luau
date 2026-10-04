@@ -3,7 +3,8 @@
 
 	The server only sets attributes on the carrier - CarryingDonut (the box's tier, the donut's or
 	the egg's id), CarryKind ("Box" / "Raid" / "Egg"), CarryMutation and CarrySize - and every client
-	builds the model itself: donuts held in both arms (arms raised), boxes and eggs above the head. Nothing is sent over
+	builds the model itself: boxes and donuts held in both arms in front of you (arms raised), eggs
+	above the head. Nothing is sent over
 	the network and nothing is welded into a character on the server, which is what used to make the
 	first second of a steal stutter on phones (a donut is ~110 parts).
 
@@ -62,8 +63,23 @@ local function build(key: string): Model?
 		model = if egg then PetModel.BuildEgg(egg, { Scale = EGG_SCALE }) else nil
 	elseif fields[1] == "Box" then
 		local box = BoxModel.Build(fields[2], fields[4], { Mutation = fields[3], Scale = BOX_SCALE })
-		-- (a box sits on the head by its bottom: no Bottom offset needed)
-		box:SetAttribute("Bottom", 0.4)
+		-- A box is built to stand still: every part anchored, none joined. Weld them all to its root
+		-- so the whole box moves with you (otherwise only the invisible root came along and the box
+		-- stayed hanging in the air where you grabbed it).
+		local root = box.PrimaryPart
+		if root then
+			for _, part in box:GetDescendants() do
+				if part:IsA("BasePart") and part ~= root then
+					local weld = Instance.new("WeldConstraint")
+					weld.Part0 = root
+					weld.Part1 = part
+					weld.Parent = part
+					part.Anchored = false
+				end
+			end
+		end
+		-- (its pivot is its bottom: rest it on your forearms, a little below the chest)
+		box:SetAttribute("HoldY", -0.9)
 		model = box
 	else
 		local donut = Donuts.ById[fields[2]]
@@ -101,7 +117,7 @@ local function raiseArms(character: Model): { [Motor6D]: CFrame }
 	return saved
 end
 
--- Weld the model to the character: in front of the chest (donuts) or above the head (eggs, or a
+-- Weld the model to the character: in front of the chest (boxes, donuts) or above the head (eggs, or a
 -- character without a torso). The model is parented last, so it joins the character in one go.
 local function attach(character: Model, model: Model, inArms: boolean): boolean
 	local root = model.PrimaryPart :: BasePart
@@ -110,7 +126,7 @@ local function attach(character: Model, model: Model, inArms: boolean): boolean
 	local anchor: BasePart?, offset: CFrame
 	if inArms and torso then
 		local _, size = model:GetBoundingBox()
-		anchor, offset = torso, CFrame.new(0, 0.2, -(torso.Size.Z / 2 + size.Z / 2 + 0.3))
+		anchor, offset = torso, CFrame.new(0, (model:GetAttribute("HoldY") :: number?) or 0.2, -(torso.Size.Z / 2 + size.Z / 2 + 0.3))
 	elseif head then
 		anchor, offset = head, CFrame.new(0, 1.2 + ((model:GetAttribute("Bottom") :: number?) or 1.4), 0)
 	else
@@ -178,12 +194,13 @@ local function refresh(target: Player)
 	if not model then
 		return
 	end
-	local isEgg = string.sub(key, 1, 4) == "Egg|" or string.sub(key, 1, 4) == "Box|"
-	if not attach(character, model, not isEgg) then
+	-- (eggs ride on your head; boxes and donuts are held in both arms)
+	local inArms = string.sub(key, 1, 4) ~= "Egg|"
+	if not attach(character, model, inArms) then
 		model:Destroy()
 		return
 	end
-	held[target] = { Key = key, Model = model, Character = character, Arms = if isEgg then {} else raiseArms(character) }
+	held[target] = { Key = key, Model = model, Character = character, Arms = if inArms then raiseArms(character) else {} }
 end
 
 -- Several attributes change together: refresh once, after they've all arrived.
