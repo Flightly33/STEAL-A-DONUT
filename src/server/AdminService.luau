@@ -2,7 +2,7 @@
 	AdminService
 	============
 	Type ADMIN_CODE ("ender=cool") in chat to unlock the admin panel for this session: money,
-	speed, treadmill, rebirths, any donut (with any mutation/size), eggs, pets, the Luck Event,
+	speed, treadmill, any donut (with any mutation/size), eggs, pets, the Luck Event,
 	server events, teleporting, flying / magic carpet, and "Domer can't catch me".
 
 	* The code message is never shown to anyone else (TextChannel.ShouldDeliverCallback).
@@ -181,15 +181,6 @@ function Commands.MaxTreadmill(player: Player, profile: DataService.Profile)
 	player:SetAttribute("TreadmillLevel", profile.Data.TreadmillLevel)
 	player:SetAttribute("SpeedMultLevel", profile.Data.SpeedMultLevel)
 	TreadmillService.Build(player)
-end
-
-function Commands.Rebirth(player: Player, profile: DataService.Profile)
-	if profile.Data.Rebirths < Economy.MaxRebirths() then
-		profile.Data.Rebirths += 1
-		player:SetAttribute("Rebirths", profile.Data.Rebirths)
-		ShopService.RefreshMultipliers(player)
-		notify(player, `🔄 Rebirths: {profile.Data.Rebirths} (all worlds it unlocks are open)`, "success")
-	end
 end
 
 -- The next bigger base (free)

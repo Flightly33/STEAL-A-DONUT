@@ -40,7 +40,7 @@ function TreadmillService.GetRate(player: Player): number
 		return 0
 	end
 	local data = profile.Data
-	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), data.Rebirths, DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data), data.Speed)
+	return Economy.TreadmillRate(data.TreadmillLevel, data.SpeedMultLevel, Economy.SpeedPassMultiplier(profile.Passes), DataService.IndexSpeedBonus(data), DataService.PetSpeedBonus(data))
 end
 
 local function updateScreen(player: Player)

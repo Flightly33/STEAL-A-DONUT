@@ -14,7 +14,7 @@ local Index = require(UI.Index)
 local Leaderboards = require(UI.Leaderboards)
 local Chase = require(UI.Chase)
 local Settings = require(UI.Settings)
-local Rebirth = require(UI.Rebirth)
+local Trails = require(UI.Trails)
 local Teleport = require(UI.Teleport)
 local Sell = require(UI.Sell)
 local BaseSize = require(UI.BaseSize)
@@ -37,6 +37,7 @@ local DonutIdle = require(script.DonutIdle)
 local DonutFX = require(script.DonutFX)
 local Followers = require(script.Followers)
 local Carried = require(script.Carried)
+local TrailFX = require(script.TrailFX)
 local BoxFX = require(script.BoxFX)
 local PetFX = require(script.PetFX)
 local Flight = require(script.Flight)
@@ -50,7 +51,7 @@ Index.Init()
 Leaderboards.Init()
 Chase.Init()
 Settings.Init()
-Rebirth.Init()
+Trails.Init()
 Teleport.Init()
 Sell.Init()
 BaseSize.Init()
@@ -68,7 +69,7 @@ HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,
 	OpenSettings = Settings.Open,
-	OpenRebirth = Rebirth.Open,
+	OpenTrails = Trails.Open,
 	OpenTeleport = Teleport.Open,
 	OpenBaseSize = BaseSize.Open,
 	OpenPets = PetsWindow.Open,
@@ -79,7 +80,7 @@ HUD.Init({
 	OpenAdmin = Admin.Open,
 	HideUI = HideUI.Toggle,
 	UnclaimedIndex = Index.UnclaimedCount,
-	RebirthReady = Rebirth.IsReady,
+	TrailReady = Trails.IsReady,
 	ReadyEggs = PetsWindow.ReadyEggs,
 })
 Effects.Init()
@@ -92,6 +93,7 @@ StormFX.Init(Settings.SetStorm)
 DonutIdle.Init()
 Followers.Init()
 Carried.Init()
+TrailFX.Init()
 BoxFX.Init()
 PetFX.Init()
 Flight.Init()

@@ -2,15 +2,16 @@
 	StealService
 	============
 	The core loop:
-	  1. Hold E on a donut box by a biome's Domer -> you pick it up (it's carried over your head) and
+	  1. Hold E on a donut box by a biome's Domer -> you pick it up (you carry it in your arms) and
 	     YOUR Domer of that biome wakes up and chases you, as fast as the biome's Speed requirement.
 	     Big boxes slow you down while you carry them.
 	  2. Get back to the lobby (cross the safe-zone line) -> Domer gives up and the box goes into
-	     your inventory (InventoryService). Put it down in your pen and it starts opening.
-	  If Domer catches you (or you drop it) INSIDE the box's own biome, you're flung and the box goes
-	  back onto its spot. Anywhere else it lands on the ground where you were: anyone can pick it
-	  up - and whoever does gets chased by that same biome's Domer. Get hit by someone's bat while
-	  carrying a box and it drops on the ground too.
+	     your inventory (InventoryService). Put it down in your pen and its timer starts.
+	  If Domer catches you, you're flung and he takes the box back to his corner (BoxService.
+	  ReturnToDomer), wherever he caught you. Get hit by someone's bat while carrying a box and it
+	  drops on the ground right there: anyone can pick it up - and whoever does gets chased by that
+	  same biome's Domer. Drop it yourself (the Drop button) and it goes back onto its spot if
+	  you're still in its biome, or onto the ground anywhere else.
 
 	What you carry is drawn by every client (client/Carried.luau) from the player's attributes:
 	CarryingDonut (the box's tier, the donut's id or the egg's id), CarryKind, CarryMutation and
@@ -18,8 +19,6 @@
 
 	Everything you can carry uses the same system:
 	  Box  -> a donut box from a biome (BoxService)
-	  Raid -> a donut stolen from another player's base (see RaidService). You're in slow mode while
-	          you carry it; if you're hit before you get home it flies back onto the owner's stand.
 	  Egg  -> a pet egg from a biome (see PetService; returns to its spot when lost)
 ]]
 
@@ -29,10 +28,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Boxes = require(Shared.Boxes)
-local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
 local Economy = require(Shared.Economy)
-local Format = require(Shared.Format)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 
@@ -45,13 +42,11 @@ local InventoryService = require(script.Parent.InventoryService)
 local StealService = {}
 
 export type Carry = {
-	Kind: string, -- "Box" | "Raid" | "Egg"
-	DonutId: string, -- the donut's id (boxes: the box's tier; eggs: the egg's id)
+	Kind: string, -- "Box" | "Egg"
+	DonutId: string, -- boxes: the box's tier; eggs: the egg's id
 	Level: number,
 	Mutation: string,
-	Size: string, -- the donut's size (boxes: the box's size)
-	Victim: Player?, -- raids: who it was stolen from
-	VictimSlot: number?, -- raids: the stand it was taken from
+	Size: string, -- the box's size
 	Record: BoxService.BoxRecord?, -- boxes: the box
 	AreaId: number, -- the biome whose Domer is after you (0 = none)
 	Secured: boolean, -- made it to the lobby
@@ -113,36 +108,22 @@ local function positionOf(player: Player, carry: Carry): Vector3
 	return if root then root.Position else carry.LastPos
 end
 
--- A raided donut flies back onto its owner's stand (if they're still here and have room).
-local function returnRaid(player: Player, carry: Carry)
-	local victim = carry.Victim
-	local donut = Donuts.ById[carry.DonutId]
-	if victim and victim.Parent and donut then
-		local name = Rarities.DisplayName(donut.Name, carry.Mutation, carry.Size)
-		if PlotService.AddDonut(victim, carry.DonutId, carry.Level, carry.Mutation, carry.Size, carry.VictimSlot) then
-			notify(victim, `🛡 You got your {name} back!`, "success")
-			Remotes.Event("Alarm"):FireClient(victim, { Stage = "Recovered", Thief = player, Name = name })
-		else
-			notify(victim, `Your {name} was dropped but your base is full, so it's gone.`, "error")
-		end
-	end
-end
-
--- What happens to whatever the player was carrying when they lose it. `knocked`: hit by a bat
--- (a box always drops on the ground then, so the hitter can grab it).
-local function lose(player: Player, carry: Carry, knocked: boolean?)
+-- What happens to whatever the player was carrying when they lose it. `how`:
+--   "Caught"  Domer got you: he takes the box back to his corner, wherever you were
+--   "Knocked" hit by a bat: the box drops on the ground right there, so the hitter can grab it
+--   nil       dropped it, left, teleported...: back on its spot in its own biome, else the ground
+local function lose(player: Player, carry: Carry, how: string?)
 	if carry.OnLost then
 		carry.OnLost(player)
 	elseif carry.Kind == "Box" and carry.Record then
 		local position = positionOf(player, carry)
-		local inOwnBiome = Layout.AreaAt(position) == carry.AreaId
-		if inOwnBiome and not knocked then
+		if how == "Caught" then
+			BoxService.ReturnToDomer(carry.Record)
+		elseif how ~= "Knocked" and Layout.AreaAt(position) == carry.AreaId then
 			BoxService.Return(carry.Record, position)
 		else
 			BoxService.Drop(carry.Record, position)
 		end
-	elseif carry.Kind == "Raid" then
-		returnRaid(player, carry)
 	end
 end
 
@@ -175,13 +156,13 @@ function StealService.Drop(player: Player, reason: string?)
 end
 
 -- Weapons call this: anyone carrying something drops it. A box lands on the ground right there
--- (anyone can grab it); a raided donut goes back to its owner.
+-- (anyone can grab it).
 function StealService.Knock(player: Player)
 	local carry = carriers[player]
 	if not carry then
 		return
 	end
-	lose(player, carry, true)
+	lose(player, carry, "Knocked")
 	clearCarry(player)
 	GuardService.StopChase(player)
 	if player.Parent then
@@ -208,30 +189,6 @@ function StealService.StartCustom(player: Player, carry: Carry): boolean
 		GuardSpeed = if carry.AreaId > 0 then Economy.GuardWalkSpeed(carry.AreaId) else nil,
 	})
 	return true
-end
-
--- Start carrying a donut stolen from `victim`'s base (RaidService already removed it there).
-function StealService.StartRaid(thief: Player, victim: Player, slot: DataService.SlotData, slotIndex: number)
-	local root = thief.Character and thief.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root then
-		return
-	end
-	local mutation, size = slot.Mutation or "None", slot.Size or "Normal"
-	startCarry(thief, {
-		Kind = "Raid",
-		DonutId = slot.Id,
-		Level = slot.Level,
-		Mutation = mutation,
-		Size = size,
-		Victim = victim,
-		VictimSlot = slotIndex,
-		Record = nil,
-		AreaId = 0,
-		Secured = true, -- no guard: the danger is the owner hitting you
-		LastPos = root.Position,
-		LastTime = os.clock(),
-	})
-	Remotes.Event("ChaseStarted"):FireClient(thief, { DonutId = slot.Id, AreaId = 0, Raid = true, Kind = "Raid", Mutation = mutation, Size = size, Victim = victim })
 end
 
 -- Checks shared by everything you can pick up. Returns the player's root part if they can.
@@ -282,8 +239,6 @@ local function trySteal(player: Player, record: BoxService.BoxRecord)
 		Level = 1,
 		Mutation = record.Mutation,
 		Size = record.Size,
-		Victim = nil,
-		VictimSlot = nil,
 		Record = record,
 		AreaId = record.AreaId,
 		Secured = false,
@@ -339,38 +294,11 @@ local function depositBox(player: Player, carry: Carry)
 	player:SetAttribute("BoxesStolen", ((player:GetAttribute("BoxesStolen") :: number?) or 0) + 1) -- (the tutorial watches this)
 end
 
--- Made it home with a raided donut (or an egg): onto your own base.
+-- Made it home with an egg: into the incubator (PetService decides).
 local function depositHome(player: Player, carry: Carry)
-	local profile = DataService.Get(player)
-	if not profile then
-		return
-	end
-	if carry.OnDeposit then
-		if carry.OnDeposit(player) then
-			clearCarry(player)
-			GuardService.StopChase(player)
-		end
-		return
-	end
-	local slot = PlotService.AddDonut(player, carry.DonutId, carry.Level, carry.Mutation, carry.Size)
-	if not slot then
-		local now = os.clock()
-		if not lastFullWarning[player] or now - lastFullWarning[player] > 4 then
-			lastFullWarning[player] = now
-			notify(player, "Your base is full! Sell a donut (hold F on it) to make room.", "error")
-		end
-		return -- keep carrying until there's room
-	end
-	clearCarry(player)
-	GuardService.StopChase(player)
-	local donut = Donuts.ById[carry.DonutId]
-	local name = Rarities.DisplayName(donut.Name, carry.Mutation, carry.Size)
-	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Deposited", DonutId = donut.Id, Mutation = carry.Mutation, Size = carry.Size, Kind = carry.Kind })
-	notify(player, `{name} is earning {Format.Money(Economy.DonutIncome(donut.Id, carry.Level, carry.Mutation, carry.Size))}/s at your base!`, "success")
-	local victim = carry.Victim
-	if carry.Kind == "Raid" and victim and victim.Parent then
-		notify(victim, `😱 {player.DisplayName} got away with your {name}!`, "error")
-		Remotes.Event("Alarm"):FireClient(victim, { Stage = "Lost", Thief = player, Name = name })
+	if carry.OnDeposit and carry.OnDeposit(player) then
+		clearCarry(player)
+		GuardService.StopChase(player)
 	end
 end
 
@@ -379,11 +307,10 @@ local function onCaught(player: Player, areaId: number)
 	if not carry then
 		return
 	end
-	lose(player, carry)
+	lose(player, carry, "Caught")
 	clearCarry(player)
 	local profile = DataService.Get(player)
-	local back = carry.Kind == "Box" and Layout.AreaAt(positionOf(player, carry)) == carry.AreaId
-	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind, BoxBack = back })
+	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Caught", AreaId = areaId, Kind = carry.Kind, BoxBack = carry.Kind == "Box" })
 	if not profile then
 		return
 	end

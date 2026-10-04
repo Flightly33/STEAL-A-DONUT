@@ -4,7 +4,8 @@
 	found yet show as black silhouettes named "???".
 
 	Rewards: every donut you've found can be claimed once for cash. Epic and rarer donuts let you
-	pick a permanent treadmill speed bonus instead. The dots under a donut show which mutations
+	pick a permanent treadmill speed bonus instead. "Claim All" (top right) claims every reward at
+	once: the speed bonus where a donut offers one (until the bonus is capped), cash for the rest. The dots under a donut show which mutations
 	of it you've found.
 
 	Global rarity scale: Legendary and rarer donuts show how many times they've spawned and been
@@ -47,12 +48,13 @@ local modal: Modal.Modal
 local pages: { [number]: ScrollingFrame } = {}
 local cards: { [string]: Card } = {}
 local counter: TextLabel
+local claimAll: TextButton
 local legend: TextLabel
 local selectPage: (string) -> ()
 local currentPage = 1
 
 -- The tabs: five biomes each
-local PAGES = { { 1, 5 }, { 6, 10 }, { 11, 15 }, { 16, 20 } }
+local PAGES = { { 1, 6 }, { 7, 12 }, { 13, 17 } }
 
 type Counts = { [string]: { number } }
 local globalStats: { D: Counts, M: Counts }? = nil
@@ -169,7 +171,10 @@ local function refresh()
 		end
 	end
 	local bonus = State.Number("IndexBonus")
-	counter.Text = `Discovered {found}/{#Donuts.List}   •   📖 Speed bonus: +{bonus}%   •   🎁 {Index.UnclaimedCount()} to claim`
+	local unclaimed = Index.UnclaimedCount()
+	counter.Text = `Discovered {found}/{#Donuts.List}   •   📖 Speed bonus: +{bonus}%   •   🎁 {unclaimed} to claim`
+	Theme.SetButtonText(claimAll, if unclaimed > 0 then `🎁 Claim All ({unclaimed})` else "🎁 Claim All")
+	Theme.SetButtonColor(claimAll, if unclaimed > 0 then Theme.Colors.Green else Theme.Colors.Gray)
 	-- Mutations: chance per spawn + how many were found in the whole game
 	local parts = {}
 	for _, mutation in Rarities.Mutations do
@@ -317,7 +322,13 @@ end
 
 function Index.Init()
 	modal = Modal.new("📖 DONUT INDEX", Theme.Colors.Blue, Vector2.new(780, 540))
-	counter = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 50), Parent = modal.Body })
+	counter = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -196, 0, 24), Position = UDim2.fromOffset(0, 50), Parent = modal.Body })
+	claimAll = Theme.Button({ Name = "ClaimAll", Text = "🎁 Claim All", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(186, 28), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 47), Parent = modal.Body })
+	claimAll.Activated:Connect(function()
+		if Index.UnclaimedCount() > 0 then
+			State.Action("ClaimIndexAll")
+		end
+	end)
 	legend = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 76), StrokeThickness = 1.2, Parent = modal.Body })
 	local tabs = {}
 	for pageId, range in PAGES do

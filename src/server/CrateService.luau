@@ -72,7 +72,7 @@ function CrateService.Open(player: Player, crateId: string, source: string?): Re
 	local result: Result = { Crate = crate.Id, Kind = reward.Kind }
 	local got: string
 	if reward.Kind == "Coins" then
-		local amount = Economy.CrateCoins(reward.Seconds or 60, profile.Data.Speed, profile.Data.Rebirths)
+		local amount = Economy.CrateCoins(reward.Seconds or 60, profile.Data.Speed)
 		DataService.AddMoney(player, amount, false) -- not "earned": keeps the Money board about playing
 		result.Amount = amount
 		got = Format.Money(amount)

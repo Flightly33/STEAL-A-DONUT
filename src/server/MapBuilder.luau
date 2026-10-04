@@ -46,7 +46,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 12
+local MAP_VERSION = 13
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -988,7 +988,7 @@ function MapBuilder.Build(): Folder
 		return existing
 	end
 	-- No map, or one saved by an older version of the game: build it all from scratch. (Version 12:
-	-- one lobby, one lane of 20 biomes with Domer's corners and box spots, donut-shop bases.)
+	-- one lobby, one lane of 17 biomes with Domer's corners and box spots, donut-shop bases.)
 	if existing then
 		existing:Destroy()
 	end

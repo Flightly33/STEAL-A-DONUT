@@ -3,7 +3,7 @@
 	============
 	* Speed gates: every biome needs a Speed to get in (Areas.luau). Clients make the invisible wall
 	  at a too-fast biome's entrance solid for slow players (client/AreaTracker); this is the check
-	  on the server. Anyone standing in a biome they're too slow for (lag, a rebirth, spending Speed
+	  on the server. Anyone standing in a biome they're too slow for (lag, spending Speed
 	  on a skin...) is put back just outside it - in the furthest biome they ARE fast enough for, not
 	  all the way back in the lobby.
 	* Teleporter game pass: jump to the start of any biome you're fast enough for, or home.

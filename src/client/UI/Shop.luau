@@ -137,7 +137,6 @@ local function buildUpgrades(page: ScrollingFrame)
 		local money = State.Number("Money")
 		local passMult = math.max(1, State.Number("SpeedPassMultiplier"))
 
-		local rebirths = State.Number("Rebirths")
 		local multLevel = State.Number("SpeedMultLevel")
 		if multLevel >= Config.SpeedMultiplier.MaxLevel then
 			multInfo.Text = `x{Format.Multiplier(Economy.SpeedMultiplier(multLevel))} (MAX)`
@@ -169,7 +168,7 @@ local function buildUpgrades(page: ScrollingFrame)
 		local sizeCost = Economy.BaseSizeCost(baseLevel)
 		if sizeCost then
 			expandTitle.Text = "🍩 BIGGER BASE"
-			expandInfo.Text = `Room for {slots} → {Economy.SlotCount(baseLevel + 1)} donuts\nKept forever, even when you rebirth`
+			expandInfo.Text = `Room for {slots} → {Economy.SlotCount(baseLevel + 1)} donuts\nKept forever`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(sizeCost))
 			Theme.SetButtonColor(expandButton, if money >= sizeCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
@@ -185,7 +184,7 @@ local function buildUpgrades(page: ScrollingFrame)
 			local now = if kind == "Speed" then `x{Format.Multiplier(Economy.IncubatorSpeed(level))} hatch speed` else `{Economy.IncubatorCapacity(level)} eggs at once`
 			if cost then
 				local nextText = if kind == "Speed" then `x{Format.Multiplier(Economy.IncubatorSpeed(level + 1))}` else `{Economy.IncubatorCapacity(level + 1)} eggs`
-				info.Text = `{now}  →  {nextText}\nKept forever, even when you rebirth`
+				info.Text = `{now}  →  {nextText}\nKept forever`
 				Theme.SetButtonText(button, "Buy " .. Format.Money(cost))
 				Theme.SetButtonColor(button, if money >= cost then Theme.Colors.Green else Theme.Colors.Gray)
 			else
@@ -199,13 +198,9 @@ local function buildUpgrades(page: ScrollingFrame)
 
 		local indexBonus = State.Number("IndexBonus")
 		local petBonus = State.Number("PetSpeedBonus")
-		local speed = State.Number("Speed")
-		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus, speed)
+		local rate = Economy.TreadmillRate(level, multLevel, passMult, indexBonus, petBonus)
 		local walk = State.Number("WalkSpeed")
 		local extras = {}
-		if rebirths > 0 then
-			table.insert(extras, `🔄 x{Format.Multiplier(Economy.RebirthSpeedMultiplier(rebirths))}`)
-		end
 		if indexBonus > 0 then
 			table.insert(extras, `📖 +{indexBonus}%`)
 		end
@@ -308,7 +303,7 @@ end
 local function outcomeText(outcome: Crates.Outcome): string
 	local reward = outcome.Reward
 	if reward.Kind == "Coins" then
-		local amount = Economy.CrateCoins(reward.Seconds or 60, State.Number("Speed"), State.Number("Rebirths"))
+		local amount = Economy.CrateCoins(reward.Seconds or 60, State.Number("Speed"))
 		return `Coins (~{Format.Money(amount)} for you now)`
 	elseif reward.Kind == "SpeedBoost" then
 		return `Speed Boost: run {math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% faster for {Format.Duration(reward.Seconds or 600)}`
@@ -441,7 +436,7 @@ end
 --------------------------------------------------------------------------------
 local function buildSkins(page: ScrollingFrame)
 	local note = card(page, 0, Theme.Colors.Purple)
-	Theme.Label({ Text = "🎨 Skins are bought with SPEED ⚡ (you'll be slower until you train it back). They're yours forever, even after rebirths!", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
+	Theme.Label({ Text = "🎨 Skins are bought with SPEED ⚡ (you'll be slower until you train it back). They're yours forever!", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	for order, skin in Config.Skins do
 		local c = card(page, order, skin.Trim)
 		-- Colour swatch preview of the skin
@@ -507,7 +502,7 @@ function Shop.Init()
 	buildCrates(newPage("Crates", body, 2, 290), body)
 	buildSkins(newPage("Skins", body, 3, 180))
 
-	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "BaseLevel", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
+	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "BaseLevel", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
 		State.OnAttribute(name, function()
 			if modal:IsOpen() then
 				refreshAll()

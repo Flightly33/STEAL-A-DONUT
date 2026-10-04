@@ -128,7 +128,7 @@ Pets.Eggs = {
 		Pool = { { Pet = "EmberLizard", Weight = 45 }, { Pet = "MagmaHound", Weight = 32 }, { Pet = "FirePhoenix", Weight = 17 }, { Pet = "LavaDragon", Weight = 6 } },
 	},
 	{
-		Id = "Cosmic", Name = "Cosmic Egg", MinArea = 8, MaxArea = 16, Weight = 25, HatchSeconds = 1800, Tier = 4,
+		Id = "Cosmic", Name = "Cosmic Egg", MinArea = 8, MaxArea = 14, Weight = 25, HatchSeconds = 1800, Tier = 4,
 		Color = rgb(40, 20, 90), Accent = rgb(150, 220, 255),
 		Pool = { { Pet = "StarJelly", Weight = 48 }, { Pet = "NebulaCat", Weight = 33 }, { Pet = "GalaxyWhale", Weight = 16 }, { Pet = "CosmicUnicorn", Weight = 3 } },
 	},
@@ -138,17 +138,17 @@ Pets.Eggs = {
 		Pool = { { Pet = "ParrotPal", Weight = 48 }, { Pet = "CoralCrab", Weight = 33 }, { Pet = "TikiTurtle", Weight = 16 }, { Pet = "KrakenJr", Weight = 3 } },
 	},
 	{
-		Id = "Dream", Name = "Dream Egg", MinArea = 11, MaxArea = 18, Weight = 35, HatchSeconds = 3600, Tier = 5,
+		Id = "Dream", Name = "Dream Egg", MinArea = 11, MaxArea = 15, Weight = 35, HatchSeconds = 3600, Tier = 5,
 		Color = rgb(255, 235, 250), Accent = rgb(190, 150, 255),
 		Pool = { { Pet = "CloudSheep", Weight = 55 }, { Pet = "TeddyGhost", Weight = 32 }, { Pet = "AngelBear", Weight = 12 }, { Pet = "DreamDragon", Weight = 1 } },
 	},
 	{
-		Id = "Void", Name = "Void Egg", MinArea = 7, MaxArea = 20, Weight = 3, HatchSeconds = 5400, Tier = 6, Rainbow = true,
+		Id = "Void", Name = "Void Egg", MinArea = 7, MaxArea = 17, Weight = 3, HatchSeconds = 5400, Tier = 6, Rainbow = true,
 		Color = rgb(10, 5, 20), Accent = rgb(200, 80, 255),
 		Pool = { { Pet = "VoidImp", Weight = 70 }, { Pet = "VoidSerpent", Weight = 28 }, { Pet = "GlitchGod", Weight = 2 } },
 	},
 	{
-		Id = "Cyber", Name = "Cyber Egg", MinArea = 13, MaxArea = 20, Weight = 35, HatchSeconds = 4500, Tier = 5,
+		Id = "Cyber", Name = "Cyber Egg", MinArea = 12, MaxArea = 17, Weight = 35, HatchSeconds = 4500, Tier = 5,
 		Color = rgb(30, 30, 45), Accent = rgb(255, 40, 200),
 		Pool = { { Pet = "PixelPup", Weight = 55 }, { Pet = "DroneBird", Weight = 32 }, { Pet = "MechaCat", Weight = 12 }, { Pet = "NeonOverlord", Weight = 1 } },
 	},

@@ -6,7 +6,7 @@
 
 	Rewards:
 	  Coins      -> Seconds of income from a typical donut of the furthest biome your Speed gets you into
-	                (so the amount keeps up with how far you are). Rebirth money bonus included.
+	                (so the amount keeps up with how far you are).
 	  SpeedBoost -> you run x Config.Crates.SpeedBoostMultiplier faster for Seconds (counts down only
 	                while you're in the game; more boosts add more time)
 	  Luck       -> starts / extends the server-wide Luck Event for Seconds (everyone benefits)

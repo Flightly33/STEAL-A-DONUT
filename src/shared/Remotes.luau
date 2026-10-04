@@ -4,13 +4,12 @@
 	Server -> Client
 		Notify(text, kind)                 toast message ("info" | "success" | "error" | "rare")
 		State(snapshot)                    tables that don't fit in attributes (passes, skins, index...)
-		ChaseStarted(info)                 you grabbed a box (or raided a donut) and a guard is after you
+		ChaseStarted(info)                 you grabbed a box (or an egg) and a guard is after you
 		ChaseEnded(result)                 "Safe" | "Caught" | "Deposited" | "Lost"
 		OfflineEarnings(amount, seconds)
 		LeaderboardUpdated(boardId)
 		AreaAnnouncement(text, color)      big server-wide banner (rare spawns / rare steals)
 		Flung(velocity)                    you got hit by a weapon/trap: client launches itself
-		Alarm(info)                        someone is stealing / stole your donut ({ Stage, Thief, Name })
 		EggHatched(info)                   { EggId, PetId, Uid } - play the hatch animation
 		AdminPanel()                       open the admin panel (you typed the code)
 		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
@@ -19,7 +18,7 @@
 		BoxOpened(info)                    a box in a pen opened: { Owner, Slot, DonutId, Mutation, Size }
 
 	Client -> Server
-		Action(name, arg)                  shop purchases, equip skin, speed slider, teleport home...
+		Action(name, arg)                  shop purchases, equip skin, run speed, teleport home...
 		ClientReady()                      UI is built; server then sends welcome-back popup etc.
 		GetLeaderboard(boardId) -> data    (RemoteFunction)
 		GetGlobalStats() -> stats          (RemoteFunction) spawn / found counts of every donut
@@ -33,7 +32,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "SpeedGate", "BoxesReset", "BoxOpened" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "SpeedGate", "BoxesReset", "BoxOpened" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats", "GetSellList" }
 
 local Remotes = {}

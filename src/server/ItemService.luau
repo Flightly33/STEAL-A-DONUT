@@ -3,8 +3,7 @@
 	===========
 	The bat (Config.Items): everyone gets it for free, every time they spawn, and it's the only
 	item. Click to swing: everyone in front of you within Range is flung - and anyone carrying a box
-	drops it on the ground right there (StealService.Knock), so you can grab it yourself. Hitting
-	someone carrying a donut raided from a base sends that donut flying back to its owner.
+	drops it on the ground right there (StealService.Knock), so you can grab it yourself.
 	The bat's model lives in shared/ItemModel.luau; its sounds are built-in Roblox sounds.
 ]]
 

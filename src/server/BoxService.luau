@@ -238,6 +238,51 @@ function BoxService.Return(record: BoxRecord, groundAt: Vector3?)
 	end
 end
 
+-- A spot by `areaId`'s Domer that no box is using (nil if they all are).
+local function freeSpot(areaId: number): BasePart?
+	local list: { BasePart } = spots[areaId] or {}
+	for _, spot in list do
+		local used = false
+		for _, other in records do
+			if other.Spot == spot then
+				used = true
+				break
+			end
+		end
+		if not used then
+			return spot
+		end
+	end
+	return nil
+end
+
+-- Domer caught the thief: he takes the box back to his corner - onto its own spot, or (a box that
+-- came off the ground, or one from before the last reset) onto a free spot next to him. If every
+-- spot already has a box, he keeps it: it's gone.
+function BoxService.ReturnToDomer(record: BoxRecord)
+	if record.Spot and record.Batch == batch then
+		record.Taken = false
+		record.DroppedAt = nil
+		show(record, spotCFrame(record.Spot))
+		return
+	end
+	record.Spot = nil -- (an old spot from before a reset isn't its own any more)
+	local spot = freeSpot(record.AreaId)
+	if not spot then
+		remove(record)
+		return
+	end
+	record.Spot = spot
+	record.Batch = batch
+	record.Taken = false
+	record.DroppedAt = nil
+	record.Planted = nil
+	if not table.find(records, record) then
+		table.insert(records, record)
+	end
+	show(record, spotCFrame(spot))
+end
+
 -- The box made it to the lobby (it's in someone's inventory now): its spot stays empty.
 function BoxService.Release(record: BoxRecord)
 	remove(record)

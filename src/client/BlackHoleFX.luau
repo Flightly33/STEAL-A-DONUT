@@ -12,12 +12,15 @@
 local CollectionService = game:GetService("CollectionService")
 local Lighting = game:GetService("Lighting")
 local RunService = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Areas = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Areas"))
 
 local AreaTracker = require(script.Parent.AreaTracker)
 
 local BlackHoleFX = {}
 
-local AREA = 20 -- The Black Hole
+local AREA = #Areas.List -- The Black Hole (the last biome)
 local VIEW_DISTANCE = 2500
 local LAB_DISTANCE = 300
 

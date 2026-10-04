@@ -19,6 +19,8 @@ export type Snapshot = {
 	Discovered: { [string]: boolean },
 	DiscoveredMutations: { [string]: { [string]: boolean } }?,
 	IndexClaims: { [string]: string }?,
+	OwnedTrails: { [string]: boolean }?,
+	EquippedTrail: string?,
 	PodiumMode: string,
 	MusicVolume: number?,
 	MusicOn: boolean?,

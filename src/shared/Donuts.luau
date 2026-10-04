@@ -301,7 +301,7 @@ Donuts.List = {
 
 --------------------------------------------------------------------------------
 -- Update 6: donuts come out of donut BOXES (Boxes.luau). Every donut above now lives in one of
--- the 20 biomes (Areas.luau) and in one of its boxes:
+-- the 17 biomes (Areas.luau) and in one of its boxes:
 --   * BIOME_DONUTS: which of the old areas' donuts each biome's boxes hold (in the order above).
 --   * Biome 1 only has the plain pink box: all its donuts are "Basic" box donuts.
 --   * Everywhere else the donuts are sorted from weakest to best: the weakest ~40% are in the
@@ -323,16 +323,13 @@ local BIOME_DONUTS: { { number } } = {
 	{ 11, 13 }, -- 8 Candy Cane Canyon
 	{ 21 }, -- 9 Toy Factory
 	{ 22 }, -- 10 Haunted Donuttery
-	{ 20 }, -- 11 Cloud Bakery
-	{ 9 }, -- 12 Crystal Cosmos
-	{ 27, 8 }, -- 13 Neon Streets
-	{ 29, 28 }, -- 14 Robot Factory
-	{ 23 }, -- 15 Clockwork Void
-	{ 25, 10 }, -- 16 Starfall Garden
-	{ 26 }, -- 17 Aurora Palace
-	{ 24 }, -- 18 Donut Heaven
-	{ 32, 30, 31 }, -- 19 Glitch Zone
-	{ 34, 33 }, -- 20 The Black Hole
+	{ 20, 9 }, -- 11 Cloud Bakery (+ the crystal donuts)
+	{ 27, 8 }, -- 12 Neon Streets
+	{ 29, 28 }, -- 13 Robot Factory
+	{ 23, 25 }, -- 14 Clockwork Void (+ the starfall donuts)
+	{ 24, 26, 10 }, -- 15 Donut Heaven (+ the aurora and celestial donuts)
+	{ 32, 30, 31 }, -- 16 Glitch Zone
+	{ 34, 33 }, -- 17 The Black Hole
 }
 
 -- Money per second of an average x1 donut in each biome (level 1, no mutation, normal size); each
@@ -340,7 +337,7 @@ local BIOME_DONUTS: { { number } } = {
 -- Tuned with the economy sim (see Config.Treadmill).
 local BIOME_INCOME = {
 	7, 22, 72, 230, 730, 2_350, 8_700, 32_000, 120_000, 440_000,
-	1_630_000, 6_000_000, 22_000_000, 82_000_000, 305_000_000, 1_130_000_000, 4_200_000_000, 15_500_000_000, 57_000_000_000, 212_000_000_000,
+	1_630_000, 9_800_000, 59_000_000, 350_000_000, 2_100_000_000, 12_700_000_000, 76_000_000_000,
 }
 local TIER_INCOME: { [string]: number } = { Basic = 1, Rare = 1, Epic = 3, Legendary = 10, Mythic = 30 }
 local SECRET_WEIGHT = 0.4 -- % of the biome's rarest box (each Secret / Icon donut)

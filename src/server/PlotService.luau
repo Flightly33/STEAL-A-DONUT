@@ -43,8 +43,6 @@ local StatsService = require(script.Parent.StatsService)
 
 local PlotService = {}
 
--- Set by RaidService: called for every new raid prompt (owner, slotIndex, prompt).
-PlotService.RaidHandler = nil :: ((Player, number, ProximityPrompt) -> ())?
 -- Fired after a player's base got bigger (its pen was rebuilt): (player).
 PlotService.Resized = Signal.new()
 -- Fired when a box in a pen opens: (player, donutId, mutationId, sizeId). The donut goes into the
@@ -271,8 +269,6 @@ local function refreshSign(plotIndex: number, owner: Player?)
 		incomeLabel.TextColor3 = rgb(90, 255, 90)
 		local profile = DataService.Get(owner)
 		local mult = if profile then DataService.MoneyMultiplier(profile) else 1
-		local rebirths = if profile then profile.Data.Rebirths else 0
-		nameLabel.Text = if rebirths > 0 then `{owner.DisplayName}  🔄{rebirths}` else owner.DisplayName
 		incomeLabel.Text = Format.Money((baseIncome[owner] or 0) * mult) .. "/s"
 	else
 		nameLabel.Text = "Empty Base"
@@ -289,7 +285,7 @@ function PlotService.RefreshSign(player: Player)
 	if index then
 		refreshSign(index, player)
 	end
-	-- Money passes, rebirths and pets changed what every donut earns: update their labels.
+	-- Money passes and pets changed what every donut earns: update their labels.
 	local profile = DataService.Get(player)
 	local mult = if profile then DataService.MoneyMultiplier(profile) else 1
 	if labelMultiplier[player] ~= mult and slotModels[player] then
@@ -466,7 +462,7 @@ function PlotService.GetDonutPosition(player: Player, slotIndex: number): Vector
 end
 
 -- The label under each donut shows what it REALLY earns: its income times your money
--- multiplier (money passes, rebirths, pets).
+-- multiplier (money passes, pets).
 function updateSlotLabels(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local model = slotModels[player] and slotModels[player][slotIndex]
@@ -574,26 +570,6 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	favorite:SetAttribute("OwnerUserId", player.UserId)
 	favorite.Parent = root
 
-	-- Raid prompt: other players hold this for Config.Raid.HoldSeconds (whether the owner is home
-	-- or not: there are no base locks). RaidService handles the steal; the owner never sees it.
-	if Config.Raid.Enabled then
-		local raid = Instance.new("ProximityPrompt")
-		raid.Name = "RaidPrompt"
-		raid.ActionText = "Steal"
-		raid.ObjectText = Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)
-		raid.KeyboardKeyCode = Enum.KeyCode.E
-		raid.GamepadKeyCode = Enum.KeyCode.ButtonX
-		raid.HoldDuration = Config.Raid.HoldSeconds
-		raid.MaxActivationDistance = 13
-		raid.RequiresLineOfSight = false
-		raid:SetAttribute("HideForUserId", player.UserId)
-		raid:SetAttribute("SlotIndex", slotIndex)
-		raid.Parent = root
-		if PlotService.RaidHandler then
-			PlotService.RaidHandler(player, slotIndex, raid)
-		end
-	end
-
 	upgrade.Triggered:Connect(function(who)
 		if who == player then
 			PlotService.UpgradeSlot(player, slotIndex)
@@ -619,7 +595,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 end
 
 -- The favourite donut: a 1/3-size copy follows its owner around (every client draws it from the
--- "Favorite" attribute). It's cleared when that donut leaves the base (sold, stolen, rebirth).
+-- "Favorite" attribute). It's cleared when that donut leaves the base (sold, cleared).
 local function syncFavorite(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
@@ -688,24 +664,6 @@ function PlotService.AddDonut(player: Player, donutId: string, level: number?, m
 	return slotIndex
 end
 
--- Remove a donut from a base without paying for it (it was stolen). Returns its data.
-function PlotService.TakeSlot(player: Player, slotIndex: number): DataService.SlotData?
-	local profile = DataService.Get(player)
-	local key = tostring(slotIndex)
-	local slot = profile and profile.Data.Slots[key]
-	if not profile or not slot then
-		return nil
-	end
-	profile.Data.Slots[key] = nil
-	local model = slotModels[player] and slotModels[player][slotIndex]
-	if model then
-		model:Destroy()
-		slotModels[player][slotIndex] = nil
-	end
-	afterSlotsChanged(player)
-	return slot
-end
-
 function PlotService.UpgradeSlot(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local slot = profile and profile.Data.Slots[tostring(slotIndex)]
@@ -748,7 +706,7 @@ function PlotService.SellSlot(player: Player, slotIndex: number)
 	notify(player, `Sold {if donut then Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size) else "donut"} for {Format.Money(price)}`, "success")
 end
 
--- Remove every donut from a base (rebirth).
+-- Remove every donut from a base (admin "clear donuts").
 function PlotService.ClearAll(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then

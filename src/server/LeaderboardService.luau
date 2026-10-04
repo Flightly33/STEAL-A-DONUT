@@ -66,7 +66,7 @@ local function scoreFor(boardId: string, data: DataService.Data): number
 	if boardId == "Money" then
 		return encodeLog(data.TotalEarned)
 	elseif boardId == "Speed" then
-		return encodeLog(math.max(data.BestSpeed, data.Speed)) -- rebirths reset Speed, so rank the best ever
+		return encodeLog(math.max(data.BestSpeed, data.Speed)) -- skins cost Speed, so rank the best ever
 	elseif boardId == "Rarest" then
 		return data.BestDonutScore
 	elseif boardId == "Time" then

@@ -102,47 +102,16 @@ function Economy.MaxTreadmillLevel(): number
 	return #Config.Treadmill.Tiers
 end
 
---------------------------------------------------------------------------------
--- Rebirths
---------------------------------------------------------------------------------
-function Economy.RebirthMoneyMultiplier(rebirths: number): number
-	return 1 + Config.Rebirth.MoneyBonus * rebirths
-end
-
-function Economy.RebirthSpeedMultiplier(rebirths: number): number
-	return 1 + Config.Rebirth.SpeedBonus * rebirths
-end
-
--- Requirements for the NEXT rebirth (nil when there are no more).
--- No limit: past the listed levels every rebirth needs Config.Rebirth.After.SpeedGrowth times the
--- Speed and costs Config.Rebirth.After.CostGrowth times more than the one before.
-function Economy.NextRebirth(rebirths: number): { Speed: number, Cost: number }?
-	local levels = Config.Rebirth.Levels
-	local listed = levels[rebirths + 1]
-	if listed then
-		return listed
-	end
-	local last = levels[#levels]
-	local extra = rebirths + 1 - #levels
-	local after = Config.Rebirth.After
-	return { Speed = last.Speed * after.SpeedGrowth ^ extra, Cost = last.Cost * after.CostGrowth ^ extra }
-end
-
-function Economy.MaxRebirths(): number
-	return math.huge
-end
-
 -- Speed gained per second on the treadmill (StepsPerSecond steps of the tier's PerStep).
 -- indexBonus: total Index speed bonus in % (e.g. 35 = +35%).
 -- petBonus: total speed bonus of your equipped pets (0.25 = +25%).
-function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?, _speed: number?): number
+function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, indexBonus: number?, petBonus: number?): number
 	local index = math.min((indexBonus or 0) / 100, Config.Index.MaxSpeedBonus)
 	local pets = math.min(petBonus or 0, Config.Pets.MaxSpeedBonus)
 	return Economy.TreadmillTier(treadmillLevel).PerStep
 		* Config.Treadmill.StepsPerSecond
 		* Economy.SpeedMultiplier(multiplierLevel)
 		* speedPassMultiplier
-		* Economy.RebirthSpeedMultiplier(rebirths or 0)
 		* (1 + index)
 		* (1 + pets)
 end
@@ -181,7 +150,7 @@ end
 -- Base expansions
 --------------------------------------------------------------------------------
 -- The furthest biome a player is fast enough to get into.
-function Economy.BestAreaFor(speed: number, _rebirths: number?, _ultimate: number?): number
+function Economy.BestAreaFor(speed: number): number
 	local best = 1
 	for _, area in Areas.List do
 		if speed >= area.RecommendedSpeed then
@@ -208,9 +177,9 @@ function Economy.TypicalBoxIncome(biome: number): number
 end
 
 -- Crate coins: `seconds` of income from a typical donut of the furthest biome your Speed is good
--- for, with your rebirth money bonus. Grows as you progress.
-function Economy.CrateCoins(seconds: number, speed: number, rebirths: number): number
-	return math.floor(seconds * Economy.TypicalBoxIncome(Economy.BestAreaFor(speed, rebirths)) * Economy.RebirthMoneyMultiplier(rebirths))
+-- for. Grows as you progress.
+function Economy.CrateCoins(seconds: number, speed: number): number
+	return math.floor(seconds * Economy.TypicalBoxIncome(Economy.BestAreaFor(speed)))
 end
 
 -- How many donuts a base of size `level` holds (Config.Plots.Sizes; past the last size - the

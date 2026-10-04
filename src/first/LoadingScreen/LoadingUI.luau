@@ -44,12 +44,12 @@ local SPRINKLES = { rgb(255, 80, 80), rgb(255, 220, 60), rgb(90, 220, 120), rgb(
 LoadingUI.Tips = {
 	"Tip: Run on your treadmill to get faster than Domer!",
 	"Tip: Rarer donuts glow brighter. Look for the shiny ones!",
-	"Tip: Lock your base so nobody can steal your donuts.",
-	"Tip: Rebirth to unlock new worlds and earn way more money.",
+	"Tip: Click a box in your pen when its timer runs out to open it.",
+	"Tip: Grab a box and run! Domer always takes it back if he catches you.",
 	"Tip: Hatch eggs to get pets that boost your money and speed.",
 	"Tip: Press X to hide the UI for screenshots.",
-	"Tip: Check the Index to claim rewards for every donut you find.",
-	"Tip: Domer sleeps until you grab a donut. Then RUN!",
+	"Tip: Use Claim All in the Index to grab every reward at once.",
+	"Tip: Domer sleeps until you grab a box. Then RUN!",
 }
 
 local function new(className: string, props: { [string]: any }, children: { Instance }?): any

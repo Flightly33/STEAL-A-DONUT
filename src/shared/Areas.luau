@@ -55,7 +55,6 @@ export type World = {
 	Name: string,
 	OffsetX: number,
 	BridgeLength: number,
-	RequiredRebirths: number,
 	WalkMultiplier: number,
 	Color: Color3,
 	Icon: string,
@@ -196,17 +195,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 12, Tint = Color3.fromRGB(255, 240, 250), Saturation = 0.1, AtmosphereColor = Color3.fromRGB(255, 230, 245), AtmosphereDensity = 0.2, Haze = 1 }),
 	},
 	{
-		Id = 12, Name = "Crystal Cosmos", Theme = "Crystal",
-		RecommendedSpeed = 35_000_000, WakeDelay = 0.95, World = 1, Index = 12,
-		Floor = { Color3.fromRGB(90, 50, 160), Color3.fromRGB(110, 65, 190) }, FloorMaterial = Enum.Material.Glass,
-		Wall = { Color3.fromRGB(60, 30, 110), Color3.fromRGB(75, 40, 135) }, WallMaterial = Enum.Material.Glass,
-		Trim = Color3.fromRGB(200, 150, 255), TrimMaterial = Enum.Material.Neon,
-		Guard = { Skin = Color3.fromRGB(200, 160, 255), Shirt = Color3.fromRGB(90, 40, 180), Pants = Color3.fromRGB(40, 20, 90), Aura = "Sparkles", Title = "Crystal", Hat = "Crown" },
-		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(225, 200, 255), Saturation = 0.2, Contrast = 0.2, Ambient = Color3.fromRGB(88, 60, 138), AtmosphereColor = Color3.fromRGB(140, 90, 220), AtmosphereDensity = 0.4, Haze = 2, Bloom = 0.6 }),
-	},
-	{
-		Id = 13, Name = "Neon Streets", Theme = "CyberStreets",
-		RecommendedSpeed = 48_000_000, WakeDelay = 0.92, World = 1, Index = 13,
+		Id = 12, Name = "Neon Streets", Theme = "CyberStreets",
+		RecommendedSpeed = 30_000_000, WakeDelay = 0.92, World = 1, Index = 12,
 		Floor = { Color3.fromRGB(30, 30, 42), Color3.fromRGB(38, 38, 52) }, FloorMaterial = Enum.Material.Asphalt,
 		Wall = { Color3.fromRGB(24, 22, 40), Color3.fromRGB(32, 30, 52) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 40, 200), TrimMaterial = Enum.Material.Neon,
@@ -214,8 +204,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 1, Tint = Color3.fromRGB(235, 215, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(200, 60, 255), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
-		Id = 14, Name = "Robot Factory", Theme = "RobotFactory",
-		RecommendedSpeed = 65_000_000, WakeDelay = 0.9, World = 1, Index = 14,
+		Id = 13, Name = "Robot Factory", Theme = "RobotFactory",
+		RecommendedSpeed = 50_000_000, WakeDelay = 0.9, World = 1, Index = 13,
 		Floor = { Color3.fromRGB(90, 95, 105), Color3.fromRGB(78, 82, 92) }, FloorMaterial = Enum.Material.DiamondPlate,
 		Wall = { Color3.fromRGB(60, 62, 70), Color3.fromRGB(50, 52, 60) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 190, 0), TrimMaterial = Enum.Material.Neon,
@@ -223,8 +213,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 19, Tint = Color3.fromRGB(255, 235, 210), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 170, 60), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
-		Id = 15, Name = "Clockwork Void", Theme = "Clockwork",
-		RecommendedSpeed = 88_000_000, WakeDelay = 0.88, World = 1, Index = 15,
+		Id = 14, Name = "Clockwork Void", Theme = "Clockwork",
+		RecommendedSpeed = 85_000_000, WakeDelay = 0.88, World = 1, Index = 14,
 		Floor = { Color3.fromRGB(72, 62, 92), Color3.fromRGB(86, 74, 108) }, FloorMaterial = Enum.Material.DiamondPlate,
 		Wall = { Color3.fromRGB(42, 36, 62), Color3.fromRGB(34, 30, 52) }, WallMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(255, 190, 60), TrimMaterial = Enum.Material.Neon,
@@ -232,26 +222,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 19.4, Tint = Color3.fromRGB(235, 220, 255), Saturation = 0.1, Contrast = 0.2, Ambient = Color3.fromRGB(90, 70, 130), AtmosphereColor = Color3.fromRGB(140, 100, 200), AtmosphereDensity = 0.35, Haze = 1.5, Bloom = 0.5 }),
 	},
 	{
-		Id = 16, Name = "Starfall Garden", Theme = "Starfall",
-		RecommendedSpeed = 120_000_000, WakeDelay = 0.86, World = 1, Index = 16,
-		Floor = { Color3.fromRGB(40, 30, 80), Color3.fromRGB(52, 40, 100) }, FloorMaterial = Enum.Material.Grass,
-		Wall = { Color3.fromRGB(30, 24, 64), Color3.fromRGB(40, 32, 80) }, WallMaterial = Enum.Material.SmoothPlastic,
-		Trim = Color3.fromRGB(255, 235, 140), TrimMaterial = Enum.Material.Neon,
-		Guard = { Skin = Color3.fromRGB(255, 240, 180), Shirt = Color3.fromRGB(80, 60, 170), Pants = Color3.fromRGB(40, 30, 90), Aura = "Cosmic", Title = "Starry", Hat = "Witch" },
-		Ambience = ambience({ ClockTime = 0.5, Tint = Color3.fromRGB(230, 220, 255), Saturation = 0.25, Contrast = 0.2, Ambient = Color3.fromRGB(100, 90, 160), AtmosphereColor = Color3.fromRGB(120, 100, 220), AtmosphereDensity = 0.3, Haze = 1.5, Bloom = 0.7 }),
-	},
-	{
-		Id = 17, Name = "Aurora Palace", Theme = "Aurora",
-		RecommendedSpeed = 160_000_000, WakeDelay = 0.84, World = 1, Index = 17,
-		Floor = { Color3.fromRGB(215, 240, 255), Color3.fromRGB(200, 230, 250) }, FloorMaterial = Enum.Material.Glass,
-		Wall = { Color3.fromRGB(170, 215, 255), Color3.fromRGB(150, 200, 245) }, WallMaterial = Enum.Material.Glass,
-		Trim = Color3.fromRGB(120, 255, 200), TrimMaterial = Enum.Material.Neon,
-		Guard = { Skin = Color3.fromRGB(220, 240, 255), Shirt = Color3.fromRGB(120, 255, 210), Pants = Color3.fromRGB(150, 120, 255), Aura = "Snow", Title = "Aurora", Hat = "Crown" },
-		Ambience = ambience({ ClockTime = 22.5, Tint = Color3.fromRGB(220, 255, 245), Saturation = 0.3, Contrast = 0.2, Ambient = Color3.fromRGB(90, 140, 150), AtmosphereColor = Color3.fromRGB(100, 220, 200), AtmosphereDensity = 0.3, Haze = 1.5, Bloom = 0.8 }),
-	},
-	{
-		Id = 18, Name = "Donut Heaven", Theme = "Heaven",
-		RecommendedSpeed = 220_000_000, WakeDelay = 0.82, World = 1, Index = 18,
+		Id = 15, Name = "Donut Heaven", Theme = "Heaven",
+		RecommendedSpeed = 140_000_000, WakeDelay = 0.82, World = 1, Index = 15,
 		Floor = { Color3.fromRGB(255, 242, 205), Color3.fromRGB(255, 230, 175) }, FloorMaterial = Enum.Material.Marble,
 		Wall = { Color3.fromRGB(255, 250, 238), Color3.fromRGB(245, 238, 220) }, WallMaterial = Enum.Material.Marble,
 		Trim = Color3.fromRGB(255, 215, 90), TrimMaterial = Enum.Material.Neon,
@@ -259,8 +231,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 12, Tint = Color3.fromRGB(255, 245, 220), Saturation = 0.1, AtmosphereColor = Color3.fromRGB(255, 235, 190), AtmosphereDensity = 0.25, Haze = 1.5, Bloom = 0.6 }),
 	},
 	{
-		Id = 19, Name = "Glitch Zone", Theme = "Glitch",
-		RecommendedSpeed = 300_000_000, WakeDelay = 0.8, World = 1, Index = 19,
+		Id = 16, Name = "Glitch Zone", Theme = "Glitch",
+		RecommendedSpeed = 240_000_000, WakeDelay = 0.8, World = 1, Index = 16,
 		Floor = { Color3.fromRGB(20, 20, 20), Color3.fromRGB(245, 245, 245) }, FloorMaterial = Enum.Material.SmoothPlastic,
 		Wall = { Color3.fromRGB(255, 0, 200), Color3.fromRGB(0, 255, 220) }, WallMaterial = Enum.Material.Neon,
 		Trim = Color3.fromRGB(255, 255, 0), TrimMaterial = Enum.Material.Neon,
@@ -268,8 +240,8 @@ Areas.List = {
 		Ambience = ambience({ ClockTime = 0, Tint = Color3.fromRGB(240, 220, 255), Saturation = 0.25, Contrast = 0.25, Ambient = Color3.fromRGB(80, 60, 140), AtmosphereColor = Color3.fromRGB(255, 0, 200), AtmosphereDensity = 0.46, Haze = 2, Bloom = 0.7 }),
 	},
 	{
-		Id = 20, Name = "The Black Hole", Theme = "BlackHole",
-		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 20, HalfWidth = 135,
+		Id = 17, Name = "The Black Hole", Theme = "BlackHole",
+		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 135,
 		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
@@ -296,7 +268,7 @@ end
 -- (One lane now: the old worlds and their portals are gone. Kept as a single world so code that
 -- asks "which world" still has an answer.)
 Areas.Worlds = {
-	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, RequiredRebirths = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
+	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
 } :: { World }
 
 Areas.ByWorld = {} :: { [number]: { Area } }

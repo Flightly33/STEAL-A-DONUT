@@ -135,7 +135,7 @@ Config.Plots = {
 	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
 	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
 	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
-	-- and the pen grows a little each time. Bigger bases are kept through rebirths.
+	-- and the pen grows a little each time.
 	Sizes = {
 		{ Slots = 7, Cost = 0 },
 		{ Slots = 9, Cost = 100_000 },
@@ -169,13 +169,14 @@ Config.Plots = {
 --------------------------------------------------------------------------------
 Config.Speed = {
 	BaseWalkSpeed = 24,
+	MinRunSpeed = 16, -- the slowest run speed you can type in Settings
 	CurveScale = 4.6,
 	CurvePower = 0.2,
 }
 
 -- Treadmills: the one by your base gives Speed every step while you run on it (StepsPerSecond steps
--- a second). Buy the next one in the Shop (kept through rebirths). PerStep is before your Speed
--- Multiplier, rebirths, Index, pets and 2x Speed pass.
+-- a second). Buy the next one in the Shop. PerStep is before your Speed Multiplier, Index, pets
+-- and 2x Speed pass.
 -- Balance (economy sim, a good player with no passes or pets, sharing boxes with other players):
 -- biome 6 at ~1.3 h, biome 12 at ~6.5 h, the last biome at ~12.5 h; the last treadmill at ~11 h.
 -- Real players take longer (breaks, getting caught, losing boxes to bats).
@@ -278,26 +279,6 @@ Config.Boxes = {
 	DroppedLifetime = 120,
 	StealSeconds = 0.6, -- hold E this long to grab a box
 	MaxInventory = 60, -- boxes + donuts you can carry in your inventory
-}
-
---------------------------------------------------------------------------------
--- Rebirths: reset your Money and Speed for a permanent boost to money AND speed gains.
--- You keep: your donuts, base size, treadmills, Speed Multiplier, game passes, items, skins, pets,
--- the Index and its rewards.
---------------------------------------------------------------------------------
-Config.Rebirth = {
-	MoneyBonus = 1, -- +100% money per rebirth (x2, x3, x4 ...)
-	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
-	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
-	-- The economy sim's good player rebirths at ~2.4 h, ~4.9 h and ~8.6 h.
-	Levels = {
-		{ Speed = 1_500_000, Cost = 200_000_000 },
-		{ Speed = 12_000_000, Cost = 20_000_000_000 },
-		{ Speed = 80_000_000, Cost = 2_000_000_000_000 },
-	},
-	-- No rebirth limit: after the list each rebirth needs SpeedGrowth x the Speed and costs
-	-- CostGrowth x more than the one before.
-	After = { SpeedGrowth = 2.5, CostGrowth = 100 },
 }
 
 --------------------------------------------------------------------------------
@@ -488,7 +469,7 @@ Config.Pets = {
 	MaxEquipped = 3,
 	MaxPets = 60,
 	MaxEggs = 6, -- eggs incubating at once (before Incubator Size upgrades)
-	-- Incubator upgrades (Shop -> Upgrades, bought with money, kept through rebirths)
+	-- Incubator upgrades (Shop -> Upgrades, bought with money)
 	IncubatorSpeed = {
 		PerLevel = 0.25, -- +25% hatch speed per level (level 8 = x3: a 30 min egg takes 10 min)
 		Costs = { 50_000, 1_000_000, 20_000_000, 400_000_000, 8_000_000_000, 160_000_000_000, 3_200_000_000_000, 64_000_000_000_000 },
@@ -514,7 +495,7 @@ Config.Favorite = {
 
 --------------------------------------------------------------------------------
 -- Base skins, bought with your SPEED stat (spending speed makes you slower until you train it back).
--- "Classic" is free and always owned. Skins are kept forever (also through rebirths).
+-- "Classic" is free and always owned. Skins are kept forever.
 -- SkinRole colours: Floor / FloorAlt (the pen's checker ground) / Fence / Trim (posts, border) / Pedestal (gate arch, post caps) / Sign
 --------------------------------------------------------------------------------
 Config.Skins = {
@@ -614,27 +595,8 @@ Config.Leaderboards = {
 }
 
 --------------------------------------------------------------------------------
--- Stealing from other players' bases ("raids")
--- Hold the Steal prompt on someone else's donut (works even while they're home, unless their Base
--- Lock is on). You're put in slow mode while you carry it: get to YOUR base before the owner hits
--- you, or it flies straight back onto their stand. The owner hears an alarm the moment you start.
---------------------------------------------------------------------------------
-Config.Raid = {
-	Enabled = true,
-	HoldSeconds = 2.5,
-	CarryWalkSpeed = 16, -- slow mode while carrying someone else's donut
-	WarnOwner = true, -- alarm + warning for the owner the moment someone starts stealing
-	-- Optional custom alarm (rbxassetid://...). Empty = a built-in siren made of Roblox's own sounds.
-	AlarmSoundId = "",
-}
-
---------------------------------------------------------------------------------
--- Item shop (bought with money, kept forever). Items appear in your backpack (hotbar).
---   Weapon: click to swing; flings the players in front of you (and makes thieves drop donuts)
---   Trap:   click to place it at your feet (anywhere but inside someone else's base); flings
---           any other player who touches it (and makes thieves drop what they carry)
---   Lock:   click to wrap your whole base in a force field for Duration seconds (all four sides, far
---           too tall to jump; no raids, and anyone who gets inside is put back out)
+-- Items (in your backpack / hotbar). There's just one now: the free bat. Click to swing; it flings
+-- the players in front of you and makes anyone carrying a box drop it.
 --------------------------------------------------------------------------------
 export type Item = {
 	Id: string,

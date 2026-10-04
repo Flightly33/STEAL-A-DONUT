@@ -5,14 +5,12 @@
 	    he's right behind you (Config.Guard FootstepRange / ShakeRange / MaxShake)
 	  - "📦 BOX SECURED!" when you get a box back to the lobby (it goes into your inventory)
 	  - "CAUGHT!" screen (with a comedic fling): the box went back to Domer, or fell on the ground
-	  - A small "Drop" button while you carry a box or a donut stolen from someone's base
-	  - Base alarm: a siren, red edges and a red outline on the thief when someone steals from you
+	  - A small "Drop" button while you carry a box
 	  - "Welcome back" popup for offline earnings
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -38,7 +36,6 @@ local Chase = {}
 local player = Players.LocalPlayer :: Player
 
 local STEP_SOUND = "rbxasset://sounds/action_jump_land.mp3"
-local SIREN_SOUND = "rbxasset://sounds/electronicpingshort.wav"
 
 local gui: ScreenGui
 local banner: Frame
@@ -48,8 +45,6 @@ local edges: { Frame } = {}
 local chaseConnection: RBXScriptConnection? = nil
 local beam: Beam? = nil
 local beamAttachments: { Attachment } = {}
-local alarmConnection: RBXScriptConnection? = nil
-local thiefHighlight: Highlight? = nil
 
 local function rootPart(): BasePart?
 	local character = player.Character
@@ -172,21 +167,16 @@ local function footstep(guardRoot: BasePart, volume: number)
 	sound:Play()
 end
 
-type ChaseInfo = { DonutId: string, AreaId: number, Kind: string?, Guard: Model?, GuardSpeed: number?, Raid: boolean?, Mutation: string?, Size: string?, Victim: Player? }
+type ChaseInfo = { DonutId: string, AreaId: number, Kind: string?, Guard: Model?, GuardSpeed: number?, Mutation: string?, Size: string? }
 
 local function onChaseStarted(info: ChaseInfo)
 	Settings.SetChasing(true)
-	local kind = info.Kind or (if info.Raid then "Raid" else "Box")
+	local kind = info.Kind or "Box"
 	local donut = Donuts.ById[info.DonutId]
 	local rarity = donut and Rarities.Get(donut.Rarity)
 	local size = Rarities.Size(info.Size)
 	showBanner(true)
-	if kind == "Raid" then
-		local owner = if info.Victim then info.Victim.DisplayName else "the owner"
-		bannerTitle.Text = `🐌 SLOW MODE! GET HOME BEFORE {string.upper(owner)} HITS YOU!`
-	else
-		bannerTitle.Text = `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
-	end
+	bannerTitle.Text = `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
 	Theme.PlaySound("Grab")
@@ -212,9 +202,6 @@ local function onChaseStarted(info: ChaseInfo)
 	end
 
 	stopChaseLoop()
-	if kind == "Raid" then
-		showPathHome()
-	end
 	local pulse = 0
 	local nextStep = 0
 	local lastText = ""
@@ -226,15 +213,8 @@ local function onChaseStarted(info: ChaseInfo)
 		if not root then
 			return
 		end
-		local text
-		if kind == "Raid" then
-			local beamTarget = beamAttachments[2]
-			local home = beamTarget and beamTarget.WorldPosition
-			text = if home then `🏠 Your base: {math.floor((home - root.Position).Magnitude)} studs` else "🏠 Get to your base!"
-		else
-			local toSafe = math.max(0, root.Position.Z - Config.Map.SafeZoneZ)
-			text = `🛡 Lobby: {math.floor(toSafe)} studs`
-		end
+		local toSafe = math.max(0, root.Position.Z - Config.Map.SafeZoneZ)
+		local text = `🛡 Lobby: {math.floor(toSafe)} studs`
 		local closeness = 0
 		local guard = info.Guard
 		local guardRoot = guard and guard.Parent and guard.PrimaryPart
@@ -383,112 +363,6 @@ local function onChaseEnded(result: ChaseResult)
 	end
 end
 
---------------------------------------------------------------------------------
--- Base alarm (someone is stealing from you)
---------------------------------------------------------------------------------
-local function siren(seconds: number)
-	local custom = Config.Raid.AlarmSoundId
-	if custom ~= "" then
-		local sound = Instance.new("Sound")
-		sound.SoundId = custom
-		sound.Volume = 0.6
-		SoundService:PlayLocalSound(sound)
-		task.delay(seconds + 3, function()
-			sound:Destroy()
-		end)
-		return
-	end
-	-- A two-tone siren made of Roblox's built-in ping
-	task.spawn(function()
-		local steps = math.floor(seconds / 0.3)
-		for i = 1, steps do
-			local sound = Instance.new("Sound")
-			sound.SoundId = SIREN_SOUND
-			sound.Volume = 0.45
-			sound.PlaybackSpeed = if i % 2 == 0 then 1.7 else 1.25
-			SoundService:PlayLocalSound(sound)
-			task.delay(1, function()
-				sound:Destroy()
-			end)
-			task.wait(0.3)
-		end
-	end)
-end
-
-local function stopAlarm()
-	if alarmConnection then
-		alarmConnection:Disconnect()
-		alarmConnection = nil
-	end
-	if thiefHighlight then
-		thiefHighlight:Destroy()
-		thiefHighlight = nil
-	end
-	if not chaseConnection and bannerTitle.Text:find("STOLE") then
-		showBanner(false)
-		setEdges(false)
-	end
-end
-
-type AlarmInfo = { Stage: string, Thief: Player?, Name: string? }
-
-local function onAlarm(info: AlarmInfo)
-	local thief = info.Thief
-	local thiefName = if thief then thief.DisplayName else "Someone"
-	if info.Stage == "Started" then
-		siren(1.2)
-		setEdges(true, Color3.fromRGB(255, 40, 40))
-		setEdgeStrength(0.45)
-		task.delay(1.5, function()
-			if not chaseConnection and not alarmConnection then
-				setEdges(false)
-			end
-		end)
-	elseif info.Stage == "Stolen" then
-		siren(2.4)
-		bigText(`🚨 {string.upper(thiefName)} STOLE YOUR DONUT! 🚨`, Color3.fromRGB(255, 60, 60), 2.5)
-		if chaseConnection then
-			return -- you're busy running yourself: the toast is enough
-		end
-		stopAlarm()
-		showBanner(true)
-		bannerTitle.Text = `🚨 {string.upper(thiefName)} STOLE YOUR {string.upper(info.Name or "DONUT")}!`
-		bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
-		setEdges(true, Color3.fromRGB(255, 0, 0))
-		local character = thief and thief.Character
-		if character then
-			local highlight = Instance.new("Highlight")
-			highlight.FillColor = Color3.fromRGB(255, 40, 40)
-			highlight.FillTransparency = 0.6
-			highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-			highlight.Adornee = character
-			highlight.Parent = gui
-			thiefHighlight = highlight
-		end
-		local pulse = 0
-		alarmConnection = RunService.RenderStepped:Connect(function(dt)
-			pulse += dt
-			local root = rootPart()
-			local thiefRoot = thief and thief.Character and thief.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-			if not thief or not thief.Parent or thief:GetAttribute("CarryKind") ~= "Raid" then
-				stopAlarm()
-				return
-			end
-			if root and thiefRoot then
-				bannerInfo.Text = `⚔️ Hit them with your bat! They're {math.floor((thiefRoot.Position - root.Position).Magnitude)} studs away`
-			end
-			setEdgeStrength(0.5 + math.sin(pulse * 8) * 0.15)
-		end)
-	elseif info.Stage == "Recovered" then
-		stopAlarm()
-		bigText("🛡 YOU GOT IT BACK!", Color3.fromRGB(120, 255, 120), 2)
-		Theme.PlaySound("Deposit")
-	elseif info.Stage == "Lost" then
-		stopAlarm()
-		bigText(`😱 {string.upper(thiefName)} GOT AWAY...`, Color3.fromRGB(255, 150, 150), 2)
-	end
-end
-
 local function buildOfflinePopup()
 	local modal = Modal.new("🌙 WELCOME BACK!", Theme.Colors.Purple, Vector2.new(500, 290))
 	local text = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, 0, 0, 120), StrokeThickness = 1.5, Parent = modal.Body })
@@ -507,21 +381,18 @@ end
 function Chase.Init()
 	gui = Theme.ScreenGui("Chase", 5)
 
-	-- Small "Drop" button, only while you carry a box or a donut stolen from someone's base. Kept
-	-- small and away from the other buttons (right side, under the middle) so it isn't hit by accident.
+	-- Small "Drop" button, only while you carry a box. Kept small and away from the other buttons (right side, under the middle) so it isn't hit by accident.
 	local dropHolder = Theme.new("Frame", {
 		Name = "DropCarried", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.64, 0),
 		Size = UDim2.fromOffset(112, 32), BackgroundTransparency = 1, Visible = false, Parent = gui,
 	})
 	Theme.AutoScale(dropHolder)
-	local drop = Theme.Button({ Text = "✋ Drop donut", Color = Theme.Colors.Gray, Size = UDim2.fromScale(1, 1), Parent = dropHolder })
+	local drop = Theme.Button({ Text = "✋ Drop box", Color = Theme.Colors.Gray, Size = UDim2.fromScale(1, 1), Parent = dropHolder })
 	drop.Activated:Connect(function()
 		Remotes.Event("Action"):FireServer("DropCarried")
 	end)
 	local function updateDrop()
-		local kind = player:GetAttribute("CarryKind")
-		dropHolder.Visible = kind == "Raid" or kind == "Box"
-		Theme.SetButtonText(drop, if kind == "Box" then "✋ Drop box" else "✋ Drop donut")
+		dropHolder.Visible = player:GetAttribute("CarryKind") == "Box"
 	end
 	player:GetAttributeChangedSignal("CarryKind"):Connect(updateDrop)
 	updateDrop()
@@ -569,7 +440,6 @@ function Chase.Init()
 		Theme.PlaySound("Caught")
 	end)
 	Remotes.Event("ChaseEnded").OnClientEvent:Connect(onChaseEnded)
-	Remotes.Event("Alarm").OnClientEvent:Connect(onAlarm)
 	player.CharacterAdded:Connect(function()
 		hideBanner()
 		clearBeam()

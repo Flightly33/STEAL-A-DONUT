@@ -1,7 +1,7 @@
 --[[
 	Layout: pure geometry helpers for the map (shared by server and client).
 
-	      +Z  (the lane: biome 1 .. biome 20)
+	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
 	  -----|-----------------  Z = SafeZoneZ  (safe zone line)
 	  bases | lobby plaza | bases

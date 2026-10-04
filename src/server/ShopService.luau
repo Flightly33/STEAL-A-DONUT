@@ -5,10 +5,11 @@
 	  BuySpeedMultiplier, BuyTreadmill, BuyBaseSize (a bigger pen)   (in-game money)
 	  BuyIncubatorUpgrade "Speed" | "Size"                            (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
+	  EquipTrail <id | "">                             (trails unlock with Speed: shared/Trails)
 	  BuyPass <key>                                    (Robux game passes)
-	  Rebirth, ClaimIndex { DonutId, Kind }
+	  ClaimIndex { DonutId, Kind }, ClaimIndexAll
 	  TeleportArea <id>                                (Teleporter game pass)
-	  SetSpeedChoice <0..1>, TeleportHome, SetMusic { Volume, On }
+	  SetSpeedLimit <walk speed, 0 = full>, TeleportHome, SetMusic { Volume, On }
 	  SellInventory <uid>, SellAllInventory <rarity>, SellSlot <slot>   (the sell stall)
 	  HatchEgg <uid?>, EquipPet <uid>, UnequipPet <uid>, EquipBestPets, ReleasePet <uid>
 	  BuyLuck, BuyCrate <id>, Donate <amount>          (Robux developer products)
@@ -28,6 +29,7 @@ local UpdateNotes = require(Shared.UpdateNotes)
 local Donuts = require(Shared.Donuts)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
+local Trails = require(Shared.Trails)
 local Remotes = require(Shared.Remotes)
 
 local DataService = require(script.Parent.DataService)
@@ -85,7 +87,7 @@ local function studioFree(id: number): boolean
 	return RunService:IsStudio() and Config.Debug.StudioFreePurchases and id <= 0
 end
 
--- Re-apply everything that depends on owned passes / rebirths.
+-- Re-apply everything that depends on owned passes.
 function ShopService.RefreshMultipliers(player: Player)
 	local profile = DataService.Get(player)
 	if not profile then
@@ -265,40 +267,6 @@ function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId:
 	DataService.PushState(player)
 end
 
-function Actions.Rebirth(player: Player, profile: DataService.Profile)
-	local data = profile.Data
-	local nextRebirth = Economy.NextRebirth(data.Rebirths)
-	if not nextRebirth then
-		notify(player, "You've reached the max rebirth. Legend!", "error")
-		return
-	end
-	if StealService.IsCarrying(player) then
-		notify(player, "Bring it home first!", "error")
-		return
-	end
-	if data.Speed < nextRebirth.Speed then
-		notify(player, `Reach ⚡{Format.Number(nextRebirth.Speed)} speed to rebirth!`, "error")
-		return
-	end
-	if not DataService.TrySpend(player, nextRebirth.Cost) then
-		notify(player, "Not enough money! Need " .. Format.Money(nextRebirth.Cost), "error")
-		return
-	end
-	-- Reset your money and Speed (donuts, base, treadmill and upgrades stay)
-	data.Money = 0
-	data.Speed = 0
-	data.Rebirths += 1
-	DataService.SyncAttributes(player)
-	TreadmillService.Refresh(player)
-	ShopService.RefreshMultipliers(player)
-	local spawnCf = PlotService.GetSpawnCFrame(player)
-	if spawnCf then
-		StealService.Teleport(player, spawnCf)
-	end
-	notify(player, `🔄 REBIRTH {data.Rebirths}! Money x{Format.Multiplier(Economy.RebirthMoneyMultiplier(data.Rebirths))} and treadmill speed x{Format.Multiplier(Economy.RebirthSpeedMultiplier(data.Rebirths))} forever!`, "success")
-	DataService.Save(player)
-end
-
 -- Index rewards: every donut you've found can be claimed once, as cash, or (Epic and up) as a
 -- permanent treadmill speed bonus.
 function Actions.ClaimIndex(player: Player, profile: DataService.Profile, arg: any)
@@ -322,6 +290,66 @@ function Actions.ClaimIndex(player: Player, profile: DataService.Profile, arg: a
 		DataService.AddMoney(player, cash)
 		notify(player, `📖 +{Format.Money(cash)} from {donut.Name}!`, "success")
 	end
+	DataService.PushState(player)
+end
+
+-- Trails window: wear a trail you've unlocked ("" takes it off). Admins may try any trail.
+function Actions.EquipTrail(player: Player, profile: DataService.Profile, trailId: any)
+	local data = profile.Data
+	if trailId == "" then
+		data.EquippedTrail = ""
+	elseif type(trailId) == "string" and Trails.ById[trailId] then
+		DataService.CheckTrails(player)
+		if not data.OwnedTrails[trailId] and not profile.Session.Admin then
+			notify(player, "You haven't unlocked that trail yet!", "error")
+			return
+		end
+		data.EquippedTrail = trailId
+	else
+		return
+	end
+	player:SetAttribute("Trail", if data.EquippedTrail ~= "" then data.EquippedTrail else nil)
+	DataService.PushState(player)
+end
+
+-- The Index's "Claim All" button: every reward you haven't claimed yet, in one go. Donuts that
+-- offer a permanent speed bonus give that (until the Index bonus is capped), the rest give cash.
+function Actions.ClaimIndexAll(player: Player, profile: DataService.Profile)
+	local data = profile.Data
+	local cap = Config.Index.MaxSpeedBonus * 100
+	local cashTotal, speedTotal, count = 0, 0, 0
+	for _, donut in Donuts.List do
+		if data.Discovered[donut.Id] and not data.IndexClaims[donut.Id] then
+			local speed = Economy.IndexSpeedReward(donut.Id)
+			if speed and DataService.IndexSpeedBonus(data) + speed <= cap then
+				data.IndexClaims[donut.Id] = "Speed"
+				speedTotal += speed
+			else
+				data.IndexClaims[donut.Id] = "Cash"
+				cashTotal += Economy.IndexCashReward(donut.Id)
+			end
+			count += 1
+		end
+	end
+	if count == 0 then
+		notify(player, "Nothing to claim yet. Find new donuts first!", "info")
+		return
+	end
+	if cashTotal > 0 then
+		DataService.AddMoney(player, cashTotal)
+	end
+	if speedTotal > 0 then
+		player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
+		TreadmillService.Refresh(player)
+	end
+	local gains = {}
+	if cashTotal > 0 then
+		table.insert(gains, "+" .. Format.Money(cashTotal))
+	end
+	if speedTotal > 0 then
+		table.insert(gains, `+{speedTotal}% treadmill speed forever`)
+	end
+	notify(player, `📖 Claimed {count} reward{if count == 1 then "" else "s"}: {table.concat(gains, " and ")}!`, "success")
 	DataService.PushState(player)
 end
 
@@ -421,21 +449,21 @@ function Actions.Donate(player: Player, _profile: DataService.Profile, amount: a
 	ProductService.Donate(player, amount)
 end
 
--- Speed slider: 0 = walk at normal speed (16) ... 1 = full speed.
-function Actions.SetSpeedChoice(player: Player, profile: DataService.Profile, choice: any)
-	if type(choice) ~= "number" or choice ~= choice then
+-- Run speed (Settings): the WalkSpeed you typed, never below Config.Speed.MinRunSpeed. 0 = run as
+-- fast as you can. A number above your top speed just means "full speed" until you get faster.
+function Actions.SetSpeedLimit(player: Player, profile: DataService.Profile, limit: any)
+	if type(limit) ~= "number" or limit ~= limit then
 		return
 	end
-	profile.Data.SpeedChoice = math.clamp(choice, 0, 1)
-	player:SetAttribute("SpeedChoice", profile.Data.SpeedChoice)
+	limit = math.floor(limit)
+	profile.Data.SpeedLimit = if limit <= 0 then 0 else math.clamp(limit, Config.Speed.MinRunSpeed, 1e9)
+	player:SetAttribute("SpeedLimit", profile.Data.SpeedLimit)
 end
 
--- The small "Drop donut" button while raiding: give the donut up (it goes back to its owner's stand).
+-- The small "Drop box" button: put the box down where you stand.
 function Actions.DropCarried(player: Player)
 	local carry = StealService.GetCarry(player)
-	if carry and carry.Kind == "Raid" then
-		StealService.Drop(player, "You dropped it. It went back to its owner.")
-	elseif carry and carry.Kind == "Box" then
+	if carry and carry.Kind == "Box" then
 		StealService.Drop(player, "You dropped the box.")
 	end
 end

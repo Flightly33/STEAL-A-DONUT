@@ -1,7 +1,7 @@
 --[[
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
-	  left   - big Shop / Index / Pets / Rebirth buttons + the speed slider (middle of the screen)
+	  left   - big Shop / Index / Pets / Trails buttons (middle of the screen; run speed is in Settings)
 	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
 	           is in there) / Hide UI (+ Admin, + Base after the base code, + Teleport for
 	           Teleporter pass owners), centred on the right edge
@@ -36,7 +36,7 @@ export type Callbacks = {
 	OpenShop: (tab: string?) -> (),
 	OpenIndex: () -> (),
 	OpenSettings: () -> (),
-	OpenRebirth: () -> (),
+	OpenTrails: () -> (),
 	OpenTeleport: () -> (),
 	OpenBaseSize: () -> (),
 	OpenPets: () -> (),
@@ -45,7 +45,7 @@ export type Callbacks = {
 	OpenAdmin: () -> (),
 	HideUI: () -> (),
 	UnclaimedIndex: () -> number,
-	RebirthReady: () -> boolean,
+	TrailReady: () -> boolean,
 	ReadyEggs: () -> number,
 }
 
@@ -74,7 +74,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.5, 0),
-		Size = UDim2.fromOffset(196, 340),
+		Size = UDim2.fromOffset(196, 262),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -82,23 +82,23 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	})
 	Theme.AutoScale(left)
 
-	-- Shop and Index are the big ones; Pets and Rebirth a bit smaller underneath
+	-- Shop and Index are the big ones; Pets and Trails a bit smaller underneath
 	local big, small = UDim2.fromOffset(190, 64), UDim2.fromOffset(190, 50)
 	local shop = Theme.Button({ Text = "Shop", Icon = "🛒", Color = Theme.Colors.Green, Size = big, LayoutOrder = 1, Parent = left })
 	local index = Theme.Button({ Text = "Index", Icon = "📖", Color = Theme.Colors.Blue, Size = big, LayoutOrder = 2, Parent = left })
 	local pets = Theme.Button({ Text = "Pets", Icon = "🐾", Color = Theme.Colors.Pink, Size = small, LayoutOrder = 3, Parent = left })
-	local rebirth = Theme.Button({ Text = "Rebirth", Icon = "🔄", Color = Theme.Colors.Yellow, Size = small, LayoutOrder = 5, Parent = left })
+	local trails = Theme.Button({ Text = "Trails", Icon = "💨", Color = Theme.Colors.Blue, Size = small, LayoutOrder = 5, Parent = left })
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
 	pets.Activated:Connect(callbacks.OpenPets)
 	index.Activated:Connect(callbacks.OpenIndex)
-	rebirth.Activated:Connect(callbacks.OpenRebirth)
+	trails.Activated:Connect(callbacks.OpenTrails)
 
-	-- Badges: unclaimed Index rewards, eggs ready to hatch, rebirth ready
+	-- Badges: unclaimed Index rewards, eggs ready to hatch, a trail unlocked but none worn
 	local indexBadge = badge(index)
 	local petsBadge = badge(pets)
-	local rebirthBadge = badge(rebirth)
+	local trailsBadge = badge(trails)
 	local function updateBadges()
 		local unclaimed = callbacks.UnclaimedIndex()
 		indexBadge.Visible = unclaimed > 0
@@ -106,11 +106,11 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		local ready = callbacks.ReadyEggs()
 		petsBadge.Visible = ready > 0
 		petsBadge.Text = tostring(ready)
-		rebirthBadge.Visible = callbacks.RebirthReady()
-		rebirthBadge.Text = "!"
+		trailsBadge.Visible = callbacks.TrailReady()
+		trailsBadge.Text = "!"
 	end
 	State.Changed:Connect(updateBadges)
-	for _, name in { "Money", "Speed", "Rebirths" } do
+	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do
 		State.OnAttribute(name, updateBadges)
 	end
 	task.spawn(function()
@@ -119,64 +119,6 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 			updateBadges()
 		end
 	end)
-
-	-- Speed slider: anything from the starting walk speed up to your full speed. Handy on your
-	-- base or on the treadmill when you're very fast.
-	local sliderRow = Theme.new("Frame", { Name = "SpeedSlider", BackgroundTransparency = 1, Size = UDim2.fromOffset(196, 52), LayoutOrder = 6, Parent = left })
-	local sliderLabel = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, 0, 0, 20), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = sliderRow })
-	local bar = Theme.new("TextButton", { Text = "", AutoButtonColor = false, Size = UDim2.new(1, -12, 0, 16), Position = UDim2.fromOffset(6, 26), BackgroundColor3 = Theme.Colors.Outline, BackgroundTransparency = 0.3, Parent = sliderRow }, { Theme.Corner(8), Theme.Stroke(2.5) })
-	local fill = Theme.new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
-	local knob = Theme.new("Frame", { Size = UDim2.fromOffset(18, 26), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(1, 0.5), BackgroundColor3 = Color3.fromRGB(255, 255, 255), ZIndex = 3, Parent = bar }, { Theme.Corner(6), Theme.Stroke(2) })
-	local choice = 1
-	local dragging = false
-	local lastSent = 0
-	local function render()
-		fill.Size = UDim2.fromScale(choice, 1)
-		knob.Position = UDim2.fromScale(choice, 0.5)
-		fill.BackgroundColor3 = Theme.Colors.Gray:Lerp(Theme.Colors.Green, choice)
-		local base = Config.Speed.BaseWalkSpeed
-		local full = math.max(State.Number("WalkSpeed"), base)
-		local chosen = base + (full - base) * choice
-		sliderLabel.Text = `Speed <font color="#9dff7a">{math.floor(chosen)}</font> / {math.floor(full)}`
-	end
-	local function send(force: boolean?)
-		local now = os.clock()
-		if force or now - lastSent > 0.2 then
-			lastSent = now
-			State.Action("SetSpeedChoice", choice)
-		end
-	end
-	local function setFromX(x: number)
-		local width = math.max(bar.AbsoluteSize.X, 1)
-		choice = math.clamp((x - bar.AbsolutePosition.X) / width, 0, 1)
-		render()
-		send()
-	end
-	bar.InputBegan:Connect(function(input: InputObject)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			setFromX(input.Position.X)
-		end
-	end)
-	UserInputService.InputChanged:Connect(function(input: InputObject)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			setFromX(input.Position.X)
-		end
-	end)
-	UserInputService.InputEnded:Connect(function(input: InputObject)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-			dragging = false
-			send(true)
-		end
-	end)
-	State.OnAttribute("SpeedChoice", function(value)
-		if type(value) == "number" and not dragging then
-			choice = math.clamp(value, 0, 1)
-			render()
-		end
-	end)
-	State.OnAttribute("WalkSpeed", render)
-	render()
 end
 
 local function buildRight(gui: ScreenGui, callbacks: Callbacks)

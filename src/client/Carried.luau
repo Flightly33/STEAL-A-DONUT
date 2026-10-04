@@ -2,7 +2,7 @@
 	Carried: the box (or donut, or egg) each player is carrying, drawn by every client.
 
 	The server only sets attributes on the carrier - CarryingDonut (the box's tier, the donut's or
-	the egg's id), CarryKind ("Box" / "Raid" / "Egg"), CarryMutation and CarrySize - and every client
+	the egg's id), CarryKind ("Box" / "Egg"), CarryMutation and CarrySize - and every client
 	builds the model itself: boxes and donuts held in both arms in front of you (arms raised), eggs
 	above the head. Nothing is sent over
 	the network and nothing is welded into a character on the server, which is what used to make the
@@ -225,7 +225,7 @@ end
 
 -- Holding Steal on a donut: build the one you'll carry now, so the grab itself costs nothing.
 local function prebuild(prompt: ProximityPrompt, who: Player)
-	if who ~= player or (prompt.Name ~= "StealPrompt" and prompt.Name ~= "RaidPrompt") then
+	if who ~= player or prompt.Name ~= "StealPrompt" then
 		return
 	end
 	local source: Instance? = prompt.Parent

@@ -350,8 +350,6 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 		Level = 1,
 		Mutation = "None",
 		Size = "Normal",
-		Victim = nil,
-		VictimSlot = nil,
 		Record = nil,
 		AreaId = spot.AreaId,
 		Secured = false,

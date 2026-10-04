@@ -42,7 +42,7 @@ function PassOffer.Init()
 	Theme.Label({ Text = "💵", TextScaled = false, TextSize = 64, Size = UDim2.new(1, 0, 0, 70), Parent = body })
 	Theme.Label({ Text = `{string.upper(offer.Name)} FOREVER!`, Font = Theme.Title, TextColor3 = Color3.fromRGB(120, 255, 120), Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 72), StrokeThickness = 3, Parent = body })
 	Theme.Label({
-		Text = `Every donut on your base earns {offer.Multiplier}x money - for good, even after rebirths!`,
+		Text = `Every donut on your base earns {offer.Multiplier}x money - for good!`,
 		Font = Theme.Font, TextScaled = false, TextSize = 20, TextWrapped = true,
 		Size = UDim2.new(1, -20, 0, 56), Position = UDim2.fromOffset(10, 118), StrokeThickness = 1.5, Parent = body,
 	})

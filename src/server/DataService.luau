@@ -21,6 +21,7 @@ local Donuts = require(Shared.Donuts)
 local Economy = require(Shared.Economy)
 local Signal = require(Shared.Signal)
 local Remotes = require(Shared.Remotes)
+local Trails = require(Shared.Trails)
 
 local DataService = {}
 
@@ -48,8 +49,6 @@ export type Data = {
 	IndexClaims: { [string]: string }, -- donutId -> "Cash" | "Speed"
 	BestDonutScore: number,
 	BestSpeed: number,
-	Rebirths: number,
-	UltimateRebirths: number, -- times pressed ULTIMATE REBIRTH (unlocks World 2)
 	Expansions: number, -- (old saves: base expansions, before bases were pens - see BaseLevel)
 	BaseLevel: number, -- base size (Config.Plots.Sizes): how many donuts the pen holds
 	PlayTime: number,
@@ -70,12 +69,14 @@ export type Data = {
 	UsedAdmin: boolean, -- opened the admin panel (kept off the global leaderboards)
 	SpeedBoostSeconds: number, -- crate Speed Boost time left (only counts down while online)
 	Floors: number, -- (old saves: floors bought, before bases were pens - see BaseLevel)
-	SpeedChoice: number, -- speed slider: 0 = normal walking speed (16) ... 1 = as fast as you can go
+	SpeedLimit: number, -- the run speed typed in Settings (a WalkSpeed); 0 = as fast as you can go
+	OwnedTrails: { [string]: boolean }, -- trails unlocked (shared/Trails)
+	EquippedTrail: string, -- the trail you wear ("" = none)
 	IncubatorSpeed: number, -- incubator upgrade levels
 	IncubatorSize: number,
 	DonorTier: number, -- the biggest tip bought (Config.Donations.Products[].Amount): gives a title
 	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
-	SeenTutorial: boolean, -- the first-join "how to play" window -- admin: Base Lock that never runs out
+	SeenTutorial: boolean, -- the first-join "how to play" window
 	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
 	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
@@ -93,7 +94,7 @@ export type Profile = {
 	NoSave: boolean,
 }
 
-local DATA_VERSION = 6
+local DATA_VERSION = 7
 
 local TEMPLATE: Data = {
 	Version = DATA_VERSION,
@@ -111,8 +112,6 @@ local TEMPLATE: Data = {
 	IndexClaims = {},
 	BestDonutScore = 0,
 	BestSpeed = 0,
-	Rebirths = 0,
-	UltimateRebirths = 0,
 	Expansions = 0,
 	BaseLevel = 1,
 	PlayTime = 0,
@@ -133,7 +132,9 @@ local TEMPLATE: Data = {
 	UsedAdmin = false,
 	SpeedBoostSeconds = 0,
 	Floors = 1,
-	SpeedChoice = 1,
+	SpeedLimit = 0,
+	OwnedTrails = {},
+	EquippedTrail = "",
 	IncubatorSpeed = 0,
 	IncubatorSize = 0,
 	DonorTier = 0,
@@ -237,8 +238,6 @@ local function migrate(data: Data, isNew: boolean)
 			data.DiscoveredMutations = {}
 			data.IndexClaims = {}
 			data.BestDonutScore = 0
-			data.Rebirths = 0
-			data.UltimateRebirths = 0
 			data.BaseLevel = 1
 			data.Expansions = 0
 			data.Floors = 1
@@ -254,6 +253,25 @@ local function migrate(data: Data, isNew: boolean)
 			data.TutorialEggClaimed = false
 		end
 		data.Version = 6
+	end
+	if data.Version < 7 then
+		-- Version 7: Crystal Cosmos, Starfall Garden and Aurora Palace are gone (20 -> 17 biomes).
+		-- Boxes waiting in a pen or the inventory keep their biome's place in the new lane: each
+		-- old biome maps to the closest one left that isn't faster (rebirths are gone too: the old
+		-- Rebirths field is simply ignored).
+		local OLD_TO_NEW = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 12, 13, 14, 14, 15, 15, 16, 17 }
+		local function remap(area: number?): number?
+			return if area then OLD_TO_NEW[area] or math.clamp(area, 1, 17) else nil
+		end
+		for _, box in data.PenBoxes do
+			box.Area = remap(box.Area) or 1
+		end
+		for _, item in data.Inventory do
+			if item.Kind == "Box" then
+				item.Area = remap(item.Area)
+			end
+		end
+		data.Version = 7
 	end
 end
 
@@ -271,10 +289,10 @@ function DataService.EquippedPetIds(data: Data): { string }
 	return ids
 end
 
--- Total money multiplier: game passes x rebirths x equipped pets.
+-- Total money multiplier: game passes x equipped pets.
 function DataService.MoneyMultiplier(profile: Profile): number
 	local petMoney = Economy.PetBonuses(DataService.EquippedPetIds(profile.Data))
-	return Economy.MoneyMultiplier(profile.Passes) * Economy.RebirthMoneyMultiplier(profile.Data.Rebirths) * (1 + petMoney)
+	return Economy.MoneyMultiplier(profile.Passes) * (1 + petMoney)
 end
 
 -- Speed bonus from equipped pets (0.25 = +25% treadmill speed).
@@ -504,11 +522,10 @@ function DataService.SyncAttributes(player: Player)
 	player:SetAttribute("TreadmillLevel", data.TreadmillLevel)
 	player:SetAttribute("SpeedMultLevel", data.SpeedMultLevel)
 	player:SetAttribute("PlayTime", data.PlayTime)
-	player:SetAttribute("SpeedChoice", data.SpeedChoice)
+	player:SetAttribute("SpeedLimit", data.SpeedLimit)
+	player:SetAttribute("Trail", if Trails.ById[data.EquippedTrail] then data.EquippedTrail else nil)
 	player:SetAttribute("IncubatorSpeed", data.IncubatorSpeed)
 	player:SetAttribute("IncubatorSize", data.IncubatorSize)
-	player:SetAttribute("Rebirths", data.Rebirths)
-	player:SetAttribute("UltimateRebirths", data.UltimateRebirths)
 	player:SetAttribute("BaseLevel", data.BaseLevel)
 	player:SetAttribute("BaseSlots", Economy.SlotCount(data.BaseLevel))
 	player:SetAttribute("BestSpeed", data.BestSpeed)
@@ -551,6 +568,33 @@ function DataService.AddSpeed(player: Player, amount: number)
 	if profile.Data.Speed > profile.Data.BestSpeed then
 		profile.Data.BestSpeed = profile.Data.Speed
 		player:SetAttribute("BestSpeed", profile.Data.BestSpeed)
+		DataService.CheckTrails(player)
+	end
+end
+
+-- Trails unlocked by Speed (Trails.UnlockBiome) are yours for good the first time your best Speed
+-- gets there. If you wear no trail, the new one is put on for you.
+function DataService.CheckTrails(player: Player)
+	local profile = profiles[player]
+	if not profile then
+		return
+	end
+	local data = profile.Data
+	local changed = false
+	for _, trail in Trails.List do
+		if not data.OwnedTrails[trail.Id] and Trails.IsUnlocked(trail, nil, data.BestSpeed) then
+			data.OwnedTrails[trail.Id] = true
+			changed = true
+			local wear = not Trails.ById[data.EquippedTrail]
+			if wear then
+				data.EquippedTrail = trail.Id
+				player:SetAttribute("Trail", trail.Id)
+			end
+			Remotes.Event("Notify"):FireClient(player, `{trail.Icon} You unlocked the {trail.Name} trail!` .. (if wear then " You're wearing it now." else " Put it on in Trails."), "rare")
+		end
+	end
+	if changed then
+		DataService.PushState(player)
 	end
 end
 
@@ -581,6 +625,8 @@ function DataService.PushState(player: Player)
 		Discovered = profile.Data.Discovered,
 		DiscoveredMutations = profile.Data.DiscoveredMutations,
 		IndexClaims = profile.Data.IndexClaims,
+		OwnedTrails = profile.Data.OwnedTrails,
+		EquippedTrail = profile.Data.EquippedTrail,
 		PodiumMode = profile.Data.PodiumMode,
 		MusicVolume = profile.Data.MusicVolume,
 		MusicOn = profile.Data.MusicOn,

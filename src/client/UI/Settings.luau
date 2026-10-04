@@ -1,6 +1,8 @@
 --[[
 	Settings window + background music player.
 	Music on/off and volume are saved per player. Tracks come from Config.Music.Tracks.
+	Run speed: type how fast you want to run (a WalkSpeed, at least Config.Speed.MinRunSpeed); MAX
+	runs as fast as you can. Saved per player, the server applies it (Actions.SetSpeedLimit).
 
 	The music never stops on its own: a single song loops, several songs play one after another
 	(and start over), and a watchdog restarts playback if Roblox ever drops it. Songs that fail to
@@ -233,7 +235,7 @@ function Settings.Init()
 		end
 	end)
 
-	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 420))
+	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 540))
 	local body = modal.Body
 
 	Theme.Label({ Text = "🎵 MUSIC", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Parent = body })
@@ -247,12 +249,52 @@ function Settings.Init()
 	local bar = Theme.new("Frame", { Size = UDim2.fromOffset(300, 26), Position = UDim2.fromOffset(62, 195), BackgroundColor3 = Theme.Colors.Outline, Parent = body }, { Theme.Corner(8), Theme.Stroke(2) })
 	local fill = Theme.new("Frame", { Size = UDim2.fromScale(volume, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
 	local plus = Theme.Button({ Text = "+", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(372, 182), Parent = body })
-	local help = Theme.Button({ Text = "❓ HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 256), Parent = body })
+	-- Run speed: a number you type (Enter or clicking away saves it)
+	Theme.Label({ Text = "🏃 RUN SPEED", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Position = UDim2.fromOffset(0, 246), Parent = body })
+	local speedBox = Theme.new("TextBox", {
+		Name = "RunSpeed", Size = UDim2.fromOffset(150, 48), Position = UDim2.fromOffset(0, 286),
+		BackgroundColor3 = Theme.Colors.PanelLight, TextColor3 = Color3.new(1, 1, 1), PlaceholderText = "type a number",
+		PlaceholderColor3 = Color3.fromRGB(170, 170, 190), Text = "", Font = Theme.Font, TextScaled = true, ClearTextOnFocus = true, Parent = body,
+	}, { Theme.Corner(10), Theme.Stroke(2), Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }) })
+	local maxSpeed = Theme.Button({ Text = "MAX", Color = Theme.Colors.Green, Size = UDim2.fromOffset(100, 48), Position = UDim2.fromOffset(160, 286), Parent = body })
+	local speedInfo = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -272, 0, 48), Position = UDim2.fromOffset(272, 286), StrokeThickness = 1.5, Parent = body })
+	Theme.Label({
+		Text = `Type how fast you want to run ({Config.Speed.MinRunSpeed} or more). MAX = as fast as you can go.`,
+		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 340), StrokeThickness = 1.2, Parent = body,
+	})
+	local function renderSpeed()
+		local limit = State.Number("SpeedLimit")
+		local top = math.floor(math.max(State.Number("WalkSpeed"), Config.Speed.BaseWalkSpeed))
+		if not speedBox:IsFocused() then
+			speedBox.Text = if limit > 0 then tostring(limit) else "MAX"
+		end
+		local now = if limit > 0 then math.min(limit, top) else top
+		speedInfo.Text = `Running at <font color="#9dff7a"><b>{now}</b></font>\n<font size="18">Your top speed: {top}</font>`
+		Theme.SetButtonColor(maxSpeed, if limit > 0 then Theme.Colors.Green else Theme.Colors.Gray)
+	end
+	speedBox.FocusLost:Connect(function()
+		local typed = string.lower((string.gsub(speedBox.Text, "[%s,]", "")))
+		local number = tonumber(typed)
+		if typed == "max" or typed == "" and State.Number("SpeedLimit") == 0 then
+			State.Action("SetSpeedLimit", 0)
+		elseif number and number == number and number > 0 then
+			State.Action("SetSpeedLimit", math.max(math.floor(number), Config.Speed.MinRunSpeed))
+		end
+		renderSpeed()
+	end)
+	maxSpeed.Activated:Connect(function()
+		State.Action("SetSpeedLimit", 0)
+	end)
+	State.OnAttribute("SpeedLimit", renderSpeed)
+	State.OnAttribute("WalkSpeed", renderSpeed)
+	renderSpeed()
+
+	local help = Theme.Button({ Text = "❓ HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 376), Parent = body })
 	help.Activated:Connect(function()
 		modal:Close()
 		require(script.Parent.Tutorial).Open()
 	end)
-	local notes = Theme.Button({ Text = "📰 UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(230, 256), Parent = body })
+	local notes = Theme.Button({ Text = "📰 UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(230, 376), Parent = body })
 	notes.Activated:Connect(function()
 		require(script.Parent.UpdateNotes).Open()
 	end)

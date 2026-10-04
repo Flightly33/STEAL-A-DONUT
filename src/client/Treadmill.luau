@@ -65,7 +65,7 @@ end
 
 local function currentRate(): number
 	local level = math.max(1, State.Number("TreadmillLevel"))
-	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("Rebirths"), State.Number("IndexBonus"), State.Number("PetSpeedBonus"), State.Number("Speed"))
+	return Economy.TreadmillRate(level, State.Number("SpeedMultLevel"), math.max(1, State.Number("SpeedPassMultiplier")), State.Number("IndexBonus"), State.Number("PetSpeedBonus"))
 end
 
 local function tierColor(): Color3

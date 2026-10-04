@@ -26,14 +26,13 @@ local ShopService = require(script.Parent.ShopService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local ItemService = require(script.Parent.ItemService)
 local InventoryService = require(script.Parent.InventoryService)
-local RaidService = require(script.Parent.RaidService)
 local WorldService = require(script.Parent.WorldService)
 local PetService = require(script.Parent.PetService)
 local CrateService = require(script.Parent.CrateService)
 
 local PlayerService = {}
 
-local leaderstats: { [Player]: { Money: StringValue, Speed: StringValue, Rebirths: IntValue } } = {}
+local leaderstats: { [Player]: { Money: StringValue, Speed: StringValue } } = {}
 local clientReady: { [Player]: boolean } = {}
 
 -- Messages that need the player's UI to be listening. Sent once both the data is loaded and
@@ -105,10 +104,9 @@ local function createLeaderstats(player: Player)
 	end
 	local money = stat("StringValue", "💰 Money", true) :: StringValue
 	local speed = stat("StringValue", "⚡ Speed") :: StringValue
-	local rebirths = stat("IntValue", "🔄 Rebirths") :: IntValue
-	leaderstats[player] = { Money = money, Speed = speed, Rebirths = rebirths }
+	leaderstats[player] = { Money = money, Speed = speed }
 	task.spawn(function()
-		for _, value in { money, speed, rebirths } :: { ValueBase } do
+		for _, value in { money, speed } :: { ValueBase } do
 			if not folder.Parent then
 				return
 			end
@@ -164,6 +162,7 @@ local function onPlayerAdded(player: Player)
 	player:SetAttribute("World", 1)
 	player:SetAttribute("Donated", profile.Data.Donated)
 	DataService.SyncAttributes(player)
+	DataService.CheckTrails(player) -- (saves from before trails: already fast enough for one)
 	PetService.OnPlayerReady(player) -- pets' bonuses (money multiplier), followers, incubator
 	CrateService.OnPlayerReady(player) -- may this player buy crates? (paid random items rules)
 	DataService.PushState(player)
@@ -182,7 +181,6 @@ local function onPlayerRemoving(player: Player)
 	PetService.OnPlayerRemoving(player)
 	ShopService.OnPlayerRemoving(player)
 	ItemService.OnPlayerRemoving(player)
-	RaidService.OnPlayerRemoving(player)
 	WorldService.OnPlayerRemoving(player)
 	task.spawn(LeaderboardService.OnPlayerRemoving, player) -- reads data immediately, then yields on web calls
 	TreadmillService.Remove(player)
@@ -203,15 +201,11 @@ local function desiredWalkSpeed(player: Player, profile: DataService.Profile): n
 	end
 	local carrySize = player:GetAttribute("CarrySize")
 	local carry = Economy.CarrySpeed(if type(carrySize) == "string" then carrySize else nil)
-	if player:GetAttribute("CarryKind") == "Raid" then
-		-- Carrying someone else's donut: slow mode until you get it home
-		return Config.Raid.CarryWalkSpeed * carry
-	end
-	-- The speed slider picks anything between normal walking speed and your full speed
+	-- The run speed typed in Settings caps how fast you go (0 = as fast as you can)
 	local full = Economy.PlayerWalkSpeed(profile.Data.Speed, profile.Session.World) * DataService.WalkBoost(profile.Data)
-	local slowest = Config.Speed.BaseWalkSpeed
-	local choice = math.clamp(profile.Data.SpeedChoice, 0, 1)
-	return (slowest + math.max(full - slowest, 0) * choice) * carry
+	local limit = profile.Data.SpeedLimit
+	local speed = if limit > 0 then math.min(full, math.max(limit, Config.Speed.MinRunSpeed)) else full
+	return speed * carry
 end
 
 function PlayerService.Init()
@@ -256,7 +250,6 @@ function PlayerService.Init()
 					if stats then
 						stats.Money.Value = Format.Money(profile.Data.Money)
 						stats.Speed.Value = Format.Number(profile.Data.Speed)
-						stats.Rebirths.Value = profile.Data.Rebirths
 					end
 				end
 			end
