@@ -776,7 +776,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	if not opts.NoFace then
 		local area = Areas.Get(donut.Area)
 		if area then
-			DonutExtras.Theme(kit, area.Theme, area.World == Areas.UltimateWorld)
+			DonutExtras.Theme(kit, area.Theme, false)
 		end
 	end
 

@@ -1,13 +1,12 @@
 --[[
 	WorldService
 	============
-	* Tracks which world each player is in (everyone is faster in later worlds), and moves their base
-	  there with them (PlotService.MoveBase), so there's always a base right next to the lane.
-	* Portals: the hub portals take you to the other worlds once you have enough rebirths; the portal
-	  home in each world takes you back to your base in Donut Land. No portals while you carry
-	  something: your base is already in the world you're in.
-	* Teleporter game pass: jump to any unlocked world, or to the start of any area you're fast
-	  enough for.
+	* Speed gates: every biome needs a Speed to get in (Areas.luau). Clients make the invisible wall
+	  at a too-fast biome's entrance solid for slow players (client/AreaTracker); this is the check
+	  on the server. Anyone standing in a biome they're too slow for (lag, a rebirth, spending Speed
+	  on a skin...) is put back just outside it - in the furthest biome they ARE fast enough for, not
+	  all the way back in the lobby.
+	* Teleporter game pass: jump to the start of any biome you're fast enough for, or home.
 ]]
 
 local Players = game:GetService("Players")
@@ -16,147 +15,62 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
+local Format = require(Shared.Format)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 
-local MapBuilder = require(script.Parent.MapBuilder)
 local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
 local StealService = require(script.Parent.StealService)
 
 local WorldService = {}
 
-local lastPortal: { [Player]: number } = {}
+local lastTeleport: { [Player]: number } = {}
 local lastWarning: { [Player]: number } = {}
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
 end
 
-local function warnOnce(player: Player, text: string)
-	local now = os.clock()
-	if lastWarning[player] and now - lastWarning[player] < 3 then
-		return
-	end
-	lastWarning[player] = now
-	notify(player, text, "error")
-end
-
-function WorldService.CanEnterWorld(player: Player, worldId: number): boolean
-	local profile = DataService.Get(player)
-	return profile ~= nil and Economy.WorldUnlocked(worldId, profile.Data.Rebirths, profile.Data.UltimateRebirths)
-end
-
-local function setWorld(player: Player, worldId: number)
-	local profile = DataService.Get(player)
-	if profile and profile.Session.World ~= worldId then
-		profile.Session.World = worldId
-		player:SetAttribute("World", worldId)
-	end
-	PlotService.MoveBase(player, worldId)
-end
-
-local function arrive(player: Player, worldId: number)
-	setWorld(player, worldId)
-	StealService.Teleport(player, Layout.WorldArrival(worldId))
-	local world = Areas.World(worldId)
-	if worldId > 1 then
-		notify(player, `{world.Icon} Welcome to {world.Name}! Everyone is x{world.WalkMultiplier} faster here.`, "success")
-	end
-end
-
--- Send a player to a world's landing (their base moves there too).
-function WorldService.SendToWorld(player: Player, worldId: number)
-	arrive(player, worldId)
-end
-
 --------------------------------------------------------------------------------
--- The Black Hole's secret lab: the ULTIMATE REBIRTH button and the lift back up
+-- Speed gates
 --------------------------------------------------------------------------------
-local ultimateButtons: { BasePart } = {}
-
--- Is the player standing at the ULTIMATE REBIRTH button?
-function WorldService.NearUltimateButton(player: Player): boolean
-	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root then
-		return false
+-- The furthest biome up to `areaId` that this Speed gets you into.
+local function allowedArea(areaId: number, speed: number): number
+	local allowed = areaId
+	while allowed > 1 and not Economy.CanEnter(allowed, speed) do
+		allowed -= 1
 	end
-	for _, button in ultimateButtons do
-		if (button.Position - root.Position).Magnitude <= 16 then
-			return true
-		end
-	end
-	return false
+	return allowed
 end
 
-local function setUpLab()
-	for _, part in MapBuilder.Get():GetDescendants() do
-		if part:IsA("BasePart") and part:GetAttribute("UltimateButton") then
-			table.insert(ultimateButtons, part)
-			local prompt = part:FindFirstChildOfClass("ProximityPrompt")
-			if prompt then
-				prompt.Triggered:Connect(function(player: Player)
-					if StealService.IsCarrying(player) then
-						notify(player, "Bring your donut home first!", "error")
-					elseif WorldService.NearUltimateButton(player) then
-						Remotes.Event("UltimateAsk"):FireClient(player)
-					end
-				end)
-			end
-		elseif part:IsA("BasePart") and part:GetAttribute("LabExit") then
-			local prompt = part:FindFirstChildOfClass("ProximityPrompt")
-			local pad = part
-			if prompt then
-				prompt.Triggered:Connect(function(player: Player)
-					local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-					if root and (root.Position - pad.Position).Magnitude < 16 then
-						-- straight up the lift shaft, onto the floor next to the pit
-						StealService.Teleport(player, CFrame.new(pad.Position.X, 4, pad.Position.Z))
-					end
-				end)
-			end
-		end
-	end
+-- Is anything letting this player ignore the gates (an admin flying or with "Domer can't catch me")?
+local function exempt(player: Player, profile: DataService.Profile): boolean
+	return profile.Session.GodMode or player:GetAttribute("Flying") == true
 end
 
-local function usePortal(player: Player, trigger: BasePart)
+local function checkGates(player: Player, profile: DataService.Profile, root: BasePart)
+	local position = root.Position
+	local areaId = Layout.AreaAt(position)
+	if areaId <= 1 or exempt(player, profile) then
+		return
+	end
+	local speed = profile.Data.Speed
+	if Economy.CanEnter(areaId, speed) then
+		return
+	end
+	-- Back out to just before the first biome they're too slow for.
+	local allowed = allowedArea(areaId, speed)
+	local blocked = allowed + 1
+	StealService.Teleport(player, Layout.GateBounce(blocked, position.X))
+	root.AssemblyLinearVelocity = Vector3.zero
 	local now = os.clock()
-	if lastPortal[player] and now - lastPortal[player] < 2 then
-		return
+	if not lastWarning[player] or now - lastWarning[player] > 3 then
+		lastWarning[player] = now
+		local area = Areas.List[blocked]
+		notify(player, `⚡ You need {Format.Number(area.RecommendedSpeed)} Speed to get into {area.Name}!`, "error")
+		Remotes.Event("SpeedGate"):FireClient(player, blocked)
 	end
-	local portal = trigger.Parent
-	if not portal then
-		return
-	end
-	if StealService.IsCarrying(player) then
-		warnOnce(player, "Bring it to your base first - your base is right here in this world!")
-		return
-	end
-	if portal:GetAttribute("Home") then
-		lastPortal[player] = now
-		setWorld(player, 1)
-		local spawnCf = PlotService.GetSpawnCFrame(player)
-		if spawnCf then
-			StealService.Teleport(player, spawnCf)
-		end
-		return
-	end
-	local worldId = portal:GetAttribute("TargetWorld")
-	if type(worldId) ~= "number" then
-		return
-	end
-	if not WorldService.CanEnterWorld(player, worldId) then
-		warnOnce(player, `🔒 {Areas.World(worldId).Name} needs {Economy.WorldRequirementText(worldId)}!`)
-		return
-	end
-	lastPortal[player] = now
-	arrive(player, worldId)
-end
-
-local function insideTrigger(trigger: BasePart, position: Vector3): boolean
-	local p = trigger.CFrame:PointToObjectSpace(position)
-	local half = trigger.Size / 2
-	return math.abs(p.X) <= half.X and math.abs(p.Y) <= half.Y + 2 and math.abs(p.Z) <= half.Z + 1
 end
 
 --------------------------------------------------------------------------------
@@ -168,35 +82,22 @@ local function canTeleport(player: Player): boolean
 		return false
 	end
 	if not profile.Passes.Teleporter then
-		notify(player, "The Teleporter game pass lets you teleport anywhere you've unlocked!", "error")
+		notify(player, "The Teleporter game pass lets you teleport to any biome you're fast enough for!", "error")
 		return false
 	end
 	if StealService.IsCarrying(player) then
-		notify(player, "You can't teleport while carrying a donut - run!", "error")
+		notify(player, "You can't teleport while carrying something - run!", "error")
 		return false
 	end
 	if profile.Session.Stunned then
 		return false
 	end
 	local now = os.clock()
-	if lastPortal[player] and now - lastPortal[player] < 2 then
+	if lastTeleport[player] and now - lastTeleport[player] < 2 then
 		return false
 	end
-	lastPortal[player] = now
+	lastTeleport[player] = now
 	return true
-end
-
-function WorldService.TeleportToWorld(player: Player, worldId: any)
-	if type(worldId) ~= "number" or not Areas.Worlds[worldId] then
-		return
-	end
-	if not WorldService.CanEnterWorld(player, worldId) then
-		notify(player, `🔒 {Areas.World(worldId).Name} needs {Economy.WorldRequirementText(worldId)}.`, "error")
-		return
-	end
-	if canTeleport(player) then
-		arrive(player, worldId)
-	end
 end
 
 function WorldService.TeleportToArea(player: Player, areaId: any)
@@ -204,48 +105,39 @@ function WorldService.TeleportToArea(player: Player, areaId: any)
 	if not profile or type(areaId) ~= "number" or not Areas.List[areaId] then
 		return
 	end
-	local area = Areas.List[areaId]
-	if not WorldService.CanEnterWorld(player, area.World) then
-		notify(player, `🔒 {Areas.World(area.World).Name} needs {Economy.WorldRequirementText(area.World)}.`, "error")
-		return
-	end
-	if Economy.WalkSpeedFromStat(profile.Data.Speed) + 0.01 < Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
-		notify(player, "You're not fast enough for that area yet!", "error")
+	if not Economy.CanEnter(areaId, profile.Data.Speed) then
+		notify(player, `You need {Format.Number(Economy.RecommendedSpeed(areaId))} Speed for {Areas.List[areaId].Name}!`, "error")
 		return
 	end
 	if canTeleport(player) then
-		setWorld(player, area.World)
 		StealService.Teleport(player, Layout.AreaArrival(areaId))
 	end
 end
 
+function WorldService.TeleportHome(player: Player)
+	if canTeleport(player) then
+		local spawnCf = PlotService.GetSpawnCFrame(player)
+		if spawnCf then
+			StealService.Teleport(player, spawnCf)
+		end
+	end
+end
+
 function WorldService.OnPlayerRemoving(player: Player)
-	lastPortal[player] = nil
+	lastTeleport[player] = nil
 	lastWarning[player] = nil
 end
 
 function WorldService.Init()
-	setUpLab()
-	local triggers = MapBuilder.GetPortals()
 	task.spawn(function()
 		while true do
-			task.wait(0.15)
+			task.wait(0.2)
 			for _, player in Players:GetPlayers() do
 				local profile = DataService.Get(player)
 				local character = player.Character
 				local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 				if profile and profile.Session.Ready and root then
-					local position = root.Position
-					local world = Layout.WorldAt(position)
-					if profile.Session.World ~= world or PlotService.GetBaseWorld(player) ~= world then
-						setWorld(player, world)
-					end
-					for _, trigger in triggers do
-						if insideTrigger(trigger, position) then
-							usePortal(player, trigger)
-							break
-						end
-					end
+					checkGates(player, profile, root)
 				end
 			end
 		end

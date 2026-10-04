@@ -4,9 +4,11 @@
 	  left   - big Shop / Index / Pets / Rebirth buttons + the speed slider (middle of the screen)
 	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
 	           is in there) / Hide UI (+ Admin, + Base after the base code, + Teleport for
-	           Teleporter pass owners), centred on the right edge. Everyone else travels between worlds through the hub's portals.
+	           Teleporter pass owners), centred on the right edge
 	  stats  - Speed, Money, income per second (bottom-left)
-	  area   - where you are, how your speed compares to that area's guard, and any event (bottom-right)
+	  area   - which biome you're in, the Speed it needs and how fast its Domer runs, and any event
+	           (bottom-right); a banner at the top whenever you walk into a biome
+
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
 ]]
 
@@ -19,6 +21,7 @@ local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
 local Events = require(Shared.Events)
 local Format = require(Shared.Format)
+local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
 local Icons = require(script.Parent.Icons)
@@ -34,7 +37,7 @@ export type Callbacks = {
 	OpenIndex: () -> (),
 	OpenSettings: () -> (),
 	OpenRebirth: () -> (),
-	OpenWorlds: () -> (),
+	OpenTeleport: () -> (),
 	OpenBaseSize: () -> (),
 	OpenPets: () -> (),
 	OpenDonate: () -> (),
@@ -221,9 +224,8 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	square("🏠", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)
-	-- Teleporter pass owners: jump to any world or area (the Worlds window). Everyone else walks
-	-- through the hub's portals, so they don't get a button.
-	local teleport = square("🌀", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenWorlds)
+	-- Teleporter pass owners: jump to any biome they're fast enough for. Everyone else walks.
+	local teleport = square("🌀", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenTeleport)
 	local function showTeleport()
 		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
 	end
@@ -346,9 +348,8 @@ local function buildAreaInfo(gui: ScreenGui)
 
 	local function refresh()
 		local areaId = AreaTracker.Current
-		local world = Areas.World(math.max(1, State.Number("World")))
 		if areaId <= 0 then
-			nameLabel.Text = if world.Id > 1 then `🛡 {world.Icon} {world.Name}` else "🛡 SAFE ZONE"
+			nameLabel.Text = "🛡 LOBBY"
 			nameLabel.TextColor3 = Color3.fromRGB(110, 200, 255)
 			detail.Text = `{Config.Guard.Name} can't get you here`
 			return
@@ -356,13 +357,11 @@ local function buildAreaInfo(gui: ScreenGui)
 		-- (no walk speed here: the Speed stat on the left is the number that counts)
 		local area = Areas.List[areaId]
 		local guard = math.floor(Economy.GuardWalkSpeed(areaId))
-		local speed = State.Number("Speed")
 		local recommended = Economy.RecommendedSpeed(areaId)
-		local color = if speed >= recommended then "#7dff6a" elseif speed + 80 >= recommended then "#ffd54a" else "#ff5a5a"
-		nameLabel.Text = `📍 {area.Name}`
+		nameLabel.Text = `📍 {areaId}. {area.Name}`
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
 		detail.Text = if recommended > 0
-			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Need <font color="{color}"><b>⚡{Format.Number(recommended)}</b></font>`
+			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Needs <font color="#ffd54a"><b>⚡{Format.Number(recommended)}</b></font>`
 			else `😴 {Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
 	end
 
@@ -387,20 +386,24 @@ local function buildAreaInfo(gui: ScreenGui)
 			return
 		end
 		if areaId == 0 then
-			Notifications.Banner("🛡 SAFE ZONE", Color3.fromRGB(110, 200, 255), 1.5)
+			Notifications.Banner("🛡 LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
 		else
+			-- Walked into a biome: its name and the Speed it needs at the top, then it fades
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
-			local rec = if recommended > 0 then `Recommended speed ⚡{Format.Number(recommended)}` else "Anyone can make it back from here!"
-			Notifications.Banner(`AREA {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{Config.Guard.Name} speed {math.floor(Economy.GuardWalkSpeed(areaId))} • {rec}`)
+			local need = if recommended > 0 then `⚡ Needs {Format.Number(recommended)} Speed` else "⚡ Any speed!"
+			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`)
 		end
 	end)
-	State.OnAttribute("Speed", function()
-		refresh()
-	end)
-	State.OnAttribute("World", function()
-		refresh()
-	end)
+	-- Too slow for the next biome (bumped into its gate, or the server put you back outside it)
+	local function tooSlow(areaId: number)
+		local area = Areas.List[areaId]
+		if area then
+			Notifications.Banner("⚡ TOO SLOW!", Color3.fromRGB(255, 90, 90), 2.5, `{area.Name} needs {Format.Number(area.RecommendedSpeed)} Speed - get faster on your treadmill!`)
+		end
+	end
+	AreaTracker.Blocked:Connect(tooSlow)
+	Remotes.Event("SpeedGate").OnClientEvent:Connect(tooSlow)
 end
 
 -- Luck Event pill at the top of the screen (only while one is running).
@@ -470,9 +473,6 @@ local function buildBaseMarker()
 		marker = gui
 	end
 	State.OnAttribute("PlotIndex", function()
-		task.spawn(place)
-	end)
-	State.OnAttribute("BaseWorld", function()
 		task.spawn(place)
 	end)
 end

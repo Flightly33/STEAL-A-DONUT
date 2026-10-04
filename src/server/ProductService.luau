@@ -9,6 +9,8 @@
 	    title is the one you keep.
 	  * Crates (Config.Crates.Products) - opened right away (CrateService). Paid random items: only
 	    offered to players whose region allows them (CrateService.CanBuy).
+	  * Open a box now (Config.Boxes.SkipProductId) - the box you pressed "Open now" on opens right
+	    away (or, if it's gone, the box in your pen with the longest wait).
 
 	MarketplaceService.ProcessReceipt can only have ONE handler per game, so every product goes
 	through here. Receipts are remembered in the player's data (Data.Purchases) and saved before the
@@ -30,6 +32,7 @@ local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local DataService = require(script.Parent.DataService)
+local PlotService = require(script.Parent.PlotService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local LuckService = require(script.Parent.LuckService)
 local CrateService = require(script.Parent.CrateService)
@@ -158,6 +161,14 @@ local function grant(player: Player, productId: number, paid: number?): boolean
 		recordDonation(player, donation, paid)
 		return true
 	end
+	if Config.Boxes.SkipProductId > 0 and productId == Config.Boxes.SkipProductId then
+		local profile = DataService.Get(player)
+		local slot = if profile then profile.Session.PendingSkip else nil
+		if PlotService.SkipBox(player, slot) then
+			notify(player, "📦 Opening your box now!", "success")
+		end
+		return true
+	end
 	local crateId = crateFor(productId)
 	if crateId then
 		-- Already paid for, so it's always opened (even if the region check changed meanwhile).
@@ -229,6 +240,24 @@ function ProductService.BuyCrate(player: Player, crateId: any)
 	end
 end
 
+-- "Open now" on a box in your pen.
+function ProductService.SkipBox(player: Player, slot: number)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	profile.Session.PendingSkip = slot
+	local id = Config.Boxes.SkipProductId
+	if studioFree(id) then
+		PlotService.SkipBox(player, slot)
+		notify(player, "(Studio test purchase - free)")
+	elseif id <= 0 then
+		notify(player, "Opening boxes with Robux is coming soon!", "error")
+	else
+		MarketplaceService:PromptProductPurchase(player, id)
+	end
+end
+
 function ProductService.Donate(player: Player, amount: any)
 	if type(amount) ~= "number" then
 		return
@@ -250,6 +279,7 @@ end
 
 function ProductService.Init()
 	MarketplaceService.ProcessReceipt = processReceipt :: any
+	PlotService.SkipHandler = ProductService.SkipBox
 	-- Donor titles above heads: when the save loads and on every respawn
 	DataService.ProfileLoaded:Connect(function(player: Player)
 		ProductService.ApplyTitle(player)

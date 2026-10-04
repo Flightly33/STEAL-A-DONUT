@@ -1,10 +1,6 @@
 --[[
-	DonutIdle: idle animations for the donuts standing on bases and in the lane (all client-side, so
-	the server never has to replicate any of it).
-
-	Lane donuts ("LaneDonut") get the gentle Lane style: little hops on the spot, blinking, looking
-	around (and at you when you're close), and a wave or a hop to say hi when you walk up. No big
-	flips or twirls there. (Floating rare lane donuts are bobbed and spun by Effects instead.)
+	DonutIdle: idle animations for the donuts in the bases (all client-side, so the server never
+	has to replicate any of it).
 
 	Base donuts roam their pen: they stand around for a few seconds, turn, and walk somewhere else
 	(a hop on every step, feet and arms swinging). Where each one is comes from Roam.luau and the
@@ -194,10 +190,6 @@ local function register(instance: Instance)
 	if not root or not root:IsA("BasePart") then
 		return
 	end
-	local lane = CollectionService:HasTag(model, "LaneDonut")
-	if lane and CollectionService:HasTag(model, "DonutFloat") then
-		return -- (Effects bobs and spins the floating ones)
-	end
 	local donutId = model:GetAttribute("DonutId")
 	local stand = model:GetAttribute("IdleSeed")
 	local seed = hashString(if type(donutId) == "string" then donutId else model.Name) + (if type(stand) == "number" then stand * 7919 else 0)
@@ -280,7 +272,7 @@ local function register(instance: Instance)
 		Base = root.CFrame,
 		Bottom = if type(bottom) == "number" then bottom else 1.5,
 		Scale = root.Size.Y / 3,
-		Style = if lane then "Lane" elseif CollectionService:HasTag(model, "DonutFloat") then "Float" else STYLES[rng:NextInteger(1, #STYLES)],
+		Style = if CollectionService:HasTag(model, "DonutFloat") then "Float" else STYLES[rng:NextInteger(1, #STYLES)],
 		Rng = rng,
 		Phase = rng:NextNumber(0, 10),
 		Limbs = limbs,
@@ -408,24 +400,6 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		armL = 0.3 + 0.25 * math.sin(t * w)
 		armR = 0.3 - 0.25 * math.sin(t * w)
 		wing = 0.15 * math.sin(t * w * 2)
-	elseif style == "Lane" then
-		-- A soft hop on the spot every couple of seconds, breathing in between, looking around
-		local u = (t * 0.55) % 1
-		local hop = if u < 0.3 then math.sin(u / 0.3 * math.pi) else 0
-		y = 0.18 * k * hop + 0.025 * k * math.sin(t * 2.2)
-		pitch = -0.05 * hop
-		legL = 0.35 * hop
-		legR = legL
-		armL = 0.2 + 0.25 * hop
-		armR = armL
-		wing = 0.2 * hop
-		if now >= idle.NextLook then
-			idle.LookTarget = LOOK_TARGETS[idle.Rng:NextInteger(1, #LOOK_TARGETS)]
-			idle.NextLook = now + idle.Rng:NextNumber(1.5, 4)
-		end
-		local lookAt = if watching and math.abs(faceYaw) < 2 then math.clamp(faceYaw, -0.8, 0.8) else idle.LookTarget * 0.6
-		idle.Yaw = approach(idle.Yaw, lookAt, 4, dt)
-		yaw = idle.Yaw
 	elseif style == "Dance" then
 		local w = TAU * 1.1 -- beats per second
 		local beat = math.abs(math.sin(t * w / 2))
@@ -454,7 +428,7 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		armR = armL
 		wing = 0.08 * math.sin(t * 1.8)
 	end
-	if style ~= "Float" and style ~= "Look" and style ~= "Lane" then
+	if style ~= "Float" and style ~= "Look" then
 		yaw += idle.Turn
 	end
 	if moving and style ~= "Float" then
@@ -478,10 +452,8 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		idle.NextAction = now + idle.Rng:NextNumber(3, 8)
 	end
 	if not idle.Action and not moving and now >= idle.NextAction then
-		local options = if style == "Lane" then { "Wiggle", "LookAround", "Jump" } else { "Twirl", "Jump", "Jump", "Wiggle", "LookAround", "Flip", "Doze" }
-		if idle.HasArms and style == "Lane" then
-			table.insert(options, "Wave")
-		elseif idle.HasArms then
+		local options = { "Twirl", "Jump", "Jump", "Wiggle", "LookAround", "Flip", "Doze" }
+		if idle.HasArms then
 			table.insert(options, "Wave")
 			table.insert(options, "Cheer")
 			table.insert(options, "Cheer")
@@ -677,7 +649,7 @@ local function watchedPosition(): Vector3?
 end
 
 function DonutIdle.Init()
-	for _, tag in { "BaseDonut", "LaneDonut" } do
+	for _, tag in { "BaseDonut" } do
 		for _, instance in CollectionService:GetTagged(tag) do
 			task.spawn(register, instance)
 		end

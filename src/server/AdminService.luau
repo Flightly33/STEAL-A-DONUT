@@ -31,6 +31,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Donuts = require(Shared.Donuts)
+local Boxes = require(Shared.Boxes)
 local Rarities = require(Shared.Rarities)
 local Pets = require(Shared.Pets)
 local Events = require(Shared.Events)
@@ -41,14 +42,14 @@ local Remotes = require(Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
 local TreadmillService = require(script.Parent.TreadmillService)
-local DonutSpawnService = require(script.Parent.DonutSpawnService)
+local BoxService = require(script.Parent.BoxService)
+local InventoryService = require(script.Parent.InventoryService)
 local StealService = require(script.Parent.StealService)
 local PetService = require(script.Parent.PetService)
 local LuckService = require(script.Parent.LuckService)
 local CrateService = require(script.Parent.CrateService)
 local EventService = require(script.Parent.EventService)
 local ShopService = require(script.Parent.ShopService)
-local ItemService = require(script.Parent.ItemService)
 local HDAdmin = require(script.Parent.HDAdmin)
 local Ownership = require(script.Parent.Ownership)
 
@@ -208,8 +209,8 @@ function Commands.Donut(player: Player, profile: DataService.Profile, arg: any)
 	local mutation = if type(arg.Mutation) == "string" and Rarities.MutationById[arg.Mutation] then arg.Mutation else "None"
 	local size = if type(arg.Size) == "string" and Rarities.SizeById[arg.Size] then arg.Size else "Normal"
 	if not PlotService.AddDonut(player, arg.DonutId, 1, mutation, size) then
-		notify(player, "Your base is full!", "error")
-		return
+		-- (a full pen: it goes into your inventory instead)
+		InventoryService.AddDonut(player, arg.DonutId, 1, mutation, size)
 	end
 	profile.Data.Discovered[arg.DonutId] = true
 	local found = profile.Data.DiscoveredMutations[arg.DonutId] or {}
@@ -219,22 +220,56 @@ function Commands.Donut(player: Player, profile: DataService.Profile, arg: any)
 	notify(player, `Added {Rarities.DisplayName(Donuts.ById[arg.DonutId].Name, mutation, size)} to your base`, "success")
 end
 
--- Drop a donut on the closest spawn spot in the lane (to test stealing it): { DonutId, Mutation, Size }
-function Commands.SpawnDonut(player: Player, _profile: DataService.Profile, arg: any)
+-- Drop a box on the ground in front of you (to test stealing it): { Tier, Size, Mutation }. Its
+-- biome is the one you're standing in (biome 1 from the lobby).
+function Commands.SpawnBox(player: Player, _profile: DataService.Profile, arg: any)
 	local root = player.Character and player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
-	if not root or type(arg) ~= "table" or type(arg.DonutId) ~= "string" then
+	if not root or type(arg) ~= "table" then
 		return
 	end
-	local best, bestDistance = nil, math.huge
-	for _, record in DonutSpawnService.GetRecords() do
-		local distance = (record.Point.Position - root.Position).Magnitude
-		if not record.Taken and distance < bestDistance then
-			best, bestDistance = record, distance
-		end
+	local tier = if type(arg.Tier) == "string" and Boxes.TierById[arg.Tier] then arg.Tier else "Rare"
+	local size = if type(arg.Size) == "string" and Boxes.SizeById[arg.Size] then arg.Size else "Small"
+	local mutation = if type(arg.Mutation) == "string" and Rarities.MutationById[arg.Mutation] then arg.Mutation else "None"
+	local areaId = math.max(Layout.AreaAt(root.Position), 1)
+	if not Donuts.HasBox(areaId, tier) then
+		tier = Boxes.TiersFor(areaId)[1].Id
 	end
-	if best then
-		DonutSpawnService.ForceSpawn(best, arg.DonutId, if type(arg.Mutation) == "string" then arg.Mutation else "None", if type(arg.Size) == "string" then arg.Size else "Normal")
+	local spot = root.Position + root.CFrame.LookVector * 10
+	if Layout.IsSafe(spot) then
+		spot = Vector3.new(0, 0, Config.Map.SafeZoneZ + 30)
 	end
+	BoxService.Plant(areaId, spot, tier, size, mutation)
+	notify(player, `📦 {Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)} dropped in {Areas.List[areaId].Name}`, "success")
+end
+
+-- A box straight into your inventory: { Tier, Size, Area, Mutation }
+function Commands.Box(player: Player, _profile: DataService.Profile, arg: any)
+	if type(arg) ~= "table" then
+		return
+	end
+	local area = if type(arg.Area) == "number" and Areas.List[arg.Area] then arg.Area else 2
+	local tier = if type(arg.Tier) == "string" and Donuts.HasBox(area, arg.Tier) then arg.Tier else Boxes.TiersFor(area)[1].Id
+	local size = if type(arg.Size) == "string" and Boxes.SizeById[arg.Size] then arg.Size else "Small"
+	local mutation = if type(arg.Mutation) == "string" and Rarities.MutationById[arg.Mutation] then arg.Mutation else "None"
+	if InventoryService.AddBox(player, tier, size, area, mutation) then
+		notify(player, `📦 {Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)} added to your inventory`, "success")
+	else
+		notify(player, "Your inventory is full!", "error")
+	end
+end
+
+-- Every box in your pen opens right now.
+function Commands.OpenBoxes(player: Player, profile: DataService.Profile)
+	for key in profile.Data.PenBoxes do
+		PlotService.SkipBox(player, tonumber(key))
+	end
+	notify(player, "📦 Your boxes are opening!", "success")
+end
+
+-- A fresh batch of boxes in every biome, for everyone.
+function Commands.ResetBoxes(player: Player)
+	BoxService.ResetAll()
+	notify(player, "📦 Every biome has new boxes.", "success")
 end
 
 function Commands.Egg(player: Player, _profile: DataService.Profile, eggId: any)
@@ -316,7 +351,6 @@ function Commands.Teleport(player: Player, _profile: DataService.Profile, areaId
 	if type(areaId) ~= "number" or not Areas.List[areaId] or StealService.IsCarrying(player) then
 		return
 	end
-	PlotService.MoveBase(player, Areas.List[areaId].World)
 	StealService.Teleport(player, Layout.AreaArrival(areaId))
 end
 
@@ -330,13 +364,6 @@ function Commands.Fly(player: Player, _profile: DataService.Profile, mode: any)
 	local value = if mode == "Fly" or mode == "Carpet" then mode else nil
 	player:SetAttribute("FlyMode", value)
 	notify(player, if value == "Carpet" then "🧞 Magic carpet! Space = up, Shift = down." elseif value then "🕊 You can fly! Space = up, Shift = down." else "Back on your feet.", "success")
-end
-
--- A Base Lock that never runs out (kept when you rejoin), or take it off again.
-function Commands.PermaLock(player: Player, profile: DataService.Profile)
-	local on = not profile.Data.PermaLock
-	ItemService.SetPermanentLock(player, on)
-	notify(player, if on then "🔒 Your base is locked for good (press again to unlock)." else "🔓 Permanent lock off.", "success")
 end
 
 function Commands.ResetMoney(player: Player, profile: DataService.Profile)

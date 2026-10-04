@@ -8,7 +8,8 @@
 	Upgrading the treadmill (Shop) rebuilds it as a cooler model with a faster gain rate.
 	Every tier has LED strips and a fan (animated by the clients, faster while someone runs), and
 	while the owner runs the belt throws sparks and dust (the model's "Running" attribute).
-	The treadmill moves with your base when you go to another world.
+	The 12 treadmills give Speed per step (Config.Treadmill: StepsPerSecond steps a second); the
+	last one, Heavenly, is white marble and gold with angel wings and a column of light.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -16,6 +17,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
@@ -31,13 +33,6 @@ local BELT_LENGTH = 13
 local BELT_WIDTH = 6
 
 local belts: { [Player]: BasePart } = {}
--- The console shows the Head Start rounded to 0.1: refresh it (at most once a second) as it fades
-local shownHeadStart: { [Player]: number } = {}
-local screenRefreshed: { [Player]: number } = {}
-
-local function roundedHeadStart(speed: number): number
-	return math.floor(Economy.HeadStartMultiplier(speed) * 10 + 0.5) / 10
-end
 
 function TreadmillService.GetRate(player: Player): number
 	local profile = DataService.Get(player)
@@ -59,12 +54,8 @@ local function updateScreen(player: Player)
 		return
 	end
 	local tier = Economy.TreadmillTier(profile.Data.TreadmillLevel)
-	local headStart = roundedHeadStart(profile.Data.Speed)
-	shownHeadStart[player] = headStart
-	local text = `+{Format.Rate(TreadmillService.GetRate(player))} ⚡/s`
-	if headStart > 1 then
-		text ..= `\n🚀 x{string.format("%.1f", headStart)} BOOST`
-	end
+	local rate = TreadmillService.GetRate(player)
+	local text = `+{Format.Number(rate / Config.Treadmill.StepsPerSecond)} ⚡ a step\n({Format.Rate(rate)} ⚡/s)`
 	for _, label in model:GetDescendants() do
 		if label:IsA("TextLabel") then
 			if label.Name == "Rate" then
@@ -79,8 +70,6 @@ end
 function TreadmillService.Remove(player: Player)
 	local belt = belts[player]
 	belts[player] = nil
-	shownHeadStart[player] = nil
-	screenRefreshed[player] = nil
 	if belt and belt.Parent then
 		(belt.Parent :: Instance):Destroy()
 	end
@@ -96,7 +85,7 @@ function TreadmillService.Build(player: Player)
 	if not anchor then
 		return
 	end
-	-- Remove the old one (it may be in another world if the base just moved)
+	-- Remove the old one
 	TreadmillService.Remove(player)
 	local old = plot:FindFirstChild("Treadmill")
 	if old then
@@ -223,8 +212,8 @@ function TreadmillService.Build(player: Player)
 	dust.Transparency = NumberSequence.new(0.5, 1)
 	dust.Enabled = false
 	dust.Parent = back
-	if level >= 11 then
-		-- Tiers from the later worlds: an energy column rises from the belt while running
+	if level >= 9 then
+		-- The top treadmills: an energy column rises from the belt while running
 		local column = Instance.new("ParticleEmitter")
 		column.Name = "Aura"
 		column.Color = ColorSequence.new(tier.Accent, Color3.new(1, 1, 1))
@@ -239,6 +228,24 @@ function TreadmillService.Build(player: Player)
 		column.Parent = belt
 	end
 
+	if tier.Heavenly then
+		-- The last treadmill: marble steps, golden angel wings either side and a column of light
+		for i = 0, 2 do
+			Build.Decor({ Parent = model, Name = "Step", Size = Vector3.new(BELT_WIDTH + 6 - i * 1.5, 0.5, BELT_LENGTH + 6 - i * 1.5), CFrame = at(0, 0.25 - i * 0.01, 0.5), Color = if i % 2 == 0 then rgb(255, 252, 240) else rgb(255, 225, 120), Material = if i % 2 == 0 then Enum.Material.Marble else Enum.Material.Foil })
+		end
+		for _, side in { -1, 1 } do
+			for f = 0, 4 do
+				Build.Decor({ Parent = model, Name = "Feather", Size = Vector3.new(0.4, 1.2 + f * 0.25, 5 - f * 0.55), CFrame = at(side * (5.2 + f * 0.9), 6 + f * 1.3, 2) * CFrame.Angles(math.rad(-15 - f * 6), 0, side * math.rad(25 + f * 8)), Color = if f % 2 == 0 then rgb(255, 255, 255) else rgb(255, 235, 170), Material = Enum.Material.SmoothPlastic })
+			end
+		end
+		local beam = Build.Decor({ Parent = model, Name = "LightColumn", Shape = Enum.PartType.Cylinder, Size = Vector3.new(60, 7, 7), CFrame = at(0, 31, 0.5) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 245, 200), Material = Enum.Material.Neon, Transparency = 0.82 })
+		beam.CastShadow = false
+		local holy = Instance.new("PointLight")
+		holy.Color = rgb(255, 240, 190)
+		holy.Range = 26
+		holy.Brightness = 2.5
+		holy.Parent = beam
+	end
 	if tier.Halo then
 		local center = at(0, 9.5, 0.5)
 		local ring = Instance.new("Model")
@@ -304,10 +311,6 @@ local function setRunning(player: Player, running: boolean)
 end
 
 function TreadmillService.Init()
-	-- The treadmill follows the base to other worlds.
-	PlotService.BaseMoved:Connect(function(player: Player)
-		TreadmillService.Build(player)
-	end)
 	task.spawn(function()
 		while true do
 			local dt = task.wait(TICK)
@@ -321,11 +324,6 @@ function TreadmillService.Init()
 					onBelt = isOnBelt(belt, root.Position)
 					if onBelt then
 						DataService.AddSpeed(player, TreadmillService.GetRate(player) * dt)
-						local now = os.clock()
-						if roundedHeadStart(profile.Data.Speed) ~= shownHeadStart[player] and now - (screenRefreshed[player] or 0) >= 1 then
-							screenRefreshed[player] = now
-							updateScreen(player)
-						end
 					end
 				end
 				if player:GetAttribute("OnTreadmill") ~= onBelt then

@@ -1,22 +1,26 @@
 --[[
 	MapBuilder
 	==========
-	Builds the whole world from code: the safe hub (plots, shop, leaderboards, spawn), the safe-zone
-	line, and the lane of themed areas with their donut spawn points and guard beds.
+	Builds the whole world from code: the safe lobby (bases, sell stall, leaderboards, spawn), the
+	safe-zone line, and the lane of biomes, each with its Domer's corner and box spots.
 
 	Want to edit the map by hand in Studio? "Bake" it:
 		1. In Studio (edit mode, not playing) open View > Command Bar and run:
 		   require(game.ServerScriptService.Server.MapBuilder).Build()
 		2. A "Map" folder appears in Workspace. Move/replace/restyle anything you like and save.
 		3. When the game runs and Workspace.Map already exists, it is used instead of rebuilding.
-		Keep the names of: Plots/PlotN (+ Slots/SlotN, Spawn, TreadmillAnchor, PodiumAnchor, SignAnchor),
-		Lane/AreaN (+ Spawns/DonutSpawn, GuardHome), Hub/ShopStall/PromptPart, Hub/Leaderboards/Board_X/Screen
-		and the Portal models (Hub/Portals, Worlds/WorldN/HomePortal).
+		Keep the names of: Plots/PlotN (+ Spawn, TreadmillAnchor, PodiumAnchor, SignAnchor,
+		IncubatorAnchor, UpgradeSign), Lane/AreaN (+ GuardHome, BoxSpots/BoxSpot, SpeedGate),
+		Hub/SellStall/PromptPart and Hub/Leaderboards/Board_X/Screen.
 
-	All areas live in Lane/AreaN, whichever world they belong to: World 1's lane starts at the hub,
-	the other worlds' lanes are far away along X (Areas.Worlds[].OffsetX), each with its own hub
-	(Worlds/WorldN) that has a base plot for every player (Worlds/WorldN/Plots/PlotN) and a portal
-	back home.
+	Biomes (Lane/AreaN) run one after another along +Z from the lobby. Each one has:
+	  * thick grassy walls (Config.Map.WallThickness) and a checker floor,
+	  * an arch at its entrance with its name and the Speed you need, and an invisible SpeedGate
+	    (clients make it solid for players who are too slow; WorldService puts back anyone who gets
+	    in anyway),
+	  * its Domer's spot in a back corner (GuardHome; the first biomes have his couch there) and
+	    the box spots around it (BoxSpots: BoxService puts the boxes on them),
+	  * its theme's decorations (Decor.luau), cleared away from Domer's corner.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -27,15 +31,12 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Layout = require(Shared.Layout)
-local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 
 local Build = require(script.Parent.Build)
-local WorldDecor = require(script.Parent.WorldDecor)
 local Decor = require(script.Parent.Decor)
-local BlackHoleModel = require(script.Parent.BlackHoleModel)
 
 local MapBuilder = {}
 
@@ -45,246 +46,21 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 11
+local MAP_VERSION = 12
 
---------------------------------------------------------------------------------
--- Portals (hub -> other worlds, and back home)
---------------------------------------------------------------------------------
-local function buildPortal(parent: Instance, name: string, cf: CFrame, color: Color3, title: string, subtitle: string, targetWorld: number, home: boolean)
-	local portal = Instance.new("Model")
-	portal.Name = name
-	portal:SetAttribute("TargetWorld", targetWorld)
-	portal:SetAttribute("Home", home)
-	local radius, ball = 7, 3.4
-	-- A giant standing donut is the portal ring (faces the people walking in)
-	local ringCf = cf * CFrame.new(0, radius + ball / 2 + 1, 0)
-	Decor.GiantDonut(portal, ringCf, radius, ball, rgb(222, 165, 95), color, { rgb(255, 255, 255), rgb(255, 230, 60), rgb(255, 90, 150) })
-	Build.Part({ Parent = portal, Name = "PortalBase", Size = Vector3.new(radius * 2 + 6, 1, 6), CFrame = cf * CFrame.new(0, 0.5, 0), Color = rgb(245, 245, 245), Material = Enum.Material.Marble })
-	local swirl = Build.Decor({ Parent = portal, Name = "Swirl", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, radius * 2 - 1, radius * 2 - 1), CFrame = ringCf * CFrame.Angles(0, math.pi / 2, 0), Color = color, Material = Enum.Material.Neon, Transparency = 0.35 })
-	local emitter = Instance.new("ParticleEmitter")
-	emitter.Color = ColorSequence.new(color, Color3.new(1, 1, 1))
-	emitter.LightEmission = 1
-	emitter.Rate = 25
-	emitter.Lifetime = NumberRange.new(1, 1.6)
-	emitter.Speed = NumberRange.new(1, 3)
-	emitter.SpreadAngle = Vector2.new(180, 180)
-	emitter.Size = NumberSequence.new(0.5, 0)
-	emitter.Parent = swirl
-	local light = Instance.new("PointLight")
-	light.Color = color
-	light.Range = 20
-	light.Brightness = 2
-	light.Parent = swirl
-	local trigger = Build.Part({ Parent = portal, Name = "Trigger", Size = Vector3.new(radius * 2, 12, 4), CFrame = cf * CFrame.new(0, 6, 0), Transparency = 1, CanCollide = false, CanQuery = false })
-	trigger:SetAttribute("PortalTrigger", true)
-	local sign = Instance.new("BillboardGui")
-	sign.Name = "PortalSign"
-	sign.Size = UDim2.fromScale(20, 5.5)
-	sign.StudsOffsetWorldSpace = Vector3.new(0, radius * 2 + 9, 0)
-	sign.LightInfluence = 0
-	sign.MaxDistance = 260
-	sign.Parent = trigger
-	Build.Text(sign, title, { Name = "Title", Size = UDim2.fromScale(1, 0.62), TextColor3 = color:Lerp(Color3.new(1, 1, 1), 0.35), TextStrokeColor3 = rgb(30, 20, 40) })
-	Build.Text(sign, subtitle, { Name = "Subtitle", Size = UDim2.fromScale(1, 0.38), Position = UDim2.fromScale(0, 0.62), TextColor3 = rgb(255, 235, 120), Font = Enum.Font.FredokaOne })
-	portal.PrimaryPart = trigger
-	portal.Parent = parent
-	return portal
-end
-
-local function portalSubtitle(world: Areas.World): string
-	if (world.RequiredUltimate or 0) > 0 then
-		return "🔒 Needs an ULTIMATE REBIRTH  •  Rarer donuts, 2x money"
-	end
-	return `🔒 Needs {Economy.WorldRequirementText(world.Id)}  •  Everyone is x{world.WalkMultiplier} faster`
-end
-
-local function buildHubPortals(hub: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "Portals"
-	folder.Parent = hub
-	for _, world in Areas.Worlds do
-		if world.Id > 1 then
-			buildPortal(folder, "Portal_World" .. world.Id, Layout.PortalCFrame(world.Id), world.Color, `{world.Icon} {string.upper(world.Name)}`, portalSubtitle(world), world.Id, false)
-		end
-	end
-end
-
--- A saved map keeps the text it was built with; rewrite the parts that come from the config.
-local function refreshPortalSigns(hub: Instance)
-	local portals = hub:FindFirstChild("Portals")
-	for _, world in Areas.Worlds do
-		local portal = portals and portals:FindFirstChild("Portal_World" .. world.Id)
-		local trigger = portal and portal:FindFirstChild("Trigger")
-		local sign = trigger and trigger:FindFirstChild("PortalSign")
-		local subtitle = sign and sign:FindFirstChild("Subtitle")
-		if subtitle and subtitle:IsA("TextLabel") then
-			subtitle.Text = portalSubtitle(world)
-		end
-	end
-end
-
--- The long bridge between a world's landing and its first area. Kept cheap: big floor pieces,
--- low walls, and a few props (it's something you run across, not somewhere you stay).
-local function buildBridge(parent: Instance, world: Areas.World)
-	local length = world.BridgeLength
-	if length <= 0 then
-		return
-	end
-	local bridge = Instance.new("Folder")
-	bridge.Name = "Bridge"
-	bridge.Parent = parent
-	local x0, z0, half = world.OffsetX, map.SafeZoneZ, map.LaneHalfWidth
-	local first = Areas.ByWorld[world.Id][1]
-	local dream = world.Id == 3
-	local cyber = world.Id == 4
-	-- (World 2, The Underworld: a basalt bridge over a sea of lava)
-	local floorColors = if dream then { rgb(250, 245, 255), rgb(255, 225, 245) } elseif cyber then { rgb(28, 28, 40), rgb(36, 36, 52) } else { rgb(56, 42, 38), rgb(68, 50, 44) }
-	local floorMaterial = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.Basalt
-	local segment = 80
-	local i = 0
-	for z = z0, z0 + length - segment, segment do
-		i += 1
-		Build.Part({ Parent = bridge, Name = "BridgeFloor", Size = Vector3.new(half * 2, 1, segment), Position = Vector3.new(x0, -0.5, z + segment / 2), Color = floorColors[i % 2 + 1], Material = floorMaterial })
-	end
-	if cyber then
-		-- Neon lines along the bridge
-		for _, x in { -half + 3, half - 3 } do
-			Build.Decor({ Parent = bridge, Name = "NeonLine", Size = Vector3.new(0.8, 0.05, length), Position = Vector3.new(x0 + x, 0.03, z0 + length / 2), Color = if x < 0 then rgb(255, 40, 200) else rgb(0, 230, 255), Material = Enum.Material.Neon })
-		end
-	elseif not dream then
-		-- Lava glowing through cracks along the bridge
-		for _, x in { -half + 3, half - 3 } do
-			Decor.Lava(bridge, { Name = "LavaSeam", Size = Vector3.new(0.8, 0.05, length), Position = Vector3.new(x0 + x, 0.03, z0 + length / 2) })
-		end
-	end
-	local t, h = 4, 14
-	for _, side in { -1, 1 } do
-		Build.Part({ Parent = bridge, Name = "BridgeWall", Size = Vector3.new(t, h, length), Position = Vector3.new(x0 + side * (half + t / 2), h / 2, z0 + length / 2), Color = first.Wall[1], Material = first.WallMaterial })
-		Build.Part({ Parent = bridge, Name = "BridgeRail", Size = Vector3.new(t + 1, 1.5, length), Position = Vector3.new(x0 + side * (half + t / 2), h + 0.75, z0 + length / 2), Color = first.Trim, Material = first.TrimMaterial })
-		-- Clouds (dream), the glowing city floor (cyber) or lava (the Underworld) far below the bridge
-		Build.Decor({ Parent = bridge, Name = if dream then "CloudSea" elseif cyber then "CityFloor" else "LavaSea", Size = Vector3.new(400, 1, length), Position = Vector3.new(x0 + side * (half + t + 200), -18, z0 + length / 2), Color = if dream then rgb(255, 240, 250) elseif cyber then rgb(20, 16, 40) else rgb(170, 40, 6), Material = if dream then Enum.Material.SmoothPlastic elseif cyber then Enum.Material.Metal else Enum.Material.Neon })
-	end
-	-- Props along the edges
-	local rng = Random.new(world.Id * 31)
-	for z = z0 + 40, z0 + length - 20, 80 do
-		for _, side in { -1, 1 } do
-			local pos = Vector3.new(x0 + side * (half - 6), 0, z + rng:NextNumber(-10, 10))
-			if cyber then
-				Build.Pillar(bridge, pos, 10, 0.6, rgb(50, 50, 60), Enum.Material.Metal)
-				local lampBall = Build.Ball(bridge, pos + Vector3.new(0, 10.6, 0), 1.6, if side < 0 then rgb(255, 40, 200) else rgb(0, 230, 255), Enum.Material.Neon)
-				local light = Instance.new("PointLight")
-				light.Color = lampBall.Color
-				light.Range = 18
-				light.Parent = lampBall
-			elseif dream then
-				for n = 1, 4 do
-					Build.Ball(bridge, pos + Vector3.new(rng:NextNumber(-3, 3), 2 + rng:NextNumber(0, 2), rng:NextNumber(-3, 3)), rng:NextNumber(3, 5), if n % 2 == 0 then rgb(255, 210, 240) else rgb(255, 255, 255))
-				end
-			else
-				-- fire torches
-				Build.Pillar(bridge, pos, 9, 1, rgb(45, 36, 34), Enum.Material.Basalt)
-				local flame = Build.Ball(bridge, pos + Vector3.new(0, 9.6, 0), 1.6, rgb(255, 150, 40), Enum.Material.Neon)
-				local fire = Instance.new("Fire")
-				fire.Size = 4
-				fire.Heat = 6
-				fire.Parent = flame
-				local light = Instance.new("PointLight")
-				light.Color = rgb(255, 140, 50)
-				light.Range = 18
-				light.Parent = flame
-			end
-		end
-	end
-	-- Signs counting down to the first area
-	for z = z0 + 400, z0 + length - 100, 400 do
-		local sign = Build.Part({ Parent = bridge, Name = "DistanceSign", Size = Vector3.new(24, 6, 1), CFrame = CFrame.lookAt(Vector3.new(x0, 22, z), Vector3.new(x0, 22, z - 10)), Color = world.Color:Lerp(Color3.new(0, 0, 0), 0.3), Material = Enum.Material.SmoothPlastic, CanCollide = false })
-		local gui = Instance.new("SurfaceGui")
-		gui.Face = Enum.NormalId.Front
-		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		gui.PixelsPerStud = 12
-		gui.LightInfluence = 0
-		gui.Parent = sign
-		Build.Text(gui, `{first.Name}: {math.floor(z0 + length - z)} studs ➜`, { TextColor3 = rgb(255, 255, 255) })
-	end
-end
-
--- The safe hub in front of a world's lane (worlds 2+): same size as the main hub, with a base plot
--- for every player (your base follows you to whichever world you're in), and the portal home.
-local buildPlot: (parent: Instance, plotIndex: number, worldId: number) -> ()
-
-local function buildWorldLanding(parent: Instance, world: Areas.World)
-	local folder = Instance.new("Model")
-	folder.Name = "World" .. world.Id
-	folder:SetAttribute("WorldId", world.Id)
-	local x0, z0, depth, half = world.OffsetX, map.SafeZoneZ, map.HubDepth, map.HubHalfWidth
-	local first = Areas.ByWorld[world.Id][1]
-	local floorColors = { first.Floor[1]:Lerp(Color3.new(1, 1, 1), 0.15), first.Floor[2]:Lerp(Color3.new(1, 1, 1), 0.15) }
-	Build.CheckerFloor(folder, x0 - half, x0 + half, z0 - depth, z0, map.TileSize, floorColors, first.FloorMaterial)
-	local t, h = 4, map.HubWallHeight
-	local wallColors = first.Wall
-	Build.CheckerWall(folder, Vector3.new(x0 - half - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, wallColors, first.WallMaterial, 20)
-	Build.CheckerWall(folder, Vector3.new(x0 + half + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, wallColors, first.WallMaterial, 20)
-	Build.CheckerWall(folder, Vector3.new(x0 - half - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, t, wallColors, first.WallMaterial, 20)
-	local laneOuter = map.LaneHalfWidth + t
-	for _, side in { -1, 1 } do
-		local from = if side < 0 then x0 - half - t else x0 + laneOuter
-		Build.CheckerWall(folder, Vector3.new(from, 0, z0 + t / 2), Vector3.new(1, 0, 0), half + t - laneOuter, h, t, wallColors, first.WallMaterial, 20)
-		Build.Part({ Parent = folder, Name = "WallTop", Size = Vector3.new(t + 1, 2, depth + t), Position = Vector3.new(x0 + side * (half + t / 2), h + 1, z0 - depth / 2 - t / 2), Color = first.Trim, Material = first.TrimMaterial })
-	end
-	-- Safe zone line
-	Build.Part({ Parent = folder, Name = "SafeZoneLine", Size = Vector3.new(map.LaneHalfWidth * 2, 0.2, 1.5), Position = Vector3.new(x0, 0.1, z0 - 0.75), Color = rgb(255, 50, 50), Material = Enum.Material.Neon, CanCollide = false })
-	-- Welcome sign over the lane entrance
-	local beam = Build.Part({
-		Parent = folder, Name = "WorldSign",
-		Size = Vector3.new(map.LaneHalfWidth * 2 + 14, 8, 4),
-		CFrame = CFrame.lookAt(Vector3.new(x0, 40, z0 + 2), Vector3.new(x0, 40, z0 - 10)),
-		Color = world.Color:Lerp(Color3.new(0, 0, 0), 0.35), Material = Enum.Material.SmoothPlastic,
-	})
-	for _, side in { -1, 1 } do
-		Build.Part({ Parent = folder, Name = "GatePillar", Size = Vector3.new(6, 36, 6), Position = Vector3.new(x0 + side * (map.LaneHalfWidth + 5), 18, z0 + 2), Color = world.Color, Material = Enum.Material.SmoothPlastic })
-	end
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 12
-	gui.LightInfluence = 0
-	gui.Parent = beam
-	Build.Text(gui, `{world.Icon} WORLD {world.Id}: {string.upper(world.Name)} {world.Icon}`, { TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(20, 20, 40) })
-	buildPortal(folder, "HomePortal", Layout.PortalCFrame(world.Id, true), rgb(120, 230, 90), "🏠 BACK TO DONUT LAND", "Your base comes with you!", 1, true)
-	buildBridge(folder, world)
-	WorldDecor.Build(folder, world)
-	local marker = Build.Part({ Parent = folder, Name = "Arrival", Size = Vector3.new(4, 1, 4), CFrame = Layout.WorldArrival(world.Id), Transparency = 1, CanCollide = false, CanQuery = false })
-	folder.PrimaryPart = marker
-	local plots = Instance.new("Folder")
-	plots.Name = "Plots"
-	plots.Parent = folder
-	for i = 1, Config.Plots.Count do
-		buildPlot(plots, i, world.Id)
-	end
-	folder.Parent = parent
-end
-
--- The hubs of worlds 2+ (only the missing ones, so a saved map gets new worlds added).
-local function buildWorlds(parent: Folder)
-	local worlds: Instance
-	local found = parent:FindFirstChild("Worlds")
-	if found then
-		worlds = found
-	else
-		local folder = Instance.new("Folder")
-		folder.Name = "Worlds"
-		folder.Parent = parent
-		worlds = folder
-	end
-	for _, world in Areas.Worlds do
-		if world.Id > 1 and not worlds:FindFirstChild("World" .. world.Id) then
-			buildWorldLanding(worlds, world)
-		end
-	end
+-- Every face of a part covered in studs (the classic Roblox brick look).
+local function studs(part: BasePart): BasePart
+	part.TopSurface = Enum.SurfaceType.Studs
+	part.BottomSurface = Enum.SurfaceType.Inlet
+	part.FrontSurface = Enum.SurfaceType.Studs
+	part.BackSurface = Enum.SurfaceType.Studs
+	part.LeftSurface = Enum.SurfaceType.Studs
+	part.RightSurface = Enum.SurfaceType.Studs
+	return part
 end
 
 --------------------------------------------------------------------------------
--- Hub
+-- Lobby
 --------------------------------------------------------------------------------
 local function buildEntranceGate(parent: Instance)
 	local gate = Instance.new("Model")
@@ -327,45 +103,48 @@ local function buildSafeZoneLine(parent: Instance)
 	bottom.TextStrokeColor3 = rgb(20, 40, 90)
 end
 
-local function buildStall(parent: Instance, name: string, x: number, title: string, stripe: Color3, tab: string, keeperIndex: number)
-	local shop = Instance.new("Model")
-	shop.Name = name
-	shop:SetAttribute("ShopTab", tab)
-	local origin = CFrame.lookAt(Vector3.new(x, 0, -232), Vector3.new(x, 0, -200))
+-- The sell stall: a market stall in the plaza where you sell donuts you don't want any more.
+local function buildSellStall(parent: Instance)
+	local stall = Instance.new("Model")
+	stall.Name = "SellStall"
+	local origin = Layout.SellStallCFrame()
 	local function at(x: number, y: number, z: number): CFrame
 		return origin * CFrame.new(x, y, z)
 	end
+	local green = rgb(60, 200, 90)
 	-- Counter + posts
-	local counter = Build.Part({ Parent = shop, Name = "Counter", Size = Vector3.new(18, 4, 5), CFrame = at(0, 2, -2), Color = rgb(150, 95, 55), Material = Enum.Material.WoodPlanks })
-	for _, x in { -8.5, 8.5 } do
+	local counter = Build.Part({ Parent = stall, Name = "Counter", Size = Vector3.new(20, 4, 5), CFrame = at(0, 2, -2), Color = rgb(150, 95, 55), Material = Enum.Material.WoodPlanks })
+	for _, x in { -9.5, 9.5 } do
 		for _, z in { -4, 3 } do
-			Build.Part({ Parent = shop, Name = "Post", Size = Vector3.new(0.8, 12, 0.8), CFrame = at(x, 6, z), Color = rgb(120, 75, 40), Material = Enum.Material.Wood })
+			Build.Part({ Parent = stall, Name = "Post", Size = Vector3.new(0.8, 12, 0.8), CFrame = at(x, 6, z), Color = rgb(120, 75, 40), Material = Enum.Material.Wood })
 		end
 	end
-	-- Striped awning (like the reference stalls)
-	for i = 0, 8 do
-		Build.Part({ Parent = shop, Name = "Awning", Size = Vector3.new(2.2, 0.5, 10), CFrame = at(-8.8 + i * 2.2, 12.3, -0.5) * CFrame.Angles(math.rad(-12), 0, 0), Color = if i % 2 == 0 then stripe else rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic })
+	-- Striped awning
+	for i = 0, 9 do
+		Build.Part({ Parent = stall, Name = "Awning", Size = Vector3.new(2.2, 0.5, 10), CFrame = at(-9.9 + i * 2.2, 12.3, -0.5) * CFrame.Angles(math.rad(-12), 0, 0), Color = if i % 2 == 0 then green else rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic })
+	end
+	-- Coins piled on the counter
+	for n = 1, 9 do
+		Build.Decor({ Parent = stall, Name = "Coin", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.35, 1.6, 1.6), CFrame = at(-6 + (n % 3) * 1.4, 4.2 + (n // 3) * 0.36, -2 + (n % 2) * 0.5) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 205, 50), Material = Enum.Material.Foil })
 	end
 	-- Glowing circle to stand in
-	Build.Part({ Parent = shop, Name = "Glow", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 14, 14), CFrame = at(0, 0.08, -9) * CFrame.Angles(0, 0, math.pi / 2), Color = stripe, Material = Enum.Material.Neon, Transparency = 0.45, CanCollide = false })
-	-- The prompt anchor
-	local prompt = Build.Part({ Parent = shop, Name = "PromptPart", Size = Vector3.new(4, 4, 1), CFrame = at(0, 3, -5), Transparency = 1, CanCollide = false })
-	-- Sign
+	Build.Part({ Parent = stall, Name = "Glow", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 14, 14), CFrame = at(0, 0.08, -9) * CFrame.Angles(0, 0, math.pi / 2), Color = green, Material = Enum.Material.Neon, Transparency = 0.45, CanCollide = false })
+	local prompt = Build.Part({ Parent = stall, Name = "PromptPart", Size = Vector3.new(4, 4, 1), CFrame = at(0, 3, -5), Transparency = 1, CanCollide = false })
+	prompt:SetAttribute("SellStall", true)
 	local sign = Instance.new("BillboardGui")
 	sign.Name = "Sign"
-	sign.Size = UDim2.fromScale(22, 6)
+	sign.Size = UDim2.fromScale(24, 6)
 	sign.StudsOffsetWorldSpace = Vector3.new(0, 11, 0)
 	sign.LightInfluence = 0
-	sign.MaxDistance = 250
+	sign.MaxDistance = 260
 	sign.Parent = counter
-	Build.Text(sign, title, { TextColor3 = stripe, TextStrokeColor3 = rgb(40, 20, 0) })
+	Build.Text(sign, "💰 SELL DONUTS", { TextColor3 = rgb(120, 255, 140), TextStrokeColor3 = rgb(10, 50, 20) })
 	-- A donut shopkeeper on the counter
-	local keeper = DonutModel.Build(Donuts.List[keeperIndex], { Scale = 0.9, NoEffects = true })
-	DonutModel.PlaceOn(keeper, at(0, 4, -2) * CFrame.Angles(0, math.pi, 0))
-	keeper.Parent = shop
-	shop.PrimaryPart = counter
-	shop.Parent = parent
-	prompt:SetAttribute("Shop", true)
+	local keeper = DonutModel.Build(Donuts.List[2], { Scale = 0.9, NoEffects = true })
+	DonutModel.PlaceOn(keeper, at(4, 4, -2) * CFrame.Angles(0, math.pi, 0))
+	keeper.Parent = stall
+	stall.PrimaryPart = counter
+	stall.Parent = parent
 end
 
 local function buildLeaderboards(parent: Instance)
@@ -473,16 +252,14 @@ local function buildHub(parent: Folder)
 
 	buildSafeZoneLine(hub)
 	buildEntranceGate(hub)
-	buildStall(hub, "ShopStall", -88, "🛒 SHOP", rgb(255, 230, 40), "Upgrades", 1)
-	buildStall(hub, "ItemShopStall", 86, "⚔️ ITEM SHOP", rgb(255, 70, 70), "Items", 3)
+	buildSellStall(hub)
 	buildLeaderboards(hub)
-	buildHubPortals(hub)
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "HubSpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(14, 1, 14)
-	spawn.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, z0 - 150), Vector3.new(0, 0.5, z0))
+	spawn.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, z0 - 170), Vector3.new(0, 0.5, z0))
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Color = rgb(120, 200, 255)
@@ -492,16 +269,15 @@ local function buildHub(parent: Folder)
 end
 
 --------------------------------------------------------------------------------
--- Lane / areas
--- Every area is built around X = 0 and then moved to its world's lane.
+-- Lane / biomes
 --------------------------------------------------------------------------------
--- Third line of an area's arch sign. Rewritten on every start (refreshAreaSigns), so a saved map
--- never shows an old guard name or old speeds after a rebalance.
-local function guardInfoText(area: Areas.Area): string
-	local guardSpeed = math.floor(Economy.GuardWalkSpeed(area.Id))
-	local recommended = Economy.RecommendedSpeed(area.Id)
-	local rec = if recommended > 0 then "⚡ Recommended Speed: " .. Format.Number(recommended) else "⚡ Any speed works here!"
-	return `😴 {Config.Guard.Name} speed: {guardSpeed}   •   {rec}`
+-- Third line of a biome's arch sign. Rewritten on every start (refreshAreaSigns), so a saved map
+-- never shows old speeds after a rebalance.
+local function speedText(area: Areas.Area): string
+	if area.RecommendedSpeed <= 0 then
+		return "🌱 No speed needed - start here!"
+	end
+	return "⚡ Needs " .. Format.Number(area.RecommendedSpeed) .. " Speed to enter"
 end
 
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
@@ -509,482 +285,154 @@ local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	local arch = Instance.new("Model")
 	arch.Name = "Arch"
 	for _, side in { -1, 1 } do
-		Build.Part({ Parent = arch, Name = "ArchPillar", Size = Vector3.new(6, 34, 6), Position = Vector3.new(side * (half - 3), 17, zs + 3), Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.25), Material = area.WallMaterial })
-		Build.Part({ Parent = arch, Name = "ArchCap", Size = Vector3.new(7, 1.5, 7), Position = Vector3.new(side * (half - 3), 34.75, zs + 3), Color = area.Trim, Material = area.TrimMaterial })
+		Build.Part({ Parent = arch, Name = "ArchPillar", Size = Vector3.new(8, 38, 8), Position = Vector3.new(side * (half - 4), 19, zs + 4), Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.25), Material = area.WallMaterial })
+		Build.Part({ Parent = arch, Name = "ArchCap", Size = Vector3.new(9, 1.5, 9), Position = Vector3.new(side * (half - 4), 38.75, zs + 4), Color = area.Trim, Material = area.TrimMaterial })
 	end
 	local beam = Build.Part({
 		Parent = arch, Name = "ArchSign",
-		Size = Vector3.new(half * 2 - 4, 9, 4),
-		CFrame = CFrame.lookAt(Vector3.new(0, 39, zs + 3), Vector3.new(0, 39, zs - 10)),
+		Size = Vector3.new(half * 2 - 6, 12, 4),
+		CFrame = CFrame.lookAt(Vector3.new(0, 45, zs + 4), Vector3.new(0, 45, zs - 10)),
 		Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.4), Material = area.WallMaterial,
 	})
 	local gui = Instance.new("SurfaceGui")
 	gui.Face = Enum.NormalId.Front
 	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 14
+	gui.PixelsPerStud = 12
 	gui.LightInfluence = 0
 	gui.Parent = beam
 	local list = Instance.new("UIListLayout")
 	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
 	list.SortOrder = Enum.SortOrder.LayoutOrder
 	list.Parent = gui
-	Build.Text(gui, "AREA " .. area.Id, { Size = UDim2.fromScale(1, 0.22), TextColor3 = rgb(255, 255, 255), LayoutOrder = 1 })
-	Build.Text(gui, string.upper(area.Name), { Size = UDim2.fromScale(1, 0.45), TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.35), LayoutOrder = 2 })
-	Build.Text(gui, guardInfoText(area), { Name = "GuardInfo", Size = UDim2.fromScale(1, 0.25), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne, LayoutOrder = 3 })
+	Build.Text(gui, "BIOME " .. area.Id, { Size = UDim2.fromScale(1, 0.22), TextColor3 = rgb(255, 255, 255), LayoutOrder = 1 })
+	Build.Text(gui, string.upper(area.Name), { Size = UDim2.fromScale(1, 0.46), TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.35), LayoutOrder = 2 })
+	Build.Text(gui, speedText(area), { Name = "SpeedInfo", Size = UDim2.fromScale(1, 0.26), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne, LayoutOrder = 3 })
 	arch.Parent = parent
 end
 
-local function refreshAreaSigns(mapFolder: Instance)
-	local lane = mapFolder:FindFirstChild("Lane")
+local function refreshAreaSigns(folder: Instance)
+	local lane = folder:FindFirstChild("Lane")
 	for _, area in Areas.List do
-		local folder = lane and lane:FindFirstChild("Area" .. area.Id)
-		local arch = folder and folder:FindFirstChild("Arch")
+		local biome = lane and lane:FindFirstChild("Area" .. area.Id)
+		local arch = biome and biome:FindFirstChild("Arch")
 		local sign = arch and arch:FindFirstChild("ArchSign")
 		local gui = sign and sign:FindFirstChildOfClass("SurfaceGui")
-		if gui then
-			for _, label in gui:GetChildren() do
-				-- Older maps have no names on the labels: the guard line is the one with the 😴.
-				if label:IsA("TextLabel") and (label.Name == "GuardInfo" or string.find(label.Text, "😴", 1, true)) then
-					label.Name = "GuardInfo"
-					label.Text = guardInfoText(area)
-				end
-			end
+		local label = gui and gui:FindFirstChild("SpeedInfo")
+		if label and label:IsA("TextLabel") then
+			label.Text = speedText(area)
+		end
+		local gate = biome and biome:FindFirstChild("SpeedGate")
+		if gate then
+			gate:SetAttribute("Speed", area.RecommendedSpeed)
 		end
 	end
 end
 
--- Guard bed position before the area is moved to its world (X = 0).
-local function localGuardHome(areaId: number): Vector3
-	return Vector3.new(0, 0, Layout.AreaEnd(areaId) - Layout.GuardBackOffset)
+-- An invisible wall across a biome's entrance. Clients make it solid for players whose Speed is
+-- below the biome's (client/AreaTracker), so they can't walk in.
+local function buildSpeedGate(parent: Instance, area: Areas.Area, zs: number)
+	if area.RecommendedSpeed <= 0 then
+		return
+	end
+	local half = Layout.AreaHalfWidth(area.Id)
+	local gate = Build.Part({ Parent = parent, Name = "SpeedGate", Size = Vector3.new(half * 2, 90, 3), Position = Vector3.new(0, 45, zs + 1.5), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false })
+	gate:SetAttribute("Area", area.Id)
+	gate:SetAttribute("Speed", area.RecommendedSpeed)
+	CollectionService:AddTag(gate, "SpeedGate")
 end
 
-local function buildGuardBed(parent: Instance, areaId: number)
-	local home = localGuardHome(areaId)
-	local bed = Instance.new("Model")
-	bed.Name = "GuardBed"
-	-- Picnic blanket, big enough for a HUGE guard (he lies along Z, head towards the back)
-	local scale = Config.Guard.Scale
-	local tile = math.max(4, math.floor(1.6 * scale + 0.5))
-	local columns, rows = 4, math.max(3, math.ceil((5.5 * scale + 2) / tile))
-	for i = 0, columns - 1 do
-		for j = 0, rows - 1 do
-			local x = (i - (columns - 1) / 2) * tile
-			local z = (j - (rows - 1) / 2) * tile - 0.5 * scale -- a bit towards his feet
-			Build.Decor({ Parent = bed, Name = "Blanket", Size = Vector3.new(tile, 0.25, tile), Position = home + Vector3.new(x, 0.13, z), Color = if (i + j) % 2 == 0 then rgb(220, 40, 40) else rgb(255, 255, 255), Material = Enum.Material.Fabric })
+-- Domer's couch (the first biomes): a big, comfy, orange-brown three-seater made of studded bricks,
+-- with buttons on the back, round arms, a pillow at one end and a blanket thrown over the other.
+-- `cf`: the couch's middle on the floor, its front (LookVector) facing the lane.
+local COUCH = rgb(204, 112, 48)
+local COUCH_LIGHT = rgb(220, 128, 60)
+local COUCH_DARK = rgb(150, 78, 34)
+local function buildCouch(parent: Instance, cf: CFrame): Model
+	local couch = Instance.new("Model")
+	couch.Name = "Couch"
+	local L, D = 30, 12 -- length (local X) and depth (local Z, front = -Z)
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
+	end
+	-- (Decor: Domer appears right on top of it when he wakes up, so nothing in it is solid)
+	local function brick(name: string, size: Vector3, c: CFrame, color: Color3): BasePart
+		return studs(Build.Decor({ Parent = couch, Name = name, Size = size, CFrame = c, Color = color, Material = Enum.Material.Plastic }))
+	end
+	-- stubby wooden legs
+	for _, x in { -L / 2 + 2, L / 2 - 2 } do
+		for _, z in { -D / 2 + 1.5, D / 2 - 1.5 } do
+			Build.Decor({ Parent = couch, Name = "Leg", Size = Vector3.new(1.6, 1.2, 1.6), CFrame = at(x, 0.6, z), Color = rgb(110, 70, 40), Material = Enum.Material.Wood })
 		end
 	end
-	-- Stack of empty pink donut boxes
-	local boxX = columns * tile / 2 + 3
-	for n = 0, 3 do
-		Build.Decor({ Parent = bed, Name = "DonutBox", Size = Vector3.new(4, 1, 4), CFrame = CFrame.new(home + Vector3.new(boxX, 0.5 + n * 1.02, 3)) * CFrame.Angles(0, n * 0.2, 0), Color = rgb(255, 150, 200), Material = Enum.Material.SmoothPlastic })
+	-- frame, seat cushions, back and arms
+	brick("Frame", Vector3.new(L - 2, 3, D - 1), at(0, 2.7, 0.5), COUCH_DARK)
+	local seatW = (L - 7) / 3
+	for i = -1, 1 do
+		brick("Cushion", Vector3.new(seatW - 0.3, 2.4, D - 4), at(i * seatW, 5.4, -1), COUCH_LIGHT)
 	end
-	local marker = Build.Part({ Parent = bed, Name = "GuardHome", Size = Vector3.new(2, 1, 2), CFrame = CFrame.lookAt(home + Vector3.new(0, 0.5, 0), home + Vector3.new(0, 0.5, -10)), Transparency = 1, CanCollide = false, CanQuery = false })
-	marker:SetAttribute("Area", areaId)
-	bed.Parent = parent
+	brick("Back", Vector3.new(L - 6, 8, 3), at(0, 7.5, D / 2 - 1.5), COUCH)
+	Build.Decor({ Parent = couch, Name = "BackTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(L - 6, 3.6, 3.6), CFrame = at(0, 11.5, D / 2 - 1.5), Color = COUCH, Material = Enum.Material.Plastic })
+	for _, side in { -1, 1 } do
+		brick("Arm", Vector3.new(3.4, 5.5, D), at(side * (L / 2 - 1.7), 5.6, 0), COUCH)
+		Build.Decor({ Parent = couch, Name = "ArmTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(D, 4, 4), CFrame = at(side * (L / 2 - 1.7), 8.4, 0) * CFrame.Angles(0, math.pi / 2, 0), Color = COUCH, Material = Enum.Material.Plastic })
+	end
+	-- three buttons in the back
+	for i = -1, 1 do
+		Build.Decor({ Parent = couch, Name = "Button", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, CFrame = at(i * seatW, 9.4, D / 2 - 3.05), Color = COUCH_DARK, Material = Enum.Material.SmoothPlastic })
+	end
+	-- pillow on one arm, blanket thrown over the other
+	studs(Build.Decor({ Parent = couch, Name = "Pillow", Size = Vector3.new(3, 2.2, 6), CFrame = at(L / 2 - 4.6, 7.8, 0) * CFrame.Angles(0, 0, math.rad(-18)), Color = rgb(225, 225, 230), Material = Enum.Material.Fabric }))
+	for n = 0, 2 do
+		Build.Decor({ Parent = couch, Name = "Blanket", Size = Vector3.new(5, 0.4, 9), CFrame = at(-L / 2 + 1.2, 7.4 - n * 2.3, -0.5) * CFrame.Angles(0, 0, math.rad(-35 - n * 25)), Color = rgb(160, 170, 175), Material = Enum.Material.Fabric })
+	end
+	couch.PrimaryPart = couch:FindFirstChild("Frame") :: BasePart
+	couch.Parent = parent
+	return couch
 end
 
---------------------------------------------------------------------------------
--- The secret lab under The Black Hole (Areas[].Lab)
--- A pit on the right of the area drops you into a lab under the floor. Its window looks out on a
--- black hole held in an experiment; the big red button on the lectern is the ULTIMATE REBIRTH
--- (WorldService), and a pad in the corner takes you back up.
---------------------------------------------------------------------------------
-local PIT_SIZE = Decor.LabPitSize
-local LAB_FLOOR, LAB_CEILING = -60, -32
-
--- Centre of the pit (x, z) in an area built around X = 0 (The Black Hole's decor avoids it too).
-local labPit = Decor.LabPit
-
-local function buildLab(parent: Instance, zs: number)
-	local lab = Instance.new("Model")
-	lab.Name = "SecretLab"
-	local px, pz = labPit(zs)
-	local h = PIT_SIZE / 2
-	local purple, dark, metal = rgb(170, 90, 255), rgb(24, 22, 32), rgb(60, 62, 74)
-	local function solid(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?): BasePart
-		return Build.Part({ Parent = lab, Name = name, Size = size, CFrame = cf, Color = color, Material = material or Enum.Material.Metal })
+-- Domer's spot in the back corner. The GuardHome marker faces where he looks (towards the lobby,
+-- turned a little to the middle of the lane); on a couch biome it's the couch's frame instead.
+local function buildGuardSpot(parent: Instance, area: Areas.Area)
+	local home = Layout.GuardHome(area.Id)
+	local side = Layout.GuardSide(area.Id)
+	local spot = Instance.new("Model")
+	spot.Name = "GuardSpot"
+	local marker
+	if area.Couch then
+		-- the couch stands along the side wall, its front facing the middle of the lane
+		local couchCf = CFrame.lookAt(home, home + Vector3.new(-side, 0, 0))
+		buildCouch(spot, couchCf)
+		marker = Build.Part({ Parent = spot, Name = "GuardHome", Size = Vector3.new(2, 1, 2), CFrame = couchCf + Vector3.new(0, 0.5, 0), Transparency = 1, CanCollide = false, CanQuery = false })
+		marker:SetAttribute("Couch", true)
+	else
+		local facing = CFrame.Angles(0, side * math.rad(40), 0):VectorToWorldSpace(Vector3.new(0, 0, -1))
+		marker = Build.Part({ Parent = spot, Name = "GuardHome", Size = Vector3.new(2, 1, 2), CFrame = CFrame.lookAt(home + Vector3.new(0, 0.5, 0), home + Vector3.new(0, 0.5, 0) + facing), Transparency = 1, CanCollide = false, CanQuery = false })
+		-- a patch of trampled ground under him
+		Build.Decor({ Parent = spot, Name = "Patch", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 26, 26), CFrame = CFrame.new(home + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = area.Floor[1]:Lerp(Color3.new(0, 0, 0), 0.18), Material = area.FloorMaterial })
 	end
-	local function glow(name: string, size: Vector3, cf: CFrame, color: Color3, transparency: number?): BasePart
-		return Build.Decor({ Parent = lab, Name = name, Size = size, CFrame = cf, Color = color, Material = Enum.Material.Neon, Transparency = transparency or 0 })
-	end
-	local function lamp(position: Vector3, color: Color3, range: number)
-		local bulb = glow("Lamp", Vector3.new(6, 0.4, 1.2), CFrame.new(position), color)
-		local light = Instance.new("PointLight")
-		light.Color = color
-		light.Range = range
-		light.Brightness = 2
-		light.Parent = bulb
-	end
-
-	-- The pit: a shaft from the floor down to the lab's ceiling, with a striped hazard rim, bands of
-	-- light down the walls and a purple glow rising out of it
-	local depth = -LAB_CEILING
-	local rim = PIT_SIZE + 2.4
-	for _, side in { -1, 1 } do
-		solid("ShaftWall", Vector3.new(1, depth, PIT_SIZE + 2), CFrame.new(px + side * (h + 0.5), LAB_CEILING / 2, pz), dark)
-		solid("ShaftWall", Vector3.new(PIT_SIZE + 2, depth, 1), CFrame.new(px, LAB_CEILING / 2, pz + side * (h + 0.5)), dark)
-		for i = 0, 7 do
-			local along = (i - 3.5) * rim / 8
-			local color = if i % 2 == 0 then rgb(255, 210, 0) else rgb(22, 22, 26)
-			local material = if i % 2 == 0 then Enum.Material.Neon else Enum.Material.SmoothPlastic
-			Build.Decor({ Parent = lab, Name = "PitRim", Size = Vector3.new(1.2, 0.3, rim / 8), CFrame = CFrame.new(px + side * (h + 0.6), 0.15, pz + along), Color = color, Material = material })
-			Build.Decor({ Parent = lab, Name = "PitRim", Size = Vector3.new(rim / 8, 0.3, 1.2), CFrame = CFrame.new(px + along, 0.15, pz + side * (h + 0.6)), Color = color, Material = material })
-		end
-		for _, y in { -8, -16, -24 } do
-			glow("ShaftLight", Vector3.new(0.2, 0.5, PIT_SIZE), CFrame.new(px + side * (h - 0.1), y, pz), purple, 0.2)
-			glow("ShaftLight", Vector3.new(PIT_SIZE, 0.5, 0.2), CFrame.new(px, y, pz + side * (h - 0.1)), purple, 0.2)
-		end
-	end
-	local pitGlow = Build.Decor({ Parent = lab, Name = "PitGlow", Size = Vector3.new(PIT_SIZE - 2, 1, PIT_SIZE - 2), CFrame = CFrame.new(px, LAB_CEILING + 1.5, pz), Transparency = 1 })
-	local upLight = Instance.new("SpotLight")
-	upLight.Face = Enum.NormalId.Top
-	upLight.Color = purple
-	upLight.Range = 40
-	upLight.Angle = 70
-	upLight.Brightness = 3
-	upLight.Parent = pitGlow
-	local motes = Instance.new("ParticleEmitter")
-	motes.EmissionDirection = Enum.NormalId.Top
-	motes.Rate = 12
-	motes.Lifetime = NumberRange.new(4, 6)
-	motes.Speed = NumberRange.new(4, 7)
-	motes.SpreadAngle = Vector2.new(8, 8)
-	motes.Size = NumberSequence.new(0.35, 0)
-	motes.Color = ColorSequence.new(purple, rgb(255, 150, 70))
-	motes.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	motes.LightEmission = 1
-	motes.Parent = pitGlow
-	-- Guards can't follow you down (GuardService makes this lid solid for guards only)
-	local lid = Build.Part({ Parent = lab, Name = "GuardLid", Size = Vector3.new(PIT_SIZE, 1, PIT_SIZE), CFrame = CFrame.new(px, -0.5, pz), Transparency = 1, CanCollide = false, CanQuery = false })
-	lid:SetAttribute("GuardBlocker", true)
-	local hint = Instance.new("BillboardGui")
-	hint.Size = UDim2.fromScale(16, 4)
-	hint.StudsOffsetWorldSpace = Vector3.new(0, 7, 0)
-	hint.LightInfluence = 0
-	hint.MaxDistance = 120
-	hint.Parent = lid
-	Build.Text(hint, "⚠ KEEP OUT ⚠", { Size = UDim2.fromScale(1, 0.6), TextColor3 = rgb(255, 210, 0), TextStrokeColor3 = rgb(40, 20, 0) })
-	Build.Text(hint, "restricted experiment below", { Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.6), TextColor3 = rgb(220, 200, 255), Font = Enum.Font.FredokaOne })
-
-	-- The lab room: x 35..92, one wall is a big window onto the experiment
-	local x0, x1, z0, z1 = 35, 92, pz - 26, pz + 26
-	local roomHeight = LAB_CEILING - LAB_FLOOR
-	local midY = (LAB_CEILING + LAB_FLOOR) / 2
-	Build.CheckerFloor(lab, x0, x1, z0, z1, 8, { rgb(235, 235, 242), rgb(205, 205, 218) }, Enum.Material.SmoothPlastic, LAB_FLOOR)
-	-- ceiling around the shaft
-	solid("Ceiling", Vector3.new(x1 - x0, 1, (pz - h) - z0), CFrame.new((x0 + x1) / 2, LAB_CEILING + 0.5, (z0 + pz - h) / 2), metal)
-	solid("Ceiling", Vector3.new(x1 - x0, 1, z1 - (pz + h)), CFrame.new((x0 + x1) / 2, LAB_CEILING + 0.5, (pz + h + z1) / 2), metal)
-	solid("Ceiling", Vector3.new((px - h) - x0, 1, PIT_SIZE), CFrame.new((x0 + px - h) / 2, LAB_CEILING + 0.5, pz), metal)
-	solid("Ceiling", Vector3.new(x1 - (px + h), 1, PIT_SIZE), CFrame.new((px + h + x1) / 2, LAB_CEILING + 0.5, pz), metal)
-	-- walls
-	solid("LabWall", Vector3.new(1, roomHeight, z1 - z0 + 2), CFrame.new(x1 + 0.5, midY, pz), rgb(215, 218, 228), Enum.Material.SmoothPlastic)
-	for _, z in { z0 - 0.5, z1 + 0.5 } do
-		solid("LabWall", Vector3.new(x1 - x0 + 2, roomHeight, 1), CFrame.new((x0 + x1) / 2, midY, z), rgb(215, 218, 228), Enum.Material.SmoothPlastic)
-	end
-	-- the window wall (x = x0): glass in the middle, wall around it
-	local windowHalf, windowBottom, windowTop = 19, LAB_FLOOR + 5, LAB_CEILING - 4
-	solid("LabWall", Vector3.new(1, windowBottom - LAB_FLOOR, z1 - z0), CFrame.new(x0 - 0.5, (LAB_FLOOR + windowBottom) / 2, pz), metal)
-	solid("LabWall", Vector3.new(1, LAB_CEILING - windowTop, z1 - z0), CFrame.new(x0 - 0.5, (windowTop + LAB_CEILING) / 2, pz), metal)
-	for _, side in { -1, 1 } do
-		local edge = pz + side * windowHalf
-		local far = if side < 0 then z0 else z1
-		solid("LabWall", Vector3.new(1, windowTop - windowBottom, math.abs(far - edge)), CFrame.new(x0 - 0.5, (windowBottom + windowTop) / 2, (edge + far) / 2), metal)
-	end
-	-- Not Glass: at high graphics settings Glass hides everything see-through behind it (the beams,
-	-- sparks and glow that make up the black hole), so it's a clear pane with a little reflection.
-	local windowMid = (windowBottom + windowTop) / 2
-	local glass = solid("Window", Vector3.new(0.4, windowTop - windowBottom, windowHalf * 2), CFrame.new(x0 - 0.5, windowMid, pz), rgb(180, 220, 255), Enum.Material.SmoothPlastic)
-	glass.Transparency = 0.9
-	glass.Reflectance = 0.12
-	glass.CastShadow = false
-	for _, side in { -1, 1 } do
-		solid("Mullion", Vector3.new(0.8, windowTop - windowBottom, 0.8), CFrame.new(x0 - 0.3, windowMid, pz + side * windowHalf / 3), metal)
-	end
-	-- the black hole's light spilling into the lab, and a hazard stripe in front of the window
-	local spill = Build.Decor({ Parent = lab, Name = "HoleLight", Size = Vector3.new(0.2, 1, 1), CFrame = CFrame.new(x0 + 0.3, windowTop - 1, pz), Transparency = 1 })
-	local spillLight = Instance.new("SpotLight")
-	spillLight.Face = Enum.NormalId.Right
-	spillLight.Color = rgb(255, 170, 110)
-	spillLight.Range = 45
-	spillLight.Angle = 110
-	spillLight.Brightness = 1.6
-	spillLight.Parent = spill
-	for i = 0, 9 do
-		Build.Decor({ Parent = lab, Name = "FloorStripe", Size = Vector3.new(1.2, 0.06, windowHalf / 5), Position = Vector3.new(x0 + 2.5, LAB_FLOOR + 0.03, pz - windowHalf + (i + 0.5) * windowHalf / 5), Color = if i % 2 == 0 then rgb(255, 210, 0) else rgb(25, 25, 25), Material = Enum.Material.SmoothPlastic })
-	end
-	glow("WindowFrame", Vector3.new(0.8, 0.5, windowHalf * 2 + 1), CFrame.new(x0 - 0.2, windowBottom, pz), purple)
-	glow("WindowFrame", Vector3.new(0.8, 0.5, windowHalf * 2 + 1), CFrame.new(x0 - 0.2, windowTop, pz), purple)
-	-- sign over the window
-	local sign = solid("ExperimentSign", Vector3.new(0.4, 3, 22), CFrame.new(x0 + 0.2, LAB_CEILING - 2, pz), rgb(20, 20, 28))
-	local signGui = Instance.new("SurfaceGui")
-	signGui.Face = Enum.NormalId.Right
-	signGui.LightInfluence = 0
-	signGui.Parent = sign
-	Build.Text(signGui, "⚠ EXPERIMENT BH-01: CONTAINED BLACK HOLE ⚠", { TextColor3 = rgb(255, 210, 0), TextStrokeColor3 = rgb(0, 0, 0) })
-	-- lights
-	for _, z in { pz - 16, pz + 16 } do
-		lamp(Vector3.new(80, LAB_CEILING - 0.3, z), rgb(235, 240, 255), 40)
-	end
-	lamp(Vector3.new(50, LAB_CEILING - 0.3, pz), rgb(200, 170, 255), 36)
-
-	-- The lectern in front of the window, with the big red button
-	local lx = x0 + 9
-	solid("Lectern", Vector3.new(3, 4.5, 6), CFrame.new(lx, LAB_FLOOR + 2.25, pz), metal)
-	local top = solid("LecternTop", Vector3.new(4.6, 0.6, 7.4), CFrame.new(lx + 0.3, LAB_FLOOR + 4.8, pz) * CFrame.Angles(0, 0, math.rad(-14)), rgb(40, 42, 52))
-	local topCf = top.CFrame * CFrame.new(0, 0.3, 0)
-	local ring = Build.Part({ Parent = lab, Name = "ButtonRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 3.4, 3.4), CFrame = topCf * CFrame.new(0, 0.15, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 210, 0), Material = Enum.Material.SmoothPlastic })
-	ring.CanCollide = false
-	local button = Build.Part({ Parent = lab, Name = "UltimateButton", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.9, 2.6, 2.6), CFrame = topCf * CFrame.new(0, 0.55, 0) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(230, 20, 30), Material = Enum.Material.Neon })
-	button.CanCollide = false
-	button:SetAttribute("UltimateButton", true)
-	local prompt = Instance.new("ProximityPrompt")
-	prompt.Name = "UltimatePrompt"
-	prompt.ActionText = "ULTIMATE REBIRTH"
-	prompt.ObjectText = "⚠ Do NOT press"
-	prompt.HoldDuration = 1.2
-	prompt.MaxActivationDistance = 10
-	prompt.RequiresLineOfSight = false
-	prompt.Parent = button
-	local label = Instance.new("BillboardGui")
-	label.Name = "ButtonLabel"
-	label.Size = UDim2.fromScale(14, 4.5)
-	label.StudsOffsetWorldSpace = Vector3.new(0, 4.5, 0)
-	label.LightInfluence = 0
-	label.MaxDistance = 80
-	label.Parent = button
-	Build.Text(label, "ULTIMATE REBIRTH", { Size = UDim2.fromScale(1, 0.72), TextColor3 = rgb(255, 40, 40), TextStrokeColor3 = rgb(255, 255, 255) })
-	Build.Text(label, "resets you... and takes you to WORLD 2", { Size = UDim2.fromScale(1, 0.28), Position = UDim2.fromScale(0, 0.72), TextColor3 = rgb(255, 230, 120), Font = Enum.Font.FredokaOne })
-	-- smaller buttons and blinking lights on the lectern
-	for i, color in { rgb(60, 220, 90), rgb(255, 210, 0), rgb(60, 150, 255), rgb(255, 120, 200) } do
-		local small = Build.Decor({ Parent = lab, Name = "SmallButton", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 0.8, 0.8), CFrame = topCf * CFrame.new(-1.3, 0.2, -3 + (i - 1) * 2) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = Enum.Material.Neon })
-		small.CastShadow = false
-	end
-	-- monitors on the back wall
-	for i, text in { "CONTAINMENT FIELD: 99.7%", "GRAVITY: ∞  •  TIME: ???", "DO NOT PRESS THE RED BUTTON" } do
-		local screen = solid("Monitor", Vector3.new(0.4, 5, 9), CFrame.new(x1 - 0.2, LAB_FLOOR + 9, pz - 13 + (i - 1) * 13), rgb(10, 20, 30), Enum.Material.SmoothPlastic)
-		local gui = Instance.new("SurfaceGui")
-		gui.Face = Enum.NormalId.Left
-		gui.LightInfluence = 0
-		gui.Parent = screen
-		local readout = Build.Text(gui, text, { TextColor3 = if i == 3 then rgb(255, 70, 70) else rgb(80, 255, 170), Font = Enum.Font.Code })
-		if i == 1 then
-			CollectionService:AddTag(readout, "LabReadout") -- BlackHoleFX makes the reading flicker
-		end
-	end
-	-- the way back up
-	local pad = Build.Part({ Parent = lab, Name = "ExitPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 8, 8), CFrame = CFrame.new(86, LAB_FLOOR + 0.2, pz + 19) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(80, 255, 120), Material = Enum.Material.Neon })
-	pad.CanCollide = false
-	pad:SetAttribute("LabExit", true)
-	local exit = Instance.new("ProximityPrompt")
-	exit.Name = "ExitPrompt"
-	exit.ActionText = "Go back up"
-	exit.ObjectText = "⬆ Lift"
-	exit.HoldDuration = 0.3
-	exit.MaxActivationDistance = 10
-	exit.RequiresLineOfSight = false
-	exit.Parent = pad
-
-	-- The experiment beyond the window: a tall, dark chamber full of stars. The black hole is held in
-	-- two spinning containment rings and fed by four pylons, and its jets hit plates in the ceiling
-	-- and floor.
-	local cx0, cx1, cz0, cz1, cy0, cy1 = -85, x0 - 1, pz - 62, pz + 62, -122, -3
-	local chamber = rgb(8, 6, 16)
-	local cyan = rgb(90, 220, 255)
-	local function shell(size: Vector3, position: Vector3)
-		Build.Decor({ Parent = lab, Name = "ChamberWall", Size = size, Position = position, Color = chamber, Material = Enum.Material.Metal })
-	end
-	shell(Vector3.new(cx1 - cx0, 1, cz1 - cz0), Vector3.new((cx0 + cx1) / 2, cy0, pz))
-	shell(Vector3.new(cx1 - cx0, 1, cz1 - cz0), Vector3.new((cx0 + cx1) / 2, cy1, pz))
-	shell(Vector3.new(1, cy1 - cy0, cz1 - cz0), Vector3.new(cx0, (cy0 + cy1) / 2, pz))
-	for _, z in { cz0, cz1 } do
-		shell(Vector3.new(cx1 - cx0, cy1 - cy0, 1), Vector3.new((cx0 + cx1) / 2, (cy0 + cy1) / 2, z))
-	end
-	-- the lab's side of the chamber, round the room
-	shell(Vector3.new(1, LAB_FLOOR - 1 - cy0, cz1 - cz0), Vector3.new(x0 - 0.5, (cy0 + LAB_FLOOR - 1) / 2, pz))
-	shell(Vector3.new(1, cy1 - LAB_CEILING - 1, cz1 - cz0), Vector3.new(x0 - 0.5, (LAB_CEILING + 1 + cy1) / 2, pz))
-	for _, side in { -1, 1 } do
-		local edge, far = pz + side * 27, pz + side * 62
-		shell(Vector3.new(1, LAB_CEILING - LAB_FLOOR + 2, math.abs(far - edge)), Vector3.new(x0 - 0.5, (LAB_FLOOR + LAB_CEILING) / 2, (edge + far) / 2))
-	end
-	-- stars on the walls, so it looks like space in there
-	local starRng = Random.new(zs)
-	local starColors = { rgb(255, 255, 255), rgb(200, 220, 255), rgb(220, 190, 255), rgb(255, 230, 200) }
-	for _ = 1, 90 do
-		local wall = starRng:NextInteger(1, 4)
-		local y = starRng:NextNumber(cy0 + 2, cy1 - 2)
-		local at = if wall == 1 then Vector3.new(cx0 + 0.6, y, starRng:NextNumber(cz0 + 2, cz1 - 2))
-			elseif wall == 2 then Vector3.new(starRng:NextNumber(cx0 + 2, cx1 - 2), y, cz0 + 0.6)
-			elseif wall == 3 then Vector3.new(starRng:NextNumber(cx0 + 2, cx1 - 2), y, cz1 - 0.6)
-			else Vector3.new(starRng:NextNumber(cx0 + 2, cx1 - 2), cy1 - 0.6, starRng:NextNumber(cz0 + 2, cz1 - 2))
-		Build.Decor({ Parent = lab, Name = "Star", Shape = Enum.PartType.Ball, Size = Vector3.one * starRng:NextNumber(0.25, 0.7), Position = at, Color = starColors[starRng:NextInteger(1, #starColors)], Material = Enum.Material.Neon, Transparency = starRng:NextNumber(0, 0.4) })
-	end
-
-	local center = Vector3.new(-26, (windowBottom + windowTop) / 2 - 2, pz) -- right in the middle of the view
-	local hole = Decor.BlackHole(lab, center, 0.8, { View = Vector3.new(1, -0.1, 0), Tilt = 12, Roll = 7, JetLength = 4.5 })
-	local core = hole.PrimaryPart :: BasePart
-	local r = core.Size.X / 2
-
-	-- containment field rings on the floor, and plates catching the jets
-	local field = Build.Decor({ Parent = lab, Name = "FieldRings", Size = Vector3.one, Position = Vector3.new(center.X, cy0 + 1, center.Z), Transparency = 1 })
-	for i, radius in { 14, 23, 32 } do
-		BlackHoleModel.Ring(field, "Field" .. i .. "_", radius, 0.7, cyan, 0.25 + i * 0.12, 0.4)
-	end
-	for n, y in { cy1 - 1, cy0 + 1 } do
-		Build.Decor({ Parent = lab, Name = "JetCatcher", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 18, 18), CFrame = CFrame.new(center.X, y, center.Z) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(30, 28, 44), Material = Enum.Material.Metal })
-		local catcher = Build.Decor({ Parent = lab, Name = "CatcherRings", Size = Vector3.one, Position = Vector3.new(center.X, y + (if n == 1 then -0.6 else 0.6), center.Z), Transparency = 1 })
-		BlackHoleModel.Ring(catcher, "Catch", 8, 0.5, rgb(140, 120, 255), 0.1)
-		BlackHoleModel.Ring(catcher, "CatchIn", 4.5, 0.35, cyan, 0.2, 0.8)
-	end
-
-	-- two containment rings round it (BlackHoleFX spins them)
-	for i, tilt in { CFrame.Angles(0, 0, math.rad(72)), CFrame.Angles(math.rad(64), math.rad(40), 0) } do
-		local gyro = Instance.new("Model")
-		gyro.Name = "ContainmentRing"
-		local base = CFrame.new(center) * tilt
-		local hub = Build.Decor({ Parent = gyro, Name = "Hub", Size = Vector3.one, CFrame = base, Transparency = 1 })
-		local radius = r * (4.45 + i * 0.25)
-		local count = 28
-		local length = 2 * radius * math.tan(math.pi / count) + 0.2
-		for n = 0, count - 1 do
-			Build.Decor({ Parent = gyro, Name = "RingSegment", Size = Vector3.new(1.6, 2.4, length), CFrame = base * CFrame.Angles(0, n / count * math.pi * 2, 0) * CFrame.new(radius, 0, 0), Color = rgb(44, 46, 60), Material = Enum.Material.Metal })
-		end
-		for n = 0, 3 do
-			local node = Build.Decor({ Parent = gyro, Name = "RingNode", Shape = Enum.PartType.Ball, Size = Vector3.one * 3.2, CFrame = base * CFrame.Angles(0, (n + 0.5) * math.pi / 2, 0) * CFrame.new(radius, 0, 0), Color = cyan, Material = Enum.Material.Neon })
-			node.CastShadow = false
-		end
-		BlackHoleModel.Ring(hub, "Strip", radius - 1, 0.5, cyan, 0.15)
-		gyro.PrimaryPart = hub
-		gyro:SetAttribute("Spin", if i == 1 then 0.35 else -0.25)
-		gyro:SetAttribute("Precess", if i == 1 then 0.08 else -0.06)
-		CollectionService:AddTag(gyro, "GyroRing")
-		gyro.Parent = lab
-	end
-
-	-- four pylons feeding it energy
-	local feed = Instance.new("Attachment")
-	feed.Name = "Feed"
-	feed.CFrame = core.CFrame:ToObjectSpace(CFrame.new(center - Vector3.new(0, r * 1.15, 0)))
-	feed.Parent = core
-	for _, corner in { Vector3.new(-1, 0, -1), Vector3.new(-1, 0, 1), Vector3.new(1, 0, -1), Vector3.new(1, 0, 1) } do
-		local base = Vector3.new(center.X + corner.X * 40, cy0 + 0.5, center.Z + corner.Z * 42)
-		local height = center.Y - 18 - cy0
-		Build.Decor({ Parent = lab, Name = "PylonBase", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 11, 11), CFrame = CFrame.new(base + Vector3.new(0, 0.6, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(36, 38, 50), Material = Enum.Material.Metal })
-		Build.Pillar(lab, base, height, 4, metal, Enum.Material.Metal)
-		for c = 1, 3 do
-			Build.Decor({ Parent = lab, Name = "Coil", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.7, 6, 6), CFrame = CFrame.new(base + Vector3.new(0, height - 2 - c * 2.4, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = cyan, Material = Enum.Material.Neon })
-		end
-		local tip = Build.Ball(lab, base + Vector3.new(0, height + 2, 0), 4, cyan, Enum.Material.Neon)
-		tip.Name = "PylonTip"
-		local shield = Build.Ball(lab, tip.Position, 6.5, cyan, Enum.Material.ForceField)
-		shield.Name = "PylonShield"
-		shield.Transparency = 0.2
-		local emitter = Instance.new("Attachment")
-		emitter.Name = "Emitter"
-		emitter.Parent = tip
-		for layer = 1, 2 do
-			local beam = Instance.new("Beam")
-			beam.Attachment0 = emitter
-			beam.Attachment1 = feed
-			beam:SetAttribute("From", emitter.Name)
-			beam:SetAttribute("To", feed.Name)
-			beam.FaceCamera = true
-			beam.LightEmission = 1
-			beam.LightInfluence = 0
-			beam.Segments = 12
-			beam.Texture = "rbxasset://textures/particles/smoke_main.dds"
-			beam.TextureMode = Enum.TextureMode.Wrap
-			if layer == 1 then
-				beam.Width0, beam.Width1 = 2.2, 0.8
-				beam.Color = ColorSequence.new(cyan, rgb(200, 150, 255))
-				beam.Transparency = NumberSequence.new(0.3, 0.55)
-				beam.TextureLength = 8
-				beam.TextureSpeed = 1.2
-			else
-				beam.Width0, beam.Width1 = 0.5, 0.25
-				beam.Color = ColorSequence.new(rgb(230, 250, 255), rgb(170, 230, 255))
-				beam.Transparency = NumberSequence.new(0, 0.2)
-				beam.TextureLength = 4
-				beam.TextureSpeed = 3
-			end
-			beam.Parent = tip
-		end
-		local sparks = Instance.new("ParticleEmitter")
-		sparks.Rate = 6
-		sparks.Lifetime = NumberRange.new(0.3, 0.6)
-		sparks.Speed = NumberRange.new(4, 8)
-		sparks.SpreadAngle = Vector2.new(180, 180)
-		sparks.Size = NumberSequence.new(0.5, 0)
-		sparks.Color = ColorSequence.new(rgb(220, 250, 255), cyan)
-		sparks.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-		sparks.LightEmission = 1
-		sparks.Parent = tip
-	end
-	for _, z in { cz0 + 2, cz1 - 2 } do
-		for _, x in { cx0 + 20, (cx0 + cx1) / 2 + 10 } do
-			local warning = glow("WarningLight", Vector3.new(3, 3, 1), CFrame.new(x, cy1 - 8, z), rgb(255, 40, 40))
-			local light = Instance.new("PointLight")
-			light.Color = rgb(255, 40, 40)
-			light.Range = 30
-			light.Brightness = 1.5
-			light.Parent = warning
-		end
-	end
-	lab.PrimaryPart = button
-	lab.Parent = parent
+	marker:SetAttribute("Area", area.Id)
+	spot.Parent = parent
 end
 
-local function buildSpawns(parent: Instance, areaId: number, zs: number, ze: number)
+-- Where the boxes sit: a nest of twigs in the first biomes, a stand with a glowing rim later on.
+local function buildBoxSpots(parent: Instance, area: Areas.Area)
 	local folder = Instance.new("Folder")
-	folder.Name = "Spawns"
+	folder.Name = "BoxSpots"
 	folder.Parent = parent
-	local rng = Random.new(areaId * 7919)
-	local home = localGuardHome(areaId)
-	local points: { Vector3 } = {}
-	local attempts = 0
-	while #points < map.DonutSpawnsPerArea and attempts < 2000 do
-		attempts += 1
-		-- Donuts spawn between the hub and the guard, at least 18 studs in front of him.
-		local spread = Layout.AreaHalfWidth(areaId) - 18
-		local candidate = Vector3.new(rng:NextNumber(-spread, spread), 0, rng:NextNumber(zs + Layout.SpawnStartMargin, ze - Layout.GuardBackOffset - Layout.SpawnGuardMargin))
-		local ok = (candidate - home).Magnitude > 18
-		if Areas.List[areaId].Lab then
-			-- not on the edge of the pit down to the lab
-			local px, pz = labPit(zs)
-			ok = ok and (candidate - Vector3.new(px, 0, pz)).Magnitude > 20
-		end
-		for _, other in points do
-			if (candidate - other).Magnitude < 17 then
-				ok = false
-				break
+	for index, point in Layout.BoxSpots(area.Id) do
+		if area.Id <= 6 then
+			Build.Decor({ Parent = folder, Name = "Nest", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.8, 9, 9), CFrame = CFrame.new(point + Vector3.new(0, 0.4, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(140, 92, 50), Material = Enum.Material.Wood })
+			for n = 0, 7 do
+				local angle = n / 8 * math.pi * 2
+				Build.Decor({ Parent = folder, Name = "Twig", Size = Vector3.new(0.5, 0.5, 3.2), CFrame = CFrame.new(point + Vector3.new(math.cos(angle) * 4.2, 0.9, math.sin(angle) * 4.2)) * CFrame.Angles(0, -angle, math.rad(10)), Color = rgb(115, 74, 40), Material = Enum.Material.Wood })
 			end
-		end
-		if ok then
-			table.insert(points, candidate)
-		end
-	end
-
-	local area = Areas.List[areaId]
-	for index, point in points do
-		-- The nest/plate/pad the donut sits on gets fancier in later areas.
-		local color, material, rim
-		local fancy = if area.World == 1 then areaId else area.Index + 3
-		if area.World == 2 then
-			-- The Underworld: basalt stands with a glowing rim
-			color, material, rim, fancy = rgb(42, 32, 30), Enum.Material.Basalt, area.Trim, 7
-		elseif fancy <= 3 then
-			color, material = rgb(170, 120, 65), Enum.Material.Grass
-		elseif fancy <= 6 then
-			color, material, rim = rgb(250, 250, 250), Enum.Material.SmoothPlastic, area.Trim
 		else
-			color, material, rim = rgb(25, 20, 40), Enum.Material.SmoothPlastic, area.Trim
+			Build.Decor({ Parent = folder, Name = "Stand", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1, 9, 9), CFrame = CFrame.new(point + Vector3.new(0, 0.5, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.3), Material = Enum.Material.SmoothPlastic })
+			Build.Decor({ Parent = folder, Name = "StandRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 9.8, 9.8), CFrame = CFrame.new(point + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = area.Trim, Material = Enum.Material.Neon })
 		end
-		Build.Decor({ Parent = folder, Name = "Nest", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 6.5, 6.5), CFrame = CFrame.new(point + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = color, Material = material })
-		if rim then
-			Build.Decor({ Parent = folder, Name = "NestRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 7.3, 7.3), CFrame = CFrame.new(point + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rim, Material = if fancy > 6 then Enum.Material.Neon else Enum.Material.SmoothPlastic })
-		end
-		local spawnPoint = Build.Part({ Parent = folder, Name = "DonutSpawn", Size = Vector3.new(1, 0.2, 1), CFrame = CFrame.new(point + Vector3.new(0, 0.6, 0)), Transparency = 1, CanCollide = false, CanQuery = false })
-		spawnPoint:SetAttribute("Area", areaId)
-		spawnPoint:SetAttribute("Index", index)
+		local spot = Build.Part({ Parent = folder, Name = "BoxSpot", Size = Vector3.new(1, 0.2, 1), CFrame = CFrame.new(point + Vector3.new(0, 1, 0)), Transparency = 1, CanCollide = false, CanQuery = false })
+		spot:SetAttribute("Area", area.Id)
+		spot:SetAttribute("Index", index)
 	end
 end
 
@@ -1023,6 +471,36 @@ local function widenDecor(decor: Instance, half: number)
 	end
 end
 
+-- Decorations right next to Domer and his boxes are taken away, so nothing stands in the way of
+-- a steal (or hides a box).
+local function clearCorner(decor: Instance, areaId: number)
+	local home = Layout.GuardHome(areaId)
+	local radius = Layout.BoxRadius + 16
+	for _, item in decor:GetChildren() do
+		local parts: { BasePart } = {}
+		if item:IsA("BasePart") then
+			table.insert(parts, item)
+		end
+		for _, d in item:GetDescendants() do
+			if d:IsA("BasePart") then
+				table.insert(parts, d)
+			end
+		end
+		if #parts > 0 then
+			local sum = Vector3.zero
+			for _, part in parts do
+				sum += part.Position
+			end
+			local center = sum / #parts
+			local size = parts[1].Size
+			-- (the big area-wide pieces, like weather emitters and floor grids, stay)
+			if size.X < 60 and size.Z < 60 and Vector2.new(center.X - home.X, center.Z - home.Z).Magnitude < radius then
+				item:Destroy()
+			end
+		end
+	end
+end
+
 local function buildArea(parent: Instance, area: Areas.Area)
 	local zs, ze = Layout.AreaStart(area.Id), Layout.AreaEnd(area.Id)
 	local half = Layout.AreaHalfWidth(area.Id)
@@ -1031,39 +509,31 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	folder:SetAttribute("AreaId", area.Id)
 	folder.Parent = parent
 
-	if area.Lab then
-		-- floor with a hole for the pit down to the lab
-		local px, pz = labPit(zs)
-		local hx0, hx1, hz0, hz1 = px - PIT_SIZE / 2, px + PIT_SIZE / 2, pz - PIT_SIZE / 2, pz + PIT_SIZE / 2
-		Build.CheckerFloor(folder, -half, half, zs, hz0, map.TileSize, area.Floor, area.FloorMaterial)
-		Build.CheckerFloor(folder, -half, half, hz1, ze, map.TileSize, area.Floor, area.FloorMaterial)
-		Build.CheckerFloor(folder, -half, hx0, hz0, hz1, map.TileSize, area.Floor, area.FloorMaterial)
-		Build.CheckerFloor(folder, hx1, half, hz0, hz1, map.TileSize, area.Floor, area.FloorMaterial)
-		buildLab(folder, zs)
-	else
-		Build.CheckerFloor(folder, -half, half, zs, ze, map.TileSize, area.Floor, area.FloorMaterial)
-	end
+	Build.CheckerFloor(folder, -half, half, zs, ze, map.TileSize, area.Floor, area.FloorMaterial)
 
-	local t, h = 4, map.LaneWallHeight
-	-- Wider than the area before it: close the gap between the two lanes' walls
-	local before = if area.Index > 1 then Areas.ByWorld[area.World][area.Index - 1] else nil
+	-- Thick walls with grass (or the biome's trim) on top, so there's no void beside the lane
+	local t, h = map.WallThickness, map.LaneWallHeight
+	local before = Areas.List[area.Id - 1]
 	local beforeHalf = if before then Layout.AreaHalfWidth(before.Id) else half
-	if half > beforeHalf then
+	if half ~= beforeHalf then
+		-- a different width from the biome before: close the step between the two
+		local inner, outer = math.min(half, beforeHalf), math.max(half, beforeHalf)
 		for _, side in { -1, 1 } do
-			local from = if side < 0 then -(half + t) else beforeHalf + t
-			Build.CheckerWall(folder, Vector3.new(from, 0, zs + t / 2), Vector3.new(1, 0, 0), half - beforeHalf, h, t, area.Wall, area.WallMaterial, 20)
+			local from = if side < 0 then -(outer + t) else inner
+			Build.CheckerWall(folder, Vector3.new(from, 0, zs + 2), Vector3.new(1, 0, 0), outer + t - inner, h, 4, area.Wall, area.WallMaterial, 20)
 		end
 	end
 	for _, side in { -1, 1 } do
 		Build.CheckerWall(folder, Vector3.new(side * (half + t / 2), 0, zs), Vector3.new(0, 0, 1), ze - zs, h, t, area.Wall, area.WallMaterial, 20)
 		Build.Part({ Parent = folder, Name = "WallTop", Size = Vector3.new(t + 1, 2, ze - zs), Position = Vector3.new(side * (half + t / 2), h + 1, (zs + ze) / 2), Color = area.Trim, Material = area.TrimMaterial })
 	end
-	-- Coloured line marking the start of the area
+	-- Coloured line marking the start of the biome
 	Build.Part({ Parent = folder, Name = "AreaLine", Size = Vector3.new(half * 2, 0.2, 2), Position = Vector3.new(0, 0.1, zs + 1), Color = area.Trim, Material = if area.Id > 1 then Enum.Material.Neon else Enum.Material.SmoothPlastic, CanCollide = false })
 
 	buildArch(folder, area, zs)
-	buildGuardBed(folder, area.Id)
-	buildSpawns(folder, area.Id, zs, ze)
+	buildSpeedGate(folder, area, zs)
+	buildGuardSpot(folder, area)
+	buildBoxSpots(folder, area)
 
 	local decor = Instance.new("Folder")
 	decor.Name = "Decor"
@@ -1072,30 +542,21 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	if not area.HalfWidth then
 		widenDecor(decor, half)
 	end
+	clearCorner(decor, area.Id)
 
-	-- Close the lane after the last area of each world
-	if area.Index == #Areas.ByWorld[area.World] then
-		Build.CheckerWall(folder, Vector3.new(-half - t, 0, ze + t / 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, t, area.Wall, area.WallMaterial, 20)
-	end
-
-	-- Move it to its world's lane
-	local offset = Layout.WorldOffset(area.World)
-	if offset ~= 0 then
-		local shift = Vector3.new(offset, 0, 0)
-		for _, part in folder:GetDescendants() do
-			if part:IsA("BasePart") then
-				part.CFrame += shift
-			end
-		end
+	-- Close the lane after the last biome
+	if area.Id == #Areas.List then
+		Build.CheckerWall(folder, Vector3.new(-half - t, 0, ze + 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, 4, area.Wall, area.WallMaterial, 20)
 	end
 end
 
 local function buildLane(parent: Folder)
-	local lane = parent:FindFirstChild("Lane")
+	local lane: Instance? = parent:FindFirstChild("Lane")
 	if not lane then
-		lane = Instance.new("Folder")
-		lane.Name = "Lane"
-		lane.Parent = parent
+		local folder = Instance.new("Folder")
+		folder.Name = "Lane"
+		folder.Parent = parent
+		lane = folder
 	end
 	for _, area in Areas.List do
 		if not (lane :: Instance):FindFirstChild("Area" .. area.Id) then
@@ -1108,21 +569,72 @@ end
 --------------------------------------------------------------------------------
 -- Plots
 --------------------------------------------------------------------------------
--- Donut stands: rows of 4 starting at the FRONT of the plot (see Layout.SlotOffset). Stands you
--- haven't unlocked yet are shown see-through by PlotService.
+local SHOP_WALL = rgb(255, 205, 225)
+local SHOP_TRIM = rgb(255, 255, 255)
+local SHOP_ROOF = rgb(110, 62, 36)
+local SHOP_ICING = rgb(255, 140, 190)
+
+-- The donut shop at the back of a pen: a little pink bakery made of studded bricks, with a striped
+-- awning over the counter window, a chocolate roof dripping with icing and a giant donut on top.
+-- `zb`: (plot space) where its front wall is, facing the pen.
+local function buildShop(pen: Model, cf: CFrame, zb: number)
+	local shop = Instance.new("Model")
+	shop.Name = "DonutShop"
+	local W, D, H = 40, Layout.ShopDepth, 16
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(x, y, z)
+	end
+	local function brick(name: string, size: Vector3, c: CFrame, color: Color3): BasePart
+		return studs(Build.Part({ Parent = shop, Name = name, Size = size, CFrame = c, Color = color, Material = Enum.Material.Plastic }))
+	end
+	brick("ShopFloor", Vector3.new(W, 1, D), at(0, 0.5, zb + D / 2), SHOP_TRIM)
+	brick("BackWall", Vector3.new(W, H, 1.5), at(0, H / 2 + 1, zb + D - 0.75), SHOP_WALL)
+	for _, side in { -1, 1 } do
+		brick("SideWall", Vector3.new(1.5, H, D), at(side * (W / 2 - 0.75), H / 2 + 1, zb + D / 2), SHOP_WALL)
+		-- the front wall either side of the window
+		brick("FrontWall", Vector3.new(W / 2 - 11, H, 1.5), at(side * (W / 4 + 5.5), H / 2 + 1, zb + 0.75), SHOP_WALL)
+		brick("Corner", Vector3.new(2, H + 1, 2), at(side * (W / 2 - 1), (H + 1) / 2 + 1, zb + 0.5), SHOP_TRIM)
+	end
+	-- the window: counter below, a lintel with the shop's name above
+	brick("Counter", Vector3.new(22, 4, 2.5), at(0, 3, zb + 1), SHOP_TRIM)
+	local lintel = brick("Lintel", Vector3.new(22, 4.5, 1.5), at(0, H - 1.25, zb + 0.75), SHOP_WALL)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 14
+	gui.LightInfluence = 0
+	gui.Parent = lintel
+	Build.Text(gui, "🍩 DONUT SHOP 🍩", { TextColor3 = rgb(255, 90, 160), TextStrokeColor3 = rgb(255, 255, 255), TextStrokeTransparency = 0 })
+	-- striped awning over the window
+	for i = 0, 9 do
+		Build.Decor({ Parent = shop, Name = "Awning", Size = Vector3.new(2.3, 0.4, 6), CFrame = at(-10.35 + i * 2.3, H - 4.6, zb - 2.2) * CFrame.Angles(math.rad(18), 0, 0), Color = if i % 2 == 0 then SHOP_ICING else SHOP_TRIM, Material = Enum.Material.SmoothPlastic })
+	end
+	-- chocolate roof with icing dripping over the front edge
+	brick("Roof", Vector3.new(W + 3, 1.6, D + 3), at(0, H + 1.8, zb + D / 2), SHOP_ROOF)
+	brick("Icing", Vector3.new(W + 2, 0.8, D + 2), at(0, H + 3, zb + D / 2), SHOP_ICING)
+	for i = 0, 8 do
+		local drip = 1.2 + (i % 3) * 0.8
+		Build.Decor({ Parent = shop, Name = "Drip", Size = Vector3.new(2.2, drip, 0.8), CFrame = at(-W / 2 + 2.5 + i * (W - 5) / 8, H + 2.6 - drip / 2, zb - 1.2), Color = SHOP_ICING, Material = Enum.Material.SmoothPlastic })
+	end
+	-- the giant donut on the roof
+	Decor.GiantDonut(shop, at(0, H + 10, zb + D / 2), 5, 3.4, rgb(222, 165, 95), SHOP_ICING, { rgb(255, 60, 60), rgb(255, 230, 60), rgb(60, 200, 255), rgb(255, 255, 255) })
+	shop.PrimaryPart = shop:FindFirstChild("ShopFloor") :: BasePart
+	shop.Parent = pen
+end
+
 -- A base's pen (like Steal an Egg): a patch of checker ground - one tile per donut - inside a low
--- fence you can hop over, with a gate in the middle of the front. Rebuilt (PlotService) whenever
--- the base gets bigger; `slots` is how many donuts it holds (Layout.PenGrid).
+-- fence you can hop over, with a low gate in the middle of the front and the donut shop behind it.
+-- Rebuilt (PlotService) whenever the base gets bigger; `slots` is how many donuts it holds.
 function MapBuilder.BuildPen(plot: Model, slots: number)
 	local old = plot:FindFirstChild("Pen")
 	if old then
 		old:Destroy()
 	end
-	local cf = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number, (plot:GetAttribute("WorldId") :: number?) or 1)
+	local cf = Layout.PlotCFrame(plot:GetAttribute("PlotIndex") :: number)
 	local fh = Layout.PlotFloorHeight
 	local classic = Config.Skins[1]
 	local columns, rows, width, depth = Layout.PenGrid(slots)
-	local cell = Config.Plots.CellSize
+	local cellX, cellZ = width / columns, depth / rows
 	local front = Layout.PenFront
 	local pen = Instance.new("Model")
 	pen.Name = "Pen"
@@ -1143,13 +655,14 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	for column = 0, columns - 1 do
 		for row = 0, rows - 1 do
 			local role = if (column + row) % 2 == 0 then "Floor" else "FloorAlt"
-			skinned(role, {
+			local tile = skinned(role, {
 				Parent = floor, Name = "Tile",
-				Size = Vector3.new(cell, fh + 0.5, cell),
-				CFrame = at(-width / 2 + cell * (column + 0.5), (fh - 0.5) / 2, front + cell * (row + 0.5)),
+				Size = Vector3.new(cellX, fh + 0.5, cellZ),
+				CFrame = at(-width / 2 + cellX * (column + 0.5), (fh - 0.5) / 2, front + cellZ * (row + 0.5)),
 				Color = if role == "Floor" then classic.Floor else classic.FloorAlt,
 				Material = classic.FloorMaterial,
 			})
+			tile.TopSurface = Enum.SurfaceType.Studs
 		end
 	end
 	local border = 2
@@ -1163,7 +676,7 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	fence.Name = "Fence"
 	fence.Parent = pen
 	local height = Config.Plots.FenceHeight
-	local gate = 8 -- half the gate's width
+	local gate = 7 -- half the gate's width
 	local function fenceLine(from: Vector3, to: Vector3)
 		local length = (to - from).Magnitude
 		if length < 0.5 then
@@ -1188,41 +701,69 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	fenceLine(Vector3.new(hw, 0, z0), Vector3.new(hw, 0, z1)) -- right
 	fenceLine(Vector3.new(-hw, 0, z0), Vector3.new(-gate, 0, z0)) -- front left
 	fenceLine(Vector3.new(gate, 0, z0), Vector3.new(hw, 0, z0)) -- front right
-	-- Big corner posts with round caps, and a gate arch
+	-- Corner posts with round caps, and two low gate posts
 	for _, x in { -hw, hw } do
 		for _, z in { z0, z1 } do
-			skinned("Trim", { Parent = fence, Name = "CornerPost", Size = Vector3.new(1.8, height + 2, 1.8), CFrame = at(x, fh + (height + 2) / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
-			skinned("Pedestal", { Parent = fence, Name = "CornerCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.4, CFrame = at(x, fh + height + 2.6, z), Color = classic.Pedestal, Material = classic.PedestalMaterial })
+			skinned("Trim", { Parent = fence, Name = "CornerPost", Size = Vector3.new(1.8, height + 1.4, 1.8), CFrame = at(x, fh + (height + 1.4) / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
+			skinned("Pedestal", { Parent = fence, Name = "CornerCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.2, CFrame = at(x, fh + height + 1.9, z), Color = classic.Pedestal, Material = classic.PedestalMaterial })
 		end
 	end
-	local archHeight = 11
 	for _, side in { -1, 1 } do
-		skinned("Trim", { Parent = fence, Name = "GatePost", Size = Vector3.new(2, archHeight, 2), CFrame = at(side * gate, fh + archHeight / 2, z0), Color = classic.Trim, Material = classic.TrimMaterial })
+		skinned("Trim", { Parent = fence, Name = "GatePost", Size = Vector3.new(2, height + 2.5, 2), CFrame = at(side * gate, fh + (height + 2.5) / 2, z0), Color = classic.Trim, Material = classic.TrimMaterial })
+		skinned("Pedestal", { Parent = fence, Name = "GateCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.6, CFrame = at(side * gate, fh + height + 3.2, z0), Color = classic.Pedestal, Material = classic.PedestalMaterial })
 	end
-	skinned("Pedestal", { Parent = fence, Name = "GateArch", Size = Vector3.new(gate * 2 + 2, 1.6, 2.2), CFrame = at(0, fh + archHeight + 0.8, z0), Color = classic.Pedestal, Material = classic.PedestalMaterial })
+
+	buildShop(pen, cf, z1 + 3)
 	pen.Parent = plot
 end
 
-function buildPlot(parent: Instance, plotIndex: number, worldId: number)
-	local cf = Layout.PlotCFrame(plotIndex, worldId)
-	local d, fh = Layout.PlotDepth, Layout.PlotFloorHeight
+-- The sign by the gate where you upgrade your base (PlotService writes the price on it).
+local function buildUpgradeSign(plot: Model, cf: CFrame)
+	local sign = Instance.new("Model")
+	sign.Name = "UpgradeSign"
+	local p = Layout.UpgradeSignPosition()
+	local function at(x: number, y: number, z: number): CFrame
+		return cf * CFrame.new(p.X + x, y, p.Z + z)
+	end
+	for _, x in { -3.6, 3.6 } do
+		Build.Part({ Parent = sign, Name = "SignPost", Size = Vector3.new(0.8, 7, 0.8), CFrame = at(x, 3.5, 0), Color = rgb(120, 75, 40), Material = Enum.Material.Wood })
+	end
+	local board = Build.Part({ Parent = sign, Name = "Board", Size = Vector3.new(9, 4.6, 0.6), CFrame = at(0, 6.4, -0.2), Color = rgb(170, 110, 60), Material = Enum.Material.WoodPlanks })
+	local gui = Instance.new("SurfaceGui")
+	gui.Name = "SignGui"
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.LightInfluence = 0
+	gui.Parent = board
+	Build.Text(gui, "⬆️ UPGRADE BASE", { Name = "Title", Size = UDim2.fromScale(1, 0.4), TextColor3 = rgb(255, 240, 120), TextStrokeColor3 = rgb(60, 30, 10) })
+	Build.Text(gui, "", { Name = "Info", Size = UDim2.fromScale(1, 0.6), Position = UDim2.fromScale(0, 0.4), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(60, 30, 10), Font = Enum.Font.FredokaOne })
+	local prompt = Build.Part({ Parent = sign, Name = "PromptPart", Size = Vector3.new(4, 4, 1), CFrame = at(0, 3, -1.5), Transparency = 1, CanCollide = false })
+	prompt:SetAttribute("UpgradeSign", true)
+	sign.PrimaryPart = board
+	sign.Parent = plot
+end
+
+local function buildPlot(parent: Instance, plotIndex: number)
+	local cf = Layout.PlotCFrame(plotIndex)
+	local fh = Layout.PlotFloorHeight
 
 	local plot = Instance.new("Model")
 	plot.Name = "Plot" .. plotIndex
 	plot:SetAttribute("PlotIndex", plotIndex)
-	plot:SetAttribute("WorldId", worldId)
+	plot:SetAttribute("WorldId", 1)
 
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
-	local hd = d / 2
-
-	-- Anchors used by other services (the sign moves to the back of the pen as it grows)
+	-- Anchors used by other services: the treadmill and incubator beside the pen, the podium on
+	-- the other side, the name sign above the shop (PlotService moves it as the pen grows).
+	local side = Layout.PlotWidth / 2 - 13
 	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, Layout.PenFront + 8), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 20, Layout.PenFront + 20), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-17, 0, -hd - 12), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(17, 0, -hd - 11), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, 0, -hd - 22), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 30, 30), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-side, 0, Layout.PenFront + 4) * CFrame.Angles(0, math.pi / 2, 0), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-side, 0, Layout.PenFront + 34), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(side, 0, Layout.PenFront + 10), Transparency = 1, CanCollide = false, CanQuery = false })
 
 	local skinFx = Instance.new("Folder")
 	skinFx.Name = "SkinFX"
@@ -1230,6 +771,7 @@ function buildPlot(parent: Instance, plotIndex: number, worldId: number)
 
 	plot.PrimaryPart = plot:FindFirstChild("Spawn") :: BasePart
 	MapBuilder.BuildPen(plot, Config.Plots.Sizes[1].Slots)
+	buildUpgradeSign(plot, cf)
 	plot.Parent = parent
 end
 
@@ -1238,7 +780,7 @@ local function buildPlots(parent: Folder)
 	plots.Name = "Plots"
 	plots.Parent = parent
 	for i = 1, Config.Plots.Count do
-		buildPlot(plots, i, 1)
+		buildPlot(plots, i)
 	end
 end
 
@@ -1391,7 +933,6 @@ function MapBuilder.Build(): Folder
 		end
 		local hub = existing:FindFirstChild("Hub")
 		if hub then
-			refreshPortalSigns(hub)
 			-- New leaderboards (e.g. donations): rebuild the row of boards.
 			local boards = hub:FindFirstChild("Leaderboards")
 			local missing = boards == nil
@@ -1407,16 +948,19 @@ function MapBuilder.Build(): Folder
 				buildLeaderboards(hub)
 			end
 		end
+		for _, gate in existing:GetDescendants() do
+			if gate.Name == "SpeedGate" and gate:IsA("BasePart") then
+				CollectionService:AddTag(gate, "SpeedGate")
+			end
+		end
 		refreshAreaSigns(existing)
-		buildLane(existing) -- adds any areas that are missing (new worlds)
-		buildWorlds(existing) -- adds any world hubs that are missing
+		buildLane(existing) -- adds any biomes that are missing
 		optimize(existing)
 		mapFolder = existing
 		return existing
 	end
-	-- No map, or one saved by an older version of the game: build it all from scratch. (Version 11:
-	-- bases are open pens and there are 6 of them, every hub is bigger, every area is longer and
-	-- wider - nothing of an older map fits any more.)
+	-- No map, or one saved by an older version of the game: build it all from scratch. (Version 12:
+	-- one lobby, one lane of 20 biomes with Domer's corners and box spots, donut-shop bases.)
 	if existing then
 		existing:Destroy()
 	end
@@ -1426,7 +970,6 @@ function MapBuilder.Build(): Folder
 	buildHub(folder)
 	buildPlots(folder)
 	buildLane(folder)
-	buildWorlds(folder)
 	-- Remember each model's main part by name, so a baked copy of the map can reconnect it.
 	for _, model in folder:GetDescendants() do
 		if model:IsA("Model") and model.PrimaryPart then
@@ -1444,13 +987,8 @@ function MapBuilder.Get(): Folder
 	return mapFolder :: Folder
 end
 
--- A base plot in a world's hub (world 1 = the main hub).
-function MapBuilder.GetPlot(index: number, worldId: number?): Model
-	local world = worldId or 1
-	if world == 1 then
-		return MapBuilder.Get():WaitForChild("Plots"):WaitForChild("Plot" .. index) :: Model
-	end
-	return MapBuilder.Get():WaitForChild("Worlds"):WaitForChild("World" .. world):WaitForChild("Plots"):WaitForChild("Plot" .. index) :: Model
+function MapBuilder.GetPlot(index: number, _worldId: number?): Model
+	return MapBuilder.Get():WaitForChild("Plots"):WaitForChild("Plot" .. index) :: Model
 end
 
 function MapBuilder.GetArea(index: number): Folder
@@ -1461,15 +999,19 @@ function MapBuilder.GetHub(): Folder
 	return MapBuilder.Get():WaitForChild("Hub") :: Folder
 end
 
--- Every portal trigger part (hub portals + the portal home in each world).
-function MapBuilder.GetPortals(): { BasePart }
-	local triggers = {}
-	for _, part in MapBuilder.Get():GetDescendants() do
-		if part:IsA("BasePart") and part:GetAttribute("PortalTrigger") then
-			table.insert(triggers, part)
+-- The spots where a biome's boxes sit, in order (BoxSpots/BoxSpot, Index 1..PerBiome).
+function MapBuilder.GetBoxSpots(areaId: number): { BasePart }
+	local folder = MapBuilder.GetArea(areaId):WaitForChild("BoxSpots")
+	local spots: { BasePart } = {}
+	for _, spot in folder:GetChildren() do
+		if spot:IsA("BasePart") and spot.Name == "BoxSpot" then
+			table.insert(spots, spot)
 		end
 	end
-	return triggers
+	table.sort(spots, function(a, b)
+		return ((a:GetAttribute("Index") :: number?) or 0) < ((b:GetAttribute("Index") :: number?) or 0)
+	end)
+	return spots
 end
 
 return MapBuilder

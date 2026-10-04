@@ -979,10 +979,11 @@ function Decor.BlackHole(parent: Instance, center: Vector3, scale: number, optio
 	return BlackHoleModel.Build(parent, center, scale, options)
 end
 
--- Where the pit down to The Black Hole's secret lab is (x, z), and how wide it is.
+-- (The Black Hole used to have a pit down to a secret lab. The lab is gone; the theme still asks
+-- where the pit is, so it's somewhere far outside the lane.)
 Decor.LabPitSize = 20
-function Decor.LabPit(zs: number): (number, number)
-	return 75, zs + 120
+function Decor.LabPit(_zs: number): (number, number)
+	return 100_000, -100_000
 end
 
 -- A glowing beam between two attachments on `holder`. A map baked to a file can't keep the
@@ -1561,6 +1562,135 @@ Decor.Spire = spire
 Decor.LavaFall = lavaFall
 Decor.Brazier = brazier
 Decor.Lava = lava
+
+-- Frosting Falls: a lake biome. Two big ponds with lily pads and pink lotus flowers, reeds and
+-- rocks round their edges, trees along the walls and an icing waterfall pouring into the far pond.
+function Themes.Lake(folder: Instance, zs: number, ze: number, rng: Random)
+	local water = rgb(70, 170, 235)
+	local function pond(center: Vector3, rx: number, rz: number)
+		-- an oval of overlapping discs (the water), a sandy rim, lily pads, lotus flowers and reeds
+		for n = 0, 4 do
+			local t = (n - 2) / 2
+			local c = center + Vector3.new(t * rx * 0.55, 0, 0)
+			local r = rz * (1 - 0.35 * math.abs(t))
+			Build.Decor({ Parent = folder, Name = "PondRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, r * 2 + 4, r * 2 + 4), CFrame = CFrame.new(c + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(225, 205, 150), Material = Enum.Material.Sand })
+			Build.Decor({ Parent = folder, Name = "Water", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, r * 2, r * 2), CFrame = CFrame.new(c + Vector3.new(0, 0.2, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = water, Material = Enum.Material.Glass, Transparency = 0.15, Reflectance = 0.12 })
+		end
+		for _ = 1, 9 do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local d = rng:NextNumber(0.2, 0.75)
+			local p = center + Vector3.new(math.cos(angle) * rx * d, 0.4, math.sin(angle) * rz * d)
+			local size = rng:NextNumber(3, 5.5)
+			Build.Decor({ Parent = folder, Name = "LilyPad", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, size, size), CFrame = CFrame.new(p) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(70, 160, 70), Material = Enum.Material.SmoothPlastic })
+			if rng:NextNumber() < 0.45 then
+				Build.Ball(folder, p + Vector3.new(0, 0.6, 0), 1.3, rgb(255, 150, 200), Enum.Material.SmoothPlastic)
+			end
+		end
+		for _ = 1, 10 do
+			local angle = rng:NextNumber(0, math.pi * 2)
+			local p = center + Vector3.new(math.cos(angle) * (rx + 2), 0, math.sin(angle) * (rz + 2))
+			for k = 0, 2 do
+				local h = rng:NextNumber(3, 5.5)
+				Build.Decor({ Parent = folder, Name = "Reed", Size = Vector3.new(0.35, h, 0.35), CFrame = CFrame.new(p + Vector3.new(k * 0.6, h / 2, rng:NextNumber(-0.5, 0.5))) * CFrame.Angles(rng:NextNumber(-0.15, 0.15), 0, rng:NextNumber(-0.15, 0.15)), Color = rgb(60, 150, 60), Material = Enum.Material.Grass })
+			end
+			if rng:NextNumber() < 0.4 then
+				Build.Decor({ Parent = folder, Name = "Rock", Size = Vector3.new(rng:NextNumber(2, 4), rng:NextNumber(1.2, 2.5), rng:NextNumber(2, 4)), CFrame = CFrame.new(p + Vector3.new(1.5, 0.8, 0)) * CFrame.Angles(0, rng:NextNumber(0, 3), rng:NextNumber(-0.2, 0.2)), Color = rgb(140, 140, 135), Material = Enum.Material.Slate })
+			end
+		end
+	end
+	local length = ze - zs
+	pond(Vector3.new(-26, 0, zs + length * 0.3), 30, 18)
+	pond(Vector3.new(22, 0, zs + length * 0.62), 26, 16)
+	alongEdges(zs, ze, 34, rng, function(pos)
+		tree(folder, pos, rgb(115, 78, 45), rgb(90, 190, 80), nil, rng)
+	end)
+	alongEdges(zs + 15, ze, 34, rng, function(pos)
+		bush(folder, pos, rgb(80, 175, 60), rng)
+	end)
+	scatter(zs, ze, 26, rng, function(pos)
+		flower(folder, pos, rng)
+	end)
+	-- the icing waterfall the biome is named after, pouring down the left wall into a pink pool
+	local z = zs + length * 0.82
+	local fall = Build.Decor({ Parent = folder, Name = "IcingFall", Size = Vector3.new(1, 58, 18), Position = Vector3.new(-59.4, 29, z), Color = rgb(255, 170, 215), Material = Enum.Material.Glass, Transparency = 0.15 })
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Color = ColorSequence.new(fall.Color)
+	emitter.Rate = 25
+	emitter.Speed = NumberRange.new(3, 6)
+	emitter.Lifetime = NumberRange.new(1, 2)
+	emitter.Size = NumberSequence.new(1.2, 0)
+	emitter.EmissionDirection = Enum.NormalId.Bottom
+	emitter.Parent = fall
+	Build.Decor({ Parent = folder, Name = "IcingPool", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 24, 24), CFrame = CFrame.new(-50, 0.2, z) * CFrame.Angles(0, 0, math.pi / 2), Color = fall.Color, Material = Enum.Material.Glass, Transparency = 0.1 })
+	Decor.DonutStatue(folder, Vector3.new(48, 0, zs + 40), 5, rgb(222, 165, 95), rgb(120, 200, 255), { rgb(255, 255, 255), rgb(255, 150, 200) })
+end
+
+-- Jellybean Jungle: palm trees and giant leaves along the walls, vines hanging over the edge,
+-- tiki torches, mossy boulders and big jellybeans scattered in the grass.
+function Themes.Jungle(folder: Instance, zs: number, ze: number, rng: Random)
+	local function palm(pos: Vector3)
+		local height = rng:NextNumber(16, 24)
+		local lean = rng:NextNumber(-0.25, 0.25)
+		local top = pos
+		for i = 0, 5 do
+			local y = i * height / 6
+			local p = pos + Vector3.new(lean * y, y + height / 12, 0)
+			Build.Decor({ Parent = folder, Name = "Trunk", Size = Vector3.new(2.2 - i * 0.15, height / 6 + 0.2, 2.2 - i * 0.15), CFrame = CFrame.new(p) * CFrame.Angles(0, i * 0.5, lean), Color = if i % 2 == 0 then rgb(130, 90, 50) else rgb(110, 75, 42), Material = Enum.Material.Wood })
+			top = p
+		end
+		for n = 0, 5 do
+			local angle = n / 6 * math.pi * 2
+			Build.Decor({ Parent = folder, Name = "Frond", Size = Vector3.new(2.6, 0.4, 10), CFrame = CFrame.new(top + Vector3.new(0, height / 12, 0)) * CFrame.Angles(0, angle, 0) * CFrame.new(0, -1, 4.5) * CFrame.Angles(math.rad(-22), 0, 0), Color = if n % 2 == 0 then rgb(60, 170, 60) else rgb(80, 190, 70), Material = Enum.Material.Grass })
+		end
+		for n = 0, 2 do
+			Build.Ball(folder, top + Vector3.new(math.cos(n * 2.1) * 1.2, -0.6, math.sin(n * 2.1) * 1.2), 1.4, rgb(120, 80, 40))
+		end
+	end
+	local function bigLeaf(pos: Vector3, side: number)
+		for n = 0, 2 do
+			Build.Decor({ Parent = folder, Name = "Leaf", Size = Vector3.new(5, 0.4, 9), CFrame = CFrame.new(pos + Vector3.new(0, 2 + n, 0)) * CFrame.Angles(0, n * 1.6 + rng:NextNumber(0, 1), 0) * CFrame.new(0, 0, 3.5) * CFrame.Angles(math.rad(-30), 0, side * 0.2), Color = rgb(40 + n * 15, 150 + n * 10, 55), Material = Enum.Material.Grass })
+		end
+	end
+	local function torch(pos: Vector3)
+		Build.Pillar(folder, pos, 7, 0.9, rgb(120, 80, 45), Enum.Material.Wood)
+		Build.Decor({ Parent = folder, Name = "TorchBowl", Size = Vector3.new(2, 1.2, 2), Position = pos + Vector3.new(0, 7.4, 0), Color = rgb(90, 60, 40), Material = Enum.Material.Wood })
+		local flame = Build.Decor({ Parent = folder, Name = "Flame", Size = Vector3.new(1, 1, 1), Position = pos + Vector3.new(0, 8.3, 0), Transparency = 1 })
+		local fire = Instance.new("Fire")
+		fire.Size = 4
+		fire.Heat = 7
+		fire.Parent = flame
+		local light = Instance.new("PointLight")
+		light.Color = rgb(255, 170, 70)
+		light.Range = 18
+		light.Brightness = 1.6
+		light.Parent = flame
+	end
+	alongEdges(zs, ze, 30, rng, function(pos, side)
+		palm(pos)
+		bigLeaf(pos + Vector3.new(-side * 6, 0, 8), side)
+	end)
+	for z = zs + 25, ze - 15, 60 do
+		torch(Vector3.new(-42, 0, z))
+		torch(Vector3.new(42, 0, z + 30))
+	end
+	-- vines hanging over the tops of the walls
+	for z = zs + 10, ze - 10, 16 do
+		for _, side in { -1, 1 } do
+			local h = rng:NextNumber(12, 30)
+			Build.Decor({ Parent = folder, Name = "Vine", Size = Vector3.new(0.6, h, 0.6), Position = Vector3.new(side * 59.2, 60 - h / 2, z + rng:NextNumber(-5, 5)), Color = rgb(50, 140, 50), Material = Enum.Material.Grass })
+		end
+	end
+	local beans = { rgb(255, 70, 90), rgb(255, 200, 40), rgb(80, 200, 90), rgb(160, 90, 255), rgb(255, 140, 40), rgb(60, 170, 255) }
+	scatter(zs, ze, 30, rng, function(pos)
+		Build.Decor({ Parent = folder, Name = "Jellybean", Shape = Enum.PartType.Ball, Size = Vector3.new(2.6, 1.6, 1.6), CFrame = CFrame.new(pos + Vector3.new(0, 0.8, 0)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = beans[rng:NextInteger(1, #beans)], Material = Enum.Material.Glass, Transparency = 0.05 })
+	end)
+	scatter(zs, ze, 10, rng, function(pos)
+		local p = Vector3.new(math.sign(pos.X) * rng:NextNumber(30, 44), 0, pos.Z)
+		Build.Decor({ Parent = folder, Name = "Boulder", Size = Vector3.new(rng:NextNumber(5, 8), rng:NextNumber(3, 5), rng:NextNumber(5, 8)), CFrame = CFrame.new(p + Vector3.new(0, 1.8, 0)) * CFrame.Angles(0, rng:NextNumber(0, 3), 0), Color = rgb(120, 125, 110), Material = Enum.Material.Slate })
+		Build.Decor({ Parent = folder, Name = "Moss", Size = Vector3.new(4, 0.6, 4), Position = p + Vector3.new(0, 4.2, 0), Color = rgb(70, 160, 60), Material = Enum.Material.Grass })
+	end)
+	Decor.DonutStatue(folder, Vector3.new(-48, 0, zs + 60), 5, rgb(222, 165, 95), rgb(90, 200, 90), { rgb(255, 70, 90), rgb(255, 200, 40), rgb(160, 90, 255) })
+end
 
 function Decor.BuildTheme(theme: string, folder: Instance, zs: number, ze: number, rng: Random)
 	local builder = Themes[theme]

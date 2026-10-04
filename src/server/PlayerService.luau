@@ -25,6 +25,7 @@ local StealService = require(script.Parent.StealService)
 local ShopService = require(script.Parent.ShopService)
 local LeaderboardService = require(script.Parent.LeaderboardService)
 local ItemService = require(script.Parent.ItemService)
+local InventoryService = require(script.Parent.InventoryService)
 local RaidService = require(script.Parent.RaidService)
 local WorldService = require(script.Parent.WorldService)
 local PetService = require(script.Parent.PetService)
@@ -69,6 +70,7 @@ local function onCharacterAdded(player: Player, character: Model)
 	setCollisionGroup(character)
 	StealService.OnCharacterAdded(player, character)
 	task.defer(ItemService.GiveTools, player) -- the backpack is recreated on every spawn
+	InventoryService.OnCharacterAdded(player) -- (boxes and donuts you're holding: tools too)
 	-- Spawn inside your own base
 	task.defer(function()
 		local spawnCf = PlotService.GetSpawnCFrame(player)
@@ -154,7 +156,7 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 	TreadmillService.Build(player)
-	ItemService.RestoreLock(player) -- admin permanent Base Lock
+	InventoryService.SyncTools(player)
 	createLeaderstats(player)
 	grantOfflineEarnings(player)
 

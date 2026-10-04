@@ -4,7 +4,7 @@
 	Server -> Client
 		Notify(text, kind)                 toast message ("info" | "success" | "error" | "rare")
 		State(snapshot)                    tables that don't fit in attributes (passes, skins, index...)
-		ChaseStarted(info)                 you stole a donut and a guard is after you
+		ChaseStarted(info)                 you grabbed a box (or raided a donut) and a guard is after you
 		ChaseEnded(result)                 "Safe" | "Caught" | "Deposited" | "Lost"
 		OfflineEarnings(amount, seconds)
 		LeaderboardUpdated(boardId)
@@ -14,14 +14,16 @@
 		EggHatched(info)                   { EggId, PetId, Uid } - play the hatch animation
 		AdminPanel()                       open the admin panel (you typed the code)
 		CrateOpened(info)                  { Crate, Kind, Amount?, Seconds?, Egg?, Pet? } - play the opening
-		UltimateAsk()                      you pressed the ULTIMATE REBIRTH button: ask "are you sure?"
-		UltimateRebirth(worldName)         it happened: white flash, explosion, "WORLD 2"
+		SpeedGate(areaId)                  you're too slow for that biome (you were put back outside it)
+		BoxesReset()                       every biome's boxes were just replaced ("ALL BOXES RESET!")
+		BoxOpened(info)                    a box in a pen opened: { Owner, Slot, DonutId, Mutation, Size }
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, speed slider, teleport home...
 		ClientReady()                      UI is built; server then sends welcome-back popup etc.
 		GetLeaderboard(boardId) -> data    (RemoteFunction)
 		GetGlobalStats() -> stats          (RemoteFunction) spawn / found counts of every donut
+		GetSellList() -> { SellItem }      (RemoteFunction) your inventory + pen donuts and their prices (UI/Sell)
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -31,8 +33,8 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened", "UltimateAsk", "UltimateRebirth", "StormBlock", "StormStrike" }
-local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "Alarm", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "SpeedGate", "BoxesReset", "BoxOpened" }
+local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats", "GetSellList" }
 
 local Remotes = {}
 

@@ -53,6 +53,50 @@ end
 
 UpdateNotes.List = {
 	{
+		Version = 6,
+		Name = "Donut Boxes",
+		Date = "Oct 4, 2026",
+		Color = Color3.fromRGB(120, 45, 85),
+		Accent = Color3.fromRGB(255, 200, 225),
+		Decor = "Sparkles",
+		Emblem = { Frosting = Color3.fromRGB(255, 130, 190), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(90, 200, 255), Color3.fromRGB(255, 220, 80) } },
+		Sections = {
+			{ Title = "Fresh Start", Tag = "Read me!", Lines = {
+				"The whole game is new, so everyone starts again from the beginning",
+				"You keep your game passes, donations, time played and skins",
+				"The Money, Speed and Rarest Donut boards start over (Time Played and Donations stay)",
+			} },
+			{ Title = "Donut Boxes", Tag = "NEW", Lines = {
+				"Steal donut boxes from right next to a sleeping Domer and run them back to the lobby",
+				"Every biome has Rare, Epic and Legendary boxes (the first one has the pink box)",
+				"Lucky? Find a Big, Huge or GIANT box: it holds a bigger donut but slows you down",
+				"Boxes go into your inventory: hold one and click in your pen to put it down",
+				"Wait for it to open (Rare 1 min, Epic 10 min, Legendary 1 hour) and out pops a donut!",
+				"BOX RUSH every 2:30: boxes in pens open 30x faster for 10 seconds",
+				"Every 5 minutes, all the boxes are replaced with new ones",
+			} },
+			{ Title = "20 Biomes", Tag = "NEW Map", Lines = {
+				"One long lane of 20 huge biomes, from Sprinkle Park to The Black Hole",
+				"Each biome needs some Speed to get in (Frosting Falls 900, Sugar Dunes 10K...)",
+				"Too slow? You're bumped back into the biome before it, never all the way home",
+			} },
+			{ Title = "Domer", Tag = "Changed", Lines = {
+				"Domer naps in a corner of every biome: on his comfy couch in the first ones",
+				"He runs as fast as the Speed his biome needs, so get faster to escape!",
+				"Caught in his biome? He takes the box back. Caught outside it? You drop it for anyone",
+			} },
+			{ Title = "Bases & Shop", Tag = "Changed", Lines = {
+				"Every base is a donut shop with a pen: upgrade it at the sign by the gate (7 to 20 donuts)",
+				"12 treadmills, from Rusty to the Heavenly treadmill",
+				"A sell stall in the lobby, and a free bat for everyone: hit a thief to make them drop their box",
+				"No more base locks or shop items",
+			} },
+		},
+		Sidebar = {
+			{ Title = "Legendary Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
+		},
+	},
+	{
 		Version = 5,
 		Name = "The Eternal Storm",
 		Date = "Oct 3, 2026",
@@ -278,7 +322,6 @@ UpdateNotes.List = {
 		},
 		Sidebar = {
 			{ Title = "7 New Donuts", Items = donuts({ "fakekar", "wormholio", "supermassivo", "quasarino", "gravitoni", "eventhorizonte", "singularino" }) },
-			{ Title = "Cosmic Donuts", Items = donuts({ "cosmic_glazzerina", "cosmic_sprinkolini", "cosmic_tradonut", "cosmic_glazamun" }) },
 		},
 	},
 	{

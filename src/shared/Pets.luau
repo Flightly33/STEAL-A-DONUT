@@ -1,7 +1,7 @@
 --[[
 	Pets and pet eggs.
 
-	Eggs appear now and then in the higher areas (MinArea..MaxArea). Grab one, bring it home, and it
+	Eggs appear now and then in the later biomes (MinArea..MaxArea). Grab one, bring it home, and it
 	incubates at your base for HatchSeconds (real time: it keeps going while you're offline).
 	Then it hatches into one of its Pets (weighted). Rarer eggs take longer and hold better pets.
 
@@ -113,42 +113,42 @@ Pets.List = {
 
 Pets.Eggs = {
 	{
-		Id = "Sprinkle", Name = "Sprinkle Egg", MinArea = 4, MaxArea = 12, Weight = 100, HatchSeconds = 180, Tier = 1,
+		Id = "Sprinkle", Name = "Sprinkle Egg", MinArea = 3, MaxArea = 8, Weight = 100, HatchSeconds = 180, Tier = 1,
 		Color = rgb(255, 170, 215), Accent = rgb(255, 255, 255),
 		Pool = { { Pet = "GlazePup", Weight = 45 }, { Pet = "SprinkleKitty", Weight = 30 }, { Pet = "ChocoBunny", Weight = 18 }, { Pet = "DonutDuck", Weight = 7 } },
 	},
 	{
-		Id = "Frosted", Name = "Frosted Egg", MinArea = 6, MaxArea = 14, Weight = 60, HatchSeconds = 480, Tier = 2,
+		Id = "Frosted", Name = "Frosted Egg", MinArea = 5, MaxArea = 10, Weight = 60, HatchSeconds = 480, Tier = 2,
 		Color = rgb(170, 225, 255), Accent = rgb(255, 255, 255),
 		Pool = { { Pet = "FrostPenguin", Weight = 45 }, { Pet = "SnowFox", Weight = 30 }, { Pet = "IceOwl", Weight = 18 }, { Pet = "YetiCub", Weight = 7 } },
 	},
 	{
-		Id = "Molten", Name = "Molten Egg", MinArea = 7, MaxArea = 19, Weight = 40, HatchSeconds = 900, Tier = 3,
+		Id = "Molten", Name = "Molten Egg", MinArea = 6, MaxArea = 12, Weight = 40, HatchSeconds = 900, Tier = 3,
 		Color = rgb(70, 40, 35), Accent = rgb(255, 120, 0),
 		Pool = { { Pet = "EmberLizard", Weight = 45 }, { Pet = "MagmaHound", Weight = 32 }, { Pet = "FirePhoenix", Weight = 17 }, { Pet = "LavaDragon", Weight = 6 } },
 	},
 	{
-		Id = "Cosmic", Name = "Cosmic Egg", MinArea = 9, MaxArea = 26, Weight = 25, HatchSeconds = 1800, Tier = 4,
+		Id = "Cosmic", Name = "Cosmic Egg", MinArea = 8, MaxArea = 16, Weight = 25, HatchSeconds = 1800, Tier = 4,
 		Color = rgb(40, 20, 90), Accent = rgb(150, 220, 255),
 		Pool = { { Pet = "StarJelly", Weight = 48 }, { Pet = "NebulaCat", Weight = 33 }, { Pet = "GalaxyWhale", Weight = 16 }, { Pet = "CosmicUnicorn", Weight = 3 } },
 	},
 	{
-		Id = "Tropical", Name = "Tropical Egg", MinArea = 13, MaxArea = 26, Weight = 35, HatchSeconds = 2700, Tier = 4,
+		Id = "Tropical", Name = "Tropical Egg", MinArea = 4, MaxArea = 12, Weight = 35, HatchSeconds = 2700, Tier = 4,
 		Color = rgb(255, 220, 120), Accent = rgb(0, 200, 190),
 		Pool = { { Pet = "ParrotPal", Weight = 48 }, { Pet = "CoralCrab", Weight = 33 }, { Pet = "TikiTurtle", Weight = 16 }, { Pet = "KrakenJr", Weight = 3 } },
 	},
 	{
-		Id = "Dream", Name = "Dream Egg", MinArea = 20, MaxArea = 26, Weight = 35, HatchSeconds = 3600, Tier = 5,
+		Id = "Dream", Name = "Dream Egg", MinArea = 11, MaxArea = 18, Weight = 35, HatchSeconds = 3600, Tier = 5,
 		Color = rgb(255, 235, 250), Accent = rgb(190, 150, 255),
 		Pool = { { Pet = "CloudSheep", Weight = 55 }, { Pet = "TeddyGhost", Weight = 32 }, { Pet = "AngelBear", Weight = 12 }, { Pet = "DreamDragon", Weight = 1 } },
 	},
 	{
-		Id = "Void", Name = "Void Egg", MinArea = 8, MaxArea = 33, Weight = 3, HatchSeconds = 5400, Tier = 6, Rainbow = true,
+		Id = "Void", Name = "Void Egg", MinArea = 7, MaxArea = 20, Weight = 3, HatchSeconds = 5400, Tier = 6, Rainbow = true,
 		Color = rgb(10, 5, 20), Accent = rgb(200, 80, 255),
 		Pool = { { Pet = "VoidImp", Weight = 70 }, { Pet = "VoidSerpent", Weight = 28 }, { Pet = "GlitchGod", Weight = 2 } },
 	},
 	{
-		Id = "Cyber", Name = "Cyber Egg", MinArea = 27, MaxArea = 33, Weight = 35, HatchSeconds = 4500, Tier = 5,
+		Id = "Cyber", Name = "Cyber Egg", MinArea = 13, MaxArea = 20, Weight = 35, HatchSeconds = 4500, Tier = 5,
 		Color = rgb(30, 30, 45), Accent = rgb(255, 40, 200),
 		Pool = { { Pet = "PixelPup", Weight = 55 }, { Pet = "DroneBird", Weight = 32 }, { Pet = "MechaCat", Weight = 12 }, { Pet = "NeonOverlord", Weight = 1 } },
 	},

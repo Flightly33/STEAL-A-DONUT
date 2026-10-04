@@ -1,9 +1,9 @@
 --[[
-	Carried: the donut (or egg) each player is carrying, drawn by every client.
+	Carried: the box (or donut, or egg) each player is carrying, drawn by every client.
 
-	The server only sets attributes on the carrier - CarryingDonut (the donut's or egg's id),
-	CarryKind ("Lane" / "Raid" / "Egg"), CarryMutation and CarrySize - and every client builds the
-	model itself: donuts held in both arms (arms raised), eggs above the head. Nothing is sent over
+	The server only sets attributes on the carrier - CarryingDonut (the box's tier, the donut's or
+	the egg's id), CarryKind ("Box" / "Raid" / "Egg"), CarryMutation and CarrySize - and every client
+	builds the model itself: donuts held in both arms (arms raised), boxes and eggs above the head. Nothing is sent over
 	the network and nothing is welded into a character on the server, which is what used to make the
 	first second of a steal stutter on phones (a donut is ~110 parts).
 
@@ -21,6 +21,7 @@ local Donuts = require(Shared.Donuts)
 local Pets = require(Shared.Pets)
 local DonutModel = require(Shared.DonutModel)
 local PetModel = require(Shared.PetModel)
+local BoxModel = require(Shared.BoxModel)
 
 local Carried = {}
 
@@ -28,6 +29,7 @@ local player = Players.LocalPlayer :: Player
 
 local DONUT_SCALE = 0.45
 local EGG_SCALE = 0.6
+local BOX_SCALE = 0.7
 local BUILD_RANGE = 250 -- other players' carried donuts are drawn within this many studs of you...
 local DROP_RANGE = 320 -- ...and removed again past this
 local SPARE_LIFETIME = 6 -- seconds a donut built in advance (while holding Steal) is kept
@@ -48,7 +50,8 @@ local function keyFor(target: Player): string?
 	local kind = target:GetAttribute("CarryKind")
 	local mutation = target:GetAttribute("CarryMutation")
 	local size = target:GetAttribute("CarrySize")
-	return `{if kind == "Egg" then "Egg" else "Donut"}|{id}|{mutation or "None"}|{size or "Normal"}`
+	local tag = if kind == "Egg" then "Egg" elseif kind == "Box" then "Box" else "Donut"
+	return `{tag}|{id}|{mutation or "None"}|{size or "Normal"}`
 end
 
 local function build(key: string): Model?
@@ -57,6 +60,11 @@ local function build(key: string): Model?
 	if fields[1] == "Egg" then
 		local egg = Pets.EggById[fields[2]]
 		model = if egg then PetModel.BuildEgg(egg, { Scale = EGG_SCALE }) else nil
+	elseif fields[1] == "Box" then
+		local box = BoxModel.Build(fields[2], fields[4], { Mutation = fields[3], Scale = BOX_SCALE })
+		-- (a box sits on the head by its bottom: no Bottom offset needed)
+		box:SetAttribute("Bottom", 0.4)
+		model = box
 	else
 		local donut = Donuts.ById[fields[2]]
 		model = if donut then DonutModel.Build(donut, { Scale = DONUT_SCALE, Mutation = fields[3], Size = fields[4] }) else nil
@@ -170,7 +178,7 @@ local function refresh(target: Player)
 	if not model then
 		return
 	end
-	local isEgg = string.sub(key, 1, 4) == "Egg|"
+	local isEgg = string.sub(key, 1, 4) == "Egg|" or string.sub(key, 1, 4) == "Box|"
 	if not attach(character, model, not isEgg) then
 		model:Destroy()
 		return
@@ -204,13 +212,15 @@ local function prebuild(prompt: ProximityPrompt, who: Player)
 		return
 	end
 	local source: Instance? = prompt.Parent
-	while source and source:GetAttribute("DonutId") == nil do
+	while source and source:GetAttribute("DonutId") == nil and source:GetAttribute("BoxId") == nil do
 		source = source.Parent
 	end
 	if not source then
 		return
 	end
-	local key = `Donut|{source:GetAttribute("DonutId")}|{source:GetAttribute("Mutation") or "None"}|{source:GetAttribute("Size") or "Normal"}`
+	local key = if source:GetAttribute("BoxId") ~= nil
+		then `Box|{source:GetAttribute("Tier")}|{source:GetAttribute("Mutation") or "None"}|{source:GetAttribute("BoxSize") or "Small"}`
+		else `Donut|{source:GetAttribute("DonutId")}|{source:GetAttribute("Mutation") or "None"}|{source:GetAttribute("Size") or "Normal"}`
 	if spare and spare.Key == key then
 		spare.At = os.clock()
 		return

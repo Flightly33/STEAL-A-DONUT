@@ -5,13 +5,13 @@
 	client (see client/Guards.luau), so everyone sees their own sleepy Domer and nobody can wake him
 	up for someone else.
 
-	When you steal a donut, the server spawns YOUR chasing guard at the blanket: he wakes up, yells,
-	and chases you until he catches you or you reach the safe zone. Then he poofs away and your
-	client puts him back to sleep on his blanket. Other players' clients hide your guard, so you
-	never see anyone else's Domers.
+	When you steal a box, the server spawns YOUR chasing guard in his corner: he wakes up, yells,
+	and chases you - through every biome on the way, keeping his own speed - until he catches you
+	or you reach the lobby. Then he poofs away and your client puts him back to sleep. Other
+	players' clients hide your guard, so you never see anyone else's Domers. (Pick up a box someone
+	dropped and its Domer appears a little way behind you instead.)
 
-	Guard speed per area comes from Economy.GuardWalkSpeed (i.e. from Areas.RecommendedSpeed and the
-	world's speed bonus).
+	Guard speed per biome comes from Economy.GuardWalkSpeed (the biome's Speed requirement).
 
 	Catching is lag compensated: the server keeps a short history of where the guard was and judges
 	the catch against where he was on YOUR screen when you were at your current position (your ping
@@ -137,14 +137,20 @@ end
 -- Public API
 --------------------------------------------------------------------------------
 
--- `player` stole a donut in `areaId`: their own guard wakes up and gives chase.
-function GuardService.Alert(areaId: number, player: Player): Guard?
+-- `player` stole a box from `areaId`: their own guard wakes up and gives chase. `spawnAt`: where
+-- he appears (default: his corner).
+function GuardService.Alert(areaId: number, player: Player, spawnAt: Vector3?): Guard?
 	local existing = guards[player]
 	if existing then
 		vanish(existing)
 	end
 	local model, status = GuardModel.Build(areaId, { Humanoid = true, CollisionGroup = "Guards" })
 	local home = homeCFrame(areaId)
+	if spawnAt then
+		local limit = Layout.AreaHalfWidth(math.max(Layout.AreaAt(spawnAt), 1)) - 12
+		local z = math.min(spawnAt.Z, Layout.LaneEnd() - 12)
+		home = CFrame.new(math.clamp(spawnAt.X, -limit, limit), 0, z)
+	end
 	model:PivotTo(GuardModel.StandCFrame(home))
 	model:SetAttribute("OwnerUserId", player.UserId)
 	CollectionService:AddTag(model, "Guard")
@@ -283,7 +289,8 @@ local function updateGuard(guard: Guard, now: number)
 	-- Chase (lead the target a little, never step into the safe zone or through the walls)
 	local lead = targetRoot.AssemblyLinearVelocity * 0.15
 	local goal = targetPos + Vector3.new(lead.X, 0, lead.Z)
-	local minX, maxX = Layout.LaneLimits(guard.AreaId)
+	-- (he follows you through the other biomes: keep him inside whichever one he's in)
+	local minX, maxX = Layout.LaneLimits(math.max(Layout.AreaAt(guardPos), 1))
 	local margin = Config.Guard.Scale -- he's huge: keep his body off the walls
 	goal = Vector3.new(math.clamp(goal.X, minX + margin, maxX - margin), guardPos.Y, math.max(goal.Z, Config.Map.SafeZoneZ + 3 + margin))
 	guard.Humanoid:MoveTo(goal)

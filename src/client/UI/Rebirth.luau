@@ -6,7 +6,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
@@ -46,7 +45,7 @@ function Rebirth.Init()
 	local speedFill, speedLabel = progressBar(body, 108, Theme.Colors.Speed)
 	local moneyFill, moneyLabel = progressBar(body, 146, Theme.Colors.Green)
 	Theme.Label({
-		Text = "❌ Resets: Money, Speed, treadmill, Speed Multiplier and the donuts in your base\n✅ Keeps: game passes, items, skins, base expansions and Index rewards",
+		Text = "❌ Resets: your Money and Speed\n✅ Keeps: your donuts, boxes, treadmills, base upgrades, game passes, skins and Index rewards",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
 		Size = UDim2.new(1, 0, 0, 60), Position = UDim2.fromOffset(0, 188), StrokeThickness = 1.5, Parent = body,
 	})
@@ -71,13 +70,8 @@ function Rebirth.Init()
 			return
 		end
 		reward.Text = `REBIRTH {rebirths + 1}: 💵 x{Format.Multiplier(Economy.RebirthMoneyMultiplier(rebirths + 1))} money  ⚡ x{Format.Multiplier(Economy.RebirthSpeedMultiplier(rebirths + 1))} speed`
-		local unlockText = ""
-		for _, world in Areas.Worlds do
-			if world.RequiredRebirths == rebirths + 1 then
-				unlockText = `🔓 Unlocks World {world.Id}: {world.Icon} {world.Name} (everyone is x{world.WalkMultiplier} faster there)`
-			end
-		end
-		unlock.Text = unlockText
+		unlock.Text = "⚠ Your Speed goes back to 0, so you start again from Biome 1 - but your treadmill is faster for good"
+
 		local speed, money = State.Number("Speed"), State.Number("Money")
 		speedFill.Size = UDim2.fromScale(math.clamp(speed / nextRebirth.Speed, 0, 1), 1)
 		moneyFill.Size = UDim2.fromScale(math.clamp(money / nextRebirth.Cost, 0, 1), 1)

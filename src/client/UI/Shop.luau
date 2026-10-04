@@ -1,12 +1,10 @@
 --[[
-	Shop window with five tabs:
+	Shop window with four tabs:
 	  Upgrades  - Speed Multiplier, Treadmill tiers, a Bigger Base and Incubator upgrades (money)
 	  Boosts    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
 	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
 	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
 	              paid random items rules). Hidden purchase for players whose region blocks them.
-	  Items     - weapons, traps and the base lock (in-game money), with spinning 3D previews of the
-	              real models (shared/ItemModel.luau)
 	  Skins     - base skins (paid with your Speed stat), equip the ones you own
 ]]
 
@@ -19,7 +17,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
-local ItemModel = require(Shared.ItemModel)
 local Crates = require(Shared.Crates)
 local CrateModel = require(Shared.CrateModel)
 local Pets = require(Shared.Pets)
@@ -36,7 +33,6 @@ local selectTab: (string) -> ()
 local refreshers: { () -> () } = {}
 local robuxPrices: { [number]: number } = {}
 local priceFailed: { [number]: boolean } = {}
-local buildItems: (ScrollingFrame) -> ()
 
 local function refreshAll()
 	for _, refresh in refreshers do
@@ -133,7 +129,7 @@ local function buildUpgrades(page: ScrollingFrame)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
 	local tip = card(page, 7, Theme.Colors.Green)
 	Theme.Label({
-		Text = `💡 Run on your treadmill to gain Speed: every {Config.Speed.SpeedPerWalk} Speed is +1 walk speed. Faster = you can steal from further areas, where donuts are rarer and earn way more! Upgrading your donuts (E on them) is cheap early on.`,
+		Text = "💡 Run on your treadmill to gain Speed. Every biome needs more Speed to get in - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
 	})
 
@@ -158,31 +154,26 @@ local function buildUpgrades(page: ScrollingFrame)
 		local level = math.max(1, State.Number("TreadmillLevel"))
 		local tier = Economy.TreadmillTier(level)
 		if level >= Economy.MaxTreadmillLevel() then
-			treadInfo.Text = `{tier.Name} (Tier {level}/{Economy.MaxTreadmillLevel()}) - the best!\n+{Format.Rate(tier.Rate)} speed/s base`
+			treadInfo.Text = `{tier.Name} (Tier {level}/{Economy.MaxTreadmillLevel()}) - the best!\n+{Format.Number(tier.PerStep)} speed every step`
 			Theme.SetButtonText(treadButton, "MAXED")
 			Theme.SetButtonColor(treadButton, Theme.Colors.Gray)
 		else
 			local nextTier = Economy.TreadmillTier(level + 1)
-			treadInfo.Text = `{tier.Name} → {nextTier.Name} (Tier {level + 1})\n+{Format.Rate(tier.Rate)}/s → +{Format.Rate(nextTier.Rate)}/s base`
-			if rebirths < nextTier.RequiredRebirths then
-				Theme.SetButtonText(treadButton, `🔒 Needs Rebirth {nextTier.RequiredRebirths}`)
-				Theme.SetButtonColor(treadButton, Theme.Colors.Gray)
-			else
-				Theme.SetButtonText(treadButton, "Buy " .. Format.Money(nextTier.Cost))
-				Theme.SetButtonColor(treadButton, if money >= nextTier.Cost then Theme.Colors.Green else Theme.Colors.Gray)
-			end
+			treadInfo.Text = `{tier.Name} → {nextTier.Name} (Tier {level + 1}/{Economy.MaxTreadmillLevel()})\n+{Format.Number(tier.PerStep)} → +{Format.Number(nextTier.PerStep)} speed every step`
+			Theme.SetButtonText(treadButton, "Buy " .. Format.Money(nextTier.Cost))
+			Theme.SetButtonColor(treadButton, if money >= nextTier.Cost then Theme.Colors.Green else Theme.Colors.Gray)
 		end
 
 		local baseLevel = math.max(1, State.Number("BaseLevel"))
 		local slots = Economy.SlotCount(baseLevel)
 		local sizeCost = Economy.BaseSizeCost(baseLevel)
 		if sizeCost then
-			expandTitle.Text = "🏢 BIGGER BASE"
+			expandTitle.Text = "🍩 BIGGER BASE"
 			expandInfo.Text = `Room for {slots} → {Economy.SlotCount(baseLevel + 1)} donuts\nKept forever, even when you rebirth`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(sizeCost))
 			Theme.SetButtonColor(expandButton, if money >= sizeCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
-			expandTitle.Text = "🏢 BASE"
+			expandTitle.Text = "🍩 BASE"
 			expandInfo.Text = `Room for {slots} donuts - as big as it gets!`
 			Theme.SetButtonText(expandButton, "MAXED")
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
@@ -212,10 +203,6 @@ local function buildUpgrades(page: ScrollingFrame)
 		local rate = Economy.TreadmillRate(level, multLevel, passMult, rebirths, indexBonus, petBonus, speed)
 		local walk = State.Number("WalkSpeed")
 		local extras = {}
-		local headStart = Economy.HeadStartMultiplier(speed)
-		if headStart > 1.01 then
-			table.insert(extras, `🚀 x{string.format("%.1f", headStart)} head start`)
-		end
 		if rebirths > 0 then
 			table.insert(extras, `🔄 x{Format.Multiplier(Economy.RebirthSpeedMultiplier(rebirths))}`)
 		end
@@ -496,78 +483,6 @@ local function buildSkins(page: ScrollingFrame)
 	end
 end
 
---------------------------------------------------------------------------------
--- Items (weapons, traps, base lock)
---------------------------------------------------------------------------------
-local KIND_LABEL = { Weapon = "⚔️ WEAPON", Trap = "🪤 TRAP", Lock = "🛡 DEFENSE" }
-
-function buildItems(page: ScrollingFrame)
-	local spinning: { { Camera: Camera, Radius: number, Height: number } } = {}
-	for order, item in Config.Items do
-		local c = card(page, order, item.Color)
-		-- A 3D preview of the real model, slowly turning
-		local viewport = Theme.new("ViewportFrame", {
-			BackgroundColor3 = Color3.fromRGB(25, 25, 40),
-			Size = UDim2.fromOffset(60, 60),
-			Position = UDim2.fromOffset(8, 6),
-			Ambient = Color3.fromRGB(170, 170, 170),
-			LightColor = Color3.fromRGB(255, 255, 255),
-			LightDirection = Vector3.new(-0.5, -1, 0.8),
-			Parent = c,
-		}, { Theme.Corner(10) })
-		local model = ItemModel.BuildPreview(item)
-		-- The item's +Z is "up the item": stand it upright, then centre it on the origin
-		local upright = CFrame.Angles(math.rad(-90), 0, 0)
-		model:PivotTo(upright)
-		local box, size = model:GetBoundingBox()
-		model:PivotTo(CFrame.new(-box.Position) * upright)
-		model.Parent = viewport
-		local radius = math.max(size.X, size.Y, size.Z) * 1.25 + 1
-		local camera = Instance.new("Camera")
-		camera.FieldOfView = 40
-		camera.CFrame = CFrame.lookAt(Vector3.new(0, 0, -radius), Vector3.zero)
-		camera.Parent = viewport
-		viewport.CurrentCamera = camera
-		table.insert(spinning, { Camera = camera, Radius = radius, Height = 0 })
-		Theme.Label({ Text = string.upper(item.Name), TextColor3 = item.Color:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 30), Position = UDim2.fromOffset(74, 8), Parent = c })
-		Theme.Label({ Text = KIND_LABEL[item.Kind] or item.Kind, Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 200, 210), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 18), Position = UDim2.fromOffset(74, 38), StrokeThickness = 1, Parent = c })
-		Theme.Label({ Text = item.Description, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 36), Position = UDim2.fromOffset(10, 68), StrokeThickness = 1.2, Parent = c })
-		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
-		-- Owned items: the button takes the item off your hotbar / puts it back (you keep owning it).
-		button.Activated:Connect(function()
-			local owned = item.Starter or (State.Data.Items and State.Data.Items[item.Id])
-			if owned then
-				State.Action("ToggleHotbar", item.Id)
-			else
-				State.Action("BuyItem", item.Id)
-			end
-		end)
-		table.insert(refreshers, function()
-			local owned = item.Starter or (State.Data.Items and State.Data.Items[item.Id])
-			local hidden = State.Data.HiddenItems and State.Data.HiddenItems[item.Id]
-			if owned and hidden then
-				Theme.SetButtonText(button, "➕ Put back on hotbar")
-				Theme.SetButtonColor(button, Theme.Colors.Blue)
-			elseif owned then
-				Theme.SetButtonText(button, "✓ In hotbar  •  tap to remove")
-				Theme.SetButtonColor(button, Theme.Colors.Gray)
-			else
-				Theme.SetButtonText(button, "Buy " .. Format.Money(item.Cost))
-				Theme.SetButtonColor(button, if State.Number("Money") >= item.Cost then Theme.Colors.Green else Theme.Colors.Gray)
-			end
-		end)
-	end
-	RunService.RenderStepped:Connect(function()
-		if not page.Visible then
-			return
-		end
-		local angle = os.clock() * 0.8
-		for _, entry in spinning do
-			entry.Camera.CFrame = CFrame.lookAt(Vector3.new(math.sin(angle) * entry.Radius, entry.Height, -math.cos(angle) * entry.Radius), Vector3.zero)
-		end
-	end)
-end
-
 function Shop.Open(tab: string?)
 	modal:Open()
 	selectTab(tab or "Upgrades")
@@ -580,7 +495,6 @@ function Shop.Init()
 		{ Name = "Upgrades", Text = "⚡ Upgrades", Color = Theme.Colors.Purple },
 		{ Name = "Passes", Text = "🚀 Boosts", Color = Theme.Colors.Orange },
 		{ Name = "Crates", Text = "🎁 Crates", Color = Theme.Colors.Yellow },
-		{ Name = "Items", Text = "⚔️ Items", Color = Theme.Colors.Red },
 		{ Name = "Skins", Text = "🎨 Skins", Color = Theme.Colors.Pink },
 	}, function(name)
 		for pageName, page in pages do
@@ -591,7 +505,6 @@ function Shop.Init()
 	buildUpgrades(newPage("Upgrades", body, 2, 190))
 	buildPasses(newPage("Passes", body, 2, 160))
 	buildCrates(newPage("Crates", body, 2, 290), body)
-	buildItems(newPage("Items", body, 2, 175))
 	buildSkins(newPage("Skins", body, 3, 180))
 
 	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "Rebirths", "BaseLevel", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
@@ -603,8 +516,8 @@ function Shop.Init()
 	end
 	State.Changed:Connect(refreshAll)
 
-	-- Shop stalls in the hub: walk onto a glowing circle (or press E at the counter) to open that
-	-- stall's tab. Walking off closes it again.
+	-- Shop stalls in the lobby (if a baked map still has any): walk onto a glowing circle (or press
+	-- E at the counter) to open that stall's tab. Walking off closes it again.
 	task.spawn(function()
 		local hub = workspace:WaitForChild("Map"):WaitForChild("Hub")
 		local player = Players.LocalPlayer :: Player

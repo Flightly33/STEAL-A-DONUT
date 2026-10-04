@@ -1,6 +1,7 @@
 --[[
-	Donut Index: every donut in the game grouped by world and area, with 3D previews.
-	Donuts you haven't stolen yet show as black silhouettes named "???".
+	Donut Index: every donut in the game, grouped by biome and by the box it comes out of (with the
+	chance of each box, and of each donut inside its box), with 3D previews. Donuts you haven't
+	found yet show as black silhouettes named "???".
 
 	Rewards: every donut you've found can be claimed once for cash. Epic and rarer donuts let you
 	pick a permanent treadmill speed bonus instead. The dots under a donut show which mutations
@@ -15,6 +16,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
+local Boxes = require(Shared.Boxes)
 local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
 local Economy = require(Shared.Economy)
@@ -46,8 +48,11 @@ local pages: { [number]: ScrollingFrame } = {}
 local cards: { [string]: Card } = {}
 local counter: TextLabel
 local legend: TextLabel
-local selectWorld: (string) -> ()
-local currentWorld = 1
+local selectPage: (string) -> ()
+local currentPage = 1
+
+-- The tabs: five biomes each
+local PAGES = { { 1, 5 }, { 6, 10 }, { 11, 15 }, { 16, 20 } }
 
 type Counts = { [string]: { number } }
 local globalStats: { D: Counts, M: Counts }? = nil
@@ -122,10 +127,7 @@ local function refresh()
 		local rarity = Rarities.Get(donut.Rarity)
 		local cash = Economy.IndexCashReward(id)
 		local speed = Economy.IndexSpeedReward(id)
-		local chance = if not Donuts.Spawnable(donut) then "Admin panel only" else `{string.format("%.2g", Donuts.Chance(donut) * 100)}% here`
-		if lucky and Donuts.Spawnable(donut) then
-			chance ..= ` (🍀 {string.format("%.2g", Donuts.Chance(donut, Config.LuckEvent.RarityLuck) * 100)}% now)`
-		end
+		local chance = if not Donuts.Spawnable(donut) then "Admin panel only" else `{string.format("%.2g", Donuts.Chance(donut) * 100)}% of box`
 		card.Rarity.Text = `{rarity.Id} • {chance}`
 		local counts = stats and stats.D[id]
 		if rarity.Order >= Config.GlobalStats.ShowFromRarity and Donuts.Spawnable(donut) then
@@ -179,7 +181,7 @@ local function refresh()
 			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {chance}{boosted} ({if stats then Format.Number(foundCount) else "?"} found)`)
 		end
 	end
-	legend.Text = "🌍 " .. table.concat(parts, "  ")
+	legend.Text = (if lucky then `🍀 Luck Event: Epic & Legendary boxes x{Config.LuckEvent.RarityLuck}!  ` else "") .. "🌍 " .. table.concat(parts, "  ")
 end
 
 local function fetchStats()
@@ -234,9 +236,16 @@ local function buildCard(grid: Instance, donut: Donuts.Donut, order: number)
 	cards[donut.Id] = { Viewport = viewport, Name = nameLabel, Info = info, Rarity = rarityLabel, Global = global, Dots = dots, Cash = cash, Speed = speedButton, Status = status }
 end
 
--- Build one world's page (previews are only built the first time you look at it).
-local function buildWorld(worldId: number)
-	if pages[worldId] then
+-- How a box is described over its donuts: "📦 EPIC DONUT BOX • 25% of boxes • opens in 10m"
+local function boxTitle(biome: number, tier: Boxes.Tier): string
+	local chance = Boxes.TierChance(biome, tier.Id)
+	local share = if chance >= 1 then "every box" else `{math.floor(chance * 1000 + 0.5) / 10}% of boxes`
+	return `📦 {string.upper(tier.Name)} • {share} • opens in {Format.Duration(Boxes.HatchSeconds(tier.Id, "Small"))}`
+end
+
+-- Build one tab's page (previews are only built the first time you look at it).
+local function buildPage(pageId: number)
+	if pages[pageId] then
 		return
 	end
 	local scroll = Theme.new("ScrollingFrame", {
@@ -253,16 +262,51 @@ local function buildWorld(worldId: number)
 		Theme.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 		Theme.new("UIPadding", { PaddingRight = UDim.new(0, 12), PaddingLeft = UDim.new(0, 2), PaddingBottom = UDim.new(0, 10) }),
 	})
-	pages[worldId] = scroll
-	for _, area in Areas.ByWorld[worldId] do
-		local section = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = area.Id, Parent = scroll })
-		Theme.Label({ Text = `AREA {area.Id} • {string.upper(area.Name)}`, TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 30), Parent = section })
-		local grid = Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 34), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = section }, {
+	pages[pageId] = scroll
+	local range = PAGES[pageId]
+	local order = 0
+	local function section(title: string, color: Color3, size: number): Frame
+		order += 1
+		local frame = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = scroll })
+		Theme.Label({ Text = title, TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, size), Parent = frame })
+		return frame
+	end
+	local function grid(parent: Instance, y: number): Frame
+		return Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent }, {
 			Theme.new("UIGridLayout", { CellSize = UDim2.fromOffset(170, 242), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 		})
-		local areaDonuts: { Donuts.Donut } = Donuts.ByArea[area.Id] or {}
-		for order, donut in areaDonuts do
-			buildCard(grid, donut, order)
+	end
+	for biome = range[1], range[2] do
+		local area = Areas.List[biome]
+		if not area then
+			continue
+		end
+		local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} Speed` else "any speed"
+		section(`BIOME {area.Id} • {string.upper(area.Name)} • {need}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), 32)
+		for _, tier in Boxes.TiersFor(biome) do
+			local list = Donuts.ByBox[biome] and Donuts.ByBox[biome][tier.Id]
+			if list and #list > 0 then
+				local frame = section(boxTitle(biome, tier), tier.Color:Lerp(Color3.new(1, 1, 1), 0.25), 24)
+				local cells = grid(frame, 28)
+				for index, donut in list do
+					buildCard(cells, donut, index)
+				end
+			end
+		end
+		-- donuts only the admin panel makes
+		local extra = {}
+		local inBiome: { Donuts.Donut } = Donuts.ByArea[biome] or {}
+		for _, donut in inBiome do
+			if not donut.Box then
+				table.insert(extra, donut)
+			end
+		end
+		if #extra > 0 then
+			local frame = section("🛠 ADMIN PANEL ONLY", Rarities.Get("Admin").Color, 24)
+			local cells = grid(frame, 28)
+			for index, donut in extra do
+				buildCard(cells, donut, index)
+			end
 		end
 	end
 end
@@ -276,19 +320,19 @@ function Index.Init()
 	counter = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), Position = UDim2.fromOffset(0, 50), Parent = modal.Body })
 	legend = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 20), Position = UDim2.fromOffset(0, 76), StrokeThickness = 1.2, Parent = modal.Body })
 	local tabs = {}
-	for _, world in Areas.Worlds do
-		table.insert(tabs, { Name = tostring(world.Id), Text = `{world.Icon} {world.Name}`, Color = world.Color })
+	for pageId, range in PAGES do
+		table.insert(tabs, { Name = tostring(pageId), Text = `Biomes {range[1]}-{range[2]}`, Color = Areas.List[range[1]].Trim })
 	end
-	selectWorld = Modal.Tabs(modal.Body, tabs, function(name)
-		currentWorld = tonumber(name) or 1
-		buildWorld(currentWorld)
-		for worldId, page in pages do
-			page.Visible = worldId == currentWorld
+	selectPage = Modal.Tabs(modal.Body, tabs, function(name)
+		currentPage = tonumber(name) or 1
+		buildPage(currentPage)
+		for pageId, page in pages do
+			page.Visible = pageId == currentPage
 		end
 		refresh()
 	end)
 	modal.OnOpen = function()
-		selectWorld(tostring(currentWorld))
+		selectPage(tostring(currentPage))
 		task.spawn(fetchStats)
 	end
 	-- Keep the global numbers fresh while the Index is open

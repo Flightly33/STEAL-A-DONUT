@@ -17,7 +17,7 @@ local AreaTracker = require(script.Parent.AreaTracker)
 
 local BlackHoleFX = {}
 
-local AREA = 34 -- The Black Hole
+local AREA = 20 -- The Black Hole
 local VIEW_DISTANCE = 2500
 local LAB_DISTANCE = 300
 

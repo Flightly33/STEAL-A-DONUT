@@ -7,24 +7,29 @@ local Config = require(script.Parent.Config)
 local Donuts = require(script.Parent.Donuts)
 local Rarities = require(script.Parent.Rarities)
 local Areas = require(script.Parent.Areas)
+local Boxes = require(script.Parent.Boxes)
 local Pets = require(script.Parent.Pets)
-local Layout = require(script.Parent.Layout)
+local _Layout = require(script.Parent.Layout)
 
 local Economy = {}
 
 --------------------------------------------------------------------------------
 -- Speed
 --------------------------------------------------------------------------------
--- WalkSpeed from the Speed stat, before the world bonus and carry slowdown. A straight line:
--- every Config.Speed.SpeedPerWalk Speed is +1 WalkSpeed.
+-- WalkSpeed from the Speed stat, before the carry slowdown (Config.Speed): grows with Speed, but
+-- more gently the bigger it gets (Speed reaches the hundreds of millions).
 function Economy.WalkSpeedFromStat(stat: number): number
 	local s = Config.Speed
-	return s.BaseWalkSpeed + math.max(stat, 0) / s.SpeedPerWalk -- no cap: keep training, keep getting faster
+	return s.BaseWalkSpeed + s.CurveScale * math.max(stat, 0) ^ s.CurvePower
 end
 
 function Economy.StatForWalkSpeed(walkSpeed: number): number
 	local s = Config.Speed
-	return math.max(0, (walkSpeed - s.BaseWalkSpeed) * s.SpeedPerWalk)
+	local extra = walkSpeed - s.BaseWalkSpeed
+	if extra <= 0 then
+		return 0
+	end
+	return (extra / s.CurveScale) ^ (1 / s.CurvePower)
 end
 
 -- The old logarithmic curve (saves from before the Speed stat became linear are converted with it).
@@ -32,79 +37,49 @@ function Economy.LegacyWalkSpeed(stat: number): number
 	return math.min(16 + 3 * math.log(1 + math.max(stat, 0) / 5, 2), 180)
 end
 
-function Economy.WorldWalkMultiplier(worldId: number?): number
-	return Areas.World(worldId or 1).WalkMultiplier
+-- (There's one world now: nobody gets a world bonus.)
+function Economy.WorldWalkMultiplier(_worldId: number?): number
+	return 1
 end
 
--- How much a carried donut slows you down (1 = not at all).
+-- How much a carried box or donut slows you down (1 = not at all).
 function Economy.CarrySpeed(sizeId: string?): number
 	return Rarities.Size(sizeId).CarrySpeed
 end
 
 -- The WalkSpeed a player actually gets.
-function Economy.PlayerWalkSpeed(stat: number, worldId: number?, carrySizeId: string?): number
-	local walk = Economy.WalkSpeedFromStat(stat) * Economy.WorldWalkMultiplier(worldId)
+function Economy.PlayerWalkSpeed(stat: number, _worldId: number?, carrySizeId: string?): number
+	local walk = Economy.WalkSpeedFromStat(stat)
 	if carrySizeId then
 		walk *= Economy.CarrySpeed(carrySizeId)
 	end
 	return walk
 end
 
--- Guards in later worlds get the same world bonus as players, so the recommended speeds still hold.
+-- A biome's Domer runs at the WalkSpeed of a player with exactly the biome's Speed requirement,
+-- times Config.Guard.ChaseFactor. The first biome's Domer is slower than anyone.
 function Economy.GuardWalkSpeed(areaId: number): number
 	local area = Areas.List[areaId]
-	return (Config.Speed.GuardBaseWalkSpeed + area.RecommendedSpeed / Config.Speed.SpeedPerWalk + area.GuardSpeedBonus) * Economy.WorldWalkMultiplier(area.World) * Config.Guard.SpeedMultiplier
+	if not area or area.RecommendedSpeed <= 0 then
+		return Config.Guard.BeginnerSpeed
+	end
+	return Economy.WalkSpeedFromStat(area.RecommendedSpeed) * Config.Guard.ChaseFactor
 end
 
--- The Speed that gets you home with at least the front half of an area's donuts: a straight race
--- to the safe zone against Domer, who wakes up after the area's WakeDelay and catches you within
--- CatchRadius. It's worked out from the guard settings, so the signs stay honest when you make
--- Domer faster or slower. (Areas' RecommendedSpeed is the base the guard's speed is tuned from.)
-local recommendedCache: { [number]: number } = {}
+-- The Speed you need to get into a biome.
 function Economy.RecommendedSpeed(areaId: number): number
-	local cached = recommendedCache[areaId]
-	if cached then
-		return cached
-	end
 	local area = Areas.List[areaId]
-	local worldMult = Economy.WorldWalkMultiplier(area.World)
-	local guardZ = Layout.AreaEnd(areaId) - Layout.GuardBackOffset
-	local firstSpawn = Layout.AreaStart(areaId) + Layout.SpawnStartMargin
-	local lastSpawn = guardZ - Layout.SpawnGuardMargin
-	local donutZ = (firstSpawn + lastSpawn) / 2 -- the middle of the spawn range
-	local guard = Economy.GuardWalkSpeed(areaId)
-	local wake = area.WakeDelay
-	local function escapes(walk: number): boolean
-		if walk >= guard then
-			return true
-		end
-		local home = (donutZ - Config.Map.SafeZoneZ) / walk
-		local caughtAt = wake + ((guardZ - donutZ) + walk * wake - Config.Guard.CatchRadius) / (guard - walk)
-		return caughtAt >= home
-	end
-	local lo, hi = Config.Speed.BaseWalkSpeed * worldMult, guard
-	if escapes(lo) then
-		hi = lo
-	else
-		for _ = 1, 40 do
-			local mid = (lo + hi) / 2
-			if escapes(mid) then
-				hi = mid
-			else
-				lo = mid
-			end
-		end
-	end
-	local stat = math.max(0, Economy.StatForWalkSpeed(hi / worldMult))
-	local result = math.max(area.RecommendedSpeed, math.ceil(stat / 10 - 1e-9) * 10)
-	recommendedCache[areaId] = result
-	return result
+	return if area then area.RecommendedSpeed else 0
 end
 
--- WalkSpeed of a player with exactly the area's recommended Speed (world bonus included).
+-- WalkSpeed of a player with exactly the biome's Speed requirement.
 function Economy.RecommendedWalkSpeed(areaId: number): number
-	local area = Areas.List[areaId]
-	return Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(areaId)) * Economy.WorldWalkMultiplier(area.World)
+	return Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(areaId))
+end
+
+-- Can a player with this much Speed walk into the biome?
+function Economy.CanEnter(areaId: number, speed: number): boolean
+	return speed >= Economy.RecommendedSpeed(areaId)
 end
 
 -- Treadmill multiplier from the Speed Multiplier upgrade (+5% per level, adds up).
@@ -139,8 +114,8 @@ function Economy.RebirthSpeedMultiplier(rebirths: number): number
 end
 
 -- Requirements for the NEXT rebirth (nil when there are no more).
--- No limit: past the listed levels every rebirth needs Config.Rebirth.After.Speed more Speed and
--- costs Config.Rebirth.After.CostGrowth times more than the one before.
+-- No limit: past the listed levels every rebirth needs Config.Rebirth.After.SpeedGrowth times the
+-- Speed and costs Config.Rebirth.After.CostGrowth times more than the one before.
 function Economy.NextRebirth(rebirths: number): { Speed: number, Cost: number }?
 	local levels = Config.Rebirth.Levels
 	local listed = levels[rebirths + 1]
@@ -150,48 +125,26 @@ function Economy.NextRebirth(rebirths: number): { Speed: number, Cost: number }?
 	local last = levels[#levels]
 	local extra = rebirths + 1 - #levels
 	local after = Config.Rebirth.After
-	return { Speed = last.Speed + after.Speed * extra, Cost = last.Cost * after.CostGrowth ^ extra }
+	return { Speed = last.Speed * after.SpeedGrowth ^ extra, Cost = last.Cost * after.CostGrowth ^ extra }
 end
 
 function Economy.MaxRebirths(): number
 	return math.huge
 end
 
-function Economy.WorldUnlocked(worldId: number, rebirths: number, ultimate: number?): boolean
-	local world = Areas.World(worldId)
-	return rebirths >= world.RequiredRebirths and (ultimate or 0) >= (world.RequiredUltimate or 0)
-end
-
--- What a world needs, for messages: "2 Rebirths" / "an ULTIMATE REBIRTH".
-function Economy.WorldRequirementText(worldId: number): string
-	local world = Areas.World(worldId)
-	if (world.RequiredUltimate or 0) > 0 then
-		return "an ULTIMATE REBIRTH (find it in The Black Hole)"
-	end
-	return if world.RequiredRebirths == 1 then "1 Rebirth" else `{world.RequiredRebirths} Rebirths`
-end
-
--- Head Start bonus on treadmill gains for a player with this much Speed: x4 at 0, fading evenly
--- to x1 at Config.Treadmill.HeadStart.UntilSpeed.
-function Economy.HeadStartMultiplier(speed: number): number
-	local headStart = Config.Treadmill.HeadStart
-	return 1 + (headStart.Multiplier - 1) * math.clamp(1 - speed / headStart.UntilSpeed, 0, 1)
-end
-
--- Speed gained per second on the treadmill.
+-- Speed gained per second on the treadmill (StepsPerSecond steps of the tier's PerStep).
 -- indexBonus: total Index speed bonus in % (e.g. 35 = +35%).
 -- petBonus: total speed bonus of your equipped pets (0.25 = +25%).
--- speed: the player's current Speed (for the Head Start bonus; leave it out for the plain rate).
-function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?, speed: number?): number
+function Economy.TreadmillRate(treadmillLevel: number, multiplierLevel: number, speedPassMultiplier: number, rebirths: number?, indexBonus: number?, petBonus: number?, _speed: number?): number
 	local index = math.min((indexBonus or 0) / 100, Config.Index.MaxSpeedBonus)
 	local pets = math.min(petBonus or 0, Config.Pets.MaxSpeedBonus)
-	return Economy.TreadmillTier(treadmillLevel).Rate
+	return Economy.TreadmillTier(treadmillLevel).PerStep
+		* Config.Treadmill.StepsPerSecond
 		* Economy.SpeedMultiplier(multiplierLevel)
 		* speedPassMultiplier
 		* Economy.RebirthSpeedMultiplier(rebirths or 0)
 		* (1 + index)
 		* (1 + pets)
-		* (if speed then Economy.HeadStartMultiplier(speed) else 1)
 end
 
 --------------------------------------------------------------------------------
@@ -227,28 +180,37 @@ end
 --------------------------------------------------------------------------------
 -- Base expansions
 --------------------------------------------------------------------------------
--- The furthest area a player is fast enough for (in a world they've unlocked).
-function Economy.BestAreaFor(speed: number, rebirths: number, ultimate: number?): number
+-- The furthest biome a player is fast enough to get into.
+function Economy.BestAreaFor(speed: number, _rebirths: number?, _ultimate: number?): number
 	local best = 1
 	for _, area in Areas.List do
-		-- (World 2's areas copy Donut Land's speeds; "furthest" means the most valuable donuts)
-		if Economy.WorldUnlocked(area.World, rebirths, ultimate) and speed >= Economy.RecommendedSpeed(area.Id) and area.World ~= 5 then
+		if speed >= area.RecommendedSpeed then
 			best = math.max(best, area.Id)
 		end
 	end
 	return best
 end
 
--- Crate coins: `seconds` of income from the best normal donut (no Secrets / Admins) of the
--- furthest area your Speed is good for, with your rebirth money bonus. Grows as you progress.
-function Economy.CrateCoins(seconds: number, speed: number, rebirths: number): number
-	local best = 0
-	for _, donut in Donuts.ByArea[Economy.BestAreaFor(speed, rebirths)] do
-		if donut.Rarity ~= "Secret" and donut.Rarity ~= "Admin" and donut.Rarity ~= "Icon" then
-			best = math.max(best, donut.Income)
+-- What a donut out of a (Small, plain) box from `biome` earns on average: every box tier and
+-- every donut in it, weighted by their chances.
+function Economy.TypicalBoxIncome(biome: number): number
+	local total = 0
+	for _, tier in Boxes.TiersFor(biome) do
+		local chance = Boxes.TierChance(biome, tier.Id)
+		local pool = Donuts.ByBox[biome] and Donuts.ByBox[biome][tier.Id]
+		if chance > 0 and pool then
+			for _, donut in pool do
+				total += chance * Donuts.Chance(donut) * donut.Income
+			end
 		end
 	end
-	return math.floor(seconds * best * Economy.RebirthMoneyMultiplier(rebirths))
+	return total
+end
+
+-- Crate coins: `seconds` of income from a typical donut of the furthest biome your Speed is good
+-- for, with your rebirth money bonus. Grows as you progress.
+function Economy.CrateCoins(seconds: number, speed: number, rebirths: number): number
+	return math.floor(seconds * Economy.TypicalBoxIncome(Economy.BestAreaFor(speed, rebirths)) * Economy.RebirthMoneyMultiplier(rebirths))
 end
 
 -- How many donuts a base of size `level` holds (Config.Plots.Sizes; past the last size - the

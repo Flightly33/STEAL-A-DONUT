@@ -25,6 +25,10 @@ local Remotes = require(Shared.Remotes)
 local DataService = {}
 
 export type SlotData = { Id: string, Level: number, Mutation: string?, Size: string? }
+-- A donut box waiting to open in the pen (it takes a slot, like a donut). HatchAt: os.time() it opens.
+export type PenBox = { Tier: string, Size: string, Area: number, Mutation: string?, HatchAt: number }
+-- Something in the inventory (a Tool in the backpack): a box to put in your pen, or a donut.
+export type InvItem = { Uid: string, Kind: string, Id: string?, Level: number?, Tier: string?, Size: string?, Area: number?, Mutation: string? }
 export type EggData = { Uid: string, Id: string, HatchAt: number } -- HatchAt: os.time() when it's ready
 export type PetData = { Uid: string, Id: string }
 
@@ -35,7 +39,10 @@ export type Data = {
 	Speed: number,
 	TreadmillLevel: number,
 	SpeedMultLevel: number,
-	Slots: { [string]: SlotData },
+	Slots: { [string]: SlotData }, -- donuts in the pen ("1".."N")
+	PenBoxes: { [string]: PenBox }, -- boxes waiting to open in the pen (same slot numbers)
+	Inventory: { InvItem }, -- boxes brought home and donuts that came out of them
+	NextUid: number,
 	Discovered: { [string]: boolean },
 	DiscoveredMutations: { [string]: { [string]: boolean } }, -- donutId -> mutations found
 	IndexClaims: { [string]: string }, -- donutId -> "Cash" | "Speed"
@@ -68,7 +75,6 @@ export type Data = {
 	IncubatorSize: number,
 	DonorTier: number, -- the biggest tip bought (Config.Donations.Products[].Amount): gives a title
 	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
-	PermaLock: boolean,
 	SeenTutorial: boolean, -- the first-join "how to play" window -- admin: Base Lock that never runs out
 	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
@@ -83,11 +89,11 @@ export type Profile = {
 	Passes: { [string]: boolean }, -- owned game passes this session
 	SessionSkins: { [string]: boolean }, -- Studio test purchases (never saved)
 	-- TestDonated / TestDonorTier: Studio test tips (shown for the session, never saved)
-	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, SizeAccess: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number },
+	Session: { Stunned: boolean, Ready: boolean, World: number, PendingOffline: { Amount: number, Seconds: number, Capped: boolean }?, Admin: boolean, SizeAccess: boolean, GodMode: boolean, TestDonated: number, TestDonorTier: number, PendingSkip: number? },
 	NoSave: boolean,
 }
 
-local DATA_VERSION = 5
+local DATA_VERSION = 6
 
 local TEMPLATE: Data = {
 	Version = DATA_VERSION,
@@ -97,6 +103,9 @@ local TEMPLATE: Data = {
 	TreadmillLevel = 1,
 	SpeedMultLevel = 0,
 	Slots = {},
+	PenBoxes = {},
+	Inventory = {},
+	NextUid = 1,
 	Discovered = {},
 	DiscoveredMutations = {},
 	IndexClaims = {},
@@ -129,7 +138,6 @@ local TEMPLATE: Data = {
 	IncubatorSize = 0,
 	DonorTier = 0,
 	HiddenItems = {},
-	PermaLock = false,
 	SeenTutorial = false,
 	SeenUpdate = 0,
 	NotesOnLogin = true,
@@ -209,6 +217,43 @@ local function migrate(data: Data, isNew: boolean)
 			data.BaseLevel = math.max(data.BaseLevel, Economy.LevelForSlots(stands))
 		end
 		data.Version = 5
+	end
+	if data.Version < 6 then
+		-- Version 6 (Update 6): donut boxes, one long lane of 20 biomes, a new money and speed curve.
+		-- Old progress doesn't fit the new game, so everyone starts over: money, speed, donuts,
+		-- pets, rebirths, base size, treadmills and the Index. Kept: game passes, Robux donated,
+		-- time played, owned skins, settings, admin flags.
+		if not isNew then
+			data.Money = 0
+			data.TotalEarned = 0
+			data.Speed = 0
+			data.BestSpeed = 0
+			data.TreadmillLevel = 1
+			data.SpeedMultLevel = 0
+			data.Slots = {}
+			data.PenBoxes = {}
+			data.Inventory = {}
+			data.Discovered = {}
+			data.DiscoveredMutations = {}
+			data.IndexClaims = {}
+			data.BestDonutScore = 0
+			data.Rebirths = 0
+			data.UltimateRebirths = 0
+			data.BaseLevel = 1
+			data.Expansions = 0
+			data.Floors = 1
+			data.Items = {}
+			data.Eggs = {}
+			data.Pets = {}
+			data.EquippedPets = {}
+			data.Favorite = nil
+			data.SpeedBoostSeconds = 0
+			data.IncubatorSpeed = 0
+			data.IncubatorSize = 0
+			data.SeenTutorial = false
+			data.TutorialEggClaimed = false
+		end
+		data.Version = 6
 	end
 end
 
@@ -547,7 +592,6 @@ function DataService.PushState(player: Player)
 		Favorite = profile.Data.Favorite,
 		Donated = profile.Data.Donated + profile.Session.TestDonated,
 		HiddenItems = profile.Data.HiddenItems,
-		PermaLock = profile.Data.PermaLock,
 		SeenTutorial = profile.Data.SeenTutorial,
 		SeenUpdate = profile.Data.SeenUpdate,
 		NotesOnLogin = profile.Data.NotesOnLogin,

@@ -1,20 +1,21 @@
 --[[
 	PlotService
 	===========
-	Player bases: plot assignment, the donuts in them (with Upgrade / Sell / Favorite prompts),
-	base income, the owner sign, bigger bases, base skins, and the podium that shows off the
-	player's rarest or best-earning donut.
+	Player bases: plot assignment, what's in them (donuts with Upgrade / Sell / Favorite prompts,
+	and donut boxes waiting to open), base income, the owner sign, the upgrade sign by the gate,
+	base skins, and the podium that shows off the player's rarest or best-earning donut.
 
-	A base is an open pen (like Steal an Egg): a fenced patch of ground where your donuts roam
-	around. Every donut has its own patch of the pen (Layout.SlotHome) and wanders around it; the
-	clients move them (client/DonutIdle.luau) along the path Roam.luau works out from the shared
-	server clock, and the server uses the same path to check that a thief is really next to one
-	(GetDonutPosition). Buying a bigger base (BuySize, Config.Plots.Sizes) makes the pen bigger,
-	with room for more donuts.
+	A base is a donut shop with an open pen in front (like Steal an Egg): a fenced patch of ground
+	where your donuts roam around. Every donut has its own patch of the pen (Layout.SlotHome) and
+	wanders around it; the clients move them (client/DonutIdle.luau) along the path Roam.luau works
+	out from the shared server clock, and the server uses the same path to check that a thief is
+	really next to one (GetDonutPosition). Upgrading the base at its sign (BuySize,
+	Config.Plots.Sizes) makes the pen a little bigger, with room for more donuts.
 
-	Every world's hub has the same plots. You keep the same plot number everywhere, and your base
-	(donuts, treadmill, podium, incubator) moves to whichever world you're in (MoveBase), so you
-	never have to run back to the main hub to drop off a donut.
+	Boxes (AddBox): a box you put down in your pen takes a slot and opens after its time
+	(Boxes.HatchSeconds - also while you're offline; Box Rushes speed it up, Robux skips it). It
+	pops open (every client plays BoxFX), and the donut inside goes into your inventory
+	(BoxOpened -> InventoryService).
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -30,30 +31,33 @@ local Layout = require(Shared.Layout)
 local DonutModel = require(Shared.DonutModel)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
-local Areas = require(Shared.Areas)
 local Roam = require(Shared.Roam)
+local Boxes = require(Shared.Boxes)
+local BoxModel = require(Shared.BoxModel)
 
 local Build = require(script.Parent.Build)
 local MapBuilder = require(script.Parent.MapBuilder)
 local DataService = require(script.Parent.DataService)
+local StatsService = require(script.Parent.StatsService)
 
 local PlotService = {}
 
 -- Set by RaidService: called for every new raid prompt (owner, slotIndex, prompt).
 PlotService.RaidHandler = nil :: ((Player, number, ProximityPrompt) -> ())?
--- Fired after a player's base moved to another world: (player, oldWorld, newWorld).
--- The treadmill, incubator and traps rebuild themselves from this.
-PlotService.BaseMoved = Signal.new()
--- Fired after a player's base got bigger (its pen was rebuilt): (player). The Base Lock's walls
--- follow the fence from this.
+-- Fired after a player's base got bigger (its pen was rebuilt): (player).
 PlotService.Resized = Signal.new()
+-- Fired when a box in a pen opens: (player, donutId, mutationId, sizeId). The donut goes into the
+-- owner's inventory (InventoryService).
+PlotService.BoxOpened = Signal.new()
 
 local rgb = Color3.fromRGB
 
 local plotOwners: { [number]: Player } = {}
 local playerPlots: { [Player]: number } = {}
-local baseWorlds: { [Player]: number } = {}
 local slotModels: { [Player]: { [number]: Model } } = {}
+local boxModels: { [Player]: { [number]: Model } } = {}
+local opening: { [Player]: { [number]: boolean } } = {} -- boxes playing their opening animation
+local rng = Random.new()
 local baseIncome: { [Player]: number } = {}
 
 local function notify(player: Player, text: string, kind: string?)
@@ -76,9 +80,9 @@ function PlotService.GetPlotIndex(player: Player): number?
 	return playerPlots[player]
 end
 
--- The world the player's base is in right now.
-function PlotService.GetBaseWorld(player: Player): number
-	return baseWorlds[player] or 1
+-- (There's one lobby now: every base is in world 1.)
+function PlotService.GetBaseWorld(_player: Player): number
+	return 1
 end
 
 function PlotService.GetPlotModel(player: Player): Model?
@@ -112,13 +116,19 @@ function PlotService.GetSlotCount(player: Player): number
 	return Economy.SlotCount(PlotService.GetBaseLevel(player))
 end
 
+-- Is a slot of the pen taken (by a donut or a box waiting to open)?
+local function slotTaken(profile: DataService.Profile, key: string): boolean
+	return profile.Data.Slots[key] ~= nil or profile.Data.PenBoxes[key] ~= nil
+end
+
 function PlotService.GetFreeSlot(player: Player): number?
 	local profile = DataService.Get(player)
 	if not profile then
 		return nil
 	end
+	local busy = opening[player] or {}
 	for i = 1, PlotService.GetSlotCount(player) do
-		if not profile.Data.Slots[tostring(i)] then
+		if not slotTaken(profile, tostring(i)) and not busy[i] then
 			return i
 		end
 	end
@@ -154,26 +164,33 @@ local function compactSlots(player: Player)
 	end
 	local count = PlotService.GetSlotCount(player)
 	local overflow = {}
-	for key in profile.Data.Slots do
-		local number = tonumber(key)
-		if number and number > count then
-			table.insert(overflow, number)
+	for _, list in { profile.Data.Slots, profile.Data.PenBoxes } :: { { [string]: any } } do
+		for key in list do
+			local number = tonumber(key)
+			if number and number > count then
+				table.insert(overflow, number)
+			end
 		end
 	end
 	table.sort(overflow)
 	local free = 1
 	for _, number in overflow do
-		while free <= count and profile.Data.Slots[tostring(free)] do
+		while free <= count and slotTaken(profile, tostring(free)) do
 			free += 1
 		end
 		if free > count then
 			break
 		end
-		local key = tostring(number)
-		profile.Data.Slots[tostring(free)] = profile.Data.Slots[key]
-		profile.Data.Slots[key] = nil
-		if profile.Data.Favorite == key then
-			profile.Data.Favorite = tostring(free)
+		local key, target = tostring(number), tostring(free)
+		if profile.Data.Slots[key] then
+			profile.Data.Slots[target] = profile.Data.Slots[key]
+			profile.Data.Slots[key] = nil
+			if profile.Data.Favorite == key then
+				profile.Data.Favorite = target
+			end
+		else
+			profile.Data.PenBoxes[target] = profile.Data.PenBoxes[key]
+			profile.Data.PenBoxes[key] = nil
 		end
 	end
 end
@@ -181,9 +198,8 @@ end
 --------------------------------------------------------------------------------
 -- Sign above the plot
 --------------------------------------------------------------------------------
--- How far above its anchor the sign floats: over the roof of the building (or over the top deck
--- when bases aren't enclosed), so it's always visible.
--- The owner sign floats over the back of the pen (which moves back as the base gets bigger).
+-- The owner sign floats over the donut shop at the back of the pen (which moves back as the
+-- base gets bigger), above the giant donut on its roof.
 local function placeSign(plot: Model, slots: number)
 	local anchor = plot:FindFirstChild("SignAnchor") :: BasePart?
 	local index = plot:GetAttribute("PlotIndex")
@@ -191,12 +207,13 @@ local function placeSign(plot: Model, slots: number)
 		return
 	end
 	local center, size = Layout.PenBounds(slots)
-	local cf = Layout.PlotCFrame(index, (plot:GetAttribute("WorldId") :: number?) or 1)
-	anchor.CFrame = cf * CFrame.new(0, Layout.PlotFloorHeight + 19, center.Z + size.Y / 2 + 4)
+	local cf = Layout.PlotCFrame(index)
+	anchor.CFrame = cf * CFrame.new(0, Layout.PlotFloorHeight + 38, center.Z + size.Y / 2 + 5 + Layout.ShopDepth / 2)
 end
 
-local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, away: boolean?)
-	local plot = MapBuilder.GetPlot(plotIndex, worldId)
+local function refreshSign(plotIndex: number, owner: Player?)
+	local away = false
+	local plot = MapBuilder.GetPlot(plotIndex)
 	local anchor = plot:FindFirstChild("SignAnchor") :: BasePart?
 	if not anchor then
 		return
@@ -247,12 +264,7 @@ local function refreshSign(plotIndex: number, owner: Player?, worldId: number?, 
 		avatar.ImageTransparency = if away then 0.45 else 0
 	end
 	placeSign(plot, if owner and not away then PlotService.GetSlotCount(owner) else Config.Plots.Sizes[1].Slots)
-	if owner and away then
-		nameLabel.Text = `{owner.DisplayName}'s base`
-		nameLabel.TextColor3 = rgb(200, 200, 200)
-		incomeLabel.Text = `(in {Areas.World(PlotService.GetBaseWorld(owner)).Name})`
-		incomeLabel.TextColor3 = rgb(200, 200, 200)
-	elseif owner then
+	if owner then
 		nameLabel.Text = owner.DisplayName
 		nameLabel.TextColor3 = rgb(255, 255, 255)
 		incomeLabel.TextColor3 = rgb(90, 255, 90)
@@ -274,7 +286,7 @@ local labelMultiplier: { [Player]: number } = {} -- the money multiplier the sta
 function PlotService.RefreshSign(player: Player)
 	local index = playerPlots[player]
 	if index then
-		refreshSign(index, player, PlotService.GetBaseWorld(player))
+		refreshSign(index, player)
 	end
 	-- Money passes, rebirths and pets changed what every donut earns: update their labels.
 	local profile = DataService.Get(player)
@@ -561,8 +573,8 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	favorite:SetAttribute("OwnerUserId", player.UserId)
 	favorite.Parent = root
 
-	-- Raid prompt: other players hold this for Config.Raid.HoldSeconds while the owner is away.
-	-- RaidService turns it on/off and handles the steal; the owner never sees it.
+	-- Raid prompt: other players hold this for Config.Raid.HoldSeconds (whether the owner is home
+	-- or not: there are no base locks). RaidService handles the steal; the owner never sees it.
 	if Config.Raid.Enabled then
 		local raid = Instance.new("ProximityPrompt")
 		raid.Name = "RaidPrompt"
@@ -573,7 +585,6 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 		raid.HoldDuration = Config.Raid.HoldSeconds
 		raid.MaxActivationDistance = 13
 		raid.RequiresLineOfSight = false
-		raid.Enabled = false
 		raid:SetAttribute("HideForUserId", player.UserId)
 		raid:SetAttribute("SlotIndex", slotIndex)
 		raid.Parent = root
@@ -694,20 +705,6 @@ function PlotService.TakeSlot(player: Player, slotIndex: number): DataService.Sl
 	return slot
 end
 
--- All raid prompts on a player's base (so RaidService can switch them on and off).
-function PlotService.GetRaidPrompts(player: Player): { ProximityPrompt }
-	local prompts = {}
-	local models: { [number]: Model } = slotModels[player] or {}
-	for _, model in models do
-		local root = model.PrimaryPart
-		local prompt = root and root:FindFirstChild("RaidPrompt")
-		if prompt and prompt:IsA("ProximityPrompt") then
-			table.insert(prompts, prompt)
-		end
-	end
-	return prompts
-end
-
 function PlotService.UpgradeSlot(player: Player, slotIndex: number)
 	local profile = DataService.Get(player)
 	local slot = profile and profile.Data.Slots[tostring(slotIndex)]
@@ -764,6 +761,311 @@ function PlotService.ClearAll(player: Player)
 	end
 	slotModels[player] = {}
 	afterSlotsChanged(player)
+end
+
+--------------------------------------------------------------------------------
+-- Boxes in the pen
+--------------------------------------------------------------------------------
+local OPEN_ANIMATION = 2.8 -- seconds the opening plays (client/BoxFX) before the box is gone
+
+-- A donut came out of a box: the Index, the "rarest donut" score, the global stats and a
+-- server-wide announcement for the really rare ones.
+function PlotService.RecordFind(player: Player, donutId: string, mutationId: string, sizeId: string)
+	local profile = DataService.Get(player)
+	local donut = Donuts.ById[donutId]
+	if not profile or not donut then
+		return
+	end
+	local isNew = not profile.Data.Discovered[donut.Id]
+	profile.Data.Discovered[donut.Id] = true
+	local found = profile.Data.DiscoveredMutations[donut.Id] or {}
+	profile.Data.DiscoveredMutations[donut.Id] = found
+	local newMutation = mutationId ~= "None" and not found[mutationId]
+	found[mutationId] = true
+	local score = Donuts.Score(donut, mutationId)
+	if score > profile.Data.BestDonutScore then
+		profile.Data.BestDonutScore = score
+	end
+	-- (admins' finds would skew the global rarity numbers)
+	local foundCount = nil
+	if not profile.Data.UsedAdmin then
+		StatsService.RecordSpawn(donut.Id, mutationId)
+		foundCount = StatsService.RecordFound(donut.Id, mutationId)
+	end
+	local rarity = Rarities.Get(donut.Rarity)
+	if rarity.Order >= Config.Spawns.AnnounceRarity or mutationId == "Rainbow" or mutationId == "Eternal" then
+		local ever = if foundCount then ` (#{Format.Commas(foundCount)} ever found)` else ""
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} got a {string.upper(rarity.Id)} donut: {Rarities.DisplayName(donut.Name, mutationId, sizeId)}!{ever}`, rarity.Color)
+	end
+	if isNew or newMutation then
+		DataService.PushState(player)
+	end
+	if isNew and Economy.IndexCashReward(donut.Id) > 0 then
+		notify(player, "📖 New donut! Claim its reward in the Index.", "success")
+	end
+end
+
+local function spawnBoxModel(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local plot = PlotService.GetPlotModel(player)
+	if not profile or not plot then
+		return
+	end
+	boxModels[player] = boxModels[player] or {}
+	local existing = boxModels[player][slotIndex]
+	if existing then
+		existing:Destroy()
+		boxModels[player][slotIndex] = nil
+	end
+	local box = profile.Data.PenBoxes[tostring(slotIndex)]
+	if not box or slotIndex > PlotService.GetSlotCount(player) then
+		return
+	end
+	local slots = PlotService.GetSlotCount(player)
+	local origin = Layout.PlotCFrame(playerPlots[player] or 1)
+	local home = Layout.SlotHome(slotIndex, slots)
+	local model = BoxModel.Build(box.Tier, box.Size, { Mutation = box.Mutation, Area = box.Area })
+	-- (facing the gate, so you read "DONUTS" from the front)
+	BoxModel.PlaceOn(model, origin * CFrame.new(home + Vector3.new(0, Layout.PlotFloorHeight, 0)) * CFrame.Angles(0, math.pi, 0))
+	model.Name = "PenBox" .. slotIndex
+	model:SetAttribute("HatchAt", box.HatchAt)
+	model:SetAttribute("OwnerUserId", player.UserId)
+	model:SetAttribute("Slot", slotIndex)
+	local root = model.PrimaryPart :: BasePart
+	-- name + time left (clients count it down from HatchAt: client/BoxFX)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "BoxInfo"
+	gui.Size = UDim2.fromScale(9, 2.6)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.4, 0)
+	gui.LightInfluence = 0
+	gui.MaxDistance = 90
+	gui.Parent = root
+	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.45), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
+	Build.Text(gui, "", { Name = "Timer", Size = UDim2.fromScale(1, 0.55), Position = UDim2.fromScale(0, 0.45), TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0, Font = Enum.Font.FredokaOne })
+	-- "Open now" for Robux (only the owner sees it)
+	local skip = Instance.new("ProximityPrompt")
+	skip.Name = "SkipPrompt"
+	skip.ActionText = `Open now (R$ {Config.Boxes.SkipPrice})`
+	skip.ObjectText = "Skip the wait"
+	skip.KeyboardKeyCode = Enum.KeyCode.E
+	skip.GamepadKeyCode = Enum.KeyCode.ButtonX
+	skip.HoldDuration = 0
+	skip.MaxActivationDistance = 12
+	skip.RequiresLineOfSight = false
+	skip:SetAttribute("OwnerUserId", player.UserId)
+	skip.Parent = root
+	skip.Triggered:Connect(function(who)
+		if who == player then
+			PlotService.SkipHandler(player, slotIndex)
+		end
+	end)
+	CollectionService:AddTag(model, "PenBox")
+	model.Parent = plot
+	boxModels[player][slotIndex] = model
+end
+
+-- Set by ProductService: "Open now" was pressed on a box (prompts the Robux purchase).
+PlotService.SkipHandler = function(_player: Player, _slotIndex: number) end
+
+-- Put a box down in the pen: it takes the first free slot and starts opening. `near`: where the
+-- player is standing (the box goes in the free slot closest to them).
+function PlotService.AddBox(player: Player, tier: string, size: string, area: number, mutation: string?, near: Vector3?): number?
+	local profile = DataService.Get(player)
+	if not profile or not playerPlots[player] then
+		return nil
+	end
+	local slotIndex = PlotService.GetFreeSlot(player)
+	if slotIndex and near then
+		local origin = Layout.PlotCFrame(playerPlots[player])
+		local slots = PlotService.GetSlotCount(player)
+		local busy = opening[player] or {}
+		local best = math.huge
+		for i = 1, slots do
+			if not slotTaken(profile, tostring(i)) and not busy[i] then
+				local distance = (origin * Layout.SlotHome(i, slots) - near).Magnitude
+				if distance < best then
+					best, slotIndex = distance, i
+				end
+			end
+		end
+	end
+	if not slotIndex then
+		return nil
+	end
+	profile.Data.PenBoxes[tostring(slotIndex)] = {
+		Tier = tier,
+		Size = size,
+		Area = area,
+		Mutation = if mutation and mutation ~= "None" then mutation else nil,
+		HatchAt = os.time() + math.ceil(Boxes.HatchSeconds(tier, size)),
+	}
+	spawnBoxModel(player, slotIndex)
+	player:SetAttribute("BoxesPlaced", ((player:GetAttribute("BoxesPlaced") :: number?) or 0) + 1) -- (the tutorial watches this)
+	return slotIndex
+end
+
+-- Open a box right away (the Robux skip, or the admin panel).
+function PlotService.SkipBox(player: Player, slotIndex: number?): boolean
+	local profile = DataService.Get(player)
+	if not profile then
+		return false
+	end
+	local key = if slotIndex then tostring(slotIndex) else nil
+	if not key or not profile.Data.PenBoxes[key] then
+		-- no slot given (or it's gone): the box with the longest wait left
+		local longest = -math.huge
+		for k, box in profile.Data.PenBoxes do
+			if box.HatchAt > longest then
+				longest, key = box.HatchAt, k
+			end
+		end
+	end
+	local box = key and profile.Data.PenBoxes[key]
+	if not box then
+		return false
+	end
+	box.HatchAt = os.time()
+	return true
+end
+
+-- Box Rush (EventService): every box in every pen gets `seconds` closer to opening.
+function PlotService.RushBoxes(seconds: number)
+	for player in playerPlots do
+		local profile = DataService.Get(player)
+		if profile then
+			for key, box in profile.Data.PenBoxes do
+				box.HatchAt -= seconds
+				local model = boxModels[player] and boxModels[player][tonumber(key) or 0]
+				if model then
+					model:SetAttribute("HatchAt", box.HatchAt)
+				end
+			end
+		end
+	end
+end
+
+local function openBox(player: Player, slotIndex: number)
+	local profile = DataService.Get(player)
+	local key = tostring(slotIndex)
+	local box = profile and profile.Data.PenBoxes[key]
+	if not profile or not box then
+		return
+	end
+	-- The box is gone from the save right away (the donut is in the inventory from this moment),
+	-- but its slot stays busy while it plays the opening.
+	profile.Data.PenBoxes[key] = nil
+	opening[player] = opening[player] or {}
+	opening[player][slotIndex] = true
+	local donut = Donuts.Roll(box.Area, box.Tier, rng)
+	local mutation = box.Mutation or "None"
+	local size = Boxes.Size(box.Size).DonutSize
+	PlotService.BoxOpened:Fire(player, donut.Id, mutation, size)
+	PlotService.RecordFind(player, donut.Id, mutation, size)
+	local model = boxModels[player] and boxModels[player][slotIndex]
+	Remotes.Event("BoxOpened"):FireAllClients({
+		Owner = player,
+		Slot = slotIndex,
+		Box = model,
+		DonutId = donut.Id,
+		Mutation = mutation,
+		Size = size,
+	})
+	notify(player, `📦 Your box opened: {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
+	task.delay(OPEN_ANIMATION, function()
+		if model then
+			model:Destroy()
+		end
+		if boxModels[player] and boxModels[player][slotIndex] == model then
+			boxModels[player][slotIndex] = nil
+		end
+		if opening[player] then
+			opening[player][slotIndex] = nil
+		end
+	end)
+end
+
+-- Open every box whose time is up (every second; offline time counts too).
+local function updateBoxes()
+	local now = os.time()
+	for player in playerPlots do
+		local profile = DataService.Get(player)
+		if profile and profile.Session.Ready then
+			for key, box in profile.Data.PenBoxes do
+				local index = tonumber(key)
+				if index and box.HatchAt <= now and index <= PlotService.GetSlotCount(player) then
+					openBox(player, index)
+				end
+			end
+		end
+	end
+end
+
+--------------------------------------------------------------------------------
+-- The upgrade sign by the gate
+--------------------------------------------------------------------------------
+local function refreshUpgradeSign(plotIndex: number, owner: Player?)
+	local plot = MapBuilder.GetPlot(plotIndex)
+	local sign = plot:FindFirstChild("UpgradeSign")
+	local board = sign and sign:FindFirstChild("Board")
+	local gui = board and board:FindFirstChild("SignGui")
+	local info = gui and gui:FindFirstChild("Info") :: TextLabel?
+	local promptPart = sign and sign:FindFirstChild("PromptPart")
+	local prompt = promptPart and promptPart:FindFirstChild("UpgradePrompt") :: ProximityPrompt?
+	local profile = if owner then DataService.Get(owner) else nil
+	local text, enabled, action = "", false, "Upgrade Base"
+	if owner and profile then
+		local level = profile.Data.BaseLevel
+		local cost = Economy.BaseSizeCost(level)
+		local slots = PlotService.GetSlotCount(owner)
+		if cost then
+			text = `{slots} → {Economy.SlotCount(level + 1)} donuts\n{Format.Money(cost)}`
+			action = `Upgrade {Format.Money(cost)}`
+			enabled = true
+		else
+			text = `{slots} donuts\nMAX SIZE!`
+		end
+	end
+	if info then
+		info.Text = text
+	end
+	if prompt then
+		prompt.ActionText = action
+		prompt.Enabled = enabled
+		prompt:SetAttribute("OwnerUserId", if owner then owner.UserId else -1)
+	end
+end
+
+function PlotService.RefreshUpgradeSign(player: Player)
+	local index = playerPlots[player]
+	if index then
+		refreshUpgradeSign(index, player)
+	end
+end
+
+local function setUpUpgradeSign(plotIndex: number)
+	local plot = MapBuilder.GetPlot(plotIndex)
+	local sign = plot:FindFirstChild("UpgradeSign")
+	local promptPart = sign and sign:FindFirstChild("PromptPart")
+	if not promptPart or promptPart:FindFirstChild("UpgradePrompt") then
+		return
+	end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "UpgradePrompt"
+	prompt.ActionText = "Upgrade Base"
+	prompt.ObjectText = "Bigger pen, room for 2 more donuts"
+	prompt.KeyboardKeyCode = Enum.KeyCode.E
+	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
+	prompt.HoldDuration = 0.3
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.Enabled = false
+	prompt:SetAttribute("OwnerUserId", -1)
+	prompt.Parent = promptPart
+	prompt.Triggered:Connect(function(who: Player)
+		if plotOwners[plotIndex] == who then
+			PlotService.BuySize(who)
+		end
+	end)
 end
 
 --------------------------------------------------------------------------------
@@ -977,18 +1279,21 @@ function PlotService.RefreshPen(player: Player)
 	local count = PlotService.GetSlotCount(player)
 	compactSlots(player) -- (a smaller base: squeeze its donuts into the spots it still has)
 	MapBuilder.BuildPen(plot, count)
-	local models: { [number]: Model } = slotModels[player] or {}
-	for index, model in models do
-		if index > count then
-			model:Destroy()
-			models[index] = nil
+	for _, list in { slotModels[player] or {}, boxModels[player] or {} } :: { { [number]: Model } } do
+		for index, model in list do
+			if index > count then
+				model:Destroy()
+				list[index] = nil
+			end
 		end
 	end
 	for i = 1, count do
 		spawnSlotModel(player, i)
+		spawnBoxModel(player, i)
 	end
 	afterSlotsChanged(player)
 	PlotService.ApplySkin(player)
+	PlotService.RefreshUpgradeSign(player)
 	PlotService.Resized:Fire(player)
 end
 
@@ -1010,48 +1315,51 @@ function PlotService.BuySize(player: Player): boolean
 	profile.Data.BaseLevel += 1
 	DataService.SyncAttributes(player)
 	PlotService.RefreshPen(player)
-	notify(player, `🏢 Your base got bigger! Room for {PlotService.GetSlotCount(player)} donuts now.`, "success")
+	notify(player, `🍩 Your base got bigger! Room for {PlotService.GetSlotCount(player)} donuts now.`, "success")
 	return true
 end
 
 --------------------------------------------------------------------------------
--- Assign / release / move to another world
+-- Assign / release
 --------------------------------------------------------------------------------
--- Put everything that belongs to the player's base on the plot in their current base world.
+-- Put everything that belongs to the player's base on their plot.
 local function showBase(player: Player)
 	local index = playerPlots[player]
 	local profile = DataService.Get(player)
 	if not index then
 		return
 	end
-	local worldId = PlotService.GetBaseWorld(player)
-	MapBuilder.GetPlot(index, worldId):SetAttribute("OwnerUserId", player.UserId)
-	player:SetAttribute("BaseWorld", worldId)
+	local plot = MapBuilder.GetPlot(index)
+	plot:SetAttribute("OwnerUserId", player.UserId)
+	player:SetAttribute("BaseWorld", 1)
 	if profile then
-		MapBuilder.BuildPen(MapBuilder.GetPlot(index, worldId), PlotService.GetSlotCount(player))
+		MapBuilder.BuildPen(plot, PlotService.GetSlotCount(player))
 		for i = 1, PlotService.GetSlotCount(player) do
 			spawnSlotModel(player, i)
+			spawnBoxModel(player, i)
 		end
 	end
 	recalcIncome(player)
 	PlotService.ApplySkin(player)
 	PlotService.RefreshSign(player)
 	PlotService.RefreshPodium(player)
+	refreshUpgradeSign(index, player)
 end
 
--- Take the player's base off the plot in `worldId` (the plot stays reserved for them if `away`).
-local function hideBase(player: Player, worldId: number, away: boolean)
+-- Take the player's base off their plot.
+local function hideBase(player: Player)
 	local index = playerPlots[player]
 	if not index then
 		return
 	end
-	if slotModels[player] then
-		for _, model in slotModels[player] do
+	for _, list in { slotModels[player] or {}, boxModels[player] or {} } :: { { [number]: Model } } do
+		for _, model in list do
 			model:Destroy()
 		end
 	end
 	slotModels[player] = {}
-	local plot = MapBuilder.GetPlot(index, worldId)
+	boxModels[player] = {}
+	local plot = MapBuilder.GetPlot(index)
 	plot:SetAttribute("OwnerUserId", nil)
 	MapBuilder.BuildPen(plot, Config.Plots.Sizes[1].Slots)
 	local podium = plot:FindFirstChild("Podium")
@@ -1059,7 +1367,8 @@ local function hideBase(player: Player, worldId: number, away: boolean)
 		podium:Destroy()
 	end
 	applySkinToPlot(plot, "Classic")
-	refreshSign(index, if away then player else nil, worldId, away)
+	refreshSign(index, nil)
+	refreshUpgradeSign(index, nil)
 end
 
 function PlotService.Assign(player: Player): number?
@@ -1078,42 +1387,26 @@ function PlotService.Assign(player: Player): number?
 	end
 	plotOwners[index] = player
 	playerPlots[player] = index
-	baseWorlds[player] = 1
 	player:SetAttribute("PlotIndex", index)
 
 	local profile = DataService.Get(player)
 	if profile then
 		-- Drop any saved slot that points at a donut that no longer exists (e.g. removed from
-		-- Donuts.luau), and move donuts saved past the end of the base (bases used to have more
-		-- room in some cases) into free spots.
+		-- Donuts.luau), and move anything saved past the end of the base into free spots.
 		for key, slot in profile.Data.Slots do
 			if not Donuts.ById[slot.Id] or not tonumber(key) then
 				profile.Data.Slots[key] = nil
 			end
 		end
-		compactSlots(player)
-	end
-	-- The same plot number is reserved for them in the other worlds.
-	for _, world in Areas.Worlds do
-		if world.Id ~= 1 then
-			refreshSign(index, player, world.Id, true)
+		for key, box in profile.Data.PenBoxes do
+			if not tonumber(key) or not Donuts.HasBox(box.Area, box.Tier) then
+				profile.Data.PenBoxes[key] = nil
+			end
 		end
+		compactSlots(player)
 	end
 	showBase(player)
 	return index
-end
-
--- Move the player's base to another world (they just arrived there).
-function PlotService.MoveBase(player: Player, worldId: number)
-	local index = playerPlots[player]
-	local old = PlotService.GetBaseWorld(player)
-	if not index or old == worldId or not Areas.Worlds[worldId] then
-		return
-	end
-	baseWorlds[player] = worldId
-	hideBase(player, old, true)
-	showBase(player)
-	PlotService.BaseMoved:Fire(player, old, worldId)
 end
 
 function PlotService.Release(player: Player)
@@ -1121,24 +1414,28 @@ function PlotService.Release(player: Player)
 	if not index then
 		return
 	end
-	hideBase(player, PlotService.GetBaseWorld(player), false)
-	for _, world in Areas.Worlds do
-		refreshSign(index, nil, world.Id, false)
-	end
+	hideBase(player)
 	slotModels[player] = nil
+	boxModels[player] = nil
+	opening[player] = nil
 	labelMultiplier[player] = nil
 	baseIncome[player] = nil
 	playerPlots[player] = nil
-	baseWorlds[player] = nil
 	plotOwners[index] = nil
 end
 
 function PlotService.Init()
-	for _, world in Areas.Worlds do
-		for i = 1, Config.Plots.Count do
-			refreshSign(i, nil, world.Id, false)
-		end
+	for i = 1, Config.Plots.Count do
+		refreshSign(i, nil)
+		setUpUpgradeSign(i)
+		refreshUpgradeSign(i, nil)
 	end
+	task.spawn(function()
+		while true do
+			task.wait(1)
+			updateBoxes()
+		end
+	end)
 end
 
 return PlotService

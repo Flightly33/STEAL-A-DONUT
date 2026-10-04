@@ -19,9 +19,8 @@
 
 export type TreadmillTier = {
 	Name: string,
-	Rate: number,
+	PerStep: number, -- Speed gained per step (Config.Treadmill.StepsPerSecond steps a second)
 	Cost: number,
-	RequiredRebirths: number,
 	Base: Color3,
 	Accent: Color3,
 	Material: Enum.Material,
@@ -31,6 +30,7 @@ export type TreadmillTier = {
 	Sparkles: boolean?,
 	Rainbow: boolean?,
 	Halo: boolean?,
+	Heavenly: boolean?, -- the last treadmill: white marble and gold, wings and a halo of light
 }
 
 export type GamePass = {
@@ -84,15 +84,21 @@ Config.Guard = {
 	SnoreSoundId = "",
 	GruntSoundId = "",
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
-	-- Every Domer runs this much faster than the area's base guard speed (1.075 = +7.5%).
-	SpeedMultiplier = 1.075,
+	-- Each biome's Domer runs at the WalkSpeed of a player with exactly the biome's Speed
+	-- requirement, times ChaseFactor: a player who just meets the requirement escapes with a small
+	-- box, but a big or GIANT one slows you down enough that he catches up unless you're faster.
+	ChaseFactor = 0.97,
+	-- The first biome's Domer is slower than anyone (beginners always get away).
+	BeginnerSpeed = 18,
+	-- Shown in the RUN! warning while he chases you.
+	RunText = "RUN!",
 	-- Lag compensation: the catch is judged against where the guard was on YOUR screen (the server
 	-- rewinds him by your ping plus Roblox's interpolation delay), so a fast chase over a laggy
 	-- connection can't catch you while he still looks 40 studs away. Capped so lag can't be abused.
 	InterpolationDelay = 0.1,
 	MaxRewind = 0.35,
 	GiveUpDelay = 1.2, -- seconds he stands there fuming after you reach safety, before teleporting home
-	StunTime = 2.3, -- seconds after being caught (and flung) before being sent home
+	StunTime = 2.3, -- seconds after being caught (and flung) before you can grab anything again
 
 	-- Footsteps + screen shake while he's close (client side, only for your own guard).
 	FootstepRange = 110, -- studs: you start hearing him
@@ -106,19 +112,20 @@ Config.Guard = {
 
 --------------------------------------------------------------------------------
 -- Map layout (studs). Floor top is at Y = 0.
+-- One lobby (bases, treadmills, the sell stall, leaderboards) and one long lane of biomes (Areas.luau)
+-- running from it along +Z. Every biome is LaneHalfWidth * 2 studs wide with thick grassy walls.
 --------------------------------------------------------------------------------
 Config.Map = {
 	LaneHalfWidth = 100, -- the lane runs along +Z, from X = -100 to X = 100
-	AreaLength = 300, -- each area is this long in Z (must be a multiple of TileSize)
+	AreaLength = 500, -- a biome's length when Areas.luau doesn't give one (multiple of TileSize)
 	TileSize = 20,
 	LaneWallHeight = 60,
+	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
-	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe hub (bases, shop, leaderboards)
-	HubHalfWidth = 320,
-	HubDepth = 730, -- deep enough for 3 rows of bases Layout.PlotRowSpacing apart (every world's hub)
+	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
+	HubHalfWidth = 330,
+	HubDepth = 540, -- 3 rows of bases on each side, leaderboards along the very back
 	HubWallHeight = 40,
-
-	DonutSpawnsPerArea = 9,
 }
 
 --------------------------------------------------------------------------------
@@ -126,80 +133,69 @@ Config.Map = {
 --------------------------------------------------------------------------------
 Config.Plots = {
 	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
-	-- Your base is an open pen (like Steal an Egg) where your donuts roam around. Buy a bigger base
-	-- in the Shop to fit more donuts: every size holds Slots donuts and the pen grows to fit them.
-	-- Bigger bases are kept through rebirths.
+	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
+	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
+	-- and the pen grows a little each time. Bigger bases are kept through rebirths.
 	Sizes = {
-		{ Slots = 8, Cost = 0 },
-		{ Slots = 12, Cost = 50_000 },
-		{ Slots = 16, Cost = 250_000_000 },
+		{ Slots = 7, Cost = 0 },
+		{ Slots = 9, Cost = 100_000 },
+		{ Slots = 11, Cost = 1_500_000 },
+		{ Slots = 13, Cost = 22_000_000 },
+		{ Slots = 15, Cost = 320_000_000 },
+		{ Slots = 17, Cost = 4_600_000_000 },
+		{ Slots = 19, Cost = 68_000_000_000 },
 		{ Slots = 20, Cost = 1_000_000_000_000 },
-		{ Slots = 24, Cost = 5_000_000_000_000_000 },
-		{ Slots = 36, Cost = 3e18 },
-		{ Slots = 48, Cost = 7e18 },
-		{ Slots = 60, Cost = 3e22 },
-		{ Slots = 72, Cost = 7e22 },
 	},
 	-- Past the last size (the owner, and the "ender=rich" code): ExtraSlots more per size, up to
 	-- Config.Admin.MaxSlots.
-	ExtraSlots = 12,
-	-- Every donut has its own patch of the pen (CellSize studs square) and roams around it, up to
-	-- RoamRadius x CellSize from its middle, so donuts spread out instead of piling up.
-	CellSize = 16,
+	ExtraSlots = 5,
+	-- The pen holds a CellSize x CellSize patch of ground per donut (a little wider than deep).
+	-- Every donut roams around its own patch, up to RoamRadius x CellSize from its middle.
+	CellSize = 18,
 	RoamRadius = 0.85,
 	RoamSpeed = 3.5, -- studs per second while walking (bigger donuts take bigger strides)
-	FenceHeight = 4.5, -- low enough to hop over (anyone can walk in, like Steal an Egg)
+	FenceHeight = 3.5, -- a low fence anyone can hop over (like Steal an Egg)
 	DonutScale = 1.5,
 	PodiumDonutScale = 1.7,
 }
 
 --------------------------------------------------------------------------------
 -- Speed
--- The "Speed" stat turns into a real Roblox WalkSpeed in a straight line: every SpeedPerWalk Speed
--- is +1 WalkSpeed, so twice the training really is twice the extra speed.
---   WalkSpeed = BaseWalkSpeed + Speed / SpeedPerWalk      (Speed 0 = 24, 90 = 33, 810 = 105)
--- Each area needs 90 more Speed than the one before (Areas.luau), so every area is +9 WalkSpeed.
--- There's no maximum: the more you train, the faster you run. (Around WalkSpeed 1000+ Roblox physics
--- can let a player slip through a thin wall; the speed slider on the HUD lets players slow down.)
+-- The "Speed" stat is the big number in the HUD (it climbs into the hundreds of millions). How fast
+-- you actually run grows more gently with it, or late-game players would break Roblox's physics:
+--   WalkSpeed = BaseWalkSpeed + CurveScale * Speed ^ CurvePower
+--   (Speed 0 = 24, 900 = 42, 10K = 53, 700K = 92, 35M = 174, 400M = 266)
+-- Each biome needs a Speed to enter (Areas.luau), and is as long as that speed makes a fair run.
 --------------------------------------------------------------------------------
 Config.Speed = {
 	BaseWalkSpeed = 24,
-	-- Domer's speeds are worked out from this instead (Economy.GuardWalkSpeed). It goes up with
-	-- BaseWalkSpeed (players start 3 ahead of it), so the early Domers keep pace (Area 1: ~27.9).
-	GuardBaseWalkSpeed = 21,
-	SpeedPerWalk = 10,
+	CurveScale = 4.6,
+	CurvePower = 0.2,
 }
 
--- Treadmill tiers. Tier 1 is free. "Rate" is Speed gained per second while running on it.
--- The last tiers need rebirths (they only make sense in the later worlds).
--- Balance: a simulated bot that plays well (no passes, pets or Index bonus) reaches Area 2 in ~7 min,
--- Area 10 in ~1.9 h and rebirths at ~37 min, ~2 h, ~4.6 h and ~9.2 h (Config.Rebirth). Real players
--- take longer (breaks, getting caught).
+-- Treadmills: the one by your base gives Speed every step while you run on it (StepsPerSecond steps
+-- a second). Buy the next one in the Shop (kept through rebirths). PerStep is before your Speed
+-- Multiplier, rebirths, Index, pets and 2x Speed pass.
+-- Balance (economy sim, a good player with no passes or pets, sharing boxes with other players):
+-- biome 6 at ~1.3 h, biome 12 at ~6.5 h, the last biome at ~12.5 h; the last treadmill at ~11 h.
+-- Real players take longer (breaks, getting caught, losing boxes to bats).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
-	-- Head Start: treadmill gains are x Multiplier at Speed 0, fading evenly to x1 at UntilSpeed
-	-- (Area 6). Makes the first areas quick for new players, and the climb back after each rebirth.
-	-- (Simulated good player: Area 2 in ~7 min instead of ~16, Area 5 in ~29 min instead of ~54.)
-	HeadStart = { Multiplier = 4, UntilSpeed = 450 },
+	StepsPerSecond = 12,
 	Tiers = {
-		{ Name = "Rusty", Rate = 0.1, Cost = 0, RequiredRebirths = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
-		{ Name = "Basic", Rate = 0.115, Cost = 1_500, RequiredRebirths = 0, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
-		{ Name = "Sporty", Rate = 0.125, Cost = 20_000, RequiredRebirths = 0, Base = rgb(220, 40, 40), Accent = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic },
-		{ Name = "Pro", Rate = 0.14, Cost = 150_000, RequiredRebirths = 0, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
-		{ Name = "Turbo", Rate = 0.155, Cost = 1_200_000, RequiredRebirths = 0, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
-		{ Name = "Neon", Rate = 0.17, Cost = 9_000_000, RequiredRebirths = 0, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
-		{ Name = "Diamond", Rate = 0.185, Cost = 70_000_000, RequiredRebirths = 0, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Plasma", Rate = 0.2, Cost = 600_000_000, RequiredRebirths = 0, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Quantum", Rate = 0.225, Cost = 5_000_000_000, RequiredRebirths = 0, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
-		{ Name = "Cosmic", Rate = 0.245, Cost = 40_000_000_000, RequiredRebirths = 0, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Tropical", Rate = 0.28, Cost = 400_000_000_000, RequiredRebirths = 1, Base = rgb(255, 225, 150), Accent = rgb(0, 210, 200), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
-		{ Name = "Tsunami", Rate = 0.315, Cost = 30_000_000_000_000, RequiredRebirths = 1, Base = rgb(20, 70, 150), Accent = rgb(120, 230, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
-		{ Name = "Magma", Rate = 0.35, Cost = 1_500_000_000_000_000, RequiredRebirths = 1, Base = rgb(50, 30, 30), Accent = rgb(255, 110, 0), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true, Halo = true },
-		{ Name = "Dream", Rate = 0.4, Cost = 100_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(245, 235, 255), Accent = rgb(255, 150, 230), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Infinity", Rate = 0.455, Cost = 4_000_000_000_000_000_000, RequiredRebirths = 2, Base = rgb(255, 215, 90), Accent = rgb(255, 255, 255), Material = Enum.Material.Foil, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
-		{ Name = "Cyber", Rate = 0.52, Cost = 2e23, RequiredRebirths = 3, Base = rgb(15, 15, 25), Accent = rgb(255, 40, 200), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
-		{ Name = "Singularity", Rate = 0.6, Cost = 1e26, RequiredRebirths = 3, Base = rgb(5, 5, 10), Accent = rgb(120, 170, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Rusty", PerStep = 3, Cost = 0, Base = rgb(120, 110, 100), Accent = rgb(150, 80, 50), Material = Enum.Material.CorrodedMetal },
+		{ Name = "Basic", PerStep = 5, Cost = 15_000, Base = rgb(230, 230, 230), Accent = rgb(40, 40, 40), Material = Enum.Material.SmoothPlastic },
+		{ Name = "Sporty", PerStep = 12, Cost = 250_000, Base = rgb(220, 40, 40), Accent = rgb(255, 255, 255), Material = Enum.Material.SmoothPlastic },
+		{ Name = "Pro", PerStep = 30, Cost = 3_000_000, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
+		{ Name = "Turbo", PerStep = 80, Cost = 75_000_000, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
+		{ Name = "Neon", PerStep = 100, Cost = 1_500_000_000, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
+		{ Name = "Diamond", PerStep = 250, Cost = 50_000_000_000, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Plasma", PerStep = 500, Cost = 1_000_000_000_000, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Quantum", PerStep = 1_000, Cost = 15_000_000_000_000, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
+		{ Name = "Cosmic", PerStep = 1_500, Cost = 45_000_000_000_000, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
+		{ Name = "Void", PerStep = 2_000, Cost = 100_000_000_000_000, Base = rgb(5, 5, 10), Accent = rgb(150, 90, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
+		{ Name = "Heavenly", PerStep = 3_000, Cost = 500_000_000_000_000, Base = rgb(255, 250, 235), Accent = rgb(255, 215, 90), Material = Enum.Material.Marble, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true, Heavenly = true },
 	} :: { TreadmillTier },
 }
 
@@ -232,31 +228,68 @@ Config.Offline = {
 }
 
 Config.Spawns = {
-	RespawnMin = 5,
-	RespawnMax = 10,
-	Lifetime = 240, -- an untouched donut re-rolls after this many seconds
-	AnnounceRarity = 7, -- server-wide announcement when a donut of this rarity order or higher spawns (7 = Secret and Admin)
+	AnnounceRarity = 7, -- server-wide announcement when someone gets a donut of this rarity order or higher home (7 = Secret and up)
 }
 
 --------------------------------------------------------------------------------
--- Rebirths: reset your Money, Speed, treadmill, Speed Multiplier and base donuts for a permanent
--- boost to money AND speed gains, and to unlock the next world (Areas.Worlds[].RequiredRebirths).
--- You keep: game passes, items, skins, base expansions, pets, the Index and its rewards.
+-- Donut boxes (Boxes.luau): what you steal. Each biome's Domer sleeps in a back corner with
+-- PerBiome boxes around him; every box in every biome is replaced by a fresh batch every
+-- ResetInterval seconds ("ALL BOXES RESET!"). A box you steal leaves its spot empty until then.
+-- Bring a box back to the lobby and it goes into your inventory; take it out in your pen and it
+-- opens after its rarity's HatchSeconds x its size's HatchMultiplier (also while you're offline).
+-- The first biome only has the plain pink box. Every other biome has Rare, Epic and Legendary
+-- boxes (Weight = how often each turns up).
+--------------------------------------------------------------------------------
+local PINK = Color3.fromRGB(255, 170, 205)
+Config.Boxes = {
+	PerBiome = 5,
+	ResetInterval = 300,
+	Tiers = {
+		{ Id = "Basic", Name = "Donut Box", Order = 0, HatchSeconds = 30, Weight = 0, Color = PINK, Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Rare", Name = "Rare Donut Box", Order = 1, HatchSeconds = 60, Weight = 70, Color = Color3.fromRGB(80, 160, 255), Trim = Color3.fromRGB(255, 255, 255) },
+		{ Id = "Epic", Name = "Epic Donut Box", Order = 2, HatchSeconds = 600, Weight = 25, Color = Color3.fromRGB(175, 80, 255), Trim = Color3.fromRGB(255, 220, 255) },
+		{ Id = "Legendary", Name = "Legendary Donut Box", Order = 3, HatchSeconds = 3600, Weight = 5, Color = Color3.fromRGB(255, 195, 40), Trim = Color3.fromRGB(255, 255, 255) },
+	},
+	-- Bigger boxes are rarer, take longer to open and hold a bigger donut (that earns more).
+	-- CarrySpeed: you run this much slower while you carry it.
+	Sizes = {
+		{ Id = "Small", Name = "Small", HatchMultiplier = 1, Weight = 80, Scale = 1, DonutSize = "Normal", CarrySpeed = 1 },
+		{ Id = "Big", Name = "Big", HatchMultiplier = 1.5, Weight = 14, Scale = 1.4, DonutSize = "Big", CarrySpeed = 0.95 },
+		{ Id = "Huge", Name = "Huge", HatchMultiplier = 2, Weight = 5, Scale = 1.85, DonutSize = "Huge", CarrySpeed = 0.9 },
+		{ Id = "Giant", Name = "GIANT", HatchMultiplier = 3, Weight = 1, Scale = 2.5, DonutSize = "Giant", CarrySpeed = 0.84 },
+	},
+	-- "Open now" for Robux (a developer product, bought again every time: create it under
+	-- Creator Dashboard > Monetization > Developer Products and paste its ID here). 0 = not set up
+	-- yet: the button says "Coming Soon" in live servers (Studio test purchases still work).
+	SkipProductId = 0,
+	SkipPrice = 49,
+	-- Box Rush: every Interval seconds, for Duration seconds, every box in every pen opens Speed
+	-- times faster (so 10 seconds of it is 5 minutes of waiting).
+	Rush = { Interval = 150, Duration = 10, Speed = 30 },
+	-- A box knocked out of someone's hands outside its own biome stays on the ground this long.
+	DroppedLifetime = 120,
+	StealSeconds = 0.6, -- hold E this long to grab a box
+	MaxInventory = 60, -- boxes + donuts you can carry in your inventory
+}
+
+--------------------------------------------------------------------------------
+-- Rebirths: reset your Money and Speed for a permanent boost to money AND speed gains.
+-- You keep: your donuts, base size, treadmills, Speed Multiplier, game passes, items, skins, pets,
+-- the Index and its rewards.
 --------------------------------------------------------------------------------
 Config.Rebirth = {
 	MoneyBonus = 1, -- +100% money per rebirth (x2, x3, x4 ...)
 	SpeedBonus = 0.5, -- +50% treadmill speed per rebirth
 	-- Requirements for rebirth 1, 2, 3 ... (Speed stat you must have reached + money it costs).
-	-- Tuned so Speed and money are ready at about the same time (neither is a wall on its own):
-	-- a simulated good player (no passes or pets) rebirths at ~37 min, ~2 h, ~4.6 h and ~9.2 h.
+	-- The economy sim's good player rebirths at ~2.4 h, ~4.9 h and ~8.6 h.
 	Levels = {
-		{ Speed = 400, Cost = 5_000_000 }, -- early in World 1 -> unlocks The Underworld
-		{ Speed = 700, Cost = 200_000_000_000 }, -- unlocks Dream Dimension
-		{ Speed = 1_000, Cost = 2e16 }, -- unlocks Cyber City
-		{ Speed = 1_300, Cost = 2e21 },
+		{ Speed = 1_500_000, Cost = 200_000_000 },
+		{ Speed = 12_000_000, Cost = 20_000_000_000 },
+		{ Speed = 80_000_000, Cost = 2_000_000_000_000 },
 	},
-	-- No rebirth limit: after the list each rebirth needs +50 Speed and costs 5x more.
-	After = { Speed = 50, CostGrowth = 5 },
+	-- No rebirth limit: after the list each rebirth needs SpeedGrowth x the Speed and costs
+	-- CostGrowth x more than the one before.
+	After = { SpeedGrowth = 2.5, CostGrowth = 100 },
 }
 
 --------------------------------------------------------------------------------
@@ -430,7 +463,7 @@ Config.Admin = {
 	-- code "ender=rich") grow a base past the biggest size you can buy, up to this many donuts. It
 	-- can't be infinite: every base has to fit on its plot in the hub, and every roaming donut is
 	-- ~100 parts that every player's device has to move.
-	MaxSlots = 100,
+	MaxSlots = 25,
 	FlySpeed = 1.3, -- flying speed = your walk speed x this (at least 60)
 	-- Admins (everyone who used the admin panel, and the game's owner) are left off the global
 	-- boards, except the donation board. Their old scores are removed the next time they play.
@@ -485,7 +518,7 @@ Config.Skins = {
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
 	},
 	{
-		Id = "Candy", Name = "Candy Land", SpeedCost = 60,
+		Id = "Candy", Name = "Candy Land", SpeedCost = 20_000,
 		Floor = Color3.fromRGB(255, 180, 220), FloorAlt = Color3.fromRGB(255, 210, 235), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(255, 255, 255), FenceMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 60, 90), TrimMaterial = Enum.Material.SmoothPlastic,
@@ -493,7 +526,7 @@ Config.Skins = {
 		Effect = "Sprinkles",
 	},
 	{
-		Id = "Frozen", Name = "Frozen Fortress", SpeedCost = 150,
+		Id = "Frozen", Name = "Frozen Fortress", SpeedCost = 200_000,
 		Floor = Color3.fromRGB(200, 235, 255), FloorAlt = Color3.fromRGB(180, 220, 250), FloorMaterial = Enum.Material.Ice,
 		Fence = Color3.fromRGB(150, 210, 255), FenceMaterial = Enum.Material.Glacier,
 		Trim = Color3.fromRGB(90, 200, 255), TrimMaterial = Enum.Material.Neon,
@@ -501,7 +534,7 @@ Config.Skins = {
 		Effect = "Snow",
 	},
 	{
-		Id = "Neon", Name = "Neon Nights", SpeedCost = 300,
+		Id = "Neon", Name = "Neon Nights", SpeedCost = 1_000_000,
 		Floor = Color3.fromRGB(25, 20, 40), FloorAlt = Color3.fromRGB(35, 30, 55), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(30, 30, 40), FenceMaterial = Enum.Material.Metal,
 		Trim = Color3.fromRGB(0, 255, 230), TrimMaterial = Enum.Material.Neon,
@@ -509,7 +542,7 @@ Config.Skins = {
 		Effect = "Glow",
 	},
 	{
-		Id = "Lava", Name = "Lava Lair", SpeedCost = 500,
+		Id = "Lava", Name = "Lava Lair", SpeedCost = 5_000_000,
 		Floor = Color3.fromRGB(40, 35, 35), FloorAlt = Color3.fromRGB(55, 45, 40), FloorMaterial = Enum.Material.Basalt,
 		Fence = Color3.fromRGB(60, 50, 50), FenceMaterial = Enum.Material.Basalt,
 		Trim = Color3.fromRGB(255, 90, 0), TrimMaterial = Enum.Material.Neon,
@@ -517,7 +550,7 @@ Config.Skins = {
 		Effect = "Fire",
 	},
 	{
-		Id = "Gold", Name = "Golden Palace", SpeedCost = 750,
+		Id = "Gold", Name = "Golden Palace", SpeedCost = 25_000_000,
 		Floor = Color3.fromRGB(255, 215, 90), FloorAlt = Color3.fromRGB(240, 195, 70), FloorMaterial = Enum.Material.Foil,
 		Fence = Color3.fromRGB(255, 200, 40), FenceMaterial = Enum.Material.Foil,
 		Trim = Color3.fromRGB(255, 255, 255), TrimMaterial = Enum.Material.Marble,
@@ -525,7 +558,7 @@ Config.Skins = {
 		Effect = "Sparkle",
 	},
 	{
-		Id = "Galaxy", Name = "Galaxy Vault", SpeedCost = 1_000,
+		Id = "Galaxy", Name = "Galaxy Vault", SpeedCost = 100_000_000,
 		Floor = Color3.fromRGB(20, 10, 45), FloorAlt = Color3.fromRGB(35, 15, 70), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(60, 20, 120), FenceMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(150, 110, 255), TrimMaterial = Enum.Material.Neon,
@@ -533,7 +566,7 @@ Config.Skins = {
 		Effect = "Stars",
 	},
 	{
-		Id = "Rainbow", Name = "Rainbow Dream", SpeedCost = 1_500,
+		Id = "Rainbow", Name = "Rainbow Dream", SpeedCost = 300_000_000,
 		Floor = Color3.fromRGB(255, 255, 255), FloorAlt = Color3.fromRGB(240, 240, 255), FloorMaterial = Enum.Material.SmoothPlastic,
 		Fence = Color3.fromRGB(255, 255, 255), FenceMaterial = Enum.Material.SmoothPlastic,
 		Trim = Color3.fromRGB(255, 0, 0), TrimMaterial = Enum.Material.Neon,
@@ -560,9 +593,9 @@ Config.Leaderboards = {
 	RefreshInterval = 90, -- seconds between refreshing ONE board (boards rotate, so each board refreshes every 4 * 90s)
 	WriteInterval = 120, -- seconds between writing a player's scores
 	StorePrefix = "LB_v1_",
-	-- Boards whose score format changed get their own fresh store (old scores would sort wrongly).
-	-- Speed is v3: the Speed stat became linear, so old (huge) scores don't compare any more.
-	StoreVersions = { Rarest = "LB_v2_", Speed = "LB_v3_" },
+	-- Boards whose score format changed (or that were reset) get their own fresh store.
+	-- (Update 6 reset every board except Time played and Donations: v4.)
+	StoreVersions = { Money = "LB_v4_", Rarest = "LB_v4_", Speed = "LB_v4_" },
 	Boards = {
 		{ Id = "Money", Title = "TOP MONEY", Subtitle = "Total money earned", Color = Color3.fromRGB(60, 200, 80) },
 		{ Id = "Speed", Title = "TOP SPEED", Subtitle = "Highest speed ever reached", Color = Color3.fromRGB(140, 70, 255) },
@@ -612,12 +645,9 @@ export type Item = {
 }
 
 Config.Items = {
-	{ Id = "Slap", Name = "Slap Hand", Kind = "Weapon", Cost = 0, Starter = true, Icon = "🖐️", Color = Color3.fromRGB(255, 200, 60), Range = 9, Power = 70, Cooldown = 2.5, Description = "Free for everyone! Slap a thief to send your donut home." },
-	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 250_000, Icon = "🏏", Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Longer reach, bigger fling." },
-	{ Id = "Hammer", Name = "Mega Hammer", Kind = "Weapon", Cost = 50_000_000, Icon = "🔨", Color = Color3.fromRGB(150, 90, 255), Range = 14, Power = 160, Cooldown = 1.6, Description = "Sends thieves into orbit." },
-	{ Id = "Banana", Name = "Banana Peel", Kind = "Trap", Cost = 20_000, Icon = "🍌", Color = Color3.fromRGB(255, 230, 60), Power = 60, MaxPlaced = 3, Description = "Place up to 3 anywhere (not in other bases). Others slip and fly." },
-	{ Id = "Spring", Name = "Launch Pad", Kind = "Trap", Cost = 2_000_000, Icon = "🚀", Color = Color3.fromRGB(80, 200, 255), Power = 150, MaxPlaced = 2, Description = "Place up to 2 anywhere (not in other bases). Launches others sky-high." },
-	{ Id = "Lock", Name = "Base Lock", Kind = "Lock", Cost = 100_000, Icon = "🔒", Color = Color3.fromRGB(255, 70, 70), Duration = 30, Cooldown = 90, Description = "Force field around your WHOLE base for 30s: too tall to jump, blocks raids, kicks intruders out." },
+	-- Everyone gets the bat for free, and it's the only item: hit someone carrying a box and they
+	-- drop it on the ground for anyone to grab.
+	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 0, Starter = true, Icon = "🏏", Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Free for everyone! Hit someone carrying a box and they drop it - then grab it yourself." },
 } :: { Item }
 
 --------------------------------------------------------------------------------
@@ -665,24 +695,6 @@ Config.Sounds = {
 -- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).
 Config.Tutorial = {
 	FreeEgg = "Sprinkle",
-}
-
--- World 2's skybox. Paste the six image IDs of a galaxy skybox from the Creator Store here (e.g.
--- "rbxassetid://123") and World 2 uses it; left empty, World 2 shows Roblox's starry night sky.
-Config.GalaxySky = {
-	SkyboxBk = "",
-	SkyboxDn = "",
-	SkyboxFt = "",
-	SkyboxLf = "",
-	SkyboxRt = "",
-	SkyboxUp = "",
-}
-
--- ULTIMATE REBIRTH (The Black Hole's secret lab). The explosion uses Roblox's own explosion
--- sound; paste a Creator Store sound here ("rbxassetid://123...") to play that one as well.
-Config.UltimateRebirth = {
-	ExplosionSoundId = "",
-	ExplosionVolume = 1,
 }
 
 -- Fewer particles on every screen (client-side): every emitter runs at this share of its rate,

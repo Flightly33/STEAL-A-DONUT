@@ -427,30 +427,14 @@ function spawnEgg(spot: EggSpot, eggId: string, announce: boolean)
 	end
 end
 
--- A random spot in the lane part of the area, away from the donuts and the guard's blanket.
+-- A random spot in the biome, away from Domer's corner and his boxes.
 -- (Crates use it too: PetService.RandomLanePosition.)
 local function randomPosition(areaId: number): Vector3?
-	local area = MapBuilder.GetArea(areaId)
-	local spawns = area:FindFirstChild("Spawns")
-	local donutSpots = {}
-	if spawns then
-		for _, point in spawns:GetChildren() do
-			if point:IsA("BasePart") and point.Name == "DonutSpawn" then
-				table.insert(donutSpots, point.Position)
-			end
-		end
-	end
-	local x0 = Layout.WorldOffset(Areas.List[areaId].World)
+	local home = Layout.GuardHome(areaId)
+	local half = Layout.AreaHalfWidth(areaId) - 20
 	for _ = 1, 30 do
-		local candidate = Vector3.new(x0 + rng:NextNumber(-38, 38), 0, rng:NextNumber(Layout.AreaStart(areaId) + 25, Layout.AreaEnd(areaId) - 40))
-		local ok = true
-		for _, other in donutSpots do
-			if (Vector3.new(other.X, 0, other.Z) - candidate).Magnitude < 10 then
-				ok = false
-				break
-			end
-		end
-		if ok then
+		local candidate = Vector3.new(rng:NextNumber(-half, half), 0, rng:NextNumber(Layout.AreaStart(areaId) + 25, Layout.AreaEnd(areaId) - 40))
+		if (Vector3.new(home.X, 0, home.Z) - candidate).Magnitude > Layout.BoxRadius + 25 then
 			return candidate
 		end
 	end
@@ -547,14 +531,6 @@ function PetService.OnPlayerRemoving(player: Player)
 end
 
 function PetService.Init()
-	PlotService.BaseMoved:Connect(function(player: Player, oldWorld: number)
-		local index = PlotService.GetPlotIndex(player)
-		if index then
-			rebuildIncubator(player, MapBuilder.GetPlot(index, oldWorld))
-		end
-		rebuildIncubator(player)
-	end)
-
 	for _, area in Areas.List do
 		if #Pets.EggsForArea(area.Id) > 0 then
 			local folder = Instance.new("Folder")

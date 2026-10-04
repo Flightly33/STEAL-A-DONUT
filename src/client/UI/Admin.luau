@@ -10,11 +10,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
+local Boxes = require(Shared.Boxes)
 local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
 local Pets = require(Shared.Pets)
 local Crates = require(Shared.Crates)
 local Events = require(Shared.Events)
+local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
@@ -156,8 +158,8 @@ local function build()
 
 	-- Speed + upgrades
 	local speed = section("⚡ Speed & upgrades")
-	for _, amount in { 10, 90, 500 } do
-		button(speed, `+{amount} speed`, Theme.Colors.Purple, function()
+	for _, amount in { 1e3, 1e5, 1e7, 1e9 } do
+		button(speed, `+{Format.Number(amount)} speed`, Theme.Colors.Purple, function()
 			command("Speed", amount)
 		end)
 	end
@@ -176,13 +178,6 @@ local function build()
 
 	-- Your base
 	local base = section("🏠 Your base", 170)
-	local lock = button(base, "🔒 Permanent lock", Theme.Colors.Red, function()
-		command("PermaLock")
-	end)
-	State.Changed:Connect(function()
-		Theme.SetButtonText(lock, if State.Data.PermaLock then "🔓 Unlock base" else "🔒 Permanent lock")
-		Theme.SetButtonColor(lock, if State.Data.PermaLock then Theme.Colors.Green else Theme.Colors.Red)
-	end)
 	button(base, "💸 Reset money", Theme.Colors.Gray, function()
 		command("ResetMoney")
 	end)
@@ -249,9 +244,6 @@ local function build()
 	button(donutSection, "➕ Give to base", Theme.Colors.Green, function()
 		command("Donut", { DonutId = selected, Mutation = mutations[mutationIndex], Size = sizes[sizeIndex] })
 	end)
-	button(donutSection, "📍 Spawn in lane", Theme.Colors.Orange, function()
-		command("SpawnDonut", { DonutId = selected, Mutation = mutations[mutationIndex], Size = sizes[sizeIndex] })
-	end)
 	local list = section("", 150)
 	local sorted = table.clone(Donuts.List)
 	table.sort(sorted, function(a, b)
@@ -269,6 +261,59 @@ local function build()
 		b.LayoutOrder = Rarities.Get(donut.Rarity).Order * -1000 + donut.Index
 	end
 	refreshSelection()
+
+	-- Boxes: pick a box (tier, size, mutation, biome), then give it or drop it
+	local boxSection = section("📦 Boxes (pick one, then give or drop it)", 150)
+	local tiers, boxSizes = {}, {}
+	for _, tier in Boxes.Tiers do
+		table.insert(tiers, tier.Id)
+	end
+	for _, size in Boxes.Sizes do
+		table.insert(boxSizes, size.Id)
+	end
+	local tierIndex, boxSizeIndex, boxMutationIndex, biome = 2, 1, 1, 2
+	local tierButton: TextButton
+	local boxSizeButton: TextButton
+	local boxMutationButton: TextButton
+	local biomeButton: TextButton
+	local function refreshBox()
+		local tier = Boxes.Tier(tiers[tierIndex])
+		Theme.SetButtonText(tierButton, tier.Name)
+		Theme.SetButtonColor(tierButton, tier.Color)
+		Theme.SetButtonText(boxSizeButton, "Size: " .. Boxes.Size(boxSizes[boxSizeIndex]).Name)
+		Theme.SetButtonText(boxMutationButton, "Mutation: " .. mutations[boxMutationIndex])
+		Theme.SetButtonText(biomeButton, `Biome {biome}: {Areas.List[biome].Name}`)
+		Theme.SetButtonColor(biomeButton, Areas.List[biome].Trim)
+	end
+	tierButton = button(boxSection, "", Theme.Colors.Gray, function()
+		tierIndex = tierIndex % #tiers + 1
+		refreshBox()
+	end)
+	boxSizeButton = button(boxSection, "", Theme.Colors.Blue, function()
+		boxSizeIndex = boxSizeIndex % #boxSizes + 1
+		refreshBox()
+	end)
+	boxMutationButton = button(boxSection, "", Theme.Colors.Pink, function()
+		boxMutationIndex = boxMutationIndex % #mutations + 1
+		refreshBox()
+	end)
+	biomeButton = button(boxSection, "", Theme.Colors.Gray, function()
+		biome = biome % #Areas.List + 1
+		refreshBox()
+	end)
+	button(boxSection, "➕ To inventory", Theme.Colors.Green, function()
+		command("Box", { Tier = tiers[tierIndex], Size = boxSizes[boxSizeIndex], Mutation = mutations[boxMutationIndex], Area = biome })
+	end)
+	button(boxSection, "📍 Drop here", Theme.Colors.Orange, function()
+		command("SpawnBox", { Tier = tiers[tierIndex], Size = boxSizes[boxSizeIndex], Mutation = mutations[boxMutationIndex] })
+	end)
+	button(boxSection, "⏩ Open my boxes", Theme.Colors.Purple, function()
+		command("OpenBoxes")
+	end)
+	button(boxSection, "🔄 New boxes everywhere", Theme.Colors.Yellow, function()
+		command("ResetBoxes")
+	end)
+	refreshBox()
 
 	-- Eggs & pets
 	local eggs = section("🥚 Eggs & pets", 150)
@@ -338,7 +383,7 @@ local function build()
 	end
 
 	-- Teleport
-	local teleport = section("🌀 Teleport to area", 60)
+	local teleport = section("🌀 Teleport to biome", 60)
 	for _, area in Areas.List do
 		button(teleport, tostring(area.Id), area.Trim, function()
 			command("Teleport", area.Id)

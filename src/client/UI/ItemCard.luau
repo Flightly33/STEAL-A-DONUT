@@ -23,6 +23,7 @@ local GuiService = game:GetService("GuiService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
+local Boxes = require(Shared.Boxes)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 local Pets = require(Shared.Pets)
@@ -75,16 +76,16 @@ end
 local function areaName(id: number): string
 	local area = Areas.Get(id)
 	if not area then
-		return `Area {id}`
+		return `Biome {id}`
 	end
-	return `{area.Name} ({Areas.World(area.World).Name})`
+	return `{area.Name} (biome {area.Id})`
 end
 
--- "Frosting Falls to Rainbow Sprinkle Summit (Donut Land)": the world only once if it's the same
+-- "Sugar Dunes to Candy Cane Canyon (biomes 3-8)"
 local function areaRange(from: number, to: number): string
 	local a, b = Areas.Get(from), Areas.Get(to)
-	if a and b and a.World == b.World then
-		return `{a.Name} to {b.Name} ({Areas.World(a.World).Name})`
+	if a and b then
+		return `{a.Name} to {b.Name} (biomes {a.Id}-{b.Id})`
 	end
 	return `{areaName(from)} to {areaName(to)}`
 end
@@ -121,8 +122,8 @@ function ItemCard.Describe(item: Item): Info
 		local donut = Donuts.ById[item.Id]
 		local rarity = Rarities.Get(donut.Rarity)
 		local area = Areas.Get(donut.Area)
-		local world = Areas.World(if area then area.World else 1)
 		local spawnable = Donuts.Spawnable(donut)
+		local box = if donut.Box then Boxes.Tier(donut.Box) else nil
 		local mutations = {}
 		for _, id in MUTATIONS do
 			local mutation = Rarities.Mutation(id)
@@ -135,19 +136,19 @@ function ItemCard.Describe(item: Item): Info
 			Color = rarity.Color,
 			Stats = {
 				{ Label = "Money", Value = `{Format.Money(donut.Income)}/s`, Color = MONEY },
-				{ Label = "Spawn chance", Value = if spawnable then percent(Donuts.Chance(donut)) else "Admin only", Color = CHANCE },
-				{ Label = "Area", Value = tostring(if area then area.Index else donut.Area), Color = PLACE },
+				{ Label = "Box chance", Value = if spawnable then percent(Donuts.Chance(donut)) else "Admin only", Color = CHANCE },
+				{ Label = "Biome", Value = tostring(donut.Area), Color = PLACE },
 			},
-			Lines = if spawnable
+			Lines = if spawnable and box
 				then {
-					`Lives in {paint(if area then area.Name else "the lane", world.Color)}. Steal it and run it home before {paint(Config.Guard.Name, rgb(255, 90, 90))} catches you!`,
-					`Can spawn as {table.concat(mutations, ", ")} for more money.`,
+					`Comes out of a {paint(box.Name, box.Color)} from {paint(if area then area.Name else "the lane", if area then area.Trim else PLACE)}. Steal one before {paint(Config.Guard.Name, rgb(255, 90, 90))} wakes up!`,
+					`Can come as {table.concat(mutations, ", ")} for more money.`,
 				}
 				else {
-					`Never spawns in the lane: only the {paint("admin panel", rarity.Color)} can make one.`,
+					`Never comes out of a box: only the {paint("admin panel", rarity.Color)} can make one.`,
 					`Can come as {table.concat(mutations, ", ")} for more money.`,
 				},
-			HowTo = if spawnable then `Steal it in {if area then areaName(area.Id) else "the lane"}` else "Admin panel only",
+			HowTo = if spawnable and box then `{box.Name}, {areaName(donut.Area)}` else "Admin panel only",
 		}
 	elseif item.Kind == "Pet" and Pets.ById[item.Id] then
 		local pet = Pets.ById[item.Id]

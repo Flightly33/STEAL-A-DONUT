@@ -30,7 +30,6 @@ export type Snapshot = {
 	Favorite: string?, -- slot key of your favourite donut
 	Donated: number?,
 	HiddenItems: { [string]: boolean }?, -- items taken off the hotbar
-	PermaLock: boolean?, -- admin: permanent Base Lock
 	SeenTutorial: boolean?,
 	SeenUpdate: number?,
 	NotesOnLogin: boolean?,

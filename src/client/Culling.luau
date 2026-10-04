@@ -2,11 +2,10 @@
 	Culling: hides what's far away, on this player's screen only. Nothing moves out of its folder
 	and nothing changes for anyone else; it's just not drawn.
 
-	  * lane areas far ahead or behind: their decorations, donuts, crates, guard bed, arch and signs
+	  * biomes far ahead or behind: their decorations, boxes, crates, Domer's corner, arch and signs
 	    (floors and walls always stay, so you can still see where the lane goes)
-	  * bases further than a few plots away, in every world
-	  * other worlds' scenery and portals, and the hub's stalls, boards and portals while you're
-	    somewhere else
+	  * bases further than a few plots away
+	  * the lobby's sell stall, leaderboards and decorations while you're far down the lane
 
 	Hidden parts get LocalTransparencyModifier = 1 (not drawn) and their lights, particles, beams,
 	fire, smoke and signs are switched off; everything comes back as you get close (checked a few

@@ -2,18 +2,22 @@
 	EventService
 	============
 	Every few minutes ONE server event starts (see Events.luau) and runs for everyone, everywhere:
-	  * Luck events: better donuts in every area (mutations, rare donuts), and every area's donuts
-	    are re-rolled when it starts.
-	  * Rare Donut Rain: a rare donut crashes down, one at a time, in an area someone can reach.
-	  * Egg Shower: eggs keep dropping in every area that can have eggs.
+	  * Luck events: better boxes in every biome (Epic and Legendary boxes, mutations), and every
+	    biome's boxes are replaced the moment it starts.
+	  * Box Rain: a rare box crashes down, one at a time, in a biome someone can reach (it lands on
+	    the ground: whoever grabs it gets chased by that biome's Domer).
+	  * Egg Shower: eggs keep dropping in every biome that can have eggs.
 	  * 2x Incubator Speed: every incubator hatches twice as fast.
-	  * The Eternal Storm (very rare, or the owner's 👑 button): a giant black hole hangs over every
-	    world, huge rocks crash down in the lanes where people are (whoever they land on is flung),
-	    and purple lightning strikes lane donuts all over the game - every one it hits becomes
-	    ETERNAL. The server picks where rocks land and which donuts get struck, and tells every
-	    client (StormBlock / StormStrike) so they all see the same thing; client/StormFX draws it.
+	  * The Eternal Storm (very rare, or the owner's 👑 button): a giant black hole hangs over the
+	    lane, huge rocks crash down where people are (whoever they land on is flung), and purple
+	    lightning strikes boxes all over the game - every one it hits becomes ETERNAL. The server
+	    picks where rocks land and which boxes get struck, and tells every client (StormBlock /
+	    StormStrike) so they all see the same thing; client/StormFX draws it.
 	Only one event runs at a time. Clients read it from workspace attributes (EventId, EventEndsAt),
 	so players who join mid-event see it too, and show the big announcement when it starts.
+
+	Box Rush (separate, on its own clock): every Config.Boxes.Rush.Interval seconds, for Duration
+	seconds, every box in every pen opens Speed times faster (workspace attribute BoxRushEndsAt).
 ]]
 
 local Players = game:GetService("Players")
@@ -24,12 +28,13 @@ local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
 local Events = require(Shared.Events)
-local Donuts = require(Shared.Donuts)
+local Boxes = require(Shared.Boxes)
 local Rarities = require(Shared.Rarities)
 local Remotes = require(Shared.Remotes)
 
 local DataService = require(script.Parent.DataService)
-local DonutSpawnService = require(script.Parent.DonutSpawnService)
+local BoxService = require(script.Parent.BoxService)
+local PlotService = require(script.Parent.PlotService)
 local PetService = require(script.Parent.PetService)
 local ItemService = require(script.Parent.ItemService)
 local Decor = require(script.Parent.Decor)
@@ -42,23 +47,16 @@ local current: Events.Event? = nil
 local token = 0
 local lastId: string? = nil
 
--- The best area a player can safely steal in.
+-- The furthest biome a player is fast enough to get into.
 local function bestArea(player: Player): number?
 	local profile = DataService.Get(player)
 	if not profile or not profile.Session.Ready then
 		return nil
 	end
-	local walk = Economy.WalkSpeedFromStat(profile.Data.Speed)
-	local best = nil
-	for _, area in Areas.List do
-		if Economy.WorldUnlocked(area.World, profile.Data.Rebirths, profile.Data.UltimateRebirths) and walk + 0.01 >= Economy.WalkSpeedFromStat(Economy.RecommendedSpeed(area.Id)) then
-			best = area.Id
-		end
-	end
-	return best
+	return Economy.BestAreaFor(profile.Data.Speed)
 end
 
--- An area someone in the server can actually get to (one of a random player's top 3).
+-- A biome someone in the server can actually get to (one of a random player's top 3).
 local function reachableArea(): number?
 	local players = Players:GetPlayers()
 	if #players == 0 then
@@ -68,15 +66,7 @@ local function reachableArea(): number?
 	if not best then
 		return nil
 	end
-	local world = Areas.List[best].World
-	local candidates = {}
-	for id = best - 2, best do
-		local area = Areas.List[id]
-		if area and area.World == world then
-			table.insert(candidates, id)
-		end
-	end
-	return candidates[rng:NextInteger(1, #candidates)]
+	return rng:NextInteger(math.max(1, best - 2), best)
 end
 
 function EventService.Current(): Events.Event?
@@ -159,14 +149,23 @@ local function dropRock(worldId: number, roots: { BasePart }?)
 	end)
 end
 
--- Purple lightning hits a lane donut and makes it Eternal (one in a world someone is in, if any).
+-- Purple lightning hits a box waiting in a biome and makes it Eternal (one in a biome someone can
+-- get to, if any).
 local function strike()
-	local _, present = playersByWorld()
+	local reachable: { [number]: boolean } = {}
+	for _, player in Players:GetPlayers() do
+		local best = bestArea(player)
+		if best then
+			for id = 1, best do
+				reachable[id] = true
+			end
+		end
+	end
 	local near, anywhere = {}, {}
-	for _, record in DonutSpawnService.GetRecords() do
-		if record.Model and not record.Taken and record.Mutation ~= "Eternal" then
+	for _, record in BoxService.GetWaiting() do
+		if record.Mutation ~= "Eternal" and record.Model then
 			table.insert(anywhere, record)
-			if present[Areas.List[record.AreaId].World] then
+			if reachable[record.AreaId] then
 				table.insert(near, record)
 			end
 		end
@@ -176,21 +175,21 @@ local function strike()
 		return
 	end
 	local record = pool[rng:NextInteger(1, #pool)]
-	Remotes.Event("StormStrike"):FireAllClients({ Position = record.Point.CFrame.Position })
-	task.wait(0.3) -- (the bolt lands, then the donut changes)
-	if not DonutSpawnService.Eternalize(record) then
+	local model = record.Model
+	if not model then
 		return
 	end
-	local donut = record.DonutId and Donuts.ById[record.DonutId]
+	Remotes.Event("StormStrike"):FireAllClients({ Position = model:GetPivot().Position })
+	task.wait(0.3) -- (the bolt lands, then the box changes)
+	if not BoxService.Eternalize(record) then
+		return
+	end
 	local area = Areas.List[record.AreaId]
-	if not donut then
-		return
-	end
-	local name = Rarities.DisplayName(donut.Name, "Eternal", record.Size)
+	local name = Rarities.DisplayName(Boxes.DisplayName(record.Tier, record.Size), "Eternal", nil)
 	for _, player in Players:GetPlayers() do
-		local profile = DataService.Get(player)
-		if profile and Economy.WorldUnlocked(area.World, profile.Data.Rebirths, profile.Data.UltimateRebirths) then
-			Remotes.Event("Notify"):FireClient(player, `⚡ Purple lightning struck {area.Name}: {name} is ETERNAL now!`, "rare")
+		local best = bestArea(player)
+		if best and best >= record.AreaId then
+			Remotes.Event("Notify"):FireClient(player, `⚡ Purple lightning struck {area.Name}: an {name} is waiting by Domer!`, "rare")
 		end
 	end
 end
@@ -234,9 +233,9 @@ local function stop()
 	workspace:SetAttribute("EventId", nil)
 	workspace:SetAttribute("EventEndsAt", nil)
 	for _, area in Areas.List do
-		DonutSpawnService.SetAreaLuck(area.Id, nil)
+		BoxService.SetAreaLuck(area.Id, nil)
 	end
-	DonutSpawnService.SetEventRarity(nil)
+	BoxService.SetEventRarity(nil)
 	PetService.SetEggShower(false)
 	PetService.SetHatchBoost(1)
 	if event then
@@ -246,20 +245,25 @@ local function stop()
 	end
 end
 
--- Rare Donut Rain: one rare donut at a time, somewhere players can get to.
+-- Box Rain: one rare box at a time crashes down somewhere players can get to.
 local function rareRain(myToken: number)
 	while token == myToken do
 		local areaId = reachableArea()
-		local record = if areaId then DonutSpawnService.DropRare(areaId) else nil
-		local donut = if record and record.DonutId then Donuts.ById[record.DonutId] else nil
-		if areaId and record and donut then
+		if areaId then
 			local area = Areas.List[areaId]
-			local rarity = Rarities.Get(donut.Rarity)
-			local name = Rarities.DisplayName(donut.Name, record.Mutation, record.Size)
+			local tier = if areaId <= 1 then "Basic" elseif rng:NextNumber() < 0.3 then "Legendary" else "Epic"
+			local size = Boxes.RollSize(rng).Id
+			local mutation = Rarities.RollMutation(rng, 2).Id
+			local half = Layout.AreaHalfWidth(areaId) - 20
+			local position = Vector3.new(rng:NextNumber(-half, half), 0, rng:NextNumber(Layout.AreaStart(areaId) + 40, Layout.AreaEnd(areaId) - 90))
+			local record = BoxService.Plant(areaId, position, tier, size, mutation)
+			record.Planted = nil -- (a real find, not the admin panel's)
+			Remotes.Event("StormStrike"):FireAllClients({ Position = position, Color = Boxes.Tier(tier).Color })
+			local name = Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)
 			for _, player in Players:GetPlayers() do
-				local profile = DataService.Get(player)
-				if profile and Economy.WorldUnlocked(area.World, profile.Data.Rebirths, profile.Data.UltimateRebirths) then
-					Remotes.Event("Notify"):FireClient(player, `☄️ A {string.upper(rarity.Id)} donut crashed into {area.Name}: {name}!`, "rare")
+				local best = bestArea(player)
+				if best and best >= areaId then
+					Remotes.Event("Notify"):FireClient(player, `☄️ A {name} crashed into {area.Name}! Grab it before anyone else!`, "rare")
 				end
 			end
 		end
@@ -281,12 +285,10 @@ function EventService.Start(event: Events.Event, duration: number?)
 	workspace:SetAttribute("EventEndsAt", workspace:GetServerTimeNow() + length)
 	if event.Kind == "Luck" then
 		for _, area in Areas.List do
-			DonutSpawnService.SetAreaLuck(area.Id, event.Luck, event.Boost)
+			BoxService.SetAreaLuck(area.Id, event.Luck, event.Boost)
 		end
-		DonutSpawnService.SetEventRarity(event.Rarity)
-		for _, area in Areas.List do
-			DonutSpawnService.RerollArea(area.Id)
-		end
+		BoxService.SetEventRarity(event.Rarity)
+		BoxService.ResetAll() -- (a fresh, luckier batch everywhere)
 	elseif event.Kind == "RareRain" then
 		task.spawn(rareRain, myToken)
 	elseif event.Kind == "EggShower" then
@@ -313,7 +315,31 @@ function EventService.StartById(id: string, duration: number?): boolean
 	return true
 end
 
+-- Box Rush: for a few seconds every box in every pen opens Speed times faster.
+local function boxRush()
+	local rush = Config.Boxes.Rush
+	workspace:SetAttribute("BoxRushEndsAt", workspace:GetServerTimeNow() + rush.Duration)
+	for _, player in Players:GetPlayers() do
+		Remotes.Event("Notify"):FireClient(player, `⏩ BOX RUSH! Boxes in your pen open {rush.Speed}x faster for {rush.Duration} seconds!`, "event")
+	end
+	local left = rush.Duration
+	while left > 0 do
+		local step = math.min(1, left)
+		task.wait(step)
+		left -= step
+		PlotService.RushBoxes(step * (rush.Speed - 1))
+	end
+	workspace:SetAttribute("BoxRushEndsAt", nil)
+end
+
 function EventService.Init()
+	task.spawn(function()
+		while true do
+			workspace:SetAttribute("BoxRushAt", workspace:GetServerTimeNow() + Config.Boxes.Rush.Interval)
+			task.wait(Config.Boxes.Rush.Interval)
+			boxRush()
+		end
+	end)
 	if not Config.Events.Enabled then
 		return
 	end

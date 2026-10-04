@@ -20,7 +20,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
@@ -281,7 +280,7 @@ local function start(belt: BasePart, character: Model, root: BasePart, humanoid:
 	end
 	rateLabel.Text = `🏃 RUNNING!  +{Format.Rate(currentRate())} ⚡/s`
 	hint.Visible = true
-	lastWalkPoint = math.floor(State.Number("Speed") / Config.Speed.SpeedPerWalk)
+	lastWalkPoint = math.floor(Economy.WalkSpeedFromStat(State.Number("Speed")))
 	setRunFX(true, root)
 end
 
@@ -358,7 +357,7 @@ function Treadmill.Init()
 	startTreadmillAnimations()
 	State.OnAttribute("Speed", function(value)
 		if running and type(value) == "number" then
-			local point = math.floor(value / Config.Speed.SpeedPerWalk)
+			local point = math.floor(Economy.WalkSpeedFromStat(value))
 			if point > lastWalkPoint then
 				walkSpeedBurst(point - lastWalkPoint)
 			end

@@ -2,11 +2,13 @@
 	Tutorial: a guided first game. A small line of text at the top of the screen says what to do
 	next, with a Skip Tutorial button beside it, and a red arrow floating over your head points the
 	way (a second red arrow bobs over the target):
-	  1. follow the arrow to the donut lane
-	  2. steal a donut (walk up to one and press E)
-	  3. run back to your base before the guard catches you (caught? steal another one)
-	  4. upgrade the donut on your base (press E on it when you have enough money)
-	  5. run on your treadmill to get faster
+	  1. follow the arrow to the first biome
+	  2. steal a donut box (walk up to one next to Domer and press E)
+	  3. run back to the lobby before Domer catches you (caught? steal another one)
+	  4. go into your pen, hold the box and click to put it down
+	  5. wait for it to open (the donut lands in your inventory)
+	  6. hold the donut and click in your pen: it walks around and makes money
+	  7. run on your treadmill to get faster
 	Then a Claim button gives you a free egg (once ever; the server checks).
 	It starts on your first join and keeps coming back until you finish or skip it; Settings >
 	How to play starts it again.
@@ -18,7 +20,6 @@ local RunService = game:GetService("RunService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local Areas = require(Shared.Areas)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.Theme)
@@ -31,21 +32,24 @@ local Tutorial = {}
 
 local player = Players.LocalPlayer :: Player
 local RED = Color3.fromRGB(235, 40, 40)
-local STEPS = { "Lane", "Steal", "RunHome", "Upgrade", "Treadmill" }
+local STEPS = { "Lane", "Steal", "RunHome", "PlaceBox", "Wait", "PlaceDonut", "Treadmill" }
 local TEXT: { [string]: string } = {
-	Lane = "Follow the red arrow to the donut lane",
-	Steal = "Walk up to a donut and press E to steal it",
-	RunHome = `Run back to your base before {Config.Guard.Name} catches you`,
-	Caught = `{Config.Guard.Name} caught you! Steal another donut and try again`,
-	Upgrade = "Your donut makes money. When you have enough, press E on it to upgrade it",
-	Treadmill = "Run on your treadmill to get faster",
+	Lane = "Follow the red arrow to the first biome",
+	Steal = `Walk up to a donut box next to {Config.Guard.Name} and press E to steal it`,
+	RunHome = `Run back to the lobby before {Config.Guard.Name} catches you!`,
+	Caught = `{Config.Guard.Name} caught you! Steal another box and try again`,
+	PlaceBox = "Go into your pen, hold the box and click to put it down",
+	Wait = "Your box is opening! Wait for the timer to run out",
+	PlaceDonut = "Your donut is in your inventory! Hold it and click in your pen",
+	Treadmill = "Your donut makes money! Now run on your treadmill to get faster",
 	Done = "Tutorial complete! Claim your free egg",
 	Claimed = "Tutorial complete!",
 }
 
 local step: string? = nil -- nil while the tutorial isn't running
 local caught = false
-local upgradesAtStart = 0
+local boxesAtStart = 0
+local donutsAtStart = 0
 local speedAtStart = 0
 local refresh: () -> ()
 
@@ -56,8 +60,10 @@ end
 
 local function go(nextStep: string?)
 	step = nextStep
-	if nextStep == "Upgrade" then
-		upgradesAtStart = number("DonutUpgrades")
+	if nextStep == "PlaceBox" then
+		boxesAtStart = number("BoxesPlaced")
+	elseif nextStep == "PlaceDonut" then
+		donutsAtStart = number("DonutsPlaced")
 	elseif nextStep == "Treadmill" then
 		speedAtStart = number("Speed")
 	end
@@ -116,16 +122,14 @@ local function place(arrow: Arrow, cf: CFrame?)
 end
 
 -- Where the arrows should point for the current step.
-local nearestDonut: Vector3? = nil
+local nearestBox: Vector3? = nil
 local lastScan = 0
 local function laneStart(): Vector3
-	local world = math.max(1, State.Number("World"))
-	local first = Areas.ByWorld[world] and Areas.ByWorld[world][1]
-	local z = if first then Layout.AreaStart(first.Id) + 15 else 0
-	return Vector3.new(Layout.WorldOffset(world), 0, z)
+	return Vector3.new(0, 0, Layout.AreaStart(1) + 15)
 end
 
-local function findDonut(from: Vector3): Vector3?
+-- The nearest box you can steal in the biome you're in.
+local function findBox(from: Vector3): Vector3?
 	local area = AreaTracker.Current
 	local map = workspace:FindFirstChild("Map")
 	local lane = map and map:FindFirstChild("Lane")
@@ -156,14 +160,16 @@ local function target(from: Vector3): Vector3?
 		local now = os.clock()
 		if now - lastScan > 0.75 then
 			lastScan = now
-			nearestDonut = findDonut(from)
+			nearestBox = findBox(from)
 		end
-		return nearestDonut or laneStart()
+		return nearestBox or laneStart()
 	elseif step == "RunHome" then
-		return if plot then plot:GetPivot().Position else nil
-	elseif step == "Upgrade" and plot then
+		return Vector3.new(from.X, 0, Config.Map.SafeZoneZ - 30)
+	elseif (step == "PlaceBox" or step == "PlaceDonut") and plot then
+		return plot:GetPivot().Position
+	elseif step == "Wait" and plot then
 		for _, child in plot:GetChildren() do
-			if child:IsA("Model") and string.sub(child.Name, 1, 9) == "SlotDonut" then
+			if child:IsA("Model") and string.sub(child.Name, 1, 6) == "PenBox" then
 				return child:GetPivot().Position
 			end
 		end
@@ -257,18 +263,24 @@ function Tutorial.Init()
 		go(nil)
 	end)
 
-	-- Stealing, getting caught and bringing donuts home
+	-- Stealing a box, getting caught and bringing it back
 	Remotes.Event("ChaseEnded").OnClientEvent:Connect(function(info: any)
-		if type(info) ~= "table" or info.Kind == "Egg" then
+		if type(info) ~= "table" or info.Kind ~= "Box" then
 			return
 		end
 		if step == "RunHome" or step == "Steal" then
 			if info.Result == "Deposited" then
-				go("Upgrade")
+				go("PlaceBox")
 			elseif info.Result == "Caught" or info.Result == "Lost" then
 				caught = true
 				go("Steal")
 			end
+		end
+	end)
+	-- Your box opened
+	Remotes.Event("BoxOpened").OnClientEvent:Connect(function(info: any)
+		if type(info) == "table" and info.Owner == player and (step == "Wait" or step == "PlaceBox") then
+			go("PlaceDonut")
 		end
 	end)
 
@@ -281,10 +293,12 @@ function Tutorial.Init()
 		-- move on when the step is done
 		if step == "Lane" and AreaTracker.Current > 0 then
 			go("Steal")
-		elseif step == "Steal" and player:GetAttribute("CarryingDonut") then
+		elseif step == "Steal" and player:GetAttribute("CarryKind") == "Box" then
 			caught = false
 			go("RunHome")
-		elseif step == "Upgrade" and number("DonutUpgrades") > upgradesAtStart then
+		elseif step == "PlaceBox" and number("BoxesPlaced") > boxesAtStart then
+			go("Wait")
+		elseif step == "PlaceDonut" and number("DonutsPlaced") > donutsAtStart then
 			go("Treadmill")
 		elseif step == "Treadmill" and number("Speed") >= speedAtStart + 3 then
 			go("Done")

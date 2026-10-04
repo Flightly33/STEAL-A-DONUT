@@ -1,9 +1,10 @@
 --[[
 	Guards (client side)
 	====================
-	* Builds YOUR sleeping guard on every blanket (only you can see him; everyone has their own):
-	  posed asleep on his back on a pillow (GuardModel.Sleep), eyes shut. Every breath out puffs a
-	  few Z's out of his open mouth, and up close you hear him snore (a deep rattling breath in, a
+	* Builds YOUR sleeping Domer in every biome's back corner (only you can see him; everyone has
+	  their own): in the first biomes he's asleep on his back on his couch (GuardModel.Sleep), later
+	  on he sleeps standing up with his head down (GuardModel.Doze). Eyes shut; every breath out puffs
+	  a few Z's out of his open mouth, and up close you hear him snore (a deep rattling breath in, a
 	  soft breath out: made from Roblox's own sounds, or Config.Guard.SnoreSoundId).
 	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId).
 	* When you steal a donut the server spawns your chasing guard: your sleeping one disappears in a
@@ -272,8 +273,10 @@ local function buildSleeper(areaId: number)
 		return
 	end
 	local model, status = GuardModel.Build(areaId)
-	-- Asleep on his back on a pillow, eyes shut, mouth open (anchors every part)
-	local mouth = GuardModel.Sleep(model)
+	-- On his couch: asleep on his back, eyes shut, mouth open. Later biomes: asleep on his feet,
+	-- head down. (Both anchor every part.)
+	local onCouch = marker:GetAttribute("Couch") == true
+	local mouth = if onCouch then GuardModel.Sleep(model) else GuardModel.Doze(model)
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.CanCollide = false
@@ -282,8 +285,10 @@ local function buildSleeper(areaId: number)
 		end
 	end
 	status.Text = "" -- (the Z's come out of his mouth)
-	local home = CFrame.new(marker.Position.X, 0, marker.Position.Z)
-	model:PivotTo(GuardModel.SleepCFrame(home))
+	local facing = marker.CFrame.LookVector * Vector3.new(1, 0, 1)
+	local floor = Vector3.new(marker.Position.X, 0, marker.Position.Z)
+	local home = CFrame.lookAt(floor, floor + (if facing.Magnitude > 0.01 then facing.Unit else Vector3.new(0, 0, -1)))
+	model:PivotTo(if onCouch then GuardModel.CouchCFrame(home) else GuardModel.StandCFrame(home))
 	model.Parent = folder
 	sleepers[areaId] = {
 		Model = model,

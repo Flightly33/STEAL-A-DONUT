@@ -25,9 +25,10 @@ export type Donut = {
 	Id: string,
 	Name: string,
 	Rarity: string,
-	Area: number,
+	Area: number, -- the biome whose boxes it comes out of
+	Box: string?, -- which of that biome's boxes (Boxes.luau tier id); nil = admin panel only
 	Income: number,
-	Weight: number,
+	Weight: number, -- chance relative to the other donuts in the same box
 	Dough: Color3,
 	Frosting: Color3,
 	Sprinkles: { Color3 }?,
@@ -52,7 +53,7 @@ local ADMIN = { rgb(255, 40, 40), rgb(255, 255, 255), rgb(20, 20, 20) }
 
 local function D(id: string, name: string, rarity: string, area: number, income: number, weight: number, dough: Color3, frosting: Color3, sprinkles: { Color3 }?, parts: { string })
 	return {
-		Id = id, Name = name, Rarity = rarity, Area = area, Income = income, Weight = weight,
+		Id = id, Name = name, Rarity = rarity, Area = area, Box = nil, Income = income, Weight = weight,
 		Dough = dough, Frosting = frosting, Sprinkles = sprinkles, Parts = parts,
 		Score = 0, Index = 0,
 	}
@@ -297,39 +298,134 @@ Donuts.List = {
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
 } :: { Donut }
 
--- World 2 (reached by an ULTIMATE REBIRTH): every Donut Land donut again as a rarer "Cosmic"
--- version, two rarities higher, earning 2x as much, in the matching World 2 area.
-local COSMIC_RARITY: { [string]: string } = {
-	Common = "Epic",
-	Uncommon = "Epic",
-	Rare = "Legendary",
-	Epic = "Legendary",
-	Legendary = "Celestial",
-	Celestial = "Secret",
+--------------------------------------------------------------------------------
+-- Update 6: donuts come out of donut BOXES (Boxes.luau). Every donut above now lives in one of
+-- the 20 biomes (Areas.luau) and in one of its boxes:
+--   * BIOME_DONUTS: which of the old areas' donuts each biome's boxes hold (in the order above).
+--   * Biome 1 only has the plain pink box: all its donuts are "Basic" box donuts.
+--   * Everywhere else the donuts are sorted from weakest to best: the weakest ~40% are in the
+--     Rare box, the next half of the rest in the Epic box and the best in the Legendary box.
+--     Secret and Icon donuts are a tiny chance (SECRET_WEIGHT) inside the Legendary box.
+--   * Inside a box the weaker donuts are the common ones (each one ~half as likely as the one
+--     before) and the rarer ones earn more; on average a box's donut earns
+--     BIOME_INCOME[biome] x TIER_INCOME[box].
+-- Admin donuts never come out of a box (only the admin panel makes them).
+--------------------------------------------------------------------------------
+local BIOME_DONUTS: { { number } } = {
+	{ 1, 2 }, -- 1 Sprinkle Park
+	{ 4, 14 }, -- 2 Frosting Falls
+	{ 3, 19 }, -- 3 Sugar Dunes
+	{ 16, 18 }, -- 4 Jellybean Jungle
+	{ 6, 12 }, -- 5 Glacier Glaze
+	{ 7, 17 }, -- 6 Molten Bakery
+	{ 5, 15 }, -- 7 Chocolate Caverns
+	{ 11, 13 }, -- 8 Candy Cane Canyon
+	{ 21 }, -- 9 Toy Factory
+	{ 22 }, -- 10 Haunted Donuttery
+	{ 20 }, -- 11 Cloud Bakery
+	{ 9 }, -- 12 Crystal Cosmos
+	{ 27, 8 }, -- 13 Neon Streets
+	{ 29, 28 }, -- 14 Robot Factory
+	{ 23 }, -- 15 Clockwork Void
+	{ 25, 10 }, -- 16 Starfall Garden
+	{ 26 }, -- 17 Aurora Palace
+	{ 24 }, -- 18 Donut Heaven
+	{ 32, 30, 31 }, -- 19 Glitch Zone
+	{ 34, 33 }, -- 20 The Black Hole
 }
-for _, donut in table.clone(Donuts.List) do
-	local area = Areas.List[donut.Area]
-	if area and area.World == 1 then
-		table.insert(Donuts.List, D(
-			"cosmic_" .. donut.Id,
-			"Cosmic " .. donut.Name,
-			COSMIC_RARITY[donut.Rarity] or donut.Rarity,
-			Areas.CosmicOffset + area.Index,
-			donut.Income * 2,
-			donut.Weight,
-			donut.Dough:Lerp(rgb(60, 40, 120), 0.45),
-			donut.Frosting,
-			donut.Sprinkles or STARS,
-			donut.Parts
-		))
+
+-- Money per second of an average Rare-box donut in each biome (level 1, no mutation, normal size).
+-- Tuned with the economy sim (see Config.Treadmill).
+local BIOME_INCOME = {
+	7, 22, 72, 230, 730, 2_350, 8_700, 32_000, 120_000, 440_000,
+	1_630_000, 6_000_000, 22_000_000, 82_000_000, 305_000_000, 1_130_000_000, 4_200_000_000, 15_500_000_000, 57_000_000_000, 212_000_000_000,
+}
+local TIER_INCOME: { [string]: number } = { Basic = 1, Rare = 1, Epic = 3, Legendary = 10 }
+local SECRET_WEIGHT = 0.4 -- % of Legendary boxes (each Secret / Icon donut)
+local SECRET_INCOME = 8 -- x the biome's Legendary average
+
+local oldArea: { [string]: number } = {}
+for _, donut in Donuts.List do
+	oldArea[donut.Id] = donut.Area
+end
+
+-- Weights and income factors for `count` donuts in one box: each is ~55% as likely as the one
+-- before and earns 1.45x more, scaled so the box's average income factor is exactly 1.
+local function spread(count: number): ({ number }, { number })
+	local w, f = {}, {}
+	local totalW, mean = 0, 0
+	for i = 1, count do
+		w[i] = 100 * 0.55 ^ (i - 1)
+		f[i] = 1.45 ^ (i - 1)
+		totalW += w[i]
+	end
+	for i = 1, count do
+		mean += w[i] / totalW * f[i]
+	end
+	for i = 1, count do
+		f[i] /= mean
+	end
+	return w, f
+end
+
+local function assign(list: { Donut }, biome: number, box: string)
+	local weights, factors = spread(#list)
+	for i, donut in list do
+		donut.Area = biome
+		donut.Box = box
+		donut.Weight = weights[i]
+		donut.Income = BIOME_INCOME[biome] * TIER_INCOME[box] * factors[i]
 	end
 end
 
--- The best finds of every area spawn less often than the weights written above: the 14% one at
--- about 12%, the 4% one at 3% and the 1% one at 0.6%, so the rarer donuts feel rare.
-local RARER: { [number]: number } = { [14] = 12, [4] = 3, [1] = 0.6 }
+for biome, sources in BIOME_DONUTS do
+	local regular, special = {}, {}
+	for _, area in sources do
+		for _, donut in Donuts.List do
+			if oldArea[donut.Id] == area then
+				local rarity = Rarities.Get(donut.Rarity)
+				if rarity.AdminOnly then
+					donut.Area = biome
+					donut.Box = nil
+					donut.Weight = 0
+					donut.Income = BIOME_INCOME[biome] * TIER_INCOME.Legendary * SECRET_INCOME * 2
+				elseif donut.Rarity == "Secret" or donut.Rarity == "Icon" then
+					table.insert(special, donut)
+				else
+					table.insert(regular, donut)
+				end
+			end
+		end
+	end
+	table.sort(regular, function(a, b)
+		return a.Income < b.Income
+	end)
+	if biome == 1 then
+		assign(regular, biome, "Basic")
+	else
+		local rare = math.ceil(#regular * 0.4)
+		local epic = math.ceil((#regular - rare) * 0.5)
+		local lists = { {}, {}, {} }
+		for i, donut in regular do
+			table.insert(lists[if i <= rare then 1 elseif i <= rare + epic then 2 else 3], donut)
+		end
+		assign(lists[1], biome, "Rare")
+		assign(lists[2], biome, "Epic")
+		assign(lists[3], biome, "Legendary")
+		local legendaryWeight = 0
+		for _, donut in lists[3] do
+			legendaryWeight += donut.Weight
+		end
+		for _, donut in special do
+			donut.Area = biome
+			donut.Box = "Legendary"
+			donut.Weight = legendaryWeight * SECRET_WEIGHT / 100
+			donut.Income = BIOME_INCOME[biome] * TIER_INCOME.Legendary * SECRET_INCOME * (if donut.Rarity == "Icon" then 3 else 1)
+		end
+	end
+end
 for _, donut in Donuts.List do
-	donut.Weight = RARER[donut.Weight] or donut.Weight
+	assert(donut.Area >= 1 and donut.Area <= #Areas.List and (donut.Box ~= nil or Rarities.Get(donut.Rarity).AdminOnly), "Donut not in any biome's boxes: " .. donut.Id)
 end
 
 Donuts.ById = {} :: { [string]: Donut }
@@ -380,76 +476,70 @@ function Donuts.FromScore(score: number): (Donut?, string)
 	return donut, "None"
 end
 
--- A donut counts as "rare" for luck boosts when its base chance in its area is under this.
+-- A donut counts as "rare" for luck boosts when its chance inside its box is under this.
 Donuts.RareChance = 0.1
 
--- Can this donut spawn by itself (lane spawns, Rare Donut Rain)? Admin donuts can't: only the
--- admin panel makes them.
+-- Can this donut come out of a box by itself? Admin donuts can't: only the admin panel makes them.
 function Donuts.Spawnable(donut: Donut): boolean
-	return not Rarities.ById[donut.Rarity].AdminOnly
+	return donut.Box ~= nil and not Rarities.ById[donut.Rarity].AdminOnly
 end
 
--- Weight of every donut of an area for a spawn (admin-only donuts weigh 0). `luck` multiplies the
--- weight of every rare donut (Luck Event); `rareOnly` leaves only the rare ones.
-local function weights(areaId: number, luck: number?, rareOnly: boolean?): ({ Donut }, { number }, number)
-	local pool = Donuts.ByArea[areaId]
-	assert(pool and #pool > 0, "No donuts defined for area " .. tostring(areaId))
+-- Every donut of a biome's box (in list order).
+Donuts.ByBox = {} :: { [number]: { [string]: { Donut } } }
+for _, donut in Donuts.List do
+	if donut.Box then
+		local biome = Donuts.ByBox[donut.Area] or {}
+		Donuts.ByBox[donut.Area] = biome
+		biome[donut.Box] = biome[donut.Box] or {}
+		table.insert(biome[donut.Box], donut)
+	end
+end
+
+-- Weight of every donut in a box. `luck` multiplies the weight of every rare one (Luck Event).
+local function weights(biome: number, box: string, luck: number?): ({ Donut }, { number }, number)
+	local pool = Donuts.ByBox[biome] and Donuts.ByBox[biome][box]
+	assert(pool and #pool > 0, `No donuts in biome {biome}'s {box} box`)
 	local boost = luck or 1
 	local base = 0
 	for _, donut in pool do
-		if Donuts.Spawnable(donut) then
-			base += donut.Weight
-		end
+		base += donut.Weight
 	end
 	local list, total = {}, 0
 	for i, donut in pool do
 		local rare = donut.Weight / base < Donuts.RareChance
-		local weight = if not Donuts.Spawnable(donut) or (rareOnly and not rare) then 0
-			elseif boost ~= 1 and rare then donut.Weight * boost
-			else donut.Weight
+		local weight = if boost ~= 1 and rare then donut.Weight * boost else donut.Weight
 		list[i] = weight
 		total += weight
 	end
 	return pool, list, total
 end
 
-local function pick(pool: { Donut }, list: { number }, total: number, rng: Random): Donut
+-- Does this biome have this box?
+function Donuts.HasBox(biome: number, box: string): boolean
+	local pools = Donuts.ByBox[biome]
+	return pools ~= nil and pools[box] ~= nil and #pools[box] > 0
+end
+
+-- The donut that comes out of a box from `biome`. `luck` boosts the rare ones (Luck Event).
+function Donuts.Roll(biome: number, box: string, rng: Random, luck: number?): Donut
+	local pool, list, total = weights(biome, box, luck)
 	local left = rng:NextNumber() * total
-	local last = pool[1]
 	for i, donut in pool do
-		if list[i] > 0 then
-			last = donut
-			left -= list[i]
-			if left <= 0 then
-				return donut
-			end
+		left -= list[i]
+		if left <= 0 then
+			return donut
 		end
 	end
-	return last
+	return pool[#pool]
 end
 
--- Weighted random donut for an area. `rng` is a Random object. `luck` multiplies the weight of
--- every rare donut (Luck Event). Never an admin-only donut.
-function Donuts.Roll(areaId: number, rng: Random, luck: number?): Donut
-	local pool, list, total = weights(areaId, luck)
-	return pick(pool, list, total, rng)
-end
-
--- A random RARE donut of an area (base chance under RareChance), weighted like normal spawns.
--- Used by the Rare Donut Rain event. Never an admin-only donut.
-function Donuts.RollRare(areaId: number, rng: Random): Donut
-	local pool, list, total = weights(areaId, nil, true)
-	if total <= 0 then
-		return Donuts.Roll(areaId, rng)
-	end
-	return pick(pool, list, total, rng)
-end
-
--- Chance (0-1) that a spawn in the donut's area is this donut (0 for admin-only donuts). `luck` =
--- the Luck Event's rarity boost (same maths as Donuts.Roll), so the Index can show the boosted
--- odds while it runs.
+-- Chance (0-1) that the donut's box gives this donut (0 for admin-only donuts). `luck` = the Luck
+-- Event's rarity boost, so the Index can show the boosted odds while it runs.
 function Donuts.Chance(donut: Donut, luck: number?): number
-	local pool, list, total = weights(donut.Area, luck)
+	if not donut.Box then
+		return 0
+	end
+	local pool, list, total = weights(donut.Area, donut.Box, luck)
 	return list[table.find(pool, donut) :: number] / total
 end
 

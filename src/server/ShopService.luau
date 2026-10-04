@@ -7,8 +7,9 @@
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
 	  BuyPass <key>                                    (Robux game passes)
 	  Rebirth, ClaimIndex { DonutId, Kind }
-	  TeleportWorld <id>, TeleportArea <id>            (Teleporter game pass)
-	  SetSpeedChoice <0..1>, TeleportHome, BuyItem <id>, SetMusic { Volume, On }
+	  TeleportArea <id>                                (Teleporter game pass)
+	  SetSpeedChoice <0..1>, TeleportHome, SetMusic { Volume, On }
+	  SellInventory <uid>, SellAllInventory <rarity>, SellSlot <slot>   (the sell stall)
 	  HatchEgg <uid?>, EquipPet <uid>, UnequipPet <uid>, EquipBestPets, ReleasePet <uid>
 	  BuyLuck, BuyCrate <id>, Donate <amount>          (Robux developer products)
 	Other services can add their own actions with ShopService.RegisterAction (e.g. the admin panel).
@@ -23,7 +24,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
-local Areas = require(Shared.Areas)
 local UpdateNotes = require(Shared.UpdateNotes)
 local Donuts = require(Shared.Donuts)
 local Economy = require(Shared.Economy)
@@ -34,8 +34,8 @@ local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
 local TreadmillService = require(script.Parent.TreadmillService)
 local StealService = require(script.Parent.StealService)
-local ItemService = require(script.Parent.ItemService)
 local WorldService = require(script.Parent.WorldService)
+local InventoryService = require(script.Parent.InventoryService)
 local PetService = require(script.Parent.PetService)
 local ProductService = require(script.Parent.ProductService)
 local Ownership = require(script.Parent.Ownership)
@@ -190,10 +190,6 @@ function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
 		return
 	end
 	local nextTier = Economy.TreadmillTier(level + 1)
-	if profile.Data.Rebirths < nextTier.RequiredRebirths then
-		notify(player, `🔒 The {nextTier.Name} Treadmill needs {nextTier.RequiredRebirths} rebirth{if nextTier.RequiredRebirths == 1 then "" else "s"}.`, "error")
-		return
-	end
 	if not DataService.TrySpend(player, nextTier.Cost) then
 		notify(player, "Not enough money! Need " .. Format.Money(nextTier.Cost), "error")
 		return
@@ -201,7 +197,7 @@ function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
 	profile.Data.TreadmillLevel = level + 1
 	player:SetAttribute("TreadmillLevel", level + 1)
 	TreadmillService.Build(player)
-	notify(player, `🏃 {nextTier.Name} Treadmill installed! (+{Format.Rate(nextTier.Rate)} speed/s base)`, "success")
+	notify(player, `🏃 {nextTier.Name} Treadmill installed! (+{Format.Number(nextTier.PerStep)} ⚡ every step)`, "success")
 end
 
 function Actions.BuyBaseSize(player: Player, _profile: DataService.Profile)
@@ -277,7 +273,7 @@ function Actions.Rebirth(player: Player, profile: DataService.Profile)
 		return
 	end
 	if StealService.IsCarrying(player) then
-		notify(player, "Bring your donut home first!", "error")
+		notify(player, "Bring it home first!", "error")
 		return
 	end
 	if data.Speed < nextRebirth.Speed then
@@ -288,55 +284,18 @@ function Actions.Rebirth(player: Player, profile: DataService.Profile)
 		notify(player, "Not enough money! Need " .. Format.Money(nextRebirth.Cost), "error")
 		return
 	end
-	-- Reset
+	-- Reset your money and Speed (donuts, base, treadmill and upgrades stay)
 	data.Money = 0
 	data.Speed = 0
-	data.TreadmillLevel = 1
-	data.SpeedMultLevel = 0
-	PlotService.ClearAll(player)
 	data.Rebirths += 1
 	DataService.SyncAttributes(player)
-	TreadmillService.Build(player)
+	TreadmillService.Refresh(player)
 	ShopService.RefreshMultipliers(player)
 	local spawnCf = PlotService.GetSpawnCFrame(player)
 	if spawnCf then
 		StealService.Teleport(player, spawnCf)
 	end
 	notify(player, `🔄 REBIRTH {data.Rebirths}! Money x{Format.Multiplier(Economy.RebirthMoneyMultiplier(data.Rebirths))} and treadmill speed x{Format.Multiplier(Economy.RebirthSpeedMultiplier(data.Rebirths))} forever!`, "success")
-	DataService.Save(player)
-end
-
--- ULTIMATE REBIRTH: the big red button in The Black Hole's secret lab. Like a rebirth, but your
--- rebirths reset too and you're sent to World 2 (rarer donuts, worth 2x Donut Land's). Pets,
--- passes, items, base expansions and your Index stay. The client plays the white flash.
-function Actions.UltimateRebirth(player: Player, profile: DataService.Profile)
-	if StealService.IsCarrying(player) then
-		notify(player, "Bring your donut home first!", "error")
-		return
-	end
-	if not WorldService.NearUltimateButton(player) then
-		return
-	end
-	local data = profile.Data
-	data.Money = 0
-	data.Speed = 0
-	data.TreadmillLevel = 1
-	data.SpeedMultLevel = 0
-	PlotService.ClearAll(player)
-	data.Rebirths = 0
-	data.UltimateRebirths += 1
-	DataService.SyncAttributes(player)
-	TreadmillService.Build(player)
-	ShopService.RefreshMultipliers(player)
-	local world = Areas.World(Areas.UltimateWorld)
-	Remotes.Event("UltimateRebirth"):FireClient(player, world.Name)
-	Remotes.Event("AreaAnnouncement"):FireAllClients(`💥 {player.DisplayName} pressed the ULTIMATE REBIRTH and vanished into {string.upper(world.Name)}!`, world.Color)
-	-- arrive while the screen is white
-	task.delay(1.4, function()
-		if player.Parent then
-			WorldService.SendToWorld(player, world.Id)
-		end
-	end)
 	DataService.Save(player)
 end
 
@@ -366,16 +325,24 @@ function Actions.ClaimIndex(player: Player, profile: DataService.Profile, arg: a
 	DataService.PushState(player)
 end
 
-function Actions.TeleportWorld(player: Player, _profile: DataService.Profile, worldId: any)
-	WorldService.TeleportToWorld(player, worldId)
-end
-
 function Actions.TeleportArea(player: Player, _profile: DataService.Profile, areaId: any)
 	WorldService.TeleportToArea(player, areaId)
 end
 
-function Actions.BuyItem(player: Player, _profile: DataService.Profile, itemId: any)
-	ItemService.Buy(player, itemId)
+-- The sell stall: sell a donut from your inventory, or every inventory donut of a rarity.
+function Actions.SellInventory(player: Player, _profile: DataService.Profile, uid: any)
+	InventoryService.Sell(player, uid)
+end
+
+function Actions.SellAllInventory(player: Player, _profile: DataService.Profile, rarity: any)
+	InventoryService.SellAll(player, rarity)
+end
+
+-- Sell a donut that's in your pen (the sell stall's list).
+function Actions.SellSlot(player: Player, _profile: DataService.Profile, slot: any)
+	if type(slot) == "number" then
+		PlotService.SellSlot(player, slot)
+	end
 end
 
 function Actions.SeenTutorial(player: Player, profile: DataService.Profile)
@@ -408,10 +375,6 @@ function Actions.NotesOnLogin(player: Player, profile: DataService.Profile, on: 
 		profile.Data.NotesOnLogin = on
 		DataService.PushState(player)
 	end
-end
-
-function Actions.ToggleHotbar(player: Player, _profile: DataService.Profile, itemId: any)
-	ItemService.ToggleHotbar(player, itemId)
 end
 
 function Actions.SetMusic(player: Player, profile: DataService.Profile, settings: any)
@@ -472,12 +435,14 @@ function Actions.DropCarried(player: Player)
 	local carry = StealService.GetCarry(player)
 	if carry and carry.Kind == "Raid" then
 		StealService.Drop(player, "You dropped it. It went back to its owner.")
+	elseif carry and carry.Kind == "Box" then
+		StealService.Drop(player, "You dropped the box.")
 	end
 end
 
 function Actions.TeleportHome(player: Player, profile: DataService.Profile)
 	if StealService.IsCarrying(player) then
-		notify(player, "You can't teleport while carrying a donut - run!", "error")
+		notify(player, "You can't teleport while carrying something - run!", "error")
 		return
 	end
 	if profile.Session.Stunned then

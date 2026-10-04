@@ -1,10 +1,11 @@
 --[[
 	Chase UI: everything that happens during a steal.
-	  - "RUN!" banner with live distance to the guard and to the safe zone, red screen edges
+	  - "RUN!" banner with live distance to Domer and to the lobby, red screen edges
 	  - Domer's footsteps: heavy thuds that get louder as he closes in, and the camera shakes when
 	    he's right behind you (Config.Guard FootstepRange / ShakeRange / MaxShake)
-	  - "SAFE!" message and a glowing path to your base while you carry the donut home
-	  - "CAUGHT!" screen (with a comedic fling) or a celebration when the donut is secured
+	  - "📦 BOX SECURED!" when you get a box back to the lobby (it goes into your inventory)
+	  - "CAUGHT!" screen (with a comedic fling): the box went back to Domer, or fell on the ground
+	  - A small "Drop" button while you carry a box or a donut stolen from someone's base
 	  - Base alarm: a siren, red edges and a red outline on the thief when someone steals from you
 	  - "Welcome back" popup for offline earnings
 ]]
@@ -17,6 +18,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
+local Boxes = require(Shared.Boxes)
 local Donuts = require(Shared.Donuts)
 local Rarities = require(Shared.Rarities)
 local Economy = require(Shared.Economy)
@@ -174,7 +176,7 @@ type ChaseInfo = { DonutId: string, AreaId: number, Kind: string?, Guard: Model?
 
 local function onChaseStarted(info: ChaseInfo)
 	Settings.SetChasing(true)
-	local kind = info.Kind or (if info.Raid then "Raid" else "Lane")
+	local kind = info.Kind or (if info.Raid then "Raid" else "Box")
 	local donut = Donuts.ById[info.DonutId]
 	local rarity = donut and Rarities.Get(donut.Rarity)
 	local size = Rarities.Size(info.Size)
@@ -189,7 +191,15 @@ local function onChaseStarted(info: ChaseInfo)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
 	Theme.PlaySound("Grab")
 	Theme.PlaySound("Steal")
-	if kind == "Egg" then
+	if kind == "Box" then
+		-- (for a box, DonutId is the box tier)
+		local tier = Boxes.Tier(info.DonutId)
+		local boxSize = Boxes.Size(info.Size)
+		Notifications.Toast(`You grabbed a {Rarities.DisplayName(Boxes.DisplayName(tier.Id, boxSize.Id), info.Mutation, nil)}! Get it to the lobby!`, "rare")
+		if boxSize.CarrySpeed < 1 then
+			Notifications.Toast(`🐌 It's a {boxSize.Name} box! You're {math.floor((1 - boxSize.CarrySpeed) * 100 + 0.5)}% slower while carrying it.`, "error")
+		end
+	elseif kind == "Egg" then
 		local egg = Pets.EggById[info.DonutId]
 		if egg then
 			Notifications.Toast(`You grabbed a {egg.Name}! Bring it to your incubator!`, "rare")
@@ -223,7 +233,7 @@ local function onChaseStarted(info: ChaseInfo)
 			text = if home then `🏠 Your base: {math.floor((home - root.Position).Magnitude)} studs` else "🏠 Get to your base!"
 		else
 			local toSafe = math.max(0, root.Position.Z - Config.Map.SafeZoneZ)
-			text = `🛡 Safe zone: {math.floor(toSafe)} studs`
+			text = `🛡 Lobby: {math.floor(toSafe)} studs`
 		end
 		local closeness = 0
 		local guard = info.Guard
@@ -304,7 +314,7 @@ local function bigText(text: string, color: Color3, duration: number)
 	end)
 end
 
-type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string? }
+type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string?, Tier: string?, BoxBack: boolean? }
 
 local function onChaseEnded(result: ChaseResult)
 	Settings.SetChasing(false)
@@ -328,6 +338,14 @@ local function onChaseEnded(result: ChaseResult)
 			bigText("🥚 EGG SECURED!", if egg then egg.Accent else Theme.Colors.Pink, 2)
 			Theme.PlaySound("Deposit")
 			return
+		elseif result.Kind == "Box" then
+			local tier = Boxes.Tier(result.Tier)
+			local mutation = Rarities.Mutation(result.Mutation)
+			local color = if mutation.Order > 0 then mutation.Color else tier.Color
+			bigText("📦 BOX SECURED!", color, 2)
+			Notifications.Banner(Rarities.DisplayName(Boxes.DisplayName(tier.Id, result.Size), result.Mutation, nil), color, 2.5, "In your inventory • hold it and click in your pen")
+			Theme.PlaySound("Deposit")
+			return
 		end
 		local donut = result.DonutId and Donuts.ById[result.DonutId]
 		if donut then
@@ -344,7 +362,13 @@ local function onChaseEnded(result: ChaseResult)
 		clearBeam()
 		setEdges(true, Color3.fromRGB(255, 0, 0))
 		bigText(`CAUGHT BY {string.upper(Config.Guard.Name)}!`, Color3.fromRGB(255, 70, 70), 1.8)
-		Notifications.Toast("It went back where you found it. Try again!", "error")
+		if result.Kind == "Box" then
+			Notifications.Toast(if result.BoxBack
+				then `{Config.Guard.Name} took the box back. Try again!`
+				else "You dropped the box! Grab it before someone else does!", "error")
+		else
+			Notifications.Toast("It went back where you found it. Try again!", "error")
+		end
 		Theme.PlaySound("Caught")
 		flingSelf()
 		task.delay(1.5, function()
@@ -451,7 +475,7 @@ local function onAlarm(info: AlarmInfo)
 				return
 			end
 			if root and thiefRoot then
-				bannerInfo.Text = `⚔️ Hit them with your Slap Hand! They're {math.floor((thiefRoot.Position - root.Position).Magnitude)} studs away`
+				bannerInfo.Text = `⚔️ Hit them with your bat! They're {math.floor((thiefRoot.Position - root.Position).Magnitude)} studs away`
 			end
 			setEdgeStrength(0.5 + math.sin(pulse * 8) * 0.15)
 		end)
@@ -483,10 +507,10 @@ end
 function Chase.Init()
 	gui = Theme.ScreenGui("Chase", 5)
 
-	-- Small "Drop donut" button, only while you carry a donut stolen from someone's base. Kept small
-	-- and away from the other buttons (right side, under the middle) so it isn't hit by accident.
+	-- Small "Drop" button, only while you carry a box or a donut stolen from someone's base. Kept
+	-- small and away from the other buttons (right side, under the middle) so it isn't hit by accident.
 	local dropHolder = Theme.new("Frame", {
-		Name = "DropDonut", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.64, 0),
+		Name = "DropCarried", AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -14, 0.64, 0),
 		Size = UDim2.fromOffset(112, 32), BackgroundTransparency = 1, Visible = false, Parent = gui,
 	})
 	Theme.AutoScale(dropHolder)
@@ -495,7 +519,9 @@ function Chase.Init()
 		Remotes.Event("Action"):FireServer("DropCarried")
 	end)
 	local function updateDrop()
-		dropHolder.Visible = player:GetAttribute("CarryKind") == "Raid"
+		local kind = player:GetAttribute("CarryKind")
+		dropHolder.Visible = kind == "Raid" or kind == "Box"
+		Theme.SetButtonText(drop, if kind == "Box" then "✋ Drop box" else "✋ Drop donut")
 	end
 	player:GetAttributeChangedSignal("CarryKind"):Connect(updateDrop)
 	updateDrop()

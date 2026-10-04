@@ -3,8 +3,8 @@
 	===========
 	Stealing from other players' bases (like "Steal a Brainrot"):
 	  * Every donut on a base has a "Steal" prompt (hold Config.Raid.HoldSeconds). It works whether
-	    or not the owner is home - only an active Base Lock protects a base. The owner never sees
-	    the prompt on their own donuts.
+	    or not the owner is home: there are no base locks. The owner never sees the prompt on
+	    their own donuts.
 	  * The owner hears an alarm and gets a warning the moment someone starts holding, and a louder
 	    alarm (plus a red outline on the thief) when the donut is taken.
 	  * The thief carries the donut over their head in slow mode (Config.Raid.CarryWalkSpeed). If the
@@ -12,7 +12,6 @@
 	    the owner's stand (StealService).
 ]]
 
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -35,13 +34,9 @@ local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
 end
 
--- Can this player's base be raided right now? Only a Base Lock stops raids.
+-- Can this player's base be raided right now? (Only while they have one: there are no locks.)
 function RaidService.IsProtected(owner: Player): boolean
-	if not PlotService.GetPlotIndex(owner) then
-		return true
-	end
-	local plot = PlotService.GetPlotModel(owner)
-	return plot ~= nil and plot:GetAttribute("Locked") == true
+	return PlotService.GetPlotIndex(owner) == nil
 end
 
 local function slotDonutName(owner: Player, slotIndex: number): string
@@ -71,7 +66,6 @@ local function tryRaid(owner: Player, slotIndex: number, prompt: ProximityPrompt
 		return
 	end
 	if RaidService.IsProtected(owner) then
-		notify(thief, "🔒 That base is locked!", "error")
 		return
 	end
 	-- (the donut roams its pen: check against where it really is now, not where it was put)
@@ -135,23 +129,6 @@ function RaidService.Init()
 		return
 	end
 	PlotService.RaidHandler = hookPrompt
-
-	-- Switch a base's raid prompts off while its Base Lock is on.
-	task.spawn(function()
-		while true do
-			task.wait(0.25)
-			for _, owner in Players:GetPlayers() do
-				if DataService.IsReady(owner) then
-					local open = not RaidService.IsProtected(owner)
-					for _, prompt in PlotService.GetRaidPrompts(owner) do
-						if prompt.Enabled ~= open then
-							prompt.Enabled = open
-						end
-					end
-				end
-			end
-		end
-	end)
 end
 
 return RaidService
