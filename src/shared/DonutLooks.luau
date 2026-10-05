@@ -14,8 +14,9 @@
 	    for dizzy anime eyes with swirly irises, worried brows and a drooling "o" mouth (Nasmean Man).
 	  * Effects: false = no aura or glow of its own (DonutAuras); BiomeDetails: false = none of its
 	    biome's little touches (DonutExtras.Theme); Scale: a smaller or bigger donut;
-	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleLining: the
-	    inside of its hole glazed too.
+	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleColor: a band
+	    of another colour round the edge of the hole; HoleLining: the inside of its hole glazed too
+	    (in HoleColor, if it has one).
 	  * Muscles: 0, 1 (toned arms: fighters and guards) or 2 (huge flexing arms and a champion
 	    belt: Maximus, Supremus, Odin, Zeus, -zilla...). A strong donut gets arms if it has none.
 	  * Feet: "Sneakers" (in the donut's own colours), "HighTops", "Boots", "Paws" (with toe
@@ -55,6 +56,7 @@ export type Look = {
 	BiomeDetails: boolean,
 	Scale: number,
 	Rim: Color3?,
+	HoleColor: Color3?,
 	HoleLining: boolean,
 }
 
@@ -65,7 +67,7 @@ local BLACK = rgb(30, 30, 36)
 -- Per-donut choices that beat whatever the name says.
 DonutLooks.Overrides = {
 	mihajon = { Effects = false, BiomeDetails = false, Eyes = "Heart", Mood = "Cute", Glaze = "MegaDrip", Marking = "None", Iris = rgb(125, 122, 140), Tilt = math.rad(9), Feet = "Sneakers", Shoe = rgb(255, 120, 175), ShoeAccent = WHITE, Sprinkles = "Jimmies" },
-	nasmeanman = { BiomeDetails = false, Eyes = "Spiral", Mood = "Cute", Glaze = "Glossy", Marking = "None", Scale = 0.72, Rim = rgb(255, 150, 195), HoleLining = true, Iris = rgb(70, 68, 80), Feet = "Sneakers", Shoe = rgb(255, 150, 195), ShoeAccent = WHITE, Sole = WHITE, Sprinkles = "Jimmies" },
+	nasmeanman = { BiomeDetails = false, Eyes = "Spiral", Mood = "Cute", Glaze = "Glossy", Marking = "None", Scale = 0.72, HoleColor = rgb(255, 150, 195), HoleLining = true, Iris = rgb(70, 68, 80), Feet = "Sneakers", Shoe = rgb(255, 150, 195), ShoeAccent = WHITE, Sole = WHITE, Sprinkles = "Jimmies" },
 	tradonut = { Shoe = rgb(40, 110, 235), ShoeAccent = WHITE }, -- Tralalero's blue sneakers
 	tralalerobeach = { Shoe = rgb(40, 110, 235), ShoeAccent = rgb(255, 140, 40) },
 	frigocamel = { Feet = "Boots" }, -- Frigo Camelo wears boots
@@ -355,6 +357,7 @@ function DonutLooks.For(donut: { Id: string, Name: string, Rarity: string, Frost
 		BiomeDetails = true,
 		Scale = 1,
 		Rim = nil,
+		HoleColor = nil,
 		HoleLining = false,
 	}
 	local override = DonutLooks.Overrides[donut.Id]

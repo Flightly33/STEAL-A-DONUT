@@ -5253,8 +5253,9 @@ return DonutLayers
 	    for dizzy anime eyes with swirly irises, worried brows and a drooling "o" mouth (Nasmean Man).
 	  * Effects: false = no aura or glow of its own (DonutAuras); BiomeDetails: false = none of its
 	    biome's little touches (DonutExtras.Theme); Scale: a smaller or bigger donut;
-	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleLining: the
-	    inside of its hole glazed too.
+	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleColor: a band
+	    of another colour round the edge of the hole; HoleLining: the inside of its hole glazed too
+	    (in HoleColor, if it has one).
 	  * Muscles: 0, 1 (toned arms: fighters and guards) or 2 (huge flexing arms and a champion
 	    belt: Maximus, Supremus, Odin, Zeus, -zilla...). A strong donut gets arms if it has none.
 	  * Feet: "Sneakers" (in the donut's own colours), "HighTops", "Boots", "Paws" (with toe
@@ -5294,6 +5295,7 @@ export type Look = {
 	BiomeDetails: boolean,
 	Scale: number,
 	Rim: Color3?,
+	HoleColor: Color3?,
 	HoleLining: boolean,
 }
 
@@ -5304,7 +5306,7 @@ local BLACK = rgb(30, 30, 36)
 -- Per-donut choices that beat whatever the name says.
 DonutLooks.Overrides = {
 	mihajon = { Effects = false, BiomeDetails = false, Eyes = "Heart", Mood = "Cute", Glaze = "MegaDrip", Marking = "None", Iris = rgb(125, 122, 140), Tilt = math.rad(9), Feet = "Sneakers", Shoe = rgb(255, 120, 175), ShoeAccent = WHITE, Sprinkles = "Jimmies" },
-	nasmeanman = { BiomeDetails = false, Eyes = "Spiral", Mood = "Cute", Glaze = "Glossy", Marking = "None", Scale = 0.72, Rim = rgb(255, 150, 195), HoleLining = true, Iris = rgb(70, 68, 80), Feet = "Sneakers", Shoe = rgb(255, 150, 195), ShoeAccent = WHITE, Sole = WHITE, Sprinkles = "Jimmies" },
+	nasmeanman = { BiomeDetails = false, Eyes = "Spiral", Mood = "Cute", Glaze = "Glossy", Marking = "None", Scale = 0.72, HoleColor = rgb(255, 150, 195), HoleLining = true, Iris = rgb(70, 68, 80), Feet = "Sneakers", Shoe = rgb(255, 150, 195), ShoeAccent = WHITE, Sole = WHITE, Sprinkles = "Jimmies" },
 	tradonut = { Shoe = rgb(40, 110, 235), ShoeAccent = WHITE }, -- Tralalero's blue sneakers
 	tralalerobeach = { Shoe = rgb(40, 110, 235), ShoeAccent = rgb(255, 140, 40) },
 	frigocamel = { Feet = "Boots" }, -- Frigo Camelo wears boots
@@ -5594,6 +5596,7 @@ function DonutLooks.For(donut: { Id: string, Name: string, Rarity: string, Frost
 		BiomeDetails = true,
 		Scale = 1,
 		Rim = nil,
+		HoleColor = nil,
 		HoleLining = false,
 	}
 	local override = DonutLooks.Overrides[donut.Id]
@@ -5975,6 +5978,22 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), if look.Rim and not mutation.Frosting then underColor else frostingColor, cf, frostingMaterial, "Frosting"))
 	end
+	-- a band of another colour round the edge of the hole (HoleColor), over the outer layer
+	local holeColor = if look.HoleColor and not mutation.Frosting then look.HoleColor else underColor
+	if STUDDED and look.HoleColor and not mutation.Frosting then
+		local count = STUDDED_GLAZE_SEGMENTS
+		local width = FROST_R - CROWN_HALF + 0.02
+		local radius = R - (FROST_R + CROWN_HALF) / 2
+		local step = TAU / count
+		for n = 0, count - 1 do
+			local angle = n * step
+			local piece = Instance.new("Part")
+			piece.Size = Vector3.new(2 * radius * math.sin(step / 2) + width * math.tan(step / 2), width, 0.08) * s
+			piece.Name = "Frosting"
+			local cf = at(radius * math.cos(angle), radius * math.sin(angle), SHOULDER_FRONT - 0.03) * CFrame.Angles(0, 0, angle + math.pi / 2)
+			table.insert(glaze, add(piece, cf, holeColor, frostingMaterial))
+		end
+	end
 	-- glaze lining the inside of the hole too (HoleLining)
 	if look.HoleLining then
 		local count = 12
@@ -5986,7 +6005,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			local piece = Instance.new("Part")
 			piece.Size = Vector3.new(2 * inner * math.sin(math.pi / count) + 0.1, 0.1, BALL * 0.92) * s
 			piece.Name = "Frosting"
-			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), underColor, frostingMaterial))
+			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), holeColor, frostingMaterial))
 		end
 	end
 	for _, piece in glaze do
@@ -6220,16 +6239,30 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				part:SetAttribute("Mouth", "Corner")
 			end
 			if look.Eyes == "Spiral" then
-				-- a little nose mark, and a small open "o" mouth with a drip of drool
-				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.5, 0.03), nil, "Nose")
-				middle(ellipsoid(Vector3.new(0.2, 0.3, 0.1), rgb(40, 25, 30), onFace(0, mouthY - 0.08, 0.02), nil, "Mouth"))
-				corner(ellipsoid(Vector3.new(0.13, 0.11, 0.1), rgb(150, 140, 150), onFace(0, mouthY - 0.17, 0.04), nil, "Mouth"))
+				-- a little nose mark, a big open "o" mouth, and drool running out of it in strands that
+				-- hang down over the hole, each with a drop at its end
+				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.42, 0.03), nil, "Nose")
+				-- (placed straight in front of the glaze: face() would pull the bits that hang over the
+				-- hole back onto the glaze, and tip the mouth with the tube's curve)
+				local function hanging(x: number, y: number, depth: number?): CFrame
+					local lx, ly = lean(x, y)
+					return at(lx, ly, SHOULDER_FRONT - (depth or 0.15)) * tiltCf
+				end
+				local mouthMid = mouthY - 0.195
+				middle(ellipsoid(Vector3.new(0.44, 0.54, 0.12), rgb(40, 25, 30), hanging(0, mouthMid, 0.1), nil, "Mouth"))
+				local lip = mouthMid - 0.26
+				corner(ellipsoid(Vector3.new(0.26, 0.1, 0.1), rgb(150, 140, 150), hanging(0, lip + 0.08), nil, "Mouth"))
 				local drool = rgb(205, 225, 240)
-				for _, piece in { { Size = Vector3.new(0.07, 0.3, 0.06), Y = -0.36 }, { Size = Vector3.new(0.11, 0.11, 0.08), Y = -0.53 } } do
-					local part = block(piece.Size, drool, onFace(0.03, mouthY + piece.Y, 0.04), Enum.Material.Glass, "Drool")
+				local function droolPart(size: Vector3, cf: CFrame)
+					local part = block(size, drool, cf, Enum.Material.Glass, "Drool")
 					part.Transparency = 0.2
 					part.Reflectance = 0.3
 					corner(part)
+				end
+				droolPart(Vector3.new(0.3, 0.07, 0.08), hanging(0, lip))
+				for _, strand in { { X = 0.05, Length = 0.55, Width = 0.09 }, { X = -0.08, Length = 0.36, Width = 0.07 }, { X = 0.13, Length = 0.2, Width = 0.06 } } do
+					droolPart(Vector3.new(strand.Width, strand.Length, 0.07), hanging(strand.X, lip - strand.Length / 2))
+					droolPart(Vector3.one * (strand.Width * 1.7), hanging(strand.X, lip - strand.Length - strand.Width * 0.6))
 				end
 			elseif mood == "Happy" then
 				middle(ellipsoid(Vector3.new(0.44, 0.24, 0.1), dark, onFace(0, mouthY - 0.06, 0.02), nil, "Mouth"))
@@ -7669,8 +7702,8 @@ Donuts.List = {
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
 	-- ICON: Miha Jon - glossy white glaze pouring off it (over its edges and down into its hole) and
 	-- big anime eyes with heart-shaped shines (its look: DonutLooks.Overrides)
-	-- ICON: Nasmean Man - a small donut: tan glaze with pink round its rim and inside its hole,
-	-- sprinkles, dizzy spiral eyes and a drooling "o" mouth (its look: DonutLooks.Overrides)
+	-- ICON: Nasmean Man - a small donut: tan glaze with pink round its hole and inside it, sprinkles,
+	-- dizzy spiral eyes and a big drooling "o" mouth (its look: DonutLooks.Overrides)
 	D("nasmeanman", "Nasmean Man", "Icon", 34, 2.5e29, 0.0015, rgb(200, 140, 80), rgb(214, 178, 130), { rgb(255, 90, 150), rgb(90, 180, 255), rgb(255, 225, 70), rgb(255, 255, 255), rgb(120, 220, 120) }, { "Legs", "Arms" }),
 	D("mihajon", "Miha Jon", "Icon", 34, 2.5e29, 0.0015, rgb(222, 160, 95), rgb(250, 246, 240), { rgb(255, 120, 175), rgb(255, 80, 130), rgb(140, 200, 255) }, { "Legs", "Arms" }),
 } :: { Donut }

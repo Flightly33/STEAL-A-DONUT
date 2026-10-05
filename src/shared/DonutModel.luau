@@ -361,6 +361,22 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), if look.Rim and not mutation.Frosting then underColor else frostingColor, cf, frostingMaterial, "Frosting"))
 	end
+	-- a band of another colour round the edge of the hole (HoleColor), over the outer layer
+	local holeColor = if look.HoleColor and not mutation.Frosting then look.HoleColor else underColor
+	if STUDDED and look.HoleColor and not mutation.Frosting then
+		local count = STUDDED_GLAZE_SEGMENTS
+		local width = FROST_R - CROWN_HALF + 0.02
+		local radius = R - (FROST_R + CROWN_HALF) / 2
+		local step = TAU / count
+		for n = 0, count - 1 do
+			local angle = n * step
+			local piece = Instance.new("Part")
+			piece.Size = Vector3.new(2 * radius * math.sin(step / 2) + width * math.tan(step / 2), width, 0.08) * s
+			piece.Name = "Frosting"
+			local cf = at(radius * math.cos(angle), radius * math.sin(angle), SHOULDER_FRONT - 0.03) * CFrame.Angles(0, 0, angle + math.pi / 2)
+			table.insert(glaze, add(piece, cf, holeColor, frostingMaterial))
+		end
+	end
 	-- glaze lining the inside of the hole too (HoleLining)
 	if look.HoleLining then
 		local count = 12
@@ -372,7 +388,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			local piece = Instance.new("Part")
 			piece.Size = Vector3.new(2 * inner * math.sin(math.pi / count) + 0.1, 0.1, BALL * 0.92) * s
 			piece.Name = "Frosting"
-			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), underColor, frostingMaterial))
+			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), holeColor, frostingMaterial))
 		end
 	end
 	for _, piece in glaze do
@@ -606,16 +622,30 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				part:SetAttribute("Mouth", "Corner")
 			end
 			if look.Eyes == "Spiral" then
-				-- a little nose mark, and a small open "o" mouth with a drip of drool
-				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.5, 0.03), nil, "Nose")
-				middle(ellipsoid(Vector3.new(0.2, 0.3, 0.1), rgb(40, 25, 30), onFace(0, mouthY - 0.08, 0.02), nil, "Mouth"))
-				corner(ellipsoid(Vector3.new(0.13, 0.11, 0.1), rgb(150, 140, 150), onFace(0, mouthY - 0.17, 0.04), nil, "Mouth"))
+				-- a little nose mark, a big open "o" mouth, and drool running out of it in strands that
+				-- hang down over the hole, each with a drop at its end
+				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.42, 0.03), nil, "Nose")
+				-- (placed straight in front of the glaze: face() would pull the bits that hang over the
+				-- hole back onto the glaze, and tip the mouth with the tube's curve)
+				local function hanging(x: number, y: number, depth: number?): CFrame
+					local lx, ly = lean(x, y)
+					return at(lx, ly, SHOULDER_FRONT - (depth or 0.15)) * tiltCf
+				end
+				local mouthMid = mouthY - 0.195
+				middle(ellipsoid(Vector3.new(0.44, 0.54, 0.12), rgb(40, 25, 30), hanging(0, mouthMid, 0.1), nil, "Mouth"))
+				local lip = mouthMid - 0.26
+				corner(ellipsoid(Vector3.new(0.26, 0.1, 0.1), rgb(150, 140, 150), hanging(0, lip + 0.08), nil, "Mouth"))
 				local drool = rgb(205, 225, 240)
-				for _, piece in { { Size = Vector3.new(0.07, 0.3, 0.06), Y = -0.36 }, { Size = Vector3.new(0.11, 0.11, 0.08), Y = -0.53 } } do
-					local part = block(piece.Size, drool, onFace(0.03, mouthY + piece.Y, 0.04), Enum.Material.Glass, "Drool")
+				local function droolPart(size: Vector3, cf: CFrame)
+					local part = block(size, drool, cf, Enum.Material.Glass, "Drool")
 					part.Transparency = 0.2
 					part.Reflectance = 0.3
 					corner(part)
+				end
+				droolPart(Vector3.new(0.3, 0.07, 0.08), hanging(0, lip))
+				for _, strand in { { X = 0.05, Length = 0.55, Width = 0.09 }, { X = -0.08, Length = 0.36, Width = 0.07 }, { X = 0.13, Length = 0.2, Width = 0.06 } } do
+					droolPart(Vector3.new(strand.Width, strand.Length, 0.07), hanging(strand.X, lip - strand.Length / 2))
+					droolPart(Vector3.one * (strand.Width * 1.7), hanging(strand.X, lip - strand.Length - strand.Width * 0.6))
 				end
 			elseif mood == "Happy" then
 				middle(ellipsoid(Vector3.new(0.44, 0.24, 0.1), dark, onFace(0, mouthY - 0.06, 0.02), nil, "Mouth"))
