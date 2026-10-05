@@ -219,6 +219,13 @@ function Actions.BuyPass(player: Player, profile: DataService.Profile, key: any)
 		notify(player, "You already own " .. pass.Name .. "!")
 		return
 	end
+	-- Never sell a pass that does the same as one you have (or one that's only kept for its owners)
+	for _, other in Config.GamePasses do
+		if pass.SameAs == other.Key or (other.SameAs == pass.Key and profile.Passes[other.Key]) then
+			notify(player, "You already have " .. (if pass.SameAs then other.Name else pass.Name) .. "!")
+			return
+		end
+	end
 	if studioFree(pass.GamePassId) then
 		grantPass(player, pass, false)
 		notify(player, "(Studio test purchase - not saved)")
@@ -447,6 +454,11 @@ end
 
 function Actions.Donate(player: Player, _profile: DataService.Profile, amount: any)
 	ProductService.Donate(player, amount)
+end
+
+-- BUY under a box's odds ("Open now": UI/SkipOdds)
+function Actions.ConfirmSkip(player: Player, _profile: DataService.Profile, slot: any)
+	ProductService.ConfirmSkip(player, slot)
 end
 
 -- Run speed (Settings): the WalkSpeed you typed, never below Config.Speed.MinRunSpeed. 0 = run as

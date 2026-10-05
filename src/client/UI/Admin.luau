@@ -33,13 +33,13 @@ local function command(cmd: string, arg: any?)
 	State.Action("Admin", { Cmd = cmd, Arg = arg })
 end
 
-local function section(title: string, cellWidth: number?): Frame
+local function section(title: string, cellWidth: number?): (Frame, TextLabel)
 	order += 1
-	Theme.Label({ Text = title, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = order, Parent = scroll })
+	local label = Theme.Label({ Text = title, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = order, Parent = scroll })
 	order += 1
 	return Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = scroll }, {
 		Theme.new("UIGridLayout", { CellSize = UDim2.fromOffset(cellWidth or 128, 40), CellPadding = UDim2.fromOffset(6, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
-	})
+	}), label
 end
 
 local function button(parent: Instance, text: string, color: Color3, onClick: () -> ()): TextButton
@@ -49,7 +49,8 @@ local function button(parent: Instance, text: string, color: Color3, onClick: ()
 end
 
 -- HD Admin-style commands: pick who (me / everyone / others / a player), type a value if the
--- command needs one, press the command.
+-- command needs one, press the command. Only the owner can pick other players or use the
+-- moderation and whole-server commands (the server checks too: HDAdmin.Run).
 local function buildHD()
 	order += 1
 	Theme.Label({ Text = "👥 PLAYER COMMANDS (HD Admin)", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 28), LayoutOrder = order, Parent = scroll })
@@ -60,9 +61,10 @@ local function buildHD()
 	local targetButton = Theme.Button({ Text = "", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(250, 40), Parent = row })
 	local function refreshChoices()
 		local current = choices[choice]
-		choices = { { Label = "🙋 Me", Target = "me" }, { Label = "🌍 Everyone", Target = "all" }, { Label = "👥 Everyone else", Target = "others" } }
+		local owner = Players.LocalPlayer:GetAttribute("AdminOwner") == true
+		choices = if owner then { { Label = "🙋 Me", Target = "me" }, { Label = "🌍 Everyone", Target = "all" }, { Label = "👥 Everyone else", Target = "others" } } else { { Label = "🙋 Me", Target = "me" } }
 		for _, other in Players:GetPlayers() do
-			if other ~= Players.LocalPlayer then
+			if owner and other ~= Players.LocalPlayer then
 				table.insert(choices, { Label = "👤 " .. other.DisplayName, Target = other.UserId })
 			end
 		end
@@ -93,7 +95,7 @@ local function buildHD()
 		command("HD", { Action = action, Target = choices[choice].Target, Value = if valueBox.Text ~= "" then (tonumber(valueBox.Text) or valueBox.Text) else nil })
 	end
 	type Entry = { Text: string, Action: string, Color: Color3, Cmd: string? }
-	local groups: { { Title: string, Entries: { Entry } } } = {
+	local groups: { { Title: string, Entries: { Entry }, OwnerOnly: boolean? } } = {
 		{ Title = "Health", Entries = {
 			{ Text = "💀 Kill", Action = "kill", Color = Theme.Colors.Red }, { Text = "🔄 Respawn", Action = "respawn", Color = Theme.Colors.Gray },
 			{ Text = "❤️ Heal", Action = "heal", Color = Theme.Colors.Green }, { Text = "😇 God", Action = "god", Color = Theme.Colors.Yellow },
@@ -116,21 +118,26 @@ local function buildHD()
 			{ Text = "✨ Sparkles", Action = "sparkles", Color = Theme.Colors.Yellow }, { Text = "🔥 Fire", Action = "fire", Color = Theme.Colors.Orange },
 			{ Text = "💨 Smoke", Action = "smoke", Color = Theme.Colors.Gray }, { Text = "🧹 Remove effects", Action = "unfx", Color = Theme.Colors.Gray },
 		} },
-		{ Title = "🛡 Admin access (owner only; saved, the code stops working for them)", Entries = {
+		{ Title = "🛡 Admin access (owner only; saved, the code stops working for them)", OwnerOnly = true, Entries = {
 			{ Text = "🚫 Remove admin", Action = "", Cmd = "RevokeAdmin", Color = Theme.Colors.Red },
 			{ Text = "✅ Give admin back", Action = "", Cmd = "RestoreAdmin", Color = Theme.Colors.Green },
 		} },
-		{ Title = "Moderation", Entries = {
+		{ Title = "Moderation (owner only)", OwnerOnly = true, Entries = {
 			{ Text = "👢 Kick", Action = "kick", Color = Theme.Colors.Red }, { Text = "⛔ Ban (this server)", Action = "ban", Color = Theme.Colors.Red },
 			{ Text = "✅ Unban all", Action = "unbanall", Color = Theme.Colors.Green },
 		} },
-		{ Title = "Server (value = message / hour / gravity)", Entries = {
+		{ Title = "Server (owner only; value = message / hour / gravity)", OwnerOnly = true, Entries = {
 			{ Text = "📢 Announce", Action = "announce", Color = Theme.Colors.Yellow }, { Text = "🕒 Time of day", Action = "time", Color = Theme.Colors.Blue },
 			{ Text = "🌙 Gravity", Action = "gravity", Color = Theme.Colors.Purple }, { Text = "🛑 Shut down", Action = "shutdown", Color = Theme.Colors.Red },
 		} },
 	}
+	local ownerOnly: { GuiObject } = {}
 	for _, group in groups do
-		local grid = section(group.Title, 150)
+		local grid, label = section(group.Title, 150)
+		if group.OwnerOnly then
+			table.insert(ownerOnly, grid)
+			table.insert(ownerOnly, label)
+		end
 		for _, entry in group.Entries do
 			button(grid, entry.Text, entry.Color, function()
 				if entry.Cmd then
@@ -141,6 +148,12 @@ local function buildHD()
 			end)
 		end
 	end
+	State.OnAttribute("AdminOwner", function(value)
+		for _, item in ownerOnly do
+			item.Visible = value == true
+		end
+		refreshChoices()
+	end)
 end
 
 local function build()

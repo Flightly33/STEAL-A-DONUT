@@ -12,10 +12,17 @@
 	The game's owner (AdminService.IsOwner) can't be kicked, banned, killed, frozen, jailed or
 	flung by anyone else, so the panel can't be turned against you in your own game.
 	Bans only last for this server.
+
+	Only the owner can use these on other players or on the whole server. The admin code gets
+	passed around, and a code that let anyone kill, kick or ban other players (or send messages to
+	everyone) would be a way to bully them, so everyone else can only use them on themselves.
+	Announcements go through Roblox's text filter (TextService) like chat does: Roblox's rules
+	require every message a player types to be filtered before anyone else sees it.
 ]]
 
 local Players = game:GetService("Players")
 local Lighting = game:GetService("Lighting")
+local TextService = game:GetService("TextService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -342,33 +349,53 @@ function Actions.ban(caller, target)
 	end
 end
 
--- Whole-server commands (no target)
-local ServerActions: { [string]: (caller: Player, value: any) -> () } = {}
+-- Whole-server commands (no target). Returns false when it didn't happen (it says why).
+local ServerActions: { [string]: (caller: Player, value: any) -> boolean? } = {}
+
+-- What the caller typed, as everyone may see it (Roblox's filter, for a message to the whole
+-- server), or nil when the filter can't be reached: then nothing is shown.
+local function filterForEveryone(caller: Player, text: string): string?
+	local ok, filtered = pcall(function()
+		local result = TextService:FilterStringAsync(text, caller.UserId, Enum.TextFilterContext.PublicChat)
+		return result:GetNonChatStringForBroadcastAsync()
+	end)
+	return if ok and type(filtered) == "string" then filtered else nil
+end
 
 function ServerActions.announce(caller, value)
 	if type(value) ~= "string" or value == "" then
-		return
+		notify(caller, "Type the message in the value box first.", "error")
+		return false
 	end
-	local text = string.sub(value, 1, 200)
+	local text = filterForEveryone(caller, string.sub(value, 1, 200))
+	if not text then
+		notify(caller, "Couldn't check that message with Roblox's filter, so it wasn't sent. Try again.", "error")
+		return false
+	end
 	Remotes.Event("AreaAnnouncement"):FireAllClients(`📢 {caller.DisplayName}: {text}`, rgb(255, 220, 90))
+	return true
 end
 
 function ServerActions.time(_caller, value)
 	Lighting.ClockTime = math.clamp(tonumber(value) or 14, 0, 24)
+	return true
 end
 
 function ServerActions.gravity(_caller, value)
 	workspace.Gravity = math.clamp(tonumber(value) or 196.2, 0, 1000)
+	return true
 end
 
 function ServerActions.unbanall(_caller)
 	table.clear(banned)
+	return true
 end
 
 function ServerActions.shutdown(caller)
 	for _, player in Players:GetPlayers() do
 		player:Kick(`The server was shut down by {caller.DisplayName}.`)
 	end
+	return true
 end
 
 -- Run a command from the panel: { Action, Target, Value }.
@@ -376,14 +403,22 @@ function HDAdmin.Run(caller: Player, arg: any)
 	if type(arg) ~= "table" or type(arg.Action) ~= "string" then
 		return
 	end
+	local owner = HDAdmin.IsOwner(caller)
 	local serverAction = ServerActions[arg.Action]
 	if serverAction then
-		serverAction(caller, arg.Value)
-		notify(caller, `✅ {arg.Action} done`, "success")
+		if not owner then
+			notify(caller, "Only the game's owner can do that.", "error")
+		elseif serverAction(caller, arg.Value) ~= false then
+			notify(caller, `✅ {arg.Action} done`, "success")
+		end
 		return
 	end
 	local action = Actions[arg.Action]
 	if not action then
+		return
+	end
+	if not owner and arg.Target ~= "me" and arg.Target ~= caller.UserId then
+		notify(caller, "Only the game's owner can use these on other players.", "error")
 		return
 	end
 	local count, skipped = 0, 0

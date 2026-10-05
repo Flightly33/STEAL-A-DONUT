@@ -105,6 +105,21 @@ local function preview(parent: Instance, donut: Donuts.Donut): ViewportFrame
 	return viewport
 end
 
+-- How a box is described over its donuts: "📦 EPIC DONUT BOX • 25% of boxes • opens in 10m", with
+-- the boosted chance too while a Luck Event runs.
+local function boxTitle(biome: number, tier: Boxes.Tier, lucky: boolean): string
+	local chance = Boxes.TierChance(biome, tier.Id)
+	local share = if chance >= 1 then "every box" else `{math.floor(chance * 1000 + 0.5) / 10}% of boxes`
+	if lucky and chance < 1 then
+		local boosted = Boxes.TierChance(biome, tier.Id, Config.LuckEvent.RarityLuck)
+		share ..= ` → 🍀 {math.floor(boosted * 1000 + 0.5) / 10}%`
+	end
+	return `📦 {string.upper(tier.Name)} • {share} • opens in {Format.Duration(Boxes.HatchSeconds(tier.Id, "Small"))}`
+end
+
+-- The box titles on the pages built so far (refresh() updates them when a Luck Event starts or ends).
+local boxTitles: { { Label: TextLabel, Biome: number, Tier: Boxes.Tier } } = {}
+
 local function refresh()
 	local discovered: { [string]: boolean } = State.Data.Discovered or {}
 	local claims: { [string]: string } = State.Data.IndexClaims or {}
@@ -186,7 +201,10 @@ local function refresh()
 			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {chance}{boosted} ({if stats then Format.Number(foundCount) else "?"} found)`)
 		end
 	end
-	legend.Text = (if lucky then `🍀 Luck Event: Epic & Legendary boxes x{Config.LuckEvent.RarityLuck}!  ` else "") .. "🌍 " .. table.concat(parts, "  ")
+	legend.Text = (if lucky then `🍀 Luck Event: rarer boxes x{Config.LuckEvent.RarityLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck}!  ` else "") .. "🌍 " .. table.concat(parts, "  ")
+	for _, entry in boxTitles do
+		entry.Label.Text = boxTitle(entry.Biome, entry.Tier, lucky)
+	end
 end
 
 local function fetchStats()
@@ -241,13 +259,6 @@ local function buildCard(grid: Instance, donut: Donuts.Donut, order: number)
 	cards[donut.Id] = { Viewport = viewport, Name = nameLabel, Info = info, Rarity = rarityLabel, Global = global, Dots = dots, Cash = cash, Speed = speedButton, Status = status }
 end
 
--- How a box is described over its donuts: "📦 EPIC DONUT BOX • 25% of boxes • opens in 10m"
-local function boxTitle(biome: number, tier: Boxes.Tier): string
-	local chance = Boxes.TierChance(biome, tier.Id)
-	local share = if chance >= 1 then "every box" else `{math.floor(chance * 1000 + 0.5) / 10}% of boxes`
-	return `📦 {string.upper(tier.Name)} • {share} • opens in {Format.Duration(Boxes.HatchSeconds(tier.Id, "Small"))}`
-end
-
 -- Build one tab's page (previews are only built the first time you look at it).
 local function buildPage(pageId: number)
 	if pages[pageId] then
@@ -270,11 +281,11 @@ local function buildPage(pageId: number)
 	pages[pageId] = scroll
 	local range = PAGES[pageId]
 	local order = 0
-	local function section(title: string, color: Color3, size: number): Frame
+	local function section(title: string, color: Color3, size: number): (Frame, TextLabel)
 		order += 1
 		local frame = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = scroll })
-		Theme.Label({ Text = title, TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, size), Parent = frame })
-		return frame
+		local label = Theme.Label({ Text = title, TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, size), Parent = frame })
+		return frame, label
 	end
 	local function grid(parent: Instance, y: number): Frame
 		return Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent }, {
@@ -292,7 +303,8 @@ local function buildPage(pageId: number)
 		for _, tier in Boxes.TiersFor(biome) do
 			local list = Donuts.ByBox[biome] and Donuts.ByBox[biome][tier.Id]
 			if list and #list > 0 then
-				local frame = section(boxTitle(biome, tier), tier.Color:Lerp(Color3.new(1, 1, 1), 0.25), 24)
+				local frame, label = section(boxTitle(biome, tier, false), tier.Color:Lerp(Color3.new(1, 1, 1), 0.25), 24)
+				table.insert(boxTitles, { Label = label, Biome = biome, Tier = tier })
 				local cells = grid(frame, 28)
 				for index, donut in list do
 					buildCard(cells, donut, index)

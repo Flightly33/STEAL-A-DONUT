@@ -126,14 +126,17 @@ function Boxes.RollTier(biome: number, rng: Random, luck: number?): Tier
 	return lineup[#lineup].Tier
 end
 
--- Chance (0-1) that a fresh box in `biome` is this tier.
-function Boxes.TierChance(biome: number, tierId: string): number
+-- Chance (0-1) that a fresh box in `biome` is this tier. `luck`: the Luck Event's boost, the same
+-- way RollTier uses it (so the Index can show the boosted odds while one runs).
+function Boxes.TierChance(biome: number, tierId: string, luck: number?): number
 	local lineup = Boxes.Lineup(biome)
+	local boost = luck or 1
 	local total, mine = 0, 0
-	for _, entry in lineup do
-		total += entry.Weight
+	for i, entry in lineup do
+		local weight = entry.Weight * (if i > 1 then boost else 1)
+		total += weight
 		if entry.Tier.Id == tierId then
-			mine = entry.Weight
+			mine = weight
 		end
 	end
 	return if total > 0 then mine / total else 0

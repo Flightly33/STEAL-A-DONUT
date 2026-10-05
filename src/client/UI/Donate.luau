@@ -49,7 +49,7 @@ function Donate.Init()
 	})
 	Theme.Label({ Text = "🍀 LUCK EVENT", TextColor3 = Color3.fromRGB(130, 255, 150), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 8), Parent = luck })
 	Theme.Label({
-		Text = `For {Format.Duration(Config.LuckEvent.Duration)} EVERY donut in this server is better: rare donuts x{Config.LuckEvent.RarityLuck}, mutations x{Config.LuckEvent.MutationLuck}, big sizes x{Config.LuckEvent.BigSizeLuck}, eggs x2. Everyone in the server gets it!`,
+		Text = `For {Format.Duration(Config.LuckEvent.Duration)}, for everyone in this server: every box but each biome's most common one x{Config.LuckEvent.RarityLuck} as likely, mutations x{Config.LuckEvent.MutationLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck}, eggs x2. The Index shows the boosted odds.`,
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 42), StrokeThickness = 1.2, Parent = luck,
 	})
 	local buy = Theme.Button({ Text = `START IT! R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 44), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Parent = luck })
@@ -61,7 +61,7 @@ function Donate.Init()
 		local donated = State.Number("Donated")
 		local title = game:GetService("Players").LocalPlayer:GetAttribute("DonorTitle")
 		local titleText = if type(title) == "string" then `  •  Your title: <b>{title}</b>` else "  •  Every tip gives a title!"
-		total.Text = `Thank you for playing! Tips go on the <b>TOP DONATORS</b> board.\nYou've tipped <font color="#ff8ad0"><b>R$ {Format.Commas(donated)}</b></font>{titleText}`
+		total.Text = `Tips are a thank-you to the developer: you get the title and a spot on the <b>TOP DONATORS</b> board, nothing else.\nYou've tipped <font color="#ff8ad0"><b>R$ {Format.Commas(donated)}</b></font>{titleText}`
 		local endsAt = workspace:GetAttribute("LuckEndsAt")
 		local left = if type(endsAt) == "number" then endsAt - workspace:GetServerTimeNow() else 0
 		Theme.SetButtonText(buy, if left > 0 then `ADD 10 MIN! R$ {Config.LuckEvent.SuggestedPrice} ({Format.Duration(left)} left)` else `START IT! R$ {Config.LuckEvent.SuggestedPrice}`)

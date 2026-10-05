@@ -77,6 +77,16 @@ function Format.Duration(seconds: number): string
 	return string.format("%ds", secs)
 end
 
+-- A chance (0-1) in an odds list for something bought with Robux: rounded to 4 decimal places (as
+-- Roblox's rules for paid random items ask, so the list adds up to 100%), without trailing
+-- zeros: "61.25%", "0.0015%".
+function Format.Odds(chance: number): string
+	local text = string.format("%.4f", chance * 100)
+	text = (string.gsub(text, "0+$", ""))
+	text = (string.gsub(text, "%.$", ""))
+	return text .. "%"
+end
+
 function Format.Commas(value: number): string
 	local text = tostring(math.floor(value))
 	local result = text:reverse():gsub("(%d%d%d)", "%1,"):reverse()

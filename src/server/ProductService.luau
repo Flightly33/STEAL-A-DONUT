@@ -10,7 +10,9 @@
 	  * Crates (Config.Crates.Products) - opened right away (CrateService). Paid random items: only
 	    offered to players whose region allows them (CrateService.CanBuy).
 	  * Open a box now (Config.Boxes.SkipProductId) - the box you pressed "Open now" on opens right
-	    away (or, if it's gone, the box in your pen with the longest wait).
+	    away (or, if it's gone, the box in your pen with the longest wait). The donut inside is only
+	    picked when a box opens, so this is a paid random item too: the odds of every donut come
+	    first (UI/SkipOdds), and it's only offered where paid random items are allowed.
 
 	MarketplaceService.ProcessReceipt can only have ONE handler per game, so every product goes
 	through here. Receipts are remembered in the player's data (Data.Purchases) and saved before the
@@ -240,20 +242,36 @@ function ProductService.BuyCrate(player: Player, crateId: any)
 	end
 end
 
--- "Open now" on a box in your pen.
+-- "Open now" on a box in your pen (its prompt): shows every donut the box can give and its chance
+-- (UI/SkipOdds). Nothing is bought until its BUY button (ConfirmSkip).
 function ProductService.SkipBox(player: Player, slot: number)
 	local profile = DataService.Get(player)
-	if not profile then
+	local box = profile and profile.Data.PenBoxes[tostring(slot)]
+	if not box then
 		return
 	end
-	profile.Session.PendingSkip = slot
+	local id = Config.Boxes.SkipProductId
+	if not studioFree(id) and id <= 0 then
+		notify(player, "Opening boxes with Robux is coming soon!", "error")
+	elseif not studioFree(id) and not CrateService.CanBuy(player) then
+		notify(player, "Opening boxes with Robux isn't available in your region. It opens by itself when the timer ends!", "error")
+	else
+		Remotes.Event("SkipOdds"):FireClient(player, { Slot = slot, Area = box.Area, Tier = box.Tier, Size = box.Size, Mutation = box.Mutation })
+	end
+end
+
+-- The BUY button under those odds.
+function ProductService.ConfirmSkip(player: Player, slot: any)
+	local profile = DataService.Get(player)
+	if not profile or type(slot) ~= "number" or not profile.Data.PenBoxes[tostring(slot)] then
+		return
+	end
 	local id = Config.Boxes.SkipProductId
 	if studioFree(id) then
 		PlotService.SkipBox(player, slot)
 		notify(player, "(Studio test purchase - free)")
-	elseif id <= 0 then
-		notify(player, "Opening boxes with Robux is coming soon!", "error")
-	else
+	elseif id > 0 and CrateService.CanBuy(player) then
+		profile.Session.PendingSkip = slot
 		MarketplaceService:PromptProductPurchase(player, id)
 	end
 end

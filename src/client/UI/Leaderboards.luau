@@ -20,7 +20,7 @@ local Leaderboards = {}
 
 local player = Players.LocalPlayer :: Player
 
-type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number?, Note: string?, Pinned: boolean? }
+type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number? }
 type BoardData = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local boardConfigs: { [string]: { Id: string, Title: string, Subtitle: string, Color: Color3 } } = {}
@@ -69,7 +69,6 @@ local function makeList(parent: Instance, rowHeight: number, textScale: number, 
 		local row = Theme.new("Frame", { Size = UDim2.new(1, -math.floor(14 * textScale), 0, rowHeight - 4), BackgroundColor3 = Color3.fromRGB(255, 255, 255), BackgroundTransparency = 0.93 }, { Theme.Corner(6) })
 		Theme.Label({ Name = "Rank", Font = Theme.Title, Size = UDim2.new(0.16, 0, 0.8, 0), Position = UDim2.fromScale(0.01, 0.1), StrokeThickness = 2 * textScale, Parent = row })
 		Theme.Label({ Name = "PlayerName", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.45, 0, 0.75, 0), Position = UDim2.fromScale(0.18, 0.125), StrokeThickness = 1.5 * textScale, Parent = row })
-		Theme.Label({ Name = "Note", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = Color3.fromRGB(255, 170, 170), Size = UDim2.new(0.45, 0, 0.36, 0), Position = UDim2.fromScale(0.18, 0.6), StrokeThickness = 1.2 * textScale, Visible = false, Parent = row })
 		Theme.Label({ Name = "Value", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0.35, 0, 0.75, 0), Position = UDim2.fromScale(0.63, 0.125), StrokeThickness = 1.5 * textScale, Parent = row })
 		return row
 	end
@@ -77,20 +76,14 @@ local function makeList(parent: Instance, rowHeight: number, textScale: number, 
 		local rank = row:FindFirstChild("Rank") :: TextLabel
 		local name = row:FindFirstChild("PlayerName") :: TextLabel
 		local value = row:FindFirstChild("Value") :: TextLabel
-		local note = row:FindFirstChild("Note") :: TextLabel
-		rank.Text = if entry.Pinned then "👑" else "#" .. entry.Rank
+		rank.Text = "#" .. entry.Rank
 		rank.TextColor3 = RANK_COLORS[entry.Rank] or Color3.fromRGB(230, 230, 230)
 		name.Text = entry.Name
-		-- A note under the name (the pinned donation row): squeeze the name into the top part
-		note.Visible = entry.Note ~= nil
-		note.Text = entry.Note or ""
-		name.Size = if entry.Note then UDim2.new(0.45, 0, 0.5, 0) else UDim2.new(0.45, 0, 0.75, 0)
-		name.Position = if entry.Note then UDim2.fromScale(0.18, 0.08) else UDim2.fromScale(0.18, 0.125)
 		value.Text = entry.Display
 		value.TextColor3 = entry.Color or accent:Lerp(Color3.new(1, 1, 1), 0.35)
 		local isMe = entry.UserId == player.UserId
-		row.BackgroundColor3 = if isMe or entry.Pinned then Theme.Colors.Yellow else Color3.new(1, 1, 1)
-		row.BackgroundTransparency = if entry.Pinned then 0.75 elseif isMe then 0.6 else (if entry.Rank % 2 == 0 then 0.96 else 0.9)
+		row.BackgroundColor3 = if isMe then Theme.Colors.Yellow else Color3.new(1, 1, 1)
+		row.BackgroundTransparency = if isMe then 0.6 else (if entry.Rank % 2 == 0 then 0.96 else 0.9)
 	end
 	local list = VirtualList.new(scroll, rowHeight, buildRow, bindRow :: any)
 	return function(board: BoardData)
@@ -100,7 +93,7 @@ end
 
 local function findMe(board: BoardData): Entry?
 	for _, entry in board.Entries do
-		if entry.UserId == player.UserId and not entry.Pinned then
+		if entry.UserId == player.UserId then
 			return entry
 		end
 	end

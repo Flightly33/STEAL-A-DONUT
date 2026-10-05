@@ -242,8 +242,24 @@ local function fetchPrice(passId: number, infoType: Enum.InfoType?)
 	end)
 end
 
+-- Do you own this pass, or one that does exactly the same (Config.GamePasses SameAs)?
+local function ownsPass(pass: Config.GamePass): boolean
+	if State.Data.Passes[pass.Key] then
+		return true
+	end
+	for _, other in Config.GamePasses do
+		if other.SameAs == pass.Key and State.Data.Passes[other.Key] then
+			return true
+		end
+	end
+	return false
+end
+
 local function buildPasses(page: ScrollingFrame)
 	for order, pass in Config.GamePasses do
+		if pass.SameAs then
+			continue -- (the same as another pass: only that one is sold)
+		end
 		fetchPrice(pass.GamePassId)
 		local c = card(page, order, pass.Color)
 		local icon = if pass.Kind == "Money" then "💵" elseif pass.Kind == "Speed" then "⚡" else "🌀"
@@ -259,12 +275,12 @@ local function buildPasses(page: ScrollingFrame)
 		})
 		local button = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = c })
 		button.Activated:Connect(function()
-			if not State.Data.Passes[pass.Key] then
+			if not ownsPass(pass) then
 				State.Action("BuyPass", pass.Key)
 			end
 		end)
 		table.insert(refreshers, function()
-			if State.Data.Passes[pass.Key] then
+			if ownsPass(pass) then
 				Theme.SetButtonText(button, "OWNED ✓")
 				Theme.SetButtonColor(button, Theme.Colors.Gray)
 			else
@@ -277,7 +293,7 @@ local function buildPasses(page: ScrollingFrame)
 	local luck = card(page, 90, Color3.fromRGB(60, 200, 90))
 	Theme.Label({ Text = "🍀", Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = luck })
 	Theme.Label({ Text = "LUCK EVENT (10 MIN)", TextColor3 = Color3.fromRGB(140, 255, 160), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = luck })
-	Theme.Label({ Text = `Rare donuts x{Config.LuckEvent.RarityLuck}, mutations x{Config.LuckEvent.MutationLuck}, big sizes x{Config.LuckEvent.BigSizeLuck} for EVERYONE (boosted odds show in the Index)`, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = luck })
+	Theme.Label({ Text = `Rarer boxes x{Config.LuckEvent.RarityLuck}, mutations x{Config.LuckEvent.MutationLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck} for EVERYONE (boosted odds show in the Index)`, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = luck })
 	local luckButton = Theme.Button({ Text = `R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = luck })
 	luckButton.Activated:Connect(function()
 		State.Action("BuyLuck")
@@ -293,11 +309,6 @@ end
 -- Crates
 --------------------------------------------------------------------------------
 local KIND_ICON = { Coins = "💰", SpeedBoost = "⚡", Luck = "🍀", Egg = "🥚", Pet = "🐾" }
-
-local function percent(chance: number): string
-	local p = chance * 100
-	return if p >= 10 then string.format("%.1f%%", p) elseif p >= 1 then string.format("%.2f%%", p) else string.format("%.3f%%", p)
-end
 
 -- What an outcome gives, in words (coins are estimated for you right now).
 local function outcomeText(outcome: Crates.Outcome): string
@@ -353,14 +364,14 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		detailsTitle.Text = `🎁 {string.upper(crate.Name)} - ALL ODDS`
 		local lines = { "You get ONE of these (adds up to 100%). Luck and passes never change these odds.", "" }
 		for _, outcome in Crates.Odds(crate) do
-			table.insert(lines, `<b>{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)}: {percent(outcome.Chance)}</b>`)
+			table.insert(lines, `<b>{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)}: {Format.Odds(outcome.Chance)}</b>`)
 			local egg = if outcome.Egg then Pets.EggById[outcome.Egg] else nil
 			if egg then
 				table.insert(lines, `      it hatches (after {Format.Duration(egg.HatchSeconds)}) into:`)
 				for _, entry in egg.Pool do
 					local pet = Pets.ById[entry.Pet]
 					local inEgg = Pets.Chance(egg, entry.Pet)
-					table.insert(lines, `      • {pet.Name} ({pet.Rarity}, {Pets.BonusText(pet)}): {percent(inEgg)} of the egg = {percent(outcome.Chance * inEgg)} of the crate`)
+					table.insert(lines, `      • {pet.Name} ({pet.Rarity}, {Pets.BonusText(pet)}): {Format.Odds(inEgg)} of the egg = {Format.Odds(outcome.Chance * inEgg)} of the crate`)
 				end
 			end
 		end
@@ -405,7 +416,7 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		table.insert(refreshers, function()
 			local lines = {}
 			for _, outcome in Crates.Odds(crate) do
-				table.insert(lines, `{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)} <b>{percent(outcome.Chance)}</b>`)
+				table.insert(lines, `{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)} <b>{Format.Odds(outcome.Chance)}</b>`)
 			end
 			odds.Text = table.concat(lines, "\n")
 			if State.Get("CratesBlocked") == true then

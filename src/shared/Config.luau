@@ -41,6 +41,8 @@ export type GamePass = {
 	GamePassId: number,
 	SuggestedPrice: number,
 	Color: Color3,
+	-- Does exactly what that pass (its Key) does: not sold in the game, but owning it still counts.
+	SameAs: string?,
 }
 
 export type Skin = {
@@ -379,9 +381,11 @@ Config.GamePasses = {
 	{ Key = "Money4", Name = "4x Money (INSANE)", Kind = "Money", Multiplier = 4, GamePassId = 1998003425, SuggestedPrice = 110, Color = Color3.fromRGB(20, 150, 90) },
 	{ Key = "Money5", Name = "5x Money (GODLY)", Kind = "Money", Multiplier = 5, GamePassId = 2002232267, SuggestedPrice = 300, Color = Color3.fromRGB(0, 140, 110) },
 	{ Key = "Money10", Name = "10x Money (HACKER LEVEL)", Kind = "Money", Multiplier = 10, GamePassId = 2002412263, SuggestedPrice = 999, Color = Color3.fromRGB(255, 200, 0) },
-	-- Two 2x Speed passes exist on the Creator Dashboard; owning either (or both) gives 2x speed
-	-- (speed passes don't stack: see Economy.SpeedPassMultiplier).
-	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255) },
+	-- Two 2x Speed passes exist on the Creator Dashboard and they don't stack (see
+	-- Economy.SpeedPassMultiplier), so only one is sold in the game: selling both would have
+	-- players pay twice for the same thing. Whoever already owns the other one keeps 2x speed.
+	-- (Take the other one off sale on the Creator Dashboard too: it's still on the game's Store tab.)
+	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255), SameAs = "Speed2b" },
 	{ Key = "Speed2b", Name = "2x Speed (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999838937, SuggestedPrice = 50, Color = Color3.fromRGB(110, 90, 255) },
 	-- Teleport menu: jump to the start of any biome.
 	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 1999581396, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
@@ -396,9 +400,10 @@ Config.PassOffer = {
 }
 
 --------------------------------------------------------------------------------
--- Luck Event (Robux). Makes every donut that spawns in THIS server better for 10 minutes: rare
--- donuts show up more often, mutations are more likely and sizes run bigger. Buying it while it
--- runs adds another 10 minutes.
+-- Luck Event (Robux). Makes every box that spawns in THIS server better for 10 minutes: the rarer
+-- boxes show up more often, mutations are more likely and sizes run bigger. Buying it while it
+-- runs adds another 10 minutes. The shop says exactly what it does, and the Index shows the
+-- boosted odds while it runs (Roblox's rules for boosts you pay for), so keep those in step.
 -- It's a DEVELOPER PRODUCT, not a game pass: a game pass can only ever be bought once per player,
 -- so a 10-minute boost sold as a pass could never be bought again. Create it under
 -- Creator Dashboard > Monetization > Developer Products and paste its ID here.
@@ -408,9 +413,9 @@ Config.LuckEvent = {
 	DeveloperProductId = 3715357149,
 	SuggestedPrice = 49,
 	Duration = 600, -- seconds (stacks)
-	RarityLuck = 3, -- every donut with a base chance under 10% in its area (the rare ones, Secrets, Admins) x3
+	RarityLuck = 3, -- every box tier but the most common one in each biome x3 (Boxes.RollTier)
 	MutationLuck = 3, -- every mutation chance x3
-	BigSizeLuck = 2, -- Big / Huge / Giant x2
+	BigSizeLuck = 2, -- Big / Huge / Giant boxes x2
 }
 
 --------------------------------------------------------------------------------
@@ -451,8 +456,6 @@ Config.Donations = {
 		{ Amount = 500, DeveloperProductId = 3715362446, Title = "Legendary Donor", Color = Color3.fromRGB(255, 80, 200) },
 		{ Amount = 1000, DeveloperProductId = 3715362649, Title = "Ultimate Donor", Color = Color3.fromRGB(255, 215, 0) },
 	} :: { DonationProduct },
-	-- Always shown at the very top of the donation board (not a real score, never saved).
-	Pinned = { Name = "Flightly33", Amount = 100_000_000_000_000, Note = "-10 Robux donated" },
 }
 
 --------------------------------------------------------------------------------

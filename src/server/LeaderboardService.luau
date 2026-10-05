@@ -11,8 +11,6 @@
 	  as log10(value) * 1e9 and decoded for display.
 	* Players in this server are merged in live, so boards show fresh numbers immediately (the global
 	  data only refreshes every few minutes). Without DataStores (Studio) this is all you'll see.
-	* The donation board always starts with Config.Donations.Pinned (shown with a crown instead of a
-	  rank, with its Note under the name; it's never saved and doesn't push anyone's rank down).
 	* Admins - players who used the admin panel, and the game's owner - are left off every board
 	  except donations (Config.Admin.HideFromLeaderboards). Scores they saved before that are
 	  removed from the global boards the next time they play, and never shown in the meantime once
@@ -37,7 +35,7 @@ local Ownership = require(script.Parent.Ownership)
 
 local LeaderboardService = {}
 
-export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number, Note: string?, Pinned: boolean? }
+export type Entry = { Rank: number, UserId: number, Name: string, Display: string, Color: Color3?, Score: number }
 type Board = { Entries: { Entry }, UpdatedAt: number, Live: boolean }
 
 local LOG_SCALE = 1e9
@@ -242,11 +240,6 @@ local function withLivePlayers(boardId: string, board: Board?): Board
 		return a.Score > b.Score
 	end)
 	local entries: { Entry } = {}
-	if boardId == "Donated" then
-		local pinned = Config.Donations.Pinned
-		local text = display(boardId, pinned.Amount)
-		table.insert(entries, { Rank = 0, UserId = 0, Name = pinned.Name, Display = text, Color = Color3.fromRGB(255, 215, 0), Score = pinned.Amount, Note = pinned.Note, Pinned = true })
-	end
 	for rank = 1, math.min(#rows, cfg.Size) do
 		local row = rows[rank]
 		local text, color = display(boardId, row.Score)
