@@ -16,7 +16,7 @@
 	  * The colours are the element's, tinted with the donut's own glaze.
 
 	A mutation's effects (FXThemes) are added on top: they show what was rolled. DonutLooks can turn
-	a donut's own effects off (Effects = false: Miha Jon).
+	a donut's own effects off (Effects = false).
 
 	Pure data: DonutModel (server parts) and client/DonutFX (moving parts) build the same thing.
 ]]
@@ -169,7 +169,7 @@ DonutAuras.Elements = {
 	{ Id = "Power", Keys = { "maximus", "maxima", "supremus", "titan", "odin", "hades", "prime", "banhammer", "glazilla", "crullazilla", "zilla", "mighty" }, Parts = { "Banhammer" }, Biomes = {}, Colors = { rgb(255, 80, 60), rgb(255, 230, 120), rgb(120, 10, 20) }, Pulse = "Heartbeat", Moves = { "aura", "shockwave", "rise", "electric", "swirl", "shards" } },
 	{ Id = "Void", Keys = { "void", "singular", "wormhol", "gravit", "horizon", "accretion", "supermassiv", "quantum", "null", "missingdonut" }, Parts = { "AccretionDisk", "Wormhole", "VoidRing", "GravityRings", "AtomOrbits", "Spaghetti" }, Biomes = { "BlackHole" }, Colors = { rgb(170, 90, 255), rgb(80, 220, 255), rgb(25, 5, 45) }, Pulse = "Throb", Moves = { "vortex", "smoke", "shards", "arcs", "runes", "galaxy" } },
 	{ Id = "Phantom", Keys = { "ghost", "boo", "spook", "soul", "wisp", "vampir", "skeleton", "witch", "haunt", "bone", "phantom", "zombie" }, Parts = { "GhostTail", "Bats", "Ribcage", "WitchHat", "SoulWisps", "VampireCollar" }, Biomes = { "Haunted" }, Colors = { rgb(120, 255, 150), rgb(180, 100, 255), rgb(40, 10, 50) }, Pulse = "Throb", Moves = { "smoke", "wisps", "vortex", "arcs", "shards", "runes" } },
-	{ Id = "Dizzy", Keys = { "dizzy", "nasmean", "spin", "hypno" }, Parts = {}, Biomes = {}, Colors = { rgb(255, 230, 90), rgb(255, 150, 220), rgb(140, 200, 255) }, Pulse = "Shimmer", Moves = { "orbitStar", "swirl", "stars", "wisps", "shockwave" } },
+	{ Id = "Dizzy", Keys = { "dizzy", "spin", "hypno" }, Parts = {}, Biomes = {}, Colors = { rgb(255, 230, 90), rgb(255, 150, 220), rgb(140, 200, 255) }, Pulse = "Shimmer", Moves = { "orbitStar", "swirl", "stars", "wisps", "shockwave" } },
 	{ Id = "Divine", Keys = { "angel", "heaven", "seraph", "harp", "archangel", "divine", "laurel", "holy" }, Parts = { "Halo", "SeraphWings", "Harp", "Laurel", "CloudPuffs" }, Biomes = { "Heaven", "Clouds" }, Colors = { rgb(255, 225, 130), WHITE, rgb(255, 185, 80) }, Pulse = "Shimmer", Moves = { "godrays", "feathers", "wisps", "rays", "runes", "glitter" }, Drift = { WHITE, rgb(255, 245, 220) } },
 	{ Id = "Storm", Keys = { "zeus", "bolt", "thunder", "storm", "overclock", "volt", "spark", "electr", "laser", "wifi", "signal", "quasar", "lightning" }, Parts = { "LightningBolt", "WifiArcs", "QuasarJets" }, Biomes = {}, Colors = { rgb(255, 235, 90), WHITE, rgb(90, 170, 255) }, Pulse = "Shimmer", Moves = { "electric", "arcs", "orbitBolt", "strike", "swirl", "shockwave" } },
 	{ Id = "Inferno", Keys = { "flame", "blaze", "infern", "magma", "lava", "ember", "scorch", "volcan", "erupt", "hell", "cinda", "molten", "phoenix", "burn", "crullfire", "fire", "dragon", "imp$", "impolo", "devil", "brimst" }, Parts = { "Flames", "FlameHair", "FireBeard", "LavaDrips", "Volcano", "MagmaCore", "LavaWave", "PhoenixTail", "DragonTail", "DevilTail" }, Biomes = { "Lava" }, Colors = { rgb(255, 120, 30), rgb(255, 225, 90), rgb(190, 20, 10) }, Pulse = "Glow", Moves = { "flames", "embers", "rise", "shards", "shockwave", "smoke" }, Drift = { rgb(255, 220, 90), rgb(255, 90, 20) } },
@@ -197,9 +197,7 @@ for _, element in DonutAuras.Elements do
 end
 
 -- Per-donut choices: { Primary = element id, Secondary = element id }.
-DonutAuras.Overrides = {
-	nasmeanman = { Primary = "Dizzy", Secondary = "Cosmos" },
-} :: { [string]: { Primary: string?, Secondary: string? } }
+DonutAuras.Overrides = {} :: { [string]: { Primary: string?, Secondary: string? } }
 
 -- How many effects, and how strong, by rarity order (Epic = 4 ...).
 local TIERS: { [number]: { Count: number, Intensity: number } } = {

@@ -173,6 +173,22 @@ local function reconcile(data: { [string]: any }, template: { [string]: any })
 	end
 end
 
+-- Forget donuts that were taken out of the game (Donuts.luau): out of your inventory (they'd be
+-- tools you can't sell or place) and the Index. Saved pen slots are dropped by PlotService.Assign.
+local function dropRemovedDonuts(data: Data)
+	for i = #data.Inventory, 1, -1 do
+		local item = data.Inventory[i]
+		if item.Kind == "Donut" and not (item.Id and Donuts.ById[item.Id]) then
+			table.remove(data.Inventory, i)
+		end
+	end
+	for donutId in data.Discovered do
+		if not Donuts.ById[donutId] then
+			data.Discovered[donutId] = nil
+		end
+	end
+end
+
 -- Upgrade data saved by older versions of the game.
 local function migrate(data: Data, isNew: boolean)
 	if data.Version < 2 then
@@ -391,6 +407,7 @@ function DataService.Load(player: Player): Profile?
 	local isNew = (data :: any).Version == nil or (data.PlayTime == 0 and data.TotalEarned == 0)
 	reconcile(data :: any, TEMPLATE :: any)
 	migrate(data, isNew)
+	dropRemovedDonuts(data)
 
 	if RunService:IsStudio() then
 		if Config.Debug.StudioStartMoney > 0 and data.Money < Config.Debug.StudioStartMoney then

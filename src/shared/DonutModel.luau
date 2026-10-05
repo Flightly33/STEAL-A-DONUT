@@ -540,7 +540,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 
 		-- Big anime eyes: a thick dark lash line with a flick at the corner, a big grey iris with a
-		-- white heart for its shine, and little drops at the outer corners (Miha Jon)
+		-- white heart for its shine, and little drops at the outer corners (Look.Eyes "Heart")
 		local function heartEye(side: number)
 			local W, H = 0.86, 0.7
 			local ex, ey = lean(side * 0.55, EYE_Y - 0.04)
@@ -569,7 +569,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 
 		-- Dizzy anime eyes: a thick lash line, a swirly iris (rings getting smaller and turning as they
-		-- go in, dark and light in turn), grey shadows under them and worried brows (Nasmean Man)
+		-- go in, dark and light in turn), grey shadows under them and worried brows (Look.Eyes "Spiral")
 		local function spiralEye(side: number)
 			local W, H = 0.84, 0.66
 			local ex, ey = lean(side * 0.52, EYE_Y - 0.04)

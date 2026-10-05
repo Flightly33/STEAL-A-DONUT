@@ -10,8 +10,8 @@
 	    Brr...), "Cool" (half-closed eyes and a smirk), "Dreamy" (sleepy lids and lashes: clouds,
 	    angels, moons), "Royal" (lashes and a calm smile: kings and queens), "Spooky" (dark eyes
 	    with glowing pupils: ghosts, vampires) and "Robot" (glowing screen eyes).
-	  * Eyes: "Heart" swaps the eyes for big anime eyes with heart-shaped shines (Miha Jon); "Spiral"
-	    for dizzy anime eyes with swirly irises, worried brows and a drooling "o" mouth (Nasmean Man).
+	  * Eyes: "Heart" swaps the eyes for big anime eyes with heart-shaped shines; "Spiral" for dizzy
+	    anime eyes with swirly irises, worried brows and a drooling "o" mouth (only by Overrides).
 	  * Effects: false = no aura or glow of its own (DonutAuras); BiomeDetails: false = none of its
 	    biome's little touches (DonutExtras.Theme); Scale: a smaller or bigger donut;
 	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleColor: a band
@@ -66,8 +66,6 @@ local BLACK = rgb(30, 30, 36)
 
 -- Per-donut choices that beat whatever the name says.
 DonutLooks.Overrides = {
-	mihajon = { Effects = false, BiomeDetails = false, Eyes = "Heart", Mood = "Cute", Glaze = "MegaDrip", Marking = "None", Iris = rgb(125, 122, 140), Tilt = math.rad(9), Feet = "Sneakers", Shoe = rgb(255, 120, 175), ShoeAccent = WHITE, Sprinkles = "Jimmies" },
-	nasmeanman = { BiomeDetails = false, Eyes = "Spiral", Mood = "Cute", Glaze = "Glossy", Marking = "None", Scale = 0.72, HoleColor = rgb(255, 150, 195), HoleLining = true, Iris = rgb(70, 68, 80), Feet = "Sneakers", Shoe = rgb(255, 150, 195), ShoeAccent = WHITE, Sole = WHITE, Sprinkles = "Jimmies" },
 	tradonut = { Shoe = rgb(40, 110, 235), ShoeAccent = WHITE }, -- Tralalero's blue sneakers
 	tralalerobeach = { Shoe = rgb(40, 110, 235), ShoeAccent = rgb(255, 140, 40) },
 	frigocamel = { Feet = "Boots" }, -- Frigo Camelo wears boots

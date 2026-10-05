@@ -2446,7 +2446,7 @@ return Crates
 	  * The colours are the element's, tinted with the donut's own glaze.
 
 	A mutation's effects (FXThemes) are added on top: they show what was rolled. DonutLooks can turn
-	a donut's own effects off (Effects = false: Miha Jon).
+	a donut's own effects off (Effects = false).
 
 	Pure data: DonutModel (server parts) and client/DonutFX (moving parts) build the same thing.
 ]]
@@ -2599,7 +2599,7 @@ DonutAuras.Elements = {
 	{ Id = "Power", Keys = { "maximus", "maxima", "supremus", "titan", "odin", "hades", "prime", "banhammer", "glazilla", "crullazilla", "zilla", "mighty" }, Parts = { "Banhammer" }, Biomes = {}, Colors = { rgb(255, 80, 60), rgb(255, 230, 120), rgb(120, 10, 20) }, Pulse = "Heartbeat", Moves = { "aura", "shockwave", "rise", "electric", "swirl", "shards" } },
 	{ Id = "Void", Keys = { "void", "singular", "wormhol", "gravit", "horizon", "accretion", "supermassiv", "quantum", "null", "missingdonut" }, Parts = { "AccretionDisk", "Wormhole", "VoidRing", "GravityRings", "AtomOrbits", "Spaghetti" }, Biomes = { "BlackHole" }, Colors = { rgb(170, 90, 255), rgb(80, 220, 255), rgb(25, 5, 45) }, Pulse = "Throb", Moves = { "vortex", "smoke", "shards", "arcs", "runes", "galaxy" } },
 	{ Id = "Phantom", Keys = { "ghost", "boo", "spook", "soul", "wisp", "vampir", "skeleton", "witch", "haunt", "bone", "phantom", "zombie" }, Parts = { "GhostTail", "Bats", "Ribcage", "WitchHat", "SoulWisps", "VampireCollar" }, Biomes = { "Haunted" }, Colors = { rgb(120, 255, 150), rgb(180, 100, 255), rgb(40, 10, 50) }, Pulse = "Throb", Moves = { "smoke", "wisps", "vortex", "arcs", "shards", "runes" } },
-	{ Id = "Dizzy", Keys = { "dizzy", "nasmean", "spin", "hypno" }, Parts = {}, Biomes = {}, Colors = { rgb(255, 230, 90), rgb(255, 150, 220), rgb(140, 200, 255) }, Pulse = "Shimmer", Moves = { "orbitStar", "swirl", "stars", "wisps", "shockwave" } },
+	{ Id = "Dizzy", Keys = { "dizzy", "spin", "hypno" }, Parts = {}, Biomes = {}, Colors = { rgb(255, 230, 90), rgb(255, 150, 220), rgb(140, 200, 255) }, Pulse = "Shimmer", Moves = { "orbitStar", "swirl", "stars", "wisps", "shockwave" } },
 	{ Id = "Divine", Keys = { "angel", "heaven", "seraph", "harp", "archangel", "divine", "laurel", "holy" }, Parts = { "Halo", "SeraphWings", "Harp", "Laurel", "CloudPuffs" }, Biomes = { "Heaven", "Clouds" }, Colors = { rgb(255, 225, 130), WHITE, rgb(255, 185, 80) }, Pulse = "Shimmer", Moves = { "godrays", "feathers", "wisps", "rays", "runes", "glitter" }, Drift = { WHITE, rgb(255, 245, 220) } },
 	{ Id = "Storm", Keys = { "zeus", "bolt", "thunder", "storm", "overclock", "volt", "spark", "electr", "laser", "wifi", "signal", "quasar", "lightning" }, Parts = { "LightningBolt", "WifiArcs", "QuasarJets" }, Biomes = {}, Colors = { rgb(255, 235, 90), WHITE, rgb(90, 170, 255) }, Pulse = "Shimmer", Moves = { "electric", "arcs", "orbitBolt", "strike", "swirl", "shockwave" } },
 	{ Id = "Inferno", Keys = { "flame", "blaze", "infern", "magma", "lava", "ember", "scorch", "volcan", "erupt", "hell", "cinda", "molten", "phoenix", "burn", "crullfire", "fire", "dragon", "imp$", "impolo", "devil", "brimst" }, Parts = { "Flames", "FlameHair", "FireBeard", "LavaDrips", "Volcano", "MagmaCore", "LavaWave", "PhoenixTail", "DragonTail", "DevilTail" }, Biomes = { "Lava" }, Colors = { rgb(255, 120, 30), rgb(255, 225, 90), rgb(190, 20, 10) }, Pulse = "Glow", Moves = { "flames", "embers", "rise", "shards", "shockwave", "smoke" }, Drift = { rgb(255, 220, 90), rgb(255, 90, 20) } },
@@ -2627,9 +2627,7 @@ for _, element in DonutAuras.Elements do
 end
 
 -- Per-donut choices: { Primary = element id, Secondary = element id }.
-DonutAuras.Overrides = {
-	nasmeanman = { Primary = "Dizzy", Secondary = "Cosmos" },
-} :: { [string]: { Primary: string?, Secondary: string? } }
+DonutAuras.Overrides = {} :: { [string]: { Primary: string?, Secondary: string? } }
 
 -- How many effects, and how strong, by rarity order (Epic = 4 ...).
 local TIERS: { [number]: { Count: number, Intensity: number } } = {
@@ -5270,8 +5268,8 @@ return DonutLayers
 	    Brr...), "Cool" (half-closed eyes and a smirk), "Dreamy" (sleepy lids and lashes: clouds,
 	    angels, moons), "Royal" (lashes and a calm smile: kings and queens), "Spooky" (dark eyes
 	    with glowing pupils: ghosts, vampires) and "Robot" (glowing screen eyes).
-	  * Eyes: "Heart" swaps the eyes for big anime eyes with heart-shaped shines (Miha Jon); "Spiral"
-	    for dizzy anime eyes with swirly irises, worried brows and a drooling "o" mouth (Nasmean Man).
+	  * Eyes: "Heart" swaps the eyes for big anime eyes with heart-shaped shines; "Spiral" for dizzy
+	    anime eyes with swirly irises, worried brows and a drooling "o" mouth (only by Overrides).
 	  * Effects: false = no aura or glow of its own (DonutAuras); BiomeDetails: false = none of its
 	    biome's little touches (DonutExtras.Theme); Scale: a smaller or bigger donut;
 	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleColor: a band
@@ -5326,8 +5324,6 @@ local BLACK = rgb(30, 30, 36)
 
 -- Per-donut choices that beat whatever the name says.
 DonutLooks.Overrides = {
-	mihajon = { Effects = false, BiomeDetails = false, Eyes = "Heart", Mood = "Cute", Glaze = "MegaDrip", Marking = "None", Iris = rgb(125, 122, 140), Tilt = math.rad(9), Feet = "Sneakers", Shoe = rgb(255, 120, 175), ShoeAccent = WHITE, Sprinkles = "Jimmies" },
-	nasmeanman = { BiomeDetails = false, Eyes = "Spiral", Mood = "Cute", Glaze = "Glossy", Marking = "None", Scale = 0.72, HoleColor = rgb(255, 150, 195), HoleLining = true, Iris = rgb(70, 68, 80), Feet = "Sneakers", Shoe = rgb(255, 150, 195), ShoeAccent = WHITE, Sole = WHITE, Sprinkles = "Jimmies" },
 	tradonut = { Shoe = rgb(40, 110, 235), ShoeAccent = WHITE }, -- Tralalero's blue sneakers
 	tralalerobeach = { Shoe = rgb(40, 110, 235), ShoeAccent = rgb(255, 140, 40) },
 	frigocamel = { Feet = "Boots" }, -- Frigo Camelo wears boots
@@ -6178,7 +6174,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 
 		-- Big anime eyes: a thick dark lash line with a flick at the corner, a big grey iris with a
-		-- white heart for its shine, and little drops at the outer corners (Miha Jon)
+		-- white heart for its shine, and little drops at the outer corners (Look.Eyes "Heart")
 		local function heartEye(side: number)
 			local W, H = 0.86, 0.7
 			local ex, ey = lean(side * 0.55, EYE_Y - 0.04)
@@ -6207,7 +6203,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 
 		-- Dizzy anime eyes: a thick lash line, a swirly iris (rings getting smaller and turning as they
-		-- go in, dark and light in turn), grey shadows under them and worried brows (Nasmean Man)
+		-- go in, dark and light in turn), grey shadows under them and worried brows (Look.Eyes "Spiral")
 		local function spiralEye(side: number)
 			local W, H = 0.84, 0.66
 			local ex, ey = lean(side * 0.52, EYE_Y - 0.04)
@@ -7721,12 +7717,6 @@ Donuts.List = {
 	D("wormholio", "Wormholio Infinitoni", "Secret", 34, 2.9e27, 0.012, rgb(0, 0, 0), rgb(170, 90, 255), STARS, { "Wings", "Halo", "Crown", "Orbit", "Tentacles", "Wormhole" }),
 	-- The first ICON donut: the rarest natural spawn (about 1 in 70,000 spawns in The Black Hole)
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
-	-- ICON: Miha Jon - glossy white glaze pouring off it (over its edges and down into its hole) and
-	-- big anime eyes with heart-shaped shines (its look: DonutLooks.Overrides)
-	-- ICON: Nasmean Man - a small donut: tan glaze with pink round its hole and inside it, sprinkles,
-	-- dizzy spiral eyes and a big drooling "o" mouth (its look: DonutLooks.Overrides)
-	D("nasmeanman", "Nasmean Man", "Icon", 34, 2.5e29, 0.0015, rgb(200, 140, 80), rgb(214, 178, 130), { rgb(255, 90, 150), rgb(90, 180, 255), rgb(255, 225, 70), rgb(255, 255, 255), rgb(120, 220, 120) }, { "Legs", "Arms" }),
-	D("mihajon", "Miha Jon", "Icon", 34, 2.5e29, 0.0015, rgb(222, 160, 95), rgb(250, 246, 240), { rgb(255, 120, 175), rgb(255, 80, 130), rgb(140, 200, 255) }, { "Legs", "Arms" }),
 } :: { Donut }
 
 --------------------------------------------------------------------------------
@@ -11544,10 +11534,6 @@ UpdateNotes.List = {
 				"Every Epic and rarer donut has its OWN aura, made from its name: flames, falling snow, lightning, god rays, hearts, coins or snowflakes circling it... no two are the same",
 				"The rarer the donut, the more its aura does (Icon donuts have 6 effects!), and they glow with a shiny outline when you're close",
 			} },
-			{ Title = "Miha Jon", Tag = "NEW Icon", Lines = {
-				"A brand new ICON donut: find it in The Black Hole's Mythic boxes, if you're very lucky",
-				"Glaze pours off it, over its edges and down into its hole, and it has big anime eyes with hearts",
-			} },
 			{ Title = "Fancier Boxes", Tag = "Changed", Lines = {
 				"Every box rarity looks different now: ribbons, bows, gold corners and a lid you can see",
 				"Legendary and Mythic boxes sit open a crack with light pouring out",
@@ -11585,7 +11571,6 @@ UpdateNotes.List = {
 			} },
 		},
 		Sidebar = {
-			{ Title = "New Icon", Items = donuts({ "mihajon" }) },
 			{ Title = "Box Donuts", Items = donuts({ "pufferino", "cocobombo", "magmazilla", "toysoldier", "nebulini", "gravitoni" }) },
 		},
 	},
@@ -13940,6 +13925,22 @@ local function reconcile(data: { [string]: any }, template: { [string]: any })
 	end
 end
 
+-- Forget donuts that were taken out of the game (Donuts.luau): out of your inventory (they'd be
+-- tools you can't sell or place) and the Index. Saved pen slots are dropped by PlotService.Assign.
+local function dropRemovedDonuts(data: Data)
+	for i = #data.Inventory, 1, -1 do
+		local item = data.Inventory[i]
+		if item.Kind == "Donut" and not (item.Id and Donuts.ById[item.Id]) then
+			table.remove(data.Inventory, i)
+		end
+	end
+	for donutId in data.Discovered do
+		if not Donuts.ById[donutId] then
+			data.Discovered[donutId] = nil
+		end
+	end
+end
+
 -- Upgrade data saved by older versions of the game.
 local function migrate(data: Data, isNew: boolean)
 	if data.Version < 2 then
@@ -14158,6 +14159,7 @@ function DataService.Load(player: Player): Profile?
 	local isNew = (data :: any).Version == nil or (data.PlayTime == 0 and data.TotalEarned == 0)
 	reconcile(data :: any, TEMPLATE :: any)
 	migrate(data, isNew)
+	dropRemovedDonuts(data)
 
 	if RunService:IsStudio() then
 		if Config.Debug.StudioStartMoney > 0 and data.Money < Config.Debug.StudioStartMoney then
