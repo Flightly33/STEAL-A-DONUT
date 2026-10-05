@@ -383,10 +383,11 @@ Config.GamePasses = {
 	{ Key = "Money10", Name = "10x Money (HACKER LEVEL)", Kind = "Money", Multiplier = 10, GamePassId = 2002412263, SuggestedPrice = 999, Color = Color3.fromRGB(255, 200, 0) },
 	-- Two 2x Speed passes exist on the Creator Dashboard and they don't stack (see
 	-- Economy.SpeedPassMultiplier), so only one is sold in the game: selling both would have
-	-- players pay twice for the same thing. Whoever already owns the other one keeps 2x speed.
-	-- (Take the other one off sale on the Creator Dashboard too: it's still on the game's Store tab.)
-	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255), SameAs = "Speed2b" },
-	{ Key = "Speed2b", Name = "2x Speed (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999838937, SuggestedPrice = 50, Color = Color3.fromRGB(110, 90, 255) },
+	-- players pay twice for the same thing. The 149 R$ one is sold; the 50 R$ one isn't any more,
+	-- but whoever already bought it keeps 2x speed.
+	-- (Take the 50 R$ one off sale on the Creator Dashboard too: it's still on the game's Store tab.)
+	{ Key = "Speed2", Name = "2x Speed Boost (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999599395, SuggestedPrice = 149, Color = Color3.fromRGB(140, 60, 255) },
+	{ Key = "Speed2b", Name = "2x Speed (OP)", Kind = "Speed", Multiplier = 2, GamePassId = 1999838937, SuggestedPrice = 50, Color = Color3.fromRGB(110, 90, 255), SameAs = "Speed2" },
 	-- Teleport menu: jump to the start of any biome.
 	{ Key = "Teleporter", Name = "Teleporter", Kind = "Teleporter", Multiplier = 1, GamePassId = 1999581396, SuggestedPrice = 199, Color = Color3.fromRGB(0, 200, 255) },
 } :: { GamePass }
