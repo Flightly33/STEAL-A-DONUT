@@ -126,6 +126,21 @@ function Layout.LobbyArrival(): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
+-- The lobby's two conveyor belts (Config.Conveyors), side by side: the first carries you to the
+-- front (+Z, towards the lane), the second to the back. Center is the middle of the belt's top.
+export type Conveyor = { Name: string, Center: Vector3, Length: number, Direction: Vector3 }
+function Layout.Conveyors(): { Conveyor }
+	local c = Config.Conveyors
+	local front = map.SafeZoneZ - c.Front
+	local back = map.SafeZoneZ - map.HubDepth + c.Back
+	local offset = (c.Width + c.Gap) / 2
+	local z = (front + back) / 2
+	return {
+		{ Name = "ToFront", Center = Vector3.new(c.X - offset, 0, z), Length = front - back, Direction = Vector3.new(0, 0, 1) },
+		{ Name = "ToBack", Center = Vector3.new(c.X + offset, 0, z), Length = front - back, Direction = Vector3.new(0, 0, -1) },
+	}
+end
+
 -- Where the lobby's leaderboards stand: along the very back wall.
 function Layout.LeaderboardZ(): number
 	return map.SafeZoneZ - map.HubDepth + 10

@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
 local Format = require(Shared.Format)
+local Economy = require(Shared.Economy)
 
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
@@ -63,7 +64,8 @@ function Teleport.Init()
 		end)
 		table.insert(refreshers, function()
 			local hasPass = State.Data.Passes.Teleporter == true
-			local need = if area.RecommendedSpeed > 0 then `⚡{Format.Number(area.RecommendedSpeed)} to escape` else "start here"
+			local escape = Economy.EscapeSpeed(area.Id)
+			local need = if escape > 0 then `⚡{Format.Number(escape)} to escape` else "start here"
 			Theme.SetButtonText(button, `{area.Id}. {area.Name}\n{need}`)
 			Theme.SetButtonColor(button, if hasPass then area.Trim else Theme.Colors.Gray)
 		end)

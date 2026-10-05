@@ -1,5 +1,5 @@
 --[[
-	Bases: find base plots in the map from the client. The 6 bases sit in the lobby
+	Bases: find base plots in the map from the client. The 8 bases sit in the lobby
 	(workspace.Map.Plots.PlotN); the local player's is player attribute PlotIndex.
 ]]
 

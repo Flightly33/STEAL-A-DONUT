@@ -57,23 +57,17 @@ function Economy.PlayerWalkSpeed(stat: number, _worldId: number?, carrySizeId: s
 	return walk
 end
 
--- How fast a biome's Domer runs. A biome's Speed is the Speed that just gets you away from him:
--- with exactly that Speed you grab a box (they sit `ahead` studs in front of him, `run` studs from
--- the biome's entrance), run straight back while he wakes up (WakeDelay seconds), get out of his
--- biome - and he catches you (Config.Guard.CatchRadius) EscapeMargin studs past the entrance.
--- Solving that for his speed gives runner * (run + margin + ahead - catch) / (run + margin -
--- runner * wake): about 1.2-1.3x the runner. The first biome's Domer is slower than anyone.
-local guardSpeeds: { [number]: number } = {}
-function Economy.GuardWalkSpeed(areaId: number): number
-	local cached = guardSpeeds[areaId]
-	if cached then
-		return cached
-	end
+-- How fast a biome's Domer runs. Each Domer starts from the escape rule: with exactly the biome's
+-- base Speed (Areas RecommendedSpeed) you grab a box (they sit `ahead` studs in front of him, `run`
+-- studs from the biome's entrance), run straight back while he wakes up (WakeDelay seconds), get
+-- out of his biome - and he catches you (Config.Guard.CatchRadius) EscapeMargin studs past the
+-- entrance. Solving that for his speed gives runner * (run + margin + ahead - catch) / (run +
+-- margin - runner * wake): about 1.2-1.3x the runner. Then every Domer is Config.Guard.SpeedBoost
+-- times faster on top, and some biomes' more (Areas DomerBoost) - so the Speed that really gets
+-- you away is higher than the base one (Economy.EscapeSpeed). The first biome's Domer is slower
+-- than anyone.
+local function escapeGeometry(areaId: number): (number, number, number)
 	local area = Areas.List[areaId]
-	if not area or area.RecommendedSpeed <= 0 then
-		return Config.Guard.BeginnerSpeed
-	end
-	local runner = Economy.WalkSpeedFromStat(area.RecommendedSpeed)
 	local home = Layout.GuardHome(areaId)
 	local boxZ = 0
 	local spots = Layout.BoxSpots(areaId)
@@ -82,19 +76,65 @@ function Economy.GuardWalkSpeed(areaId: number): number
 	end
 	local ahead = home.Z - boxZ
 	local run = boxZ - Layout.AreaStart(areaId)
-	local g = Config.Guard
-	local distance = run + g.EscapeMargin
-	local headStart = math.max(distance - runner * area.WakeDelay, distance * 0.25)
-	local speed = runner * (distance + ahead - g.CatchRadius) / headStart
-	speed = math.clamp(speed, runner * 1.05, runner * 2)
+	return run + Config.Guard.EscapeMargin, ahead, area.WakeDelay
+end
+
+-- The Domer speed a runner running `runner` studs a second just escapes from (the rule above).
+local function tieSpeed(areaId: number, runner: number): number
+	local distance, ahead, wake = escapeGeometry(areaId)
+	local headStart = math.max(distance - runner * wake, distance * 0.25)
+	return runner * (distance + ahead - Config.Guard.CatchRadius) / headStart
+end
+
+local guardSpeeds: { [number]: number } = {}
+function Economy.GuardWalkSpeed(areaId: number): number
+	local cached = guardSpeeds[areaId]
+	if cached then
+		return cached
+	end
+	local area = Areas.List[areaId]
+	local boost = Config.Guard.SpeedBoost * (if area then area.DomerBoost or 1 else 1)
+	if not area or area.RecommendedSpeed <= 0 then
+		return Config.Guard.BeginnerSpeed * Config.Guard.SpeedBoost
+	end
+	local runner = Economy.WalkSpeedFromStat(area.RecommendedSpeed)
+	local speed = math.clamp(tieSpeed(areaId, runner), runner * 1.05, runner * 2) * boost
 	guardSpeeds[areaId] = speed
 	return speed
 end
 
--- The Speed you need to get into a biome.
-function Economy.RecommendedSpeed(areaId: number): number
+-- The Speed that really gets you away from a biome's Domer (with a Small box): you just make it out
+-- of his biome. Rounded UP to three figures (it's shown on the biome's sign, the HUD, the Index...).
+local escapeSpeeds: { [number]: number } = {}
+function Economy.EscapeSpeed(areaId: number): number
+	local cached = escapeSpeeds[areaId]
+	if cached then
+		return cached
+	end
 	local area = Areas.List[areaId]
-	return if area then area.RecommendedSpeed else 0
+	if not area or area.RecommendedSpeed <= 0 then
+		return 0
+	end
+	local guard = Economy.GuardWalkSpeed(areaId)
+	local lo, hi = Config.Speed.BaseWalkSpeed, guard * 4
+	for _ = 1, 60 do
+		local mid = (lo + hi) / 2
+		if tieSpeed(areaId, mid) > guard then
+			hi = mid
+		else
+			lo = mid
+		end
+	end
+	local stat = math.max(Economy.StatForWalkSpeed(hi), area.RecommendedSpeed)
+	local unit = 10 ^ math.max(math.floor(math.log10(stat)) - 2, 0)
+	local rounded = math.ceil(stat / unit) * unit
+	escapeSpeeds[areaId] = rounded
+	return rounded
+end
+
+-- The Speed you need to escape a biome's Domer (what the signs, HUD and Index show).
+function Economy.RecommendedSpeed(areaId: number): number
+	return Economy.EscapeSpeed(areaId)
 end
 
 -- WalkSpeed of a player with exactly the biome's Speed requirement.

@@ -99,6 +99,10 @@ Config.Guard = {
 	MaxReturnSeconds = 240, -- a walk home that takes longer than this ends with him back asleep
 	-- The first biome's Domer is slower than anyone (beginners always get away).
 	BeginnerSpeed = 18,
+	-- Every Domer runs this much faster than the escape rule above says (a biome can add its own
+	-- DomerBoost in Areas.luau); the Speed shown on the signs is worked out from his real speed
+	-- (Economy.EscapeSpeed).
+	SpeedBoost = 1.25,
 	-- Shown in the RUN! warning while he chases you.
 	RunText = "RUN!",
 	-- Lag compensation: the catch is judged against where the guard was on YOUR screen (the server
@@ -133,15 +137,28 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
 	HubHalfWidth = 330,
-	HubDepth = 540, -- 3 rows of bases on each side, leaderboards along the very back
+	HubDepth = 710, -- 4 rows of bases on each side, leaderboards along the very back
 	HubWallHeight = 40,
+}
+
+-- Two conveyor belts side by side down the middle of the lobby: one carries you from the back
+-- (the bases and leaderboards) to the front (the lane), the other back again. Anyone standing on
+-- one rides along at Speed studs a second on top of their own running.
+Config.Conveyors = {
+	Speed = 50,
+	Width = 12, -- each belt
+	Gap = 4, -- between the two belts
+	X = 36, -- the middle between them (beside the spawn, clear of the sell stall)
+	Front = 24, -- they end this far behind the safe-zone line, by the lane's entrance
+	Back = 40, -- and this far in front of the back wall (the leaderboards)
+	ArrowSpacing = 18, -- the glowing arrows sliding along them
 }
 
 --------------------------------------------------------------------------------
 -- Player bases (plots)
 --------------------------------------------------------------------------------
 Config.Plots = {
-	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
+	Count = 8, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
 	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
 	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
 	-- and the pen grows a little each time.

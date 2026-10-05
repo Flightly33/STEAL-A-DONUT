@@ -13,13 +13,15 @@
 	if he's already home, he wakes up in his corner as usual. Other players' clients hide your
 	guard, so you never see anyone else's Domers.
 
-	Guard speed per biome comes from Economy.GuardWalkSpeed (the biome's Speed is the Speed that
+	Guard speed per biome comes from Economy.GuardWalkSpeed (Economy.EscapeSpeed is the Speed that
 	just gets you away from him).
 
 	Catching is lag compensated: the server keeps a short history of where the guard was and judges
 	the catch against where he was on YOUR screen when you were at your current position (your ping
 	+ Roblox's interpolation delay ago, capped at Config.Guard.MaxRewind). Without this, a fast chase
-	on a laggy connection could "catch" you while he still looked 40 studs behind.
+	on a laggy connection could "catch" you while he still looked 40 studs behind. For the same
+	reason he chases THROUGH you by that much: otherwise a fast Domer would stop beside you on the
+	server while your screen still showed him far behind, and never catch you.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -355,9 +357,14 @@ local function updateGuard(guard: Guard, now: number)
 		GuardService.Caught:Fire(target, guard.AreaId)
 		return
 	end
-	-- Chase (lead the target a little, never step into the safe zone or through the walls)
+	-- Chase: lead the target a little, and aim THROUGH them by as far as their screen is behind
+	-- him (their rewind x his speed). The catch is judged where they saw him; if he only ran up to
+	-- them, a fast Domer would stay that far behind on their screen and could never catch anyone
+	-- (at 300+ studs a second that's 50+ studs). Never step into the safe zone or through the walls.
 	local lead = targetRoot.AssemblyLinearVelocity * 0.15
-	local goal = targetPos + Vector3.new(lead.X, 0, lead.Z)
+	local toTarget = Vector3.new(targetPos.X - guardPos.X, 0, targetPos.Z - guardPos.Z)
+	local through = if toTarget.Magnitude > 0.1 then toTarget.Unit * guard.ChaseSpeed * rewindFor(target) else Vector3.zero
+	local goal = targetPos + Vector3.new(lead.X, 0, lead.Z) + through
 	-- (he follows you through the other biomes: keep him inside whichever one he's in)
 	local minX, maxX = Layout.LaneLimits(math.max(Layout.AreaAt(guardPos), 1))
 	local margin = Config.Guard.Scale -- he's huge: keep his body off the walls

@@ -31,6 +31,7 @@ local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Layout = require(Shared.Layout)
 local Format = require(Shared.Format)
+local Economy = require(Shared.Economy)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 
@@ -46,7 +47,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 14
+local MAP_VERSION = 15
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -242,6 +243,76 @@ local function buildRidge(hub: Instance)
 	ridge.Parent = hub
 end
 
+-- The two conveyor belts down the middle of the lobby (Layout.Conveyors): a dark metal belt that
+-- carries whoever stands on it (its velocity: Config.Conveyors.Speed), low glowing rails, arrows
+-- the clients slide along it (client/Conveyors) and a sign over the end you get on at.
+local function setConveyorSpeed(belt: BasePart)
+	local direction = belt:GetAttribute("Direction")
+	if typeof(direction) == "Vector3" then
+		belt.AssemblyLinearVelocity = direction * Config.Conveyors.Speed
+	end
+end
+
+local function refreshConveyors(hub: Instance)
+	local conveyors = hub:FindFirstChild("Conveyors")
+	if conveyors then
+		for _, belt in conveyors:GetDescendants() do
+			if belt:IsA("BasePart") and belt.Name == "Belt" then
+				setConveyorSpeed(belt)
+			end
+		end
+	end
+end
+
+local function buildConveyors(hub: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Conveyors"
+	folder.Parent = hub
+	local c = Config.Conveyors
+	for _, info in Layout.Conveyors() do
+		local model = Instance.new("Model")
+		model.Name = info.Name
+		local toFront = info.Direction.Z > 0
+		local color = if toFront then rgb(80, 235, 120) else rgb(90, 175, 255)
+		-- (in `cf`, -Z is the way the belt goes; you get on at +Length / 2)
+		local cf = CFrame.lookAt(info.Center, info.Center + info.Direction)
+		local function at(x: number, y: number, z: number): CFrame
+			return cf * CFrame.new(x, y, z)
+		end
+		local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(c.Width, 0.6, info.Length), CFrame = at(0, 0.3, 0), Color = rgb(48, 48, 58), Material = Enum.Material.DiamondPlate })
+		belt:SetAttribute("Direction", info.Direction)
+		setConveyorSpeed(belt)
+		for _, side in { -1, 1 } do
+			Build.Part({ Parent = model, Name = "Rail", Size = Vector3.new(0.8, 1, info.Length), CFrame = at(side * (c.Width / 2 + 0.4), 0.5, 0), Color = color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.Metal })
+			Build.Decor({ Parent = model, Name = "RailGlow", Size = Vector3.new(0.3, 0.2, info.Length), CFrame = at(side * (c.Width / 2 + 0.4), 1.05, 0), Color = color, Material = Enum.Material.Neon })
+		end
+		-- arrows: a V of two glowing strips, pointing the way it goes
+		local count = math.floor(info.Length / c.ArrowSpacing) - 1
+		local angle = math.rad(38)
+		for i = 0, count - 1 do
+			local tipZ = info.Length / 2 - c.ArrowSpacing * (i + 0.5)
+			for _, side in { -1, 1 } do
+				local along = Vector3.new(side * math.sin(angle), 0, math.cos(angle))
+				local mid = Vector3.new(0, 0.66, tipZ) + along * 2.4
+				local arrow = Build.Decor({ Parent = model, Name = "Arrow", Size = Vector3.new(0.7, 0.1, 4.8), CFrame = cf * CFrame.lookAt(mid, mid + along), Color = color, Material = Enum.Material.Neon })
+				arrow:SetAttribute("ConveyorArrow", true)
+			end
+		end
+		-- where you get on: a glowing line across the belt, and a sign
+		Build.Decor({ Parent = model, Name = "Boarding", Size = Vector3.new(c.Width, 0.1, 1.2), CFrame = at(0, 0.66, info.Length / 2 - 0.8), Color = color, Material = Enum.Material.Neon })
+		local signPart = Build.Decor({ Parent = model, Name = "Sign", Size = Vector3.new(1, 1, 1), CFrame = at(0, 10, info.Length / 2 - 3), Transparency = 1 })
+		local sign = Instance.new("BillboardGui")
+		sign.Name = "SignGui"
+		sign.Size = UDim2.fromScale(16, 3.4)
+		sign.LightInfluence = 0
+		sign.MaxDistance = 220
+		sign.Parent = signPart
+		Build.Text(sign, if toFront then "⬆ TO THE BIOMES ⬆" else "⬇ TO THE BASES ⬇", { TextColor3 = color, TextStrokeColor3 = color:Lerp(Color3.new(0, 0, 0), 0.75) })
+		model.PrimaryPart = belt
+		model.Parent = folder
+	end
+end
+
 local function buildHub(parent: Folder)
 	local hub = Instance.new("Folder")
 	hub.Name = "Hub"
@@ -254,6 +325,7 @@ local function buildHub(parent: Folder)
 	buildEntranceGate(hub)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
+	buildConveyors(hub)
 
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "HubSpawn"
@@ -274,10 +346,11 @@ end
 -- Third line of a biome's arch sign. Rewritten on every start (refreshAreaSigns), so a saved map
 -- never shows old speeds after a rebalance.
 local function speedText(area: Areas.Area): string
-	if area.RecommendedSpeed <= 0 then
+	local need = Economy.EscapeSpeed(area.Id)
+	if need <= 0 then
 		return "🌱 No speed needed - start here!"
 	end
-	return "⚡ " .. Format.Number(area.RecommendedSpeed) .. " Speed to escape " .. Config.Guard.Name
+	return "⚡ " .. Format.Number(need) .. " Speed to escape " .. Config.Guard.Name
 end
 
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
@@ -966,6 +1039,9 @@ function MapBuilder.Build(): Folder
 				end
 				buildLeaderboards(hub)
 			end
+		end
+		if hub then
+			refreshConveyors(hub)
 		end
 		refreshAreaSigns(existing)
 		buildLane(existing) -- adds any biomes that are missing

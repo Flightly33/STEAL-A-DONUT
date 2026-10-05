@@ -101,6 +101,8 @@ UpdateNotes.List = {
 			{ Title = "Domer", Tag = "Changed", Lines = {
 				"Domer naps in a corner of every biome: on his comfy couch in the first ones",
 				"Each biome shows the Speed you need to escape its Domer: with it, you just make it out of his biome",
+				"Every Domer is faster now, and the Donut Heaven and Black Hole Domers are MUCH faster",
+				"Fast Domers can really catch you now (they used to trail behind you when you were very fast)",
 				"Caught in his biome? He takes the box back. Caught outside it? The box stays on the ground",
 				"He walks back to his corner afterwards. Grab the box again and he turns around and runs at you!",
 			} },
@@ -115,7 +117,8 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Bases & Shop", Tag = "Changed", Lines = {
 				"Every base is a donut shop with a pen: upgrade it at the sign by the gate (7 to 20 donuts)",
-				"Pick up a donut from your base to move it, or sell it at the sell stall",
+				"Pick up a donut from your base to move it, or sell it at the sell stall: you hold a tiny copy of it in your hand",
+				"8 bases per server, and two conveyor belts down the middle of the lobby: one to the biomes, one back to the bases",
 				"12 treadmills, from Rusty to the Heavenly treadmill",
 				"A sell stall in the lobby, and a free bat for everyone: hit a thief to make them drop their box",
 				"The Index has a Claim All button",

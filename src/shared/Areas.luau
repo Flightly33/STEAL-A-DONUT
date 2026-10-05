@@ -7,8 +7,9 @@
 	(Economy.GuardWalkSpeed works out how fast he runs from that). Anyone can walk into any biome.
 
 	Every biome is as long as a fair run at its Speed: the faster you are, the longer the map
-	(Areas.Length; worked out with the plain Speed curve, before Config.Speed.StatMultiplier). The first four are the same length, Glacier Glaze and Molten Bakery a little
-	longer, and from there each one is longer than the last.
+	(Areas.Length; worked out with the plain Speed curve, before Config.Speed.StatMultiplier). The first one is short,
+	the next ones a little longer, Glacier Glaze and Molten Bakery longer, and from there each one
+	is longer than the last.
 
 	Couch = true: Domer naps lying on his couch (the first biomes). Later Domers sleep standing up,
 	head down.
@@ -34,6 +35,7 @@ export type Area = {
 	Theme: string,
 	RecommendedSpeed: number, -- the Speed you need to get in
 	WakeDelay: number,
+	DomerBoost: number?, -- this biome's Domer runs this much faster again (on top of Config.Guard.SpeedBoost)
 	Floor: { Color3 },
 	FloorMaterial: Enum.Material,
 	Wall: { Color3 },
@@ -222,7 +224,7 @@ Areas.List = {
 	},
 	{
 		Id = 15, Name = "Donut Heaven", Theme = "Heaven",
-		RecommendedSpeed = 140_000_000, WakeDelay = 0.82, World = 1, Index = 15,
+		RecommendedSpeed = 140_000_000, WakeDelay = 0.82, World = 1, Index = 15, DomerBoost = 1.3,
 		Floor = { Color3.fromRGB(255, 242, 205), Color3.fromRGB(255, 230, 175) }, FloorMaterial = Enum.Material.Marble,
 		Wall = { Color3.fromRGB(255, 250, 238), Color3.fromRGB(245, 238, 220) }, WallMaterial = Enum.Material.Marble,
 		Trim = Color3.fromRGB(255, 215, 90), TrimMaterial = Enum.Material.Neon,
@@ -240,7 +242,7 @@ Areas.List = {
 	},
 	{
 		Id = 17, Name = "The Black Hole", Theme = "BlackHole",
-		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 135,
+		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 135, DomerBoost = 1.5,
 		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
@@ -249,16 +251,18 @@ Areas.List = {
 	},
 } :: { Area }
 
--- Lengths: the first four biomes are FirstLength long, the next two SecondLength; after that a
--- biome is as long as RunSeconds of running at its own Speed (and always longer than the last).
-local FIRST_LENGTH, SECOND_LENGTH, RUN_SECONDS, TILE = 500, 600, 6, Config.Map.TileSize
+-- Lengths: the first biomes have their own (FIRST_LENGTHS: a short first one), the next two are
+-- SecondLength; after that a biome is as long as RunSeconds of running at its own Speed (and
+-- always longer than the last).
+local FIRST_LENGTHS = { 300, 560, 600, 500 }
+local SECOND_LENGTH, RUN_SECONDS, TILE = 600, 6, Config.Map.TileSize
 local function walkSpeed(speed: number): number
 	local s = Config.Speed
 	return s.BaseWalkSpeed + s.CurveScale * math.max(speed, 0) ^ s.CurvePower
 end
 local previous = 0
 for index, area in Areas.List do
-	local length = if index <= 4 then FIRST_LENGTH elseif index <= 6 then SECOND_LENGTH else walkSpeed(area.RecommendedSpeed) * RUN_SECONDS
+	local length = if index <= #FIRST_LENGTHS then FIRST_LENGTHS[index] elseif index <= 6 then SECOND_LENGTH else walkSpeed(area.RecommendedSpeed) * RUN_SECONDS
 	length = math.max(math.floor(length / TILE + 0.5) * TILE, previous + (if index > 6 then 2 * TILE else 0))
 	area.Length = length
 	previous = length

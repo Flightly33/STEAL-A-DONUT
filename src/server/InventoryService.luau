@@ -23,6 +23,7 @@ local Rarities = require(Shared.Rarities)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
+local DonutModel = require(Shared.DonutModel)
 
 local DataService = require(script.Parent.DataService)
 local PlotService = require(script.Parent.PlotService)
@@ -94,6 +95,44 @@ local function handleFor(item: DataService.InvItem): BasePart
 	return handle
 end
 
+-- A donut tool shows a tiny copy of the donut in your hand while you hold it. It's built when you
+-- take the tool out and removed when you put it away (a full inventory would otherwise keep
+-- hundreds of donut parts around). In your hand a tool's handle points its Y axis forward and its
+-- Z axis up: the donut stands up in front of your hand, its face turned back towards you.
+local HELD_SCALE = 0.32
+local HELD_OFFSET = CFrame.fromMatrix(Vector3.new(0, 0.9, 0.45), Vector3.new(-1, 0, 0), Vector3.new(0, 0, 1), Vector3.new(0, 1, 0))
+
+local function showHeldDonut(tool: Tool, handle: BasePart, item: DataService.InvItem)
+	if tool:FindFirstChild("HeldDonut") then
+		return
+	end
+	local donut = item.Id and Donuts.ById[item.Id]
+	if not donut then
+		return
+	end
+	local model = DonutModel.Build(donut, { Scale = HELD_SCALE, NoEffects = true, Mutation = item.Mutation, Size = item.Size })
+	model.Name = "HeldDonut"
+	local root = model.PrimaryPart :: BasePart
+	-- move the whole little donut onto the handle, then let the welds hold it there
+	model:PivotTo(handle.CFrame * HELD_OFFSET)
+	for _, part in model:GetDescendants() do
+		if part:IsA("BasePart") then
+			part.Anchored = false
+			part.CanCollide = false
+			part.CanQuery = false
+			part.CanTouch = false
+			part.Massless = true
+		end
+	end
+	local weld = Instance.new("Weld")
+	weld.Name = "HeldWeld"
+	weld.Part0 = handle
+	weld.Part1 = root
+	weld.C0 = HELD_OFFSET
+	weld.Parent = root
+	model.Parent = tool
+end
+
 local function makeTool(player: Player, item: DataService.InvItem): Tool
 	local tool = Instance.new("Tool")
 	tool.Name = InventoryService.ItemName(item)
@@ -105,6 +144,22 @@ local function makeTool(player: Player, item: DataService.InvItem): Tool
 	local handle = handleFor(item)
 	handle.Parent = tool
 	tool.Grip = CFrame.new(0, -0.2, 0.6)
+	if item.Kind == "Donut" then
+		-- (the handle is just something to hold: the tiny donut is what you see)
+		(handle :: Part).Shape = Enum.PartType.Block
+		handle.Size = Vector3.new(0.4, 0.4, 0.4)
+		handle.Transparency = 1
+		tool.Grip = CFrame.new()
+		tool.Equipped:Connect(function()
+			showHeldDonut(tool, handle, item)
+		end)
+		tool.Unequipped:Connect(function()
+			local held = tool:FindFirstChild("HeldDonut")
+			if held then
+				held:Destroy()
+			end
+		end)
+	end
 	tool.Activated:Connect(function()
 		InventoryService.Place(player, item.Uid)
 	end)
