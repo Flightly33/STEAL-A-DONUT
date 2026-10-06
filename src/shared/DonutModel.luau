@@ -52,11 +52,14 @@ local FROSTING_TUBE = 1.36
 -- them (chunkier), and the glaze is two steps: a wide "shoulder" and a narrower raised "crown" in the
 -- middle, so its front follows the round glaze closely and everything placed on it still sits on it.
 local STUDDED = Config.DonutModels.Studded
-local STUDDED_SEGMENTS, STUDDED_GLAZE_SEGMENTS = 12, 14
+local STUDDED_SEGMENTS, STUDDED_GLAZE_SEGMENTS = 16, 18
 -- (the shoulder stands a little proud of the dough's front, -BALL / 2, so both layers show)
 local CROWN_HALF, CROWN_FRONT, SHOULDER_FRONT = 0.38, -1.0, -0.86
 local HALF_DIP = -0.3 -- a half-dipped donut's glaze stops where sin(angle round the ring) drops below this
 local STUD_FACES = { "TopSurface", "BottomSurface", "FrontSurface", "BackSurface", "LeftSurface", "RightSurface" }
+-- Studs go on the big pieces a donut is built from: its dough ring, legs and arms. On the glaze and
+-- the little details (sprinkles, eyes, beads...) they only looked like noise, so those stay smooth.
+local STUD_PARTS = { Dough = true, Leg = true, Ankle = true, UpperArm = true, Forearm = true, Shoulder = true, Bicep = true }
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
@@ -269,7 +272,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			p.Name = name
 			local cf = at(R * math.cos(angle), R * math.sin(angle), z) * CFrame.Angles(0, 0, angle + math.pi / 2)
 			local tint = color
-			if shade then
+			-- (studded blocks are all one colour: neighbours overlap at their corners, flat and at the
+			-- same depth, so any difference between them shows as thin seams across the glaze)
+			if shade and not STUDDED then
 				local amount = shade(angle)
 				tint = if amount > 0 then color:Lerp(WHITE, amount) else color:Lerp(Color3.new(0, 0, 0), -amount)
 			end
@@ -333,9 +338,27 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		glaze = ring(GLAZE_SEGMENTS, FROSTING_TUBE, FROSTING_OFFSET, frostingColor, frostingMaterial, "Frosting", glazeShade, nil, glazed)
 	end
 
-	-- Wavy glaze edge: tongues of glaze lying over the dough rim all the way round; on the lower
-	-- sides some run right over the edge like drips.
-	local edgeCount = 8
+	-- Studded: glaze running over the dough rim on the lower half, from the middle of every other
+	-- glaze block (all of them on a drippy donut), each with a drop at its end.
+	-- Round donuts: tongues of glaze lying over the dough rim all the way round; on the lower sides
+	-- some run right over the edge like drips.
+	if STUDDED then
+		local step = TAU / STUDDED_GLAZE_SEGMENTS
+		local dripColor = if look.Rim and not mutation.Frosting then underColor else frostingColor
+		for i = 0, STUDDED_GLAZE_SEGMENTS - 1 do
+			local angle = i * step
+			local drippy = look.Glaze == "Drippy"
+			if math.sin(angle) < -0.4 and (drippy or i % 2 == 0) and glazed(angle) then
+				-- from under the glaze's lower edge, straight down over the dough and off its rim
+				local edge = Vector3.new(math.cos(angle), math.sin(angle), 0) * (R + FROST_R - 0.1)
+				local length = rng:NextNumber(0.42, if drippy then 0.72 else 0.56)
+				local z = -BALL / 2 + 0.03 -- (on the dough's front, just behind the glaze)
+				table.insert(glaze, block(Vector3.new(0.26, length, 0.2), dripColor, at(edge.X, edge.Y - length / 2, z), frostingMaterial, "Frosting"))
+				table.insert(glaze, block(Vector3.new(0.34, 0.24, 0.24), dripColor, at(edge.X, edge.Y - length, z - 0.02), frostingMaterial, "Frosting"))
+			end
+		end
+	end
+	local edgeCount = if STUDDED then 0 else 8
 	for n = 0, edgeCount - 1 do
 		local angle = (n + rng:NextNumber(-0.25, 0.25)) / edgeCount * TAU + 0.2
 		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
@@ -397,6 +420,8 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				sprinkle.Size = Vector3.new(0.24, 0.2, 0.16) * s
 				cf *= CFrame.Angles(rng:NextNumber(-0.4, 0.4), rng:NextNumber(-0.4, 0.4), 0)
 				color = if n % 3 == 0 then color else look.Accent:Lerp(Color3.new(0, 0, 0), 0.25)
+			elseif STUDDED then
+				sprinkle.Size = Vector3.new(0.34, 0.1, 0.07) * s -- (a neat little rod lying flat)
 			else
 				sprinkle.Shape = Enum.PartType.Cylinder
 				sprinkle.Size = Vector3.new(0.4, 0.12, 0.12) * s
@@ -478,8 +503,14 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			else
 				tag(ellipsoid(Vector3.new(W * 0.7, H * 0.7, 0.06), look.Iris, eyePoint(ex, ey, px, -0.04, CROWN_FRONT - 0.19), if look.GlowEyes then NEON else nil, "Iris"), "Pupil", true)
 				tag(ellipsoid(Vector3.new(W * 0.38, H * 0.42, 0.06), BLACK, eyePoint(ex, ey, px, -0.05, CROWN_FRONT - 0.22), nil, "Pupil"), "Pupil", true)
-				tag(ball(0.17 * k, WHITE, eyePoint(ex, ey, px - 0.08 * k, 0.09 * k, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
-				tag(ball(0.08 * k, WHITE, eyePoint(ex, ey, px + 0.08 * k, -0.14 * k, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
+				if STUDDED then
+					-- one square shine tucked into the pupil's top corner (the pixel-art eye)
+					local gw = W * 0.15
+					tag(block(Vector3.new(gw, gw, 0.05), WHITE, eyePoint(ex, ey, px - W * 0.19 + gw / 2 + 0.02, -0.05 + H * 0.21 - gw / 2 - 0.02, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
+				else
+					tag(ball(0.17 * k, WHITE, eyePoint(ex, ey, px - 0.08 * k, 0.09 * k, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
+					tag(ball(0.08 * k, WHITE, eyePoint(ex, ey, px + 0.08 * k, -0.14 * k, CROWN_FRONT - 0.26), NEON, "Glint"), "Pupil", true)
+				end
 			end
 			-- sleepy / cool / regal eyelids, lashes and brows
 			local top = (H + 0.12) / 2
@@ -1044,8 +1075,10 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		NoFace = opts.NoFace == true,
 	})
 
-	-- Studded (Config.DonutModels): every solid part becomes a block with the classic studs on all
-	-- six sides, like Domer (see-through glows, force fields and the invisible root are left alone)
+	-- Studded (Config.DonutModels): every solid part becomes a block, and the big pieces (STUD_PARTS:
+	-- the dough ring, legs and arms) get the classic studs on all six sides, like Domer. The glaze
+	-- and the little details stay smooth, so the donut reads cleanly. (See-through glows, force
+	-- fields and the invisible root are left alone.)
 	if STUDDED then
 		for _, p in model:GetDescendants() do
 			if p:IsA("BasePart") and p ~= root and p.Transparency < 0.6 and p.Material ~= Enum.Material.ForceField then
@@ -1056,11 +1089,13 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				if mesh and (mesh.MeshType == Enum.MeshType.Sphere or mesh.MeshType == Enum.MeshType.Cylinder) then
 					mesh:Destroy()
 				end
-				for _, side in STUD_FACES do
-					(p :: any)[side] = Enum.SurfaceType.Studs
-				end
-				if p.Material == Enum.Material.SmoothPlastic then
-					p.Material = Enum.Material.Plastic
+				if STUD_PARTS[p.Name] then
+					for _, side in STUD_FACES do
+						(p :: any)[side] = Enum.SurfaceType.Studs
+					end
+					if p.Material == Enum.Material.SmoothPlastic then
+						p.Material = Enum.Material.Plastic
+					end
 				end
 			end
 		end

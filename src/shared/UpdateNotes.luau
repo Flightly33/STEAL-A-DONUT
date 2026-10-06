@@ -79,6 +79,7 @@ UpdateNotes.List = {
 			} },
 			{ Title = "New Donut Looks", Tag = "NEW", Lines = {
 				"Every donut got a makeover: two layers of glaze, shines, drips and patterns that match its name",
+				"Cleaner block donuts: smooth shiny icing, rounder rings and neat drips (the studs stay on the dough)",
 				"Faces with feelings: angry brows, sleepy eyes, silly tongues, glowing ghost eyes and robot screens",
 				"Strong donuts flex big muscles and wear a champion belt; animals get paws, hooves or claws",
 				"Everyone has their own shoes: sneakers, high-tops, boots, sandals, robot feet...",
