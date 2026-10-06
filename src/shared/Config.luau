@@ -705,8 +705,11 @@ Config.Tutorial = {
 -- capped per emitter. Lower = less lag.
 -- Donut models: Studded = made of studded blocks like Domer (square-edged ring, stepped glaze,
 -- blocky face and accessories, the classic studs on every side). false = the smooth round donuts.
+-- Shape (studded only): "Square" = the brick donut from art/brick_donut (a square ring with its
+-- corners cut off, in layers: baked back, dough, glaze, raised crown); "Round" = a ring of blocks.
 Config.DonutModels = {
 	Studded = true,
+	Shape = "Square",
 }
 
 -- Donut effects (FXThemes: Legendary and up). The particle textures they use: empty = Roblox's own

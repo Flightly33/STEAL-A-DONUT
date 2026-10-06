@@ -36,6 +36,9 @@ export type Kit = {
 	Sprinkles: { Color3 },
 	RarityOrder: number,
 	Studded: boolean,
+	Square: boolean, -- a square brick donut (DonutModel): flat sides, corners cut off
+	DoughFront: number, -- where the dough's front is (-Z)
+	CornerReach: number, -- square: the cut corners are where |x| + |y| reaches this
 	Rng: Random,
 	at: (x: number, y: number, z: number) -> CFrame,
 	ball: (diameter: number, color: Color3, cf: CFrame, material: Enum.Material?, name: string?) -> BasePart,
@@ -124,7 +127,26 @@ local function onDough(k: Kit, angle: number, around: number, lift: number): CFr
 	local downTube = radial * math.cos(around) + Vector3.new(0, 0, math.sin(around))
 	local tangent = Vector3.new(-radial.Y, radial.X, 0)
 	local point = radial * k.R + normal * (k.BALL / 2 + lift)
-	if k.Studded then
+	if k.Square then
+		-- the square ring: its flat outer sides (or the cut corner there), else the dough's front
+		local c, sn = math.cos(angle), math.sin(angle)
+		local alongSide = k.TOP / math.max(math.abs(c), math.abs(sn))
+		local toCorner = k.CornerReach / (math.abs(c) + math.abs(sn))
+		local side = if toCorner < alongSide
+			then Vector3.new(math.sign(c), math.sign(sn), 0).Unit
+			elseif math.abs(c) >= math.abs(sn) then Vector3.new(math.sign(c), 0, 0)
+			else Vector3.new(0, math.sign(sn), 0)
+		normal = side * math.sin(around) + Vector3.new(0, 0, -math.cos(around))
+		downTube = side * math.cos(around) + Vector3.new(0, 0, math.sin(around))
+		tangent = Vector3.new(-side.Y, side.X, 0)
+		local front, back = k.DoughFront, k.BALL / 2
+		if around >= math.pi / 4 then
+			local depth = math.clamp(-math.cos(around) / math.sin(around), -1, 1)
+			point = Vector3.new(c, sn, 0) * math.min(alongSide, toCorner) + Vector3.new(0, 0, (front + back) / 2 + (back - front) / 2 * depth) + normal * lift
+		else
+			point = Vector3.new(c, sn, 0) * ((k.R + k.BALL / 2 * math.tan(around)) / math.max(math.abs(c), math.abs(sn))) + Vector3.new(0, 0, front) + normal * lift
+		end
+	elseif k.Studded then
 		-- the square-edged dough ring: its outer side (from 45 degrees round), else its front
 		local half = k.BALL / 2
 		point = if around >= math.pi / 4

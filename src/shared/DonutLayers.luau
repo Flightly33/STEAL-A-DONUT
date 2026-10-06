@@ -30,6 +30,7 @@ export type Info = {
 	ShoulderFront: number, -- how far in front the glaze's two layers stand (-Z)
 	CrownFront: number,
 	HalfDip: number, -- sin(angle) where a half-dipped donut's glaze ends
+	Square: boolean, -- a square brick donut (DonutModel makes its drips itself, cell by cell)
 	Glow: Color3, -- the rarity's (or mutation's) colour
 	NoEffects: boolean,
 	NoFace: boolean,
@@ -93,7 +94,7 @@ local function shine(k: Kit, look: Look, info: Info)
 			continue
 		end
 		local angle = math.rad(degrees)
-		local cf = k.onGlaze(angle, -0.18, 0.01) * CFrame.Angles(0, 0, angle + math.pi / 2)
+		local cf = k.onGlaze(angle, -0.18, 0.01) * CFrame.Angles(0, 0, if info.Square then math.pi / 2 else angle + math.pi / 2)
 		k.block(Vector3.new(if i == 2 then 0.42 else 0.2, 0.1, 0.04), light, cf, nil, "Shine")
 	end
 end
@@ -245,7 +246,9 @@ local function beads(k: Kit, info: Info)
 	for i = 0, 11 do
 		local angle = math.rad(15 + i * 30)
 		if awayFromFace(angle, math.rad(35)) then
-			local bead = k.ball(0.18, color, k.at(math.cos(angle) * radius, math.sin(angle) * radius, info.ShoulderFront - 0.05), material, "Bead")
+			-- (square: along the glaze's outer cells)
+			local cf = if info.Square then k.onGlaze(angle, 1.25, 0.05) else k.at(math.cos(angle) * radius, math.sin(angle) * radius, info.ShoulderFront - 0.05)
+			local bead = k.ball(0.18, color, cf, material, "Bead")
 			bead.Reflectance = 0.25
 		end
 	end
@@ -274,7 +277,7 @@ local function belt(k: Kit, info: Info)
 end
 
 function DonutLayers.Build(k: Kit, look: Look, info: Info)
-	if look.Glaze == "Drippy" or look.Glaze == "HalfDip" then
+	if (look.Glaze == "Drippy" or look.Glaze == "HalfDip") and not info.Square then
 		drips(k, look, info)
 	end
 	shine(k, look, info)

@@ -60,6 +60,80 @@ local STUD_FACES = { "TopSurface", "BottomSurface", "FrontSurface", "BackSurface
 -- Studs go on the big pieces a donut is built from: its dough ring, legs and arms. On the glaze and
 -- the little details (sprinkles, eyes, beads...) they only looked like noise, so those stay smooth.
 local STUD_PARTS = { Dough = true, Leg = true, Ankle = true, UpperArm = true, Forearm = true, Shoulder = true, Bicep = true }
+-- Square brick donuts (Config.DonutModels.Shape = "Square", studded only), like the Blender model in
+-- art/brick_donut: the ring is a square with its corners cut off, laid out on a grid of square cells
+-- (13 across) in layers - a darker baked back, the dough, a wide glaze layer standing out in front
+-- of it and a raised crown in the middle of the glaze. Neighbouring cells are merged into big
+-- blocks, so the whole ring is about 30 parts. The glaze's two fronts stay where the round studded
+-- ones are (so the face and everything on it fit both shapes); the dough stands further back, so
+-- the glaze steps out from it.
+local SQUARE = STUDDED and Config.DonutModels.Shape == "Square"
+local CELL = (RING_RADIUS + BALL / 2) / 6.5
+local SQUARE_N = 6 -- cells from the middle to the edge
+local SQUARE_DOUGH_FRONT = SHOULDER_FRONT + 0.3
+local SQUARE_BAKED = 0.18 -- depth of the darker back
+local SQUARE_CORNER = 10.5 * CELL -- the dough's cut corners: |x| + |y| up to about this
+
+local function cellKey(x: number, y: number): number
+	return (x + 16) * 64 + (y + 16)
+end
+
+-- The cells of one square layer: `inner` to `outer` cells out from the middle (either way), with
+-- its corners cut off where |x| + |y| > `cut`.
+local function squareLayer(inner: number, outer: number, cut: number): { [number]: boolean }
+	local cells = {}
+	for x = -SQUARE_N, SQUARE_N do
+		for y = -SQUARE_N, SQUARE_N do
+			local d = math.max(math.abs(x), math.abs(y))
+			if d >= inner and d <= outer and math.abs(x) + math.abs(y) <= cut then
+				cells[cellKey(x, y)] = true
+			end
+		end
+	end
+	return cells
+end
+local SQUARE_DOUGH = squareLayer(2, 6, 10)
+local SQUARE_GLAZE = squareLayer(2, 5, 8)
+local SQUARE_CROWN = squareLayer(3, 4, 6)
+
+-- A layer's cells merged into as few rectangles as possible: a run along a row, grown downwards as
+-- far as it goes. Each is { x0, y0, x1, y1 } in cells (inclusive).
+local function rectangles(cells: { [number]: boolean }): { { number } }
+	local used = {}
+	local function free(x: number, y: number): boolean
+		local key = cellKey(x, y)
+		return cells[key] == true and not used[key]
+	end
+	local rects = {}
+	for y = SQUARE_N, -SQUARE_N, -1 do
+		for x = -SQUARE_N, SQUARE_N do
+			if free(x, y) then
+				local x1 = x
+				while x1 < SQUARE_N and free(x1 + 1, y) do
+					x1 += 1
+				end
+				local y0 = y
+				while y0 > -SQUARE_N do
+					local whole = true
+					for cx = x, x1 do
+						whole = whole and free(cx, y0 - 1)
+					end
+					if not whole then
+						break
+					end
+					y0 -= 1
+				end
+				for cx = x, x1 do
+					for cy = y0, y do
+						used[cellKey(cx, cy)] = true
+					end
+				end
+				table.insert(rects, { x, y0, x1, y })
+			end
+		end
+	end
+	return rects
+end
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
@@ -283,9 +357,50 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		return pieces
 	end
 
+	-- Glaze styles (DonutLooks): a half-dipped donut only has glaze on its top part
+	local function glazed(angle: number): boolean
+		return look.Glaze ~= "HalfDip" or math.sin(angle) > HALF_DIP
+	end
+
+	-- Square: the cells the glaze and its raised crown cover (just the top part on a half-dipped
+	-- donut), and how far in front the surface is at (x, y): the crown, the glaze, else the dough.
+	-- (Over the hole it's the glaze's front, so a mouth on the hole's edge still sits right.)
+	local glazeCells: { [number]: boolean }, crownCells: { [number]: boolean } = {}, {}
+	if SQUARE then
+		for x = -SQUARE_N, SQUARE_N do
+			for y = -SQUARE_N, SQUARE_N do
+				local key = cellKey(x, y)
+				if glazed(math.atan2(y, x)) then
+					glazeCells[key] = SQUARE_GLAZE[key]
+					crownCells[key] = SQUARE_CROWN[key]
+				end
+			end
+		end
+	end
+	local function squareFront(x: number, y: number): number
+		local key = cellKey(math.round(x / CELL), math.round(y / CELL))
+		if crownCells[key] then
+			return CROWN_FRONT
+		elseif glazeCells[key] then
+			return SHOULDER_FRONT
+		elseif SQUARE_DOUGH[key] then
+			return SQUARE_DOUGH_FRONT
+		end
+		return SHOULDER_FRONT
+	end
+
 	-- A spot on the glaze, facing out of it: `angle` around the ring, `tilt` from the front of the
 	-- tube towards its outer edge (negative = towards the hole), `lift` above the surface.
 	local function onGlaze(angle: number, tilt: number, lift: number): CFrame
+		if SQUARE then
+			-- the same spread across the square glaze (pulled in at its cut corners), on whichever
+			-- layer is there, facing straight out of the front
+			local c, sn = math.cos(angle), math.sin(angle)
+			local reach = (3.5 + math.sin(tilt) * 1.9) * CELL / math.max(math.abs(c), math.abs(sn))
+			local p = Vector3.new(c, sn, 0) * math.min(reach, 8.4 * CELL / (math.abs(c) + math.abs(sn)))
+			local point = p + Vector3.new(0, 0, squareFront(p.X, p.Y) - lift)
+			return CFrame.lookAt(point * s, (point - Vector3.zAxis) * s)
+		end
 		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
 		local normal = radial * math.sin(tilt) + Vector3.new(0, 0, -math.cos(tilt))
 		local point = radial * R + Vector3.new(0, 0, FROSTING_OFFSET) + normal * (FROST_R + lift)
@@ -300,32 +415,58 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	-- The glaze surface in front of the point (x, y) on the donut's face.
 	local function face(x: number, y: number, lift: number): CFrame
+		if SQUARE then
+			local point = Vector3.new(x, y, squareFront(x, y) - lift)
+			return CFrame.lookAt(point * s, (point - Vector3.zAxis) * s)
+		end
 		local offset = math.clamp(math.sqrt(x * x + y * y) - R, -FROST_R * 0.95, FROST_R * 0.95)
 		return onGlaze(math.atan2(y, x), math.asin(offset / FROST_R), lift)
 	end
 
+	-- Square: the layers as blocks, each covering a rectangle of cells from z0 to z1 (front to back)
+	local function slab(cells: { [number]: boolean }, z0: number, z1: number, color: Color3, material: Enum.Material, name: string): { BasePart }
+		local pieces = {}
+		for _, r in rectangles(cells) do
+			local sizeV = Vector3.new((r[3] - r[1] + 1) * CELL, (r[4] - r[2] + 1) * CELL, z1 - z0)
+			table.insert(pieces, block(sizeV, color, at((r[1] + r[3]) / 2 * CELL, (r[2] + r[4]) / 2 * CELL, (z0 + z1) / 2), material, name))
+		end
+		return pieces
+	end
+
 	-- Dough ring, with the glaze in front of it (the dough shows around its edges)
 	-- (the dough is golden on top and more baked underneath; the glaze catches light from the top left)
-	for _, piece in ring(if STUDDED then STUDDED_SEGMENTS else SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough", function(angle: number): number
-		local up = math.sin(angle)
-		return if up > 0 then up * 0.1 else up * 0.2
-	end) do
+	local doughPieces
+	if SQUARE then
+		-- the dough, and a darker baked back behind it
+		doughPieces = slab(SQUARE_DOUGH, SQUARE_DOUGH_FRONT, BALL / 2 - SQUARE_BAKED, doughColor, doughMaterial, "Dough")
+		for _, piece in slab(SQUARE_DOUGH, BALL / 2 - SQUARE_BAKED, BALL / 2, doughColor:Lerp(Color3.new(0, 0, 0), 0.22), doughMaterial, "Dough") do
+			table.insert(doughPieces, piece)
+		end
+	else
+		doughPieces = ring(if STUDDED then STUDDED_SEGMENTS else SEGMENTS, BALL, 0, doughColor, doughMaterial, "Dough", function(angle: number): number
+			local up = math.sin(angle)
+			return if up > 0 then up * 0.1 else up * 0.2
+		end)
+	end
+	for _, piece in doughPieces do
 		piece.Reflectance = shine * 0.3
 	end
 	local function glazeShade(angle: number): number
 		local light = math.cos(angle - math.rad(135))
 		return if light > 0 then light * 0.1 else light * 0.07
 	end
-	-- Glaze styles (DonutLooks): a half-dipped donut only has glaze on its top part
-	local function glazed(angle: number): boolean
-		return look.Glaze ~= "HalfDip" or math.sin(angle) > HALF_DIP
-	end
 	-- Two layers of glaze: a wide one a shade darker, and a raised middle on top of it that catches
 	-- the light (a second colour on "TwoTone" donuts)
 	local underColor = if look.Rim and not mutation.Frosting then look.Rim else frostingColor:Lerp(Color3.new(0, 0, 0), 0.14)
 	local crownColor = if look.Glaze == "TwoTone" then accent else frostingColor
 	local glaze
-	if STUDDED then
+	if SQUARE then
+		-- the wide glaze layer standing out from the dough, the crown standing out from that
+		glaze = slab(glazeCells, SHOULDER_FRONT, SQUARE_DOUGH_FRONT + 0.02, underColor, frostingMaterial, "Frosting")
+		for _, piece in slab(crownCells, CROWN_FRONT, SHOULDER_FRONT + 0.02, crownColor, frostingMaterial, "Frosting") do
+			table.insert(glaze, piece)
+		end
+	elseif STUDDED then
 		-- shoulder: as wide as the round glaze, standing a little proud of the dough; crown on top
 		glaze = ring(STUDDED_GLAZE_SEGMENTS, FROSTING_TUBE, SHOULDER_FRONT / 2, underColor, frostingMaterial, "Frosting", glazeShade, -SHOULDER_FRONT, glazed)
 		local crownDepth = SHOULDER_FRONT - CROWN_FRONT + 0.1
@@ -342,7 +483,44 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	-- glaze block (all of them on a drippy donut), each with a drop at its end.
 	-- Round donuts: tongues of glaze lying over the dough rim all the way round; on the lower sides
 	-- some run right over the edge like drips.
-	if STUDDED then
+	if SQUARE then
+		-- Square: glaze running down a column of cells from the glaze's lowest cell there, over the
+		-- dough (thinner than the glaze), with a drop hanging off the rim if it gets that far.
+		-- Half-dipped donuts drip down their sides from where the glaze stops.
+		local dripColor = if look.Rim and not mutation.Frosting then underColor else frostingColor
+		local columns: { number } = if look.Glaze == "HalfDip" then { -5, -3, 3, 5 } elseif look.Glaze == "Drippy" then { -5, -3, 0, 3, 5 } else { -4, 0, 4 }
+		local z0, z1 = SQUARE_DOUGH_FRONT - 0.17, SQUARE_DOUGH_FRONT + 0.03
+		for _, x in columns do
+			local lowest
+			for y = 1, -SQUARE_N, -1 do
+				if glazeCells[cellKey(x, y)] then
+					lowest = y
+				end
+			end
+			if not lowest then
+				continue
+			end
+			local length = rng:NextInteger(1, if look.Glaze == "Drippy" then 3 else 2)
+			local run, hang = 0, false
+			for k = 1, length do
+				local y = lowest - k
+				if SQUARE_DOUGH[cellKey(x, y)] then
+					run = k
+				else
+					hang = not (math.abs(x) <= 1 and math.abs(y) <= 1) -- (never into the hole)
+					break
+				end
+			end
+			local top = (lowest - 0.5) * CELL
+			if run > 0 then
+				table.insert(glaze, block(Vector3.new(CELL - 0.03, run * CELL + 0.04, z1 - z0), dripColor, at(x * CELL, top - run * CELL / 2 + 0.02, (z0 + z1) / 2), frostingMaterial, "Frosting"))
+			end
+			if hang then
+				local y = (lowest - run - 1) * CELL
+				table.insert(glaze, block(Vector3.new(CELL + 0.02, CELL, z1 - z0 + 0.04), dripColor, at(x * CELL, y, (z0 + z1) / 2), frostingMaterial, "Frosting"))
+			end
+		end
+	elseif STUDDED then
 		local step = TAU / STUDDED_GLAZE_SEGMENTS
 		local dripColor = if look.Rim and not mutation.Frosting then underColor else frostingColor
 		for i = 0, STUDDED_GLAZE_SEGMENTS - 1 do
@@ -402,6 +580,34 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		local colors = sprinkleColors
 		local style = if opts.NoFace then "Jimmies" else look.Sprinkles
 		local count = if opts.NoFace then 26 elseif style == "Nonpareils" then 20 elseif style == "Chunks" then 12 else 16
+		-- Square: one each on a few glaze cells (none round the face), lined up with the grid
+		local spots = {}
+		if SQUARE then
+			for x = -SQUARE_N, SQUARE_N do
+				for y = -SQUARE_N, SQUARE_N do
+					if glazeCells[cellKey(x, y)] and (opts.NoFace or math.abs(x) > 4 or y < 2) then
+						table.insert(spots, Vector2.new(x, y))
+					end
+				end
+			end
+			for n = 1, math.min(count, #spots) do
+				local spot = table.remove(spots, rng:NextInteger(1, #spots)) :: Vector2
+				local color = colors[(n - 1) % #colors + 1]
+				local sizeV = Vector3.new(0.26, 0.09, 0.07)
+				if style == "Nonpareils" then
+					sizeV = Vector3.new(0.14, 0.14, 0.08)
+				elseif style == "Confetti" then
+					sizeV = Vector3.new(0.22, 0.22, 0.05)
+				elseif style == "Chunks" then
+					sizeV = Vector3.new(0.22, 0.2, 0.14)
+					color = if n % 3 == 0 then color else look.Accent:Lerp(Color3.new(0, 0, 0), 0.25)
+				end
+				local x, y = spot.X * CELL, spot.Y * CELL
+				local turn = if rng:NextNumber() < 0.5 then 0 else math.pi / 2
+				block(sizeV, color, at(x, y, squareFront(x, y) - sizeV.Z / 2 + 0.02) * CFrame.Angles(0, 0, turn), if special then Enum.Material.Neon else Enum.Material.SmoothPlastic, "Sprinkle")
+			end
+			count = 0
+		end
 		for n = 1, count do
 			local angle
 			repeat
@@ -432,7 +638,8 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	-- A soft shine on the glaze (top left, beside the face)
 	if mutation.Id ~= "Diamond" then
-		local gloss = ellipsoid(Vector3.new(0.85, 0.2, 0.05), WHITE, onGlaze(math.rad(150), -0.25, 0.012) * CFrame.Angles(0, 0, math.rad(150) + math.pi / 2), nil, "Gloss")
+		-- (square: straight up the side, in line with the blocks)
+		local gloss = ellipsoid(Vector3.new(0.85, 0.2, 0.05), WHITE, onGlaze(math.rad(150), -0.25, 0.012) * CFrame.Angles(0, 0, if SQUARE then math.pi / 2 else math.rad(150) + math.pi / 2), nil, "Gloss")
 		gloss.Transparency = 0.55
 	end
 
@@ -1035,6 +1242,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		Sprinkles = donut.Sprinkles or {},
 		RarityOrder = rarity.Order,
 		Studded = STUDDED,
+		Square = SQUARE,
+		DoughFront = if SQUARE then SQUARE_DOUGH_FRONT else -BALL / 2,
+		CornerReach = SQUARE_CORNER,
 		Rng = rng,
 		at = at,
 		ball = ball,
@@ -1070,6 +1280,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		ShoulderFront = if STUDDED then SHOULDER_FRONT else FROSTING_OFFSET - FROST_R,
 		CrownFront = if STUDDED then CROWN_FRONT else FROSTING_OFFSET - FROST_R,
 		HalfDip = HALF_DIP,
+		Square = SQUARE,
 		Glow = if mutation.Order > 0 then mutation.Color else rarity.Color,
 		NoEffects = opts.NoEffects == true,
 		NoFace = opts.NoFace == true,

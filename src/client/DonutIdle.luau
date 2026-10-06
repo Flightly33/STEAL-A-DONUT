@@ -17,6 +17,7 @@
 	backflip, a wave, a cheer, a wiggle, a look around, or a little doze. They blink, their eyes wander,
 	and when you walk past they watch you (eyes first, then they turn a little) - and when you come
 	close they wave or jump to say hi. Their mouths open while they jump, twirl and cheer.
+	The few donuts closest to you breathe: a slow squash and stretch from their feet.
 	Propellers spin, orbiting orbs orbit, tentacles wiggle and capes flutter.
 
 	How it works: a donut is one anchored Root with every other part welded to it (DonutModel), so
@@ -58,11 +59,20 @@ local LOOK_TARGETS = { -0.55, 0, 0.55, 0, -0.3, 0.3 }
 local CLOSED_EYE = Color3.fromRGB(70, 35, 40)
 local GAZE = 0.075 -- how far pupils slide (studs, before the donut's scale)
 local EYE_HEIGHT = 1.6 -- eyes above the middle of the donut (before its scale)
+-- Breathing moves (and stretches) every part of a donut, so only the BREATHERS closest donuts
+-- within BREATHE_RANGE studs do it, and only BREATHE_RATE times a second (it's slow, so that's smooth)
+local BREATHE_RANGE = 35
+local BREATHERS = 4
+local BREATHE_RATE = 15
+local BREATHE_PERIOD = 2.6 -- seconds per breath
+local STRETCH, SQUASH = 0.04, 0.025 -- taller by 4% breathing in, 2.5% thinner
 
 type Limb = { Weld: Weld, Base: CFrame, Pivot: CFrame, Kind: string, Side: number, Phase: number }
 type Eye = { Part: BasePart, Size: Vector3, Color: Color3 }
 type Pupil = { Part: BasePart, Weld: Weld, Base: CFrame }
 type Mouth = { Part: BasePart, Weld: Weld, Base: CFrame, Size: Vector3, Corners: { BasePart } }
+-- A part that breathes with the body: moved from Base, and the big blocks (dough, glaze) stretched
+type BodyPart = { Part: BasePart, Weld: Weld, Base: CFrame, Size: Vector3, Grow: boolean }
 
 -- Base donuts roam their pen (Roam.luau): where they are comes from the shared server clock.
 type RoamInfo = { Params: Roam.Params, Origin: CFrame, Height: number }
@@ -83,6 +93,10 @@ type Idle = {
 	Eyes: { Eye },
 	Pupils: { Pupil },
 	Mouth: Mouth?,
+	Body: { BodyPart },
+	Breath: number, -- -1 (out) .. 1 (in), times how much it's breathing
+	BreathWeight: number, -- eases in and out as it becomes one of the closest donuts
+	BreathAccum: number,
 	HasArms: boolean,
 	Blinking: boolean,
 	NextBlink: number,
@@ -141,6 +155,24 @@ local function setBlink(idle: Idle, closed: boolean)
 	end
 end
 
+-- How far breathing moves the point `p` (in the donut's own space): up and away from its feet,
+-- a little in towards its middle.
+local function breathOffset(idle: Idle, p: Vector3): Vector3
+	local b = idle.Breath
+	if b == 0 then
+		return Vector3.zero
+	end
+	return Vector3.new(-p.X * SQUASH * b, (p.Y + idle.Bottom) * STRETCH * b, -p.Z * SQUASH * b)
+end
+
+local function placeMouth(idle: Idle)
+	local mouth = idle.Mouth
+	if mouth then
+		local cf = if idle.MouthOpen then mouth.Base * CFrame.new(0, -mouth.Size.Y * 0.6, 0) else mouth.Base
+		mouth.Weld.C0 = cf + breathOffset(idle, mouth.Base.Position)
+	end
+end
+
 local function setMouth(idle: Idle, open: boolean)
 	local mouth = idle.Mouth
 	if not mouth or idle.MouthOpen == open then
@@ -149,26 +181,49 @@ local function setMouth(idle: Idle, open: boolean)
 	idle.MouthOpen = open
 	-- The middle of the smile grows into a round "wheee!" mouth, the corners hide
 	mouth.Part.Size = if open then Vector3.new(mouth.Size.X * 1.25, mouth.Size.Y * 2.6, mouth.Size.Z) else mouth.Size
-	mouth.Weld.C0 = if open then mouth.Base * CFrame.new(0, -mouth.Size.Y * 0.6, 0) else mouth.Base
+	placeMouth(idle)
 	for _, corner in mouth.Corners do
 		corner.Transparency = if open then 1 else 0
 	end
 end
 
-local function setGaze(idle: Idle, gaze: Vector2)
-	if (gaze - idle.Gaze).Magnitude < 0.004 then
+local function setGaze(idle: Idle, gaze: Vector2, force: boolean?)
+	if not force and (gaze - idle.Gaze).Magnitude < 0.004 then
 		return
 	end
 	idle.Gaze = gaze
 	local offset = CFrame.new(gaze.X * GAZE * idle.Scale, gaze.Y * GAZE * idle.Scale, 0)
 	for _, pupil in idle.Pupils do
-		pupil.Weld.C0 = pupil.Base * offset
+		pupil.Weld.C0 = pupil.Base * offset + breathOffset(idle, pupil.Base.Position)
 	end
+end
+
+-- Breathe: move every part of the body for the current breath, and stretch the big blocks along
+-- the sides of them that run up and down (so neighbouring blocks still meet).
+local function breathe(idle: Idle)
+	local b = idle.Breath
+	local up, across = 1 + STRETCH * b, 1 - SQUASH * b
+	local function along(v: Vector3): number
+		return Vector3.new(v.X * across, v.Y * up, v.Z * across).Magnitude
+	end
+	for _, piece in idle.Body do
+		local base = piece.Base
+		piece.Weld.C0 = base + breathOffset(idle, base.Position)
+		if piece.Grow then
+			piece.Part.Size = Vector3.new(piece.Size.X * along(base.RightVector), piece.Size.Y * along(base.UpVector), piece.Size.Z * along(base.LookVector))
+		end
+	end
+	setGaze(idle, idle.Gaze, true)
+	placeMouth(idle)
 end
 
 -- Back to the pose the server built (when the donut goes out of range).
 local function reset(idle: Idle)
 	idle.Root.CFrame = idle.Base
+	if idle.Breath ~= 0 or idle.BreathWeight > 0 then
+		idle.Breath, idle.BreathWeight = 0, 0
+		breathe(idle)
+	end
 	for _, limb in idle.Limbs do
 		limb.Weld.C0 = limb.Base
 	end
@@ -203,6 +258,7 @@ local function register(instance: Instance)
 	local phases: { [string]: number } = {} -- parts swinging around the same pivot move together
 	local hasArms = false
 	local details: { BasePart } = {}
+	local body: { BodyPart } = {}
 	local tiny = 0.45 * root.Size.Y / 3
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
@@ -235,6 +291,11 @@ local function register(instance: Instance)
 				table.insert(pupils, { Part = part, Weld = weld, Base = weld.C0 })
 			end
 			local mouthPart = part:GetAttribute("Mouth")
+			-- everything else welded to the donut breathes with it (not the invisible effect
+			-- holders, or the light rays DonutFX spins)
+			if weld and weld.Part0 == root and type(kind) ~= "string" and not part:GetAttribute("Pupil") and mouthPart ~= "Middle" and part.Transparency < 1 and part:GetAttribute("FXSpin") == nil then
+				table.insert(body, { Part = part, Weld = weld, Base = weld.C0, Size = part.Size, Grow = part.Name == "Dough" or part.Name == "Frosting" })
+			end
 			if mouthPart == "Middle" and weld then
 				mouth = { Part = part, Weld = weld, Base = weld.C0, Size = part.Size, Corners = corners }
 			elseif mouthPart == "Corner" then
@@ -279,6 +340,10 @@ local function register(instance: Instance)
 		Eyes = eyes,
 		Pupils = pupils,
 		Mouth = mouth,
+		Body = body,
+		Breath = 0,
+		BreathWeight = 0,
+		BreathAccum = 0,
 		HasArms = hasArms,
 		Blinking = false,
 		NextBlink = now + rng:NextNumber(0.5, 4),
@@ -617,7 +682,9 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		else
 			rotation = CFrame.identity
 		end
-		limb.Weld.C0 = limb.Pivot * rotation * limb.Pivot:Inverse() * limb.Base
+		-- (legs stay planted on the ground while the body breathes above them)
+		local breath = if kind == "Leg" then Vector3.zero else breathOffset(idle, limb.Pivot.Position)
+		limb.Weld.C0 = limb.Pivot * rotation * limb.Pivot:Inverse() * limb.Base + breath
 	end
 end
 
@@ -672,6 +739,7 @@ function DonutIdle.Init()
 		local camera = workspace.CurrentCamera
 		local eye = if camera then camera.CFrame.Position else focus
 		local look = if camera then camera.CFrame.LookVector else Vector3.zero
+		local close: { { Idle: Idle, Distance: number } } = {}
 		for model, idle in idles do
 			if not model.Parent then
 				idles[model] = nil
@@ -684,6 +752,9 @@ function DonutIdle.Init()
 				end
 			elseif distance > LOD_DISTANCE + 10 then
 				setLod(idle, true)
+			end
+			if distance < BREATHE_RANGE then
+				table.insert(close, { Idle = idle, Distance = distance })
 			end
 			if distance < RANGE then
 				idle.Active = true
@@ -702,6 +773,31 @@ function DonutIdle.Init()
 			elseif idle.Active then
 				idle.Active = false
 				reset(idle)
+			end
+		end
+
+		-- Breathing: the closest few breathe in and out; the others ease back to standing still
+		table.sort(close, function(a, b)
+			return a.Distance < b.Distance
+		end)
+		local chosen: { [Idle]: boolean } = {}
+		for i = 1, math.min(BREATHERS, #close) do
+			chosen[close[i].Idle] = true
+		end
+		for _, idle in idles do
+			local wanted = if chosen[idle] and idle.Active then 1 else 0
+			if wanted == 0 and idle.BreathWeight == 0 then
+				continue
+			end
+			idle.BreathWeight = approach(idle.BreathWeight, wanted, 2.5, dt)
+			idle.BreathAccum += dt
+			if wanted == 0 and idle.BreathWeight < 0.02 then
+				idle.Breath, idle.BreathWeight = 0, 0
+				breathe(idle) -- (back to exactly how it was built)
+			elseif idle.BreathAccum >= 1 / BREATHE_RATE then
+				idle.BreathAccum = 0
+				idle.Breath = idle.BreathWeight * math.sin((now + idle.Phase) / BREATHE_PERIOD * TAU)
+				breathe(idle)
 			end
 		end
 	end)
