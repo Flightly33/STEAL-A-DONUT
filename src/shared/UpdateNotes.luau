@@ -109,7 +109,7 @@ UpdateNotes.List = {
 			{ Title = "Trails", Tag = "NEW", Lines = {
 				"Open Trails on the left to wear one",
 				"FAST GUY: leave frozen afterimages and shattering glass behind you",
-				"It unlocks when you reach 40K Speed (biome 4's Speed)",
+				"Buy it in the Trails window for $100M",
 			} },
 			{ Title = "Bases & Shop", Tag = "Changed", Lines = {
 				"Every base is a donut shop with a pen: upgrade it at the sign by the gate (7 to 20 donuts)",

@@ -138,21 +138,21 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 330,
-	HubDepth = 710, -- 4 rows of bases on each side, leaderboards along the very back
+	HubHalfWidth = 280, -- a compact lobby, so nothing is far away
+	HubDepth = 480, -- the bases make a C round the plaza (open to the lane): 2 down each side, 2 along the back, the leaderboards between the back two
 	HubWallHeight = 40,
 }
 
--- Two conveyor belts side by side down the middle of the lobby: one carries you from the back
--- (the bases and leaderboards) to the front (the lane), the other back again. Anyone standing on
+-- Two conveyor belts side by side on EACH side of the lobby, just in front of the bases: one
+-- carries you from the back (the leaderboards) to the front (the lane), the other back again. Anyone standing on
 -- one rides along at Speed studs a second on top of their own running.
 Config.Conveyors = {
 	Speed = 50,
 	Width = 12, -- each belt
 	Gap = 4, -- between the two belts
-	X = 36, -- the middle between them (beside the spawn, clear of the sell stall)
+	BaseGap = 8, -- each pair of belts sits this far in front of the bases (on the plaza side of them)
 	Front = 24, -- they end this far behind the safe-zone line, by the lane's entrance
-	Back = 40, -- and this far in front of the back wall (the leaderboards)
+	Back = 20, -- and stop this far in front of the back row of bases (where the sides of the C end)
 	ArrowSpacing = 18, -- the glowing arrows sliding along them
 }
 
@@ -160,7 +160,7 @@ Config.Conveyors = {
 -- Player bases (plots)
 --------------------------------------------------------------------------------
 Config.Plots = {
-	Count = 8, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
+	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
 	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
 	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
 	-- and the pen grows a little each time.
@@ -197,6 +197,7 @@ Config.Plots = {
 -- Each biome shows the Speed you need to get away from its Domer (Areas.luau; anyone can walk in).
 --------------------------------------------------------------------------------
 Config.Speed = {
+	StartSpeed = 30, -- the Speed stat a brand new player starts with (it runs like 34: see the formula above)
 	BaseWalkSpeed = 24,
 	StatMultiplier = 2, -- your Speed counts double when you run
 	MinRunSpeed = 16, -- the slowest run speed you can type in Settings

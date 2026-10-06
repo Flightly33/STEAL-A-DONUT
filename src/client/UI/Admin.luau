@@ -386,7 +386,7 @@ local function build()
 	local events = section("🌍 Start a server event (for the whole server)", 150)
 	for _, event in Events.List do
 		if not event.OwnerOnly then
-			button(events, `{event.Icon} {event.Name}`, event.Color, function()
+			button(events, event.Name, event.Color, function()
 				command("Event", event.Id)
 			end)
 		end

@@ -254,7 +254,7 @@ Areas.List = {
 -- Lengths: the first biomes have their own (FIRST_LENGTHS: a short first one), the next two are
 -- SecondLength; after that a biome is as long as RunSeconds of running at its own Speed (and
 -- always longer than the last).
-local FIRST_LENGTHS = { 300, 560, 600, 500 }
+local FIRST_LENGTHS = { 160, 420, 600, 500 }
 local SECOND_LENGTH, RUN_SECONDS, TILE = 600, 6, Config.Map.TileSize
 local function walkSpeed(speed: number): number
 	local s = Config.Speed

@@ -47,7 +47,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 15
+local MAP_VERSION = 17
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -140,9 +140,9 @@ local function buildSellStall(parent: Instance)
 	sign.MaxDistance = 260
 	sign.Parent = counter
 	Build.Text(sign, "💰 SELL DONUTS", { TextColor3 = rgb(120, 255, 140), TextStrokeColor3 = rgb(10, 50, 20) })
-	-- A donut shopkeeper on the counter
+	-- A donut shopkeeper on the counter, facing the customers (a donut's front is -Z, like the stall's)
 	local keeper = DonutModel.Build(Donuts.List[2], { Scale = 0.9, NoEffects = true })
-	DonutModel.PlaceOn(keeper, at(4, 4, -2) * CFrame.Angles(0, math.pi, 0))
+	DonutModel.PlaceOn(keeper, at(4, 4, -2))
 	keeper.Parent = stall
 	stall.PrimaryPart = counter
 	stall.Parent = parent
@@ -243,7 +243,7 @@ local function buildRidge(hub: Instance)
 	ridge.Parent = hub
 end
 
--- The two conveyor belts down the middle of the lobby (Layout.Conveyors): a dark metal belt that
+-- The conveyor belts in front of the bases on each side of the lobby (Layout.Conveyors): a dark metal belt that
 -- carries whoever stands on it (its velocity: Config.Conveyors.Speed), low glowing rails, arrows
 -- the clients slide along it (client/Conveyors) and a sign over the end you get on at.
 local function setConveyorSpeed(belt: BasePart)

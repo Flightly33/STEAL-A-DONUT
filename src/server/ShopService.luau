@@ -5,7 +5,7 @@
 	  BuySpeedMultiplier, BuyTreadmill, BuyBaseSize (a bigger pen)   (in-game money)
 	  BuyIncubatorUpgrade "Speed" | "Size"                            (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
-	  EquipTrail <id | "">                             (trails unlock with Speed: shared/Trails)
+	  BuyTrail <id>, EquipTrail <id | "">              (trails cost in-game money: shared/Trails)
 	  BuyPass <key>                                    (Robux game passes)
 	  ClaimIndex { DonutId, Kind }, ClaimIndexAll
 	  TeleportArea <id>                                (Teleporter game pass)
@@ -316,6 +316,28 @@ function Actions.EquipTrail(player: Player, profile: DataService.Profile, trailI
 		return
 	end
 	player:SetAttribute("Trail", if data.EquippedTrail ~= "" then data.EquippedTrail else nil)
+	DataService.PushState(player)
+end
+
+-- Trails window: buy a trail with in-game money (Trail.Cost). It's yours for good, and you put it on.
+function Actions.BuyTrail(player: Player, profile: DataService.Profile, trailId: any)
+	local data = profile.Data
+	local trail = if type(trailId) == "string" then Trails.ById[trailId] else nil
+	if not trail or not trail.Cost then
+		return
+	end
+	if data.OwnedTrails[trail.Id] then
+		notify(player, "You already own that trail!", "error")
+		return
+	end
+	if not DataService.TrySpend(player, trail.Cost) then
+		notify(player, "Not enough money! Need " .. Format.Money(trail.Cost), "error")
+		return
+	end
+	data.OwnedTrails[trail.Id] = true
+	data.EquippedTrail = trail.Id
+	player:SetAttribute("Trail", trail.Id)
+	notify(player, `{trail.Icon} You bought the {trail.Name} trail! You're wearing it now.`, "success")
 	DataService.PushState(player)
 end
 

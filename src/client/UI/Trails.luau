@@ -88,6 +88,9 @@ local function buildCard(list: Instance, trail: TrailList.Trail)
 	local button = Theme.Button({ Text = "WEAR", Color = Theme.Colors.Green, Size = UDim2.fromOffset(140, 46), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Parent = card })
 	button.Activated:Connect(function()
 		if not unlocked(trail) then
+			if trail.Cost then
+				State.Action("BuyTrail", trail.Id)
+			end
 			return
 		end
 		State.Action("EquipTrail", if State.Get("Trail") == trail.Id then "" else trail.Id)
@@ -109,6 +112,10 @@ local function refresh()
 				card.Status.Text = if on then `<font color="#8dff6a">✓ You're wearing it</font>` else "✓ Unlocked"
 				Theme.SetButtonText(card.Button, if on then "TAKE OFF" else "WEAR")
 				Theme.SetButtonColor(card.Button, if on then Theme.Colors.Orange else Theme.Colors.Green)
+			elseif trail.Cost then
+				card.Status.Text = `Costs <font color="#8dff6a"><b>{Format.Money(trail.Cost)}</b></font>`
+				Theme.SetButtonText(card.Button, "BUY " .. Format.Money(trail.Cost))
+				Theme.SetButtonColor(card.Button, Theme.Colors.Green)
 			elseif need then
 				local area = trail.UnlockBiome and Areas.List[trail.UnlockBiome]
 				card.Status.Text = `🔒 Reach <font color="#c9a0ff"><b>⚡{Format.Number(need)}</b></font> Speed{if area then ` (biome {area.Id}: {area.Name})` else ""}`

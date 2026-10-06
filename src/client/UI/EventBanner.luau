@@ -131,7 +131,7 @@ function EventBanner.Init()
 			pill.Visible = event ~= nil and left > 0 and card == nil
 			if event and pill.Visible then
 				pill.BackgroundColor3 = event.Color:Lerp(Color3.new(0, 0, 0), 0.35)
-				pillLabel.Text = `{event.Icon} {string.upper(event.Name)}  •  {Format.Duration(left)}`
+				pillLabel.Text = `{string.upper(event.Name)}  •  {Format.Duration(left)}`
 				-- Sit under the Luck Event pill when both are running
 				local luckEndsAt = workspace:GetAttribute("LuckEndsAt")
 				local luck = type(luckEndsAt) == "number" and luckEndsAt > workspace:GetServerTimeNow()

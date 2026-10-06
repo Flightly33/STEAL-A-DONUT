@@ -240,7 +240,7 @@ local function stop()
 	PetService.SetHatchBoost(1)
 	if event then
 		for _, player in Players:GetPlayers() do
-			Remotes.Event("Notify"):FireClient(player, `{event.Icon} {event.Name} is over.`, "event")
+			Remotes.Event("Notify"):FireClient(player, `{event.Name} is over.`, "event")
 		end
 	end
 end

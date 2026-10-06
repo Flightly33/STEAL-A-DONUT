@@ -314,7 +314,7 @@ local function buildAreaInfo(gui: ScreenGui)
 			local endsAt = workspace:GetAttribute("EventEndsAt")
 			local event = if type(eventId) == "string" then Events.ById[eventId] else nil
 			if event and type(endsAt) == "number" then
-				eventLabel.Text = `{event.Icon} {event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`
+				eventLabel.Text = `{event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`
 				eventLabel.TextColor3 = event.Color
 			else
 				eventLabel.Text = ""

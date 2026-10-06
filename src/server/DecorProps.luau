@@ -1844,11 +1844,15 @@ function DecorProps.Build(theme: string, folder: Instance, areaId: number, zs: n
 		return CFrame.lookAt(position, Vector3.new(0, 0, position.Z))
 	end
 
-	-- The set piece, twice: a third and two thirds of the way along, on opposite sides
+	-- The set piece, twice: a third and two thirds of the way along, on opposite sides. A short
+	-- biome gets it once, near the entrance: Domer's corner fills one side of it, so two would
+	-- both land on the other side and leave no room for anything else.
 	local length = ze - zs
+	local short = length < 300
 	local reserved: { { Z: number, Side: number } } = {}
 	local side = if rng:NextNumber() < 0.5 then -1 else 1
-	for _, f in { 0.32, 0.7 } do
+	local spots: { number } = if short then { 0.3 } else { 0.32, 0.7 }
+	for _, f in spots do
 		local position = Vector3.new(side * FEATURE_X, 0, zs + length * f)
 		if not clear(position, 16) then
 			position = Vector3.new(-side * FEATURE_X, 0, position.Z) -- (Domer's side: try the other one)
@@ -1860,8 +1864,9 @@ function DecorProps.Build(theme: string, folder: Instance, areaId: number, zs: n
 		side = -side
 	end
 
-	-- Single props all the way along both sides
-	local step = math.max(38, length / 14)
+	-- Single props all the way along both sides (closer together in a short biome, where the
+	-- entrance and Domer's corner take up most of the room)
+	local step = if short then 18 else math.max(38, length / 14)
 	local z = zs + ENTRANCE + 8
 	local last: Builder? = nil
 	while z < ze - 24 do
