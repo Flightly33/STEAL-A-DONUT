@@ -10,21 +10,17 @@
 	    Brr...), "Cool" (half-closed eyes and a smirk), "Dreamy" (sleepy lids and lashes: clouds,
 	    angels, moons), "Royal" (lashes and a calm smile: kings and queens), "Spooky" (dark eyes
 	    with glowing pupils: ghosts, vampires) and "Robot" (glowing screen eyes).
-	  * Eyes: "Heart" swaps the eyes for big anime eyes with heart-shaped shines; "Spiral" for dizzy
-	    anime eyes with swirly irises, worried brows and a drooling "o" mouth (only by Overrides).
 	  * Effects: false = no aura or glow of its own (DonutAuras); BiomeDetails: false = none of its
 	    biome's little touches (DonutExtras.Theme); Scale: a smaller or bigger donut;
-	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleColor: a band
-	    of another colour round the edge of the hole; HoleLining: the inside of its hole glazed too
-	    (in HoleColor, if it has one).
+	    Rim: the outer glaze layer (round the rim and the hole) in another colour.
 	  * Muscles: 0, 1 (toned arms: fighters and guards) or 2 (huge flexing arms and a champion
 	    belt: Maximus, Supremus, Odin, Zeus, -zilla...). A strong donut gets arms if it has none.
 	  * Feet: "Sneakers" (in the donut's own colours), "HighTops", "Boots", "Paws" (with toe
 	    beans), "Hooves", "Claws", "Webbed", "Robot", "Sandals", or "Plain" (accessories that
 	    restyle the shoes themselves: ballet slippers, flamingo legs).
 	  * Glaze: "Glossy" (two layers of glaze and a shine), "TwoTone" (the raised middle of the glaze
-	    in a second colour), "HalfDip" (only the top dipped, drips at the edge), "Drippy" (drips
-	    over the edges and into the hole) or "MegaDrip" (glaze pouring off it everywhere).
+	    in a second colour), "HalfDip" (only the top dipped, drips at the edge) or "Drippy" (drips
+	    over the edges).
 	  * Marking: a pattern on the glaze from the name - "Drizzle", "Stripes", "Spots", "Bolts",
 	    "Flames", "Runes", "Hearts", "Scales", "Swirls" or "Stars". Legendary and up glow.
 	  * Sprinkles: "Jimmies" (rods), "Nonpareils" (tiny beads), "Confetti" (flat squares) or
@@ -37,7 +33,6 @@ local DonutLooks = {}
 
 export type Look = {
 	Mood: string,
-	Eyes: string,
 	Iris: Color3,
 	GlowEyes: boolean,
 	Lashes: boolean,
@@ -56,8 +51,6 @@ export type Look = {
 	BiomeDetails: boolean,
 	Scale: number,
 	Rim: Color3?,
-	HoleColor: Color3?,
-	HoleLining: boolean,
 }
 
 local rgb = Color3.fromRGB
@@ -336,7 +329,6 @@ function DonutLooks.For(donut: { Id: string, Name: string, Rarity: string, Frost
 
 	local look: Look = {
 		Mood = mood,
-		Eyes = "Round",
 		Iris = iris,
 		GlowEyes = glowEyes,
 		Lashes = lashes,
@@ -355,8 +347,6 @@ function DonutLooks.For(donut: { Id: string, Name: string, Rarity: string, Frost
 		BiomeDetails = true,
 		Scale = 1,
 		Rim = nil,
-		HoleColor = nil,
-		HoleLining = false,
 	}
 	local override = DonutLooks.Overrides[donut.Id]
 	if override then

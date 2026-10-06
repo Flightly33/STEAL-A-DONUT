@@ -339,7 +339,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	for n = 0, edgeCount - 1 do
 		local angle = (n + rng:NextNumber(-0.25, 0.25)) / edgeCount * TAU + 0.2
 		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
-		local dripChance = if look.Glaze == "Drippy" or look.Glaze == "MegaDrip" then 1 else 0.75
+		local dripChance = if look.Glaze == "Drippy" then 1 else 0.75
 		local drip = radial.Y < -0.2 and math.abs(radial.X) > 0.4 and rng:NextNumber() < dripChance
 		if not glazed(angle) then
 			continue
@@ -360,36 +360,6 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			length = depth
 		end
 		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), if look.Rim and not mutation.Frosting then underColor else frostingColor, cf, frostingMaterial, "Frosting"))
-	end
-	-- a band of another colour round the edge of the hole (HoleColor), over the outer layer
-	local holeColor = if look.HoleColor and not mutation.Frosting then look.HoleColor else underColor
-	if STUDDED and look.HoleColor and not mutation.Frosting then
-		local count = STUDDED_GLAZE_SEGMENTS
-		local width = FROST_R - CROWN_HALF + 0.02
-		local radius = R - (FROST_R + CROWN_HALF) / 2
-		local step = TAU / count
-		for n = 0, count - 1 do
-			local angle = n * step
-			local piece = Instance.new("Part")
-			piece.Size = Vector3.new(2 * radius * math.sin(step / 2) + width * math.tan(step / 2), width, 0.08) * s
-			piece.Name = "Frosting"
-			local cf = at(radius * math.cos(angle), radius * math.sin(angle), SHOULDER_FRONT - 0.03) * CFrame.Angles(0, 0, angle + math.pi / 2)
-			table.insert(glaze, add(piece, cf, holeColor, frostingMaterial))
-		end
-	end
-	-- glaze lining the inside of the hole too (HoleLining)
-	if look.HoleLining then
-		local count = 12
-		local inner = R - BALL / 2 - 0.04
-		for n = 0, count - 1 do
-			local angle = (n + 0.5) / count * TAU
-			local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
-			local tangent = Vector3.new(-radial.Y, radial.X, 0)
-			local piece = Instance.new("Part")
-			piece.Size = Vector3.new(2 * inner * math.sin(math.pi / count) + 0.1, 0.1, BALL * 0.92) * s
-			piece.Name = "Frosting"
-			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), holeColor, frostingMaterial))
-		end
 	end
 	for _, piece in glaze do
 		piece.Reflectance = shine
@@ -539,75 +509,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			end
 		end
 
-		-- Big anime eyes: a thick dark lash line with a flick at the corner, a big grey iris with a
-		-- white heart for its shine, and little drops at the outer corners (Look.Eyes "Heart")
-		local function heartEye(side: number)
-			local W, H = 0.86, 0.7
-			local ex, ey = lean(side * 0.55, EYE_Y - 0.04)
-			local LASH = rgb(22, 20, 26)
-			tag(ellipsoid(Vector3.new(W, H, 0.34), WHITE, eyePoint(ex, ey, 0, 0, CROWN_FRONT), nil, "Eye"), "EyeWhite", true)
-			local ix = -side * 0.04
-			tag(ellipsoid(Vector3.new(0.6, 0.66, 0.06), look.Iris, eyePoint(ex, ey, ix, -0.02, CROWN_FRONT - 0.19), nil, "Iris"), "Pupil", true)
-			tag(block(Vector3.new(0.58, 0.2, 0.05), look.Iris:Lerp(Color3.new(0, 0, 0), 0.6), eyePoint(ex, ey, ix, 0.21, CROWN_FRONT - 0.215), nil, "Pupil"), "Pupil", true)
-			-- the heart: two diamond lobes and a bigger diamond for its point
-			for _, lobe in { -1, 1 } do
-				tag(block(Vector3.new(0.16, 0.16, 0.05), WHITE, eyePoint(ex, ey, ix + lobe * 0.078, 0.02, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, math.rad(45)), NEON, "Heart"), "Pupil", true)
-			end
-			tag(block(Vector3.new(0.2, 0.2, 0.05), WHITE, eyePoint(ex, ey, ix, -0.08, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, math.rad(45)), NEON, "Heart"), "Pupil", true)
-			tag(ball(0.07, WHITE, eyePoint(ex, ey, ix - side * 0.19, -0.2, CROWN_FRONT - 0.25), NEON, "Glint"), "Pupil", true)
-			-- lashes: the thick top line, its flick past the outer corner and a soft line underneath
-			block(Vector3.new(W + 0.08, 0.15, 0.12), LASH, eyePoint(ex, ey, side * 0.02, H / 2 + 0.03, CROWN_FRONT - 0.25), nil, "Lash")
-			block(Vector3.new(0.32, 0.12, 0.12), LASH, eyePoint(ex, ey, side * (W / 2 + 0.1), H / 2 - 0.07, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, -side * 0.55), nil, "Lash")
-			block(Vector3.new(0.14, 0.1, 0.12), LASH, eyePoint(ex, ey, -side * (W / 2 + 0.02), H / 2 - 0.02, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, side * 0.35), nil, "Lash")
-			block(Vector3.new(0.42, 0.05, 0.08), rgb(95, 88, 100), eyePoint(ex, ey, side * 0.14, -H / 2 - 0.01, CROWN_FRONT - 0.2), nil, "Lash")
-			-- the drops at the outer corner
-			for i, drop in { { 0, 0.15, 0.22 }, { 0.18, 0.12, 0.17 } } do
-				local tear = ellipsoid(Vector3.new(drop[2], drop[3], 0.08), rgb(195, 228, 255), eyePoint(ex, ey, side * (W / 2 - 0.04 - drop[1]), -H / 2 - 0.09 - i * 0.03, CROWN_FRONT - 0.14), Enum.Material.Glass, "Tear")
-				tear.Transparency = 0.15
-				tear.Reflectance = 0.3
-			end
-		end
-
-		-- Dizzy anime eyes: a thick lash line, a swirly iris (rings getting smaller and turning as they
-		-- go in, dark and light in turn), grey shadows under them and worried brows (Look.Eyes "Spiral")
-		local function spiralEye(side: number)
-			local W, H = 0.84, 0.66
-			local ex, ey = lean(side * 0.52, EYE_Y - 0.04)
-			local LASH = rgb(22, 20, 26)
-			tag(ellipsoid(Vector3.new(W, H, 0.34), WHITE, eyePoint(ex, ey, 0, 0, CROWN_FRONT), nil, "Eye"), "EyeWhite", true)
-			local ix = -side * 0.03
-			for ring = 0, 4 do
-				local size = 0.58 - ring * 0.11
-				local color = if ring % 2 == 0 then look.Iris else rgb(235, 235, 240)
-				local cf = eyePoint(ex, ey, ix, -0.02, CROWN_FRONT - 0.19 - ring * 0.012) * CFrame.Angles(0, 0, side * ring * 0.32)
-				tag(block(Vector3.new(size, size, 0.05), color, cf, nil, if ring == 0 then "Pupil" else "Iris"), "Pupil", true)
-			end
-			tag(ball(0.07, WHITE, eyePoint(ex, ey, ix - side * 0.2, 0.17, CROWN_FRONT - 0.27), NEON, "Glint"), "Pupil", true)
-			-- lashes: the thick top line with a flick at the corner, a soft line underneath
-			block(Vector3.new(W + 0.08, 0.15, 0.12), LASH, eyePoint(ex, ey, side * 0.02, H / 2 + 0.03, CROWN_FRONT - 0.27), nil, "Lash")
-			block(Vector3.new(0.3, 0.11, 0.12), LASH, eyePoint(ex, ey, side * (W / 2 + 0.09), H / 2 - 0.06, CROWN_FRONT - 0.27) * CFrame.Angles(0, 0, -side * 0.5), nil, "Lash")
-			block(Vector3.new(0.4, 0.05, 0.08), rgb(95, 88, 100), eyePoint(ex, ey, side * 0.12, -H / 2 - 0.01, CROWN_FRONT - 0.2), nil, "Lash")
-			-- grey shadows under the eyes and worried brows, high up and slanting up to the middle
-			block(Vector3.new(W * 0.8, 0.14, 0.04), rgb(150, 140, 150), eyePoint(ex, ey, side * 0.04, -H / 2 - 0.1, CROWN_FRONT - 0.13), nil, "EyeBag").Transparency = 0.35
-			block(Vector3.new(0.5, 0.06, 0.2), rgb(50, 40, 45), eyePoint(ex, ey, -side * 0.06, H / 2 + 0.24, CROWN_FRONT - 0.06) * CFrame.Angles(0, 0, -side * 0.28), nil, "Brow")
-		end
-
 		for _, side in { -1, 1 } do
-			if look.Eyes == "Heart" then
-				heartEye(side)
-			elseif look.Eyes == "Spiral" then
-				spiralEye(side)
-			elseif not eyesCovered and not (partsSet.EyePatch and side == 1) then
+			if not eyesCovered and not (partsSet.EyePatch and side == 1) then
 				roundEye(side)
 			end
-			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" and look.Eyes ~= "Spiral" then
+			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" then
 				ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), onFace(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
-				if look.Eyes == "Heart" then
-					-- anime blush lines
-					for i = -1, 1 do
-						block(Vector3.new(0.05, 0.22, 0.06), rgb(255, 95, 135), onFace(side * (0.92 + i * 0.11), TOP - 1.1, 0.04) * CFrame.Angles(0, 0, -0.45), nil, "Blush")
-					end
-				end
 			end
 		end
 
@@ -621,33 +528,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			local function corner(part: BasePart)
 				part:SetAttribute("Mouth", "Corner")
 			end
-			if look.Eyes == "Spiral" then
-				-- a little nose mark, a big open "o" mouth, and drool running out of it in strands that
-				-- hang down over the hole, each with a drop at its end
-				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.42, 0.03), nil, "Nose")
-				-- (placed straight in front of the glaze: face() would pull the bits that hang over the
-				-- hole back onto the glaze, and tip the mouth with the tube's curve)
-				local function hanging(x: number, y: number, depth: number?): CFrame
-					local lx, ly = lean(x, y)
-					return at(lx, ly, SHOULDER_FRONT - (depth or 0.15)) * tiltCf
-				end
-				local mouthMid = mouthY - 0.195
-				middle(ellipsoid(Vector3.new(0.44, 0.54, 0.12), rgb(40, 25, 30), hanging(0, mouthMid, 0.1), nil, "Mouth"))
-				local lip = mouthMid - 0.26
-				corner(ellipsoid(Vector3.new(0.26, 0.1, 0.1), rgb(150, 140, 150), hanging(0, lip + 0.08), nil, "Mouth"))
-				local drool = rgb(205, 225, 240)
-				local function droolPart(size: Vector3, cf: CFrame)
-					local part = block(size, drool, cf, Enum.Material.Glass, "Drool")
-					part.Transparency = 0.2
-					part.Reflectance = 0.3
-					corner(part)
-				end
-				droolPart(Vector3.new(0.3, 0.07, 0.08), hanging(0, lip))
-				for _, strand in { { X = 0.05, Length = 0.55, Width = 0.09 }, { X = -0.08, Length = 0.36, Width = 0.07 }, { X = 0.13, Length = 0.2, Width = 0.06 } } do
-					droolPart(Vector3.new(strand.Width, strand.Length, 0.07), hanging(strand.X, lip - strand.Length / 2))
-					droolPart(Vector3.one * (strand.Width * 1.7), hanging(strand.X, lip - strand.Length - strand.Width * 0.6))
-				end
-			elseif mood == "Happy" then
+			if mood == "Happy" then
 				middle(ellipsoid(Vector3.new(0.44, 0.24, 0.1), dark, onFace(0, mouthY - 0.06, 0.02), nil, "Mouth"))
 				corner(ellipsoid(Vector3.new(0.24, 0.1, 0.1), pink, onFace(0, mouthY - 0.12, 0.05), nil, "Tongue"))
 				for _, side in { -1, 1 } do

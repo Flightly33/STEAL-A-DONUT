@@ -3,9 +3,8 @@
 	===========
 	The layers DonutModel puts on top of a donut's glaze, from its look (DonutLooks):
 
-	  * Drips: tongues of glaze with a drop at the end, hanging over the outer edge and into the
-	    hole ("Drippy"; "MegaDrip" pours off it everywhere, with drops falling off the longest
-	    ones), or running down from the edge of a half-dipped donut's glaze ("HalfDip").
+	  * Drips: tongues of glaze with a drop at the end, hanging over the outer edge ("Drippy"), or
+	    running down from the edge of a half-dipped donut's glaze ("HalfDip").
 	  * Shine: light dashes on the raised glaze, beside the soft gloss.
 	  * Markings from the name: drizzle, stripes, spots, lightning bolts, flames, runes, hearts,
 	    scales, swirls or stars. On Legendary and up they glow.
@@ -63,7 +62,6 @@ local function drips(k: Kit, look: Look, info: Info)
 	local color = k.Frosting
 	local z = info.ShoulderFront - 0.06
 	local outer = k.R + k.FROST_R - 0.06
-	local inner = k.R - k.FROST_R + 0.06
 	if look.Glaze == "HalfDip" then
 		-- running down from where the glaze stops, on both sides
 		local stop = math.asin(info.HalfDip)
@@ -75,70 +73,15 @@ local function drips(k: Kit, look: Look, info: Info)
 		end
 		return
 	end
-	local mega = look.Glaze == "MegaDrip"
-	if mega then
-		-- glaze running down along the outer edge on both sides, towards the bottom
-		for _, run in { { 150, 0.45 }, { 178, 0.55 }, { 30, 0.5 }, { 2, 0.6 } } do
-			local a0 = math.rad(run[1] + k.Rng:NextNumber(-4, 4))
-			local dir = if math.cos(a0) < 0 then 1 else -1 -- (round the ring towards its bottom)
-			local radius = k.R + k.FROST_R - 0.02
-			for j = 0, 1 do
-				local a = a0 + dir * run[2] * (j + 0.5) / 2
-				local cf = k.at(math.cos(a) * radius, math.sin(a) * radius, z) * CFrame.Angles(0, 0, a + math.pi / 2)
-				k.block(Vector3.new(radius * run[2] / 2 + 0.12, 0.3 - j * 0.04, 0.22), color, cf, info.Material, "Frosting").Reflectance = 0.15
-			end
-			local a1 = a0 + dir * run[2]
-			k.ball(0.36, color, k.at(math.cos(a1) * (radius + 0.04), math.sin(a1) * (radius + 0.04), z), info.Material, "Frosting").Reflectance = 0.15
-		end
-	end
 	-- hanging off the bottom edge (shorter beside the legs)
-	local outerAngles: { number } = if mega then { 214, 240, 270, 300, 326 } else { 205, 232, 308, 335 }
-	local longest: { { x: number, y: number } } = {}
-	for _, degrees in outerAngles do
+	for _, degrees in { 205, 232, 308, 335 } do
 		local angle = math.rad(degrees + k.Rng:NextNumber(-4, 4))
 		local x, y = outer * math.cos(angle), outer * math.sin(angle)
-		local length = if mega then k.Rng:NextNumber(0.55, 1.05) else k.Rng:NextNumber(0.45, 0.95)
+		local length = k.Rng:NextNumber(0.45, 0.95)
 		if math.abs(x) > 0.25 and math.abs(x) < 0.9 and y < -1.5 then
 			length = math.min(length, 0.5) -- (beside a leg)
 		end
-		drip(k, info, x, y + 0.08, length, if mega then 0.36 else 0.24, z, color)
-		if length > 0.8 then
-			table.insert(longest, { x = x, y = y + 0.08 - length - 0.45 })
-		end
-	end
-	-- and into the hole, from its top edge
-	local holeAngles: { number } = if mega then { 32, 58, 122, 148 } else { 40, 140 }
-	for _, degrees in holeAngles do
-		local angle = math.rad(degrees)
-		local x, y = inner * math.cos(angle), inner * math.sin(angle)
-		local length = if mega then k.Rng:NextNumber(0.4, 0.75) else k.Rng:NextNumber(0.3, 0.55)
-		drip(k, info, x, y + 0.04, length, if mega then 0.3 else 0.2, z, color)
-	end
-	if mega then
-		-- drops falling off the longest drips
-		if not info.NoEffects then
-			for i, spot in longest do
-				if i > 3 then
-					break
-				end
-				local holder = k.block(Vector3.new(0.2, 0.2, 0.2), WHITE, k.at(spot.x, spot.y, z), nil, "DripFX")
-				holder.Transparency = 1
-				local drops = Instance.new("ParticleEmitter")
-				drops.Name = "FallingDrops"
-				drops.Texture = "rbxasset://textures/particles/smoke_main.dds"
-				drops.Color = ColorSequence.new(color)
-				drops.LightEmission = 0
-				drops.LightInfluence = 1
-				drops.Rate = 0.9
-				drops.Lifetime = NumberRange.new(0.6, 0.8)
-				drops.Speed = NumberRange.new(0)
-				drops.Acceleration = Vector3.new(0, -28 * k.s, 0)
-				drops.Squash = NumberSequence.new(-0.6)
-				drops.Size = NumberSequence.new(0.32 * k.s)
-				drops.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1) })
-				drops.Parent = holder
-			end
-		end
+		drip(k, info, x, y + 0.08, length, 0.24, z, color)
 	end
 end
 
@@ -331,7 +274,7 @@ local function belt(k: Kit, info: Info)
 end
 
 function DonutLayers.Build(k: Kit, look: Look, info: Info)
-	if look.Glaze == "Drippy" or look.Glaze == "MegaDrip" or look.Glaze == "HalfDip" then
+	if look.Glaze == "Drippy" or look.Glaze == "HalfDip" then
 		drips(k, look, info)
 	end
 	shine(k, look, info)
