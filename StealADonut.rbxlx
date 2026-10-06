@@ -797,7 +797,7 @@ Areas.List = {
 -- Lengths: the first biomes have their own (FIRST_LENGTHS: a short first one), the next two are
 -- SecondLength; after that a biome is as long as RunSeconds of running at its own Speed (and
 -- always longer than the last).
-local FIRST_LENGTHS = { 300, 560, 600, 500 }
+local FIRST_LENGTHS = { 160, 420, 600, 500 }
 local SECOND_LENGTH, RUN_SECONDS, TILE = 600, 6, Config.Map.TileSize
 local function walkSpeed(speed: number): number
 	local s = Config.Speed
@@ -1478,21 +1478,21 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 330,
-	HubDepth = 710, -- 4 rows of bases on each side, leaderboards along the very back
+	HubHalfWidth = 280, -- a compact lobby, so nothing is far away
+	HubDepth = 480, -- the bases make a C round the plaza (open to the lane): 2 down each side, 2 along the back, the leaderboards between the back two
 	HubWallHeight = 40,
 }
 
--- Two conveyor belts side by side down the middle of the lobby: one carries you from the back
--- (the bases and leaderboards) to the front (the lane), the other back again. Anyone standing on
+-- Two conveyor belts side by side on EACH side of the lobby, just in front of the bases: one
+-- carries you from the back (the leaderboards) to the front (the lane), the other back again. Anyone standing on
 -- one rides along at Speed studs a second on top of their own running.
 Config.Conveyors = {
 	Speed = 50,
 	Width = 12, -- each belt
 	Gap = 4, -- between the two belts
-	X = 36, -- the middle between them (beside the spawn, clear of the sell stall)
+	BaseGap = 8, -- each pair of belts sits this far in front of the bases (on the plaza side of them)
 	Front = 24, -- they end this far behind the safe-zone line, by the lane's entrance
-	Back = 40, -- and this far in front of the back wall (the leaderboards)
+	Back = 20, -- and stop this far in front of the back row of bases (where the sides of the C end)
 	ArrowSpacing = 18, -- the glowing arrows sliding along them
 }
 
@@ -1500,7 +1500,7 @@ Config.Conveyors = {
 -- Player bases (plots)
 --------------------------------------------------------------------------------
 Config.Plots = {
-	Count = 8, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
+	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
 	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
 	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
 	-- and the pen grows a little each time.
@@ -1537,6 +1537,7 @@ Config.Plots = {
 -- Each biome shows the Speed you need to get away from its Domer (Areas.luau; anyone can walk in).
 --------------------------------------------------------------------------------
 Config.Speed = {
+	StartSpeed = 30, -- the Speed stat a brand new player starts with (it runs like 34: see the formula above)
 	BaseWalkSpeed = 24,
 	StatMultiplier = 2, -- your Speed counts double when you run
 	MinRunSpeed = 16, -- the slowest run speed you can type in Settings
@@ -4905,9 +4906,8 @@ return DonutExtras
 	===========
 	The layers DonutModel puts on top of a donut's glaze, from its look (DonutLooks):
 
-	  * Drips: tongues of glaze with a drop at the end, hanging over the outer edge and into the
-	    hole ("Drippy"; "MegaDrip" pours off it everywhere, with drops falling off the longest
-	    ones), or running down from the edge of a half-dipped donut's glaze ("HalfDip").
+	  * Drips: tongues of glaze with a drop at the end, hanging over the outer edge ("Drippy"), or
+	    running down from the edge of a half-dipped donut's glaze ("HalfDip").
 	  * Shine: light dashes on the raised glaze, beside the soft gloss.
 	  * Markings from the name: drizzle, stripes, spots, lightning bolts, flames, runes, hearts,
 	    scales, swirls or stars. On Legendary and up they glow.
@@ -4965,7 +4965,6 @@ local function drips(k: Kit, look: Look, info: Info)
 	local color = k.Frosting
 	local z = info.ShoulderFront - 0.06
 	local outer = k.R + k.FROST_R - 0.06
-	local inner = k.R - k.FROST_R + 0.06
 	if look.Glaze == "HalfDip" then
 		-- running down from where the glaze stops, on both sides
 		local stop = math.asin(info.HalfDip)
@@ -4977,70 +4976,15 @@ local function drips(k: Kit, look: Look, info: Info)
 		end
 		return
 	end
-	local mega = look.Glaze == "MegaDrip"
-	if mega then
-		-- glaze running down along the outer edge on both sides, towards the bottom
-		for _, run in { { 150, 0.45 }, { 178, 0.55 }, { 30, 0.5 }, { 2, 0.6 } } do
-			local a0 = math.rad(run[1] + k.Rng:NextNumber(-4, 4))
-			local dir = if math.cos(a0) < 0 then 1 else -1 -- (round the ring towards its bottom)
-			local radius = k.R + k.FROST_R - 0.02
-			for j = 0, 1 do
-				local a = a0 + dir * run[2] * (j + 0.5) / 2
-				local cf = k.at(math.cos(a) * radius, math.sin(a) * radius, z) * CFrame.Angles(0, 0, a + math.pi / 2)
-				k.block(Vector3.new(radius * run[2] / 2 + 0.12, 0.3 - j * 0.04, 0.22), color, cf, info.Material, "Frosting").Reflectance = 0.15
-			end
-			local a1 = a0 + dir * run[2]
-			k.ball(0.36, color, k.at(math.cos(a1) * (radius + 0.04), math.sin(a1) * (radius + 0.04), z), info.Material, "Frosting").Reflectance = 0.15
-		end
-	end
 	-- hanging off the bottom edge (shorter beside the legs)
-	local outerAngles: { number } = if mega then { 214, 240, 270, 300, 326 } else { 205, 232, 308, 335 }
-	local longest: { { x: number, y: number } } = {}
-	for _, degrees in outerAngles do
+	for _, degrees in { 205, 232, 308, 335 } do
 		local angle = math.rad(degrees + k.Rng:NextNumber(-4, 4))
 		local x, y = outer * math.cos(angle), outer * math.sin(angle)
-		local length = if mega then k.Rng:NextNumber(0.55, 1.05) else k.Rng:NextNumber(0.45, 0.95)
+		local length = k.Rng:NextNumber(0.45, 0.95)
 		if math.abs(x) > 0.25 and math.abs(x) < 0.9 and y < -1.5 then
 			length = math.min(length, 0.5) -- (beside a leg)
 		end
-		drip(k, info, x, y + 0.08, length, if mega then 0.36 else 0.24, z, color)
-		if length > 0.8 then
-			table.insert(longest, { x = x, y = y + 0.08 - length - 0.45 })
-		end
-	end
-	-- and into the hole, from its top edge
-	local holeAngles: { number } = if mega then { 32, 58, 122, 148 } else { 40, 140 }
-	for _, degrees in holeAngles do
-		local angle = math.rad(degrees)
-		local x, y = inner * math.cos(angle), inner * math.sin(angle)
-		local length = if mega then k.Rng:NextNumber(0.4, 0.75) else k.Rng:NextNumber(0.3, 0.55)
-		drip(k, info, x, y + 0.04, length, if mega then 0.3 else 0.2, z, color)
-	end
-	if mega then
-		-- drops falling off the longest drips
-		if not info.NoEffects then
-			for i, spot in longest do
-				if i > 3 then
-					break
-				end
-				local holder = k.block(Vector3.new(0.2, 0.2, 0.2), WHITE, k.at(spot.x, spot.y, z), nil, "DripFX")
-				holder.Transparency = 1
-				local drops = Instance.new("ParticleEmitter")
-				drops.Name = "FallingDrops"
-				drops.Texture = "rbxasset://textures/particles/smoke_main.dds"
-				drops.Color = ColorSequence.new(color)
-				drops.LightEmission = 0
-				drops.LightInfluence = 1
-				drops.Rate = 0.9
-				drops.Lifetime = NumberRange.new(0.6, 0.8)
-				drops.Speed = NumberRange.new(0)
-				drops.Acceleration = Vector3.new(0, -28 * k.s, 0)
-				drops.Squash = NumberSequence.new(-0.6)
-				drops.Size = NumberSequence.new(0.32 * k.s)
-				drops.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.1), NumberSequenceKeypoint.new(0.8, 0.2), NumberSequenceKeypoint.new(1, 1) })
-				drops.Parent = holder
-			end
-		end
+		drip(k, info, x, y + 0.08, length, 0.24, z, color)
 	end
 end
 
@@ -5233,7 +5177,7 @@ local function belt(k: Kit, info: Info)
 end
 
 function DonutLayers.Build(k: Kit, look: Look, info: Info)
-	if look.Glaze == "Drippy" or look.Glaze == "MegaDrip" or look.Glaze == "HalfDip" then
+	if look.Glaze == "Drippy" or look.Glaze == "HalfDip" then
 		drips(k, look, info)
 	end
 	shine(k, look, info)
@@ -5275,21 +5219,17 @@ return DonutLayers
 	    Brr...), "Cool" (half-closed eyes and a smirk), "Dreamy" (sleepy lids and lashes: clouds,
 	    angels, moons), "Royal" (lashes and a calm smile: kings and queens), "Spooky" (dark eyes
 	    with glowing pupils: ghosts, vampires) and "Robot" (glowing screen eyes).
-	  * Eyes: "Heart" swaps the eyes for big anime eyes with heart-shaped shines; "Spiral" for dizzy
-	    anime eyes with swirly irises, worried brows and a drooling "o" mouth (only by Overrides).
 	  * Effects: false = no aura or glow of its own (DonutAuras); BiomeDetails: false = none of its
 	    biome's little touches (DonutExtras.Theme); Scale: a smaller or bigger donut;
-	    Rim: the outer glaze layer (round the rim and the hole) in another colour; HoleColor: a band
-	    of another colour round the edge of the hole; HoleLining: the inside of its hole glazed too
-	    (in HoleColor, if it has one).
+	    Rim: the outer glaze layer (round the rim and the hole) in another colour.
 	  * Muscles: 0, 1 (toned arms: fighters and guards) or 2 (huge flexing arms and a champion
 	    belt: Maximus, Supremus, Odin, Zeus, -zilla...). A strong donut gets arms if it has none.
 	  * Feet: "Sneakers" (in the donut's own colours), "HighTops", "Boots", "Paws" (with toe
 	    beans), "Hooves", "Claws", "Webbed", "Robot", "Sandals", or "Plain" (accessories that
 	    restyle the shoes themselves: ballet slippers, flamingo legs).
 	  * Glaze: "Glossy" (two layers of glaze and a shine), "TwoTone" (the raised middle of the glaze
-	    in a second colour), "HalfDip" (only the top dipped, drips at the edge), "Drippy" (drips
-	    over the edges and into the hole) or "MegaDrip" (glaze pouring off it everywhere).
+	    in a second colour), "HalfDip" (only the top dipped, drips at the edge) or "Drippy" (drips
+	    over the edges).
 	  * Marking: a pattern on the glaze from the name - "Drizzle", "Stripes", "Spots", "Bolts",
 	    "Flames", "Runes", "Hearts", "Scales", "Swirls" or "Stars". Legendary and up glow.
 	  * Sprinkles: "Jimmies" (rods), "Nonpareils" (tiny beads), "Confetti" (flat squares) or
@@ -5302,7 +5242,6 @@ local DonutLooks = {}
 
 export type Look = {
 	Mood: string,
-	Eyes: string,
 	Iris: Color3,
 	GlowEyes: boolean,
 	Lashes: boolean,
@@ -5321,8 +5260,6 @@ export type Look = {
 	BiomeDetails: boolean,
 	Scale: number,
 	Rim: Color3?,
-	HoleColor: Color3?,
-	HoleLining: boolean,
 }
 
 local rgb = Color3.fromRGB
@@ -5601,7 +5538,6 @@ function DonutLooks.For(donut: { Id: string, Name: string, Rarity: string, Frost
 
 	local look: Look = {
 		Mood = mood,
-		Eyes = "Round",
 		Iris = iris,
 		GlowEyes = glowEyes,
 		Lashes = lashes,
@@ -5620,8 +5556,6 @@ function DonutLooks.For(donut: { Id: string, Name: string, Rarity: string, Frost
 		BiomeDetails = true,
 		Scale = 1,
 		Rim = nil,
-		HoleColor = nil,
-		HoleLining = false,
 	}
 	local override = DonutLooks.Overrides[donut.Id]
 	if override then
@@ -5980,7 +5914,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	for n = 0, edgeCount - 1 do
 		local angle = (n + rng:NextNumber(-0.25, 0.25)) / edgeCount * TAU + 0.2
 		local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
-		local dripChance = if look.Glaze == "Drippy" or look.Glaze == "MegaDrip" then 1 else 0.75
+		local dripChance = if look.Glaze == "Drippy" then 1 else 0.75
 		local drip = radial.Y < -0.2 and math.abs(radial.X) > 0.4 and rng:NextNumber() < dripChance
 		if not glazed(angle) then
 			continue
@@ -6001,36 +5935,6 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			length = depth
 		end
 		table.insert(glaze, ellipsoid(Vector3.new(if drip then 0.4 else 0.55, 0.2, length), if look.Rim and not mutation.Frosting then underColor else frostingColor, cf, frostingMaterial, "Frosting"))
-	end
-	-- a band of another colour round the edge of the hole (HoleColor), over the outer layer
-	local holeColor = if look.HoleColor and not mutation.Frosting then look.HoleColor else underColor
-	if STUDDED and look.HoleColor and not mutation.Frosting then
-		local count = STUDDED_GLAZE_SEGMENTS
-		local width = FROST_R - CROWN_HALF + 0.02
-		local radius = R - (FROST_R + CROWN_HALF) / 2
-		local step = TAU / count
-		for n = 0, count - 1 do
-			local angle = n * step
-			local piece = Instance.new("Part")
-			piece.Size = Vector3.new(2 * radius * math.sin(step / 2) + width * math.tan(step / 2), width, 0.08) * s
-			piece.Name = "Frosting"
-			local cf = at(radius * math.cos(angle), radius * math.sin(angle), SHOULDER_FRONT - 0.03) * CFrame.Angles(0, 0, angle + math.pi / 2)
-			table.insert(glaze, add(piece, cf, holeColor, frostingMaterial))
-		end
-	end
-	-- glaze lining the inside of the hole too (HoleLining)
-	if look.HoleLining then
-		local count = 12
-		local inner = R - BALL / 2 - 0.04
-		for n = 0, count - 1 do
-			local angle = (n + 0.5) / count * TAU
-			local radial = Vector3.new(math.cos(angle), math.sin(angle), 0)
-			local tangent = Vector3.new(-radial.Y, radial.X, 0)
-			local piece = Instance.new("Part")
-			piece.Size = Vector3.new(2 * inner * math.sin(math.pi / count) + 0.1, 0.1, BALL * 0.92) * s
-			piece.Name = "Frosting"
-			table.insert(glaze, add(piece, CFrame.fromMatrix(radial * inner * s, tangent, radial, -Vector3.zAxis), holeColor, frostingMaterial))
-		end
 	end
 	for _, piece in glaze do
 		piece.Reflectance = shine
@@ -6180,75 +6084,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			end
 		end
 
-		-- Big anime eyes: a thick dark lash line with a flick at the corner, a big grey iris with a
-		-- white heart for its shine, and little drops at the outer corners (Look.Eyes "Heart")
-		local function heartEye(side: number)
-			local W, H = 0.86, 0.7
-			local ex, ey = lean(side * 0.55, EYE_Y - 0.04)
-			local LASH = rgb(22, 20, 26)
-			tag(ellipsoid(Vector3.new(W, H, 0.34), WHITE, eyePoint(ex, ey, 0, 0, CROWN_FRONT), nil, "Eye"), "EyeWhite", true)
-			local ix = -side * 0.04
-			tag(ellipsoid(Vector3.new(0.6, 0.66, 0.06), look.Iris, eyePoint(ex, ey, ix, -0.02, CROWN_FRONT - 0.19), nil, "Iris"), "Pupil", true)
-			tag(block(Vector3.new(0.58, 0.2, 0.05), look.Iris:Lerp(Color3.new(0, 0, 0), 0.6), eyePoint(ex, ey, ix, 0.21, CROWN_FRONT - 0.215), nil, "Pupil"), "Pupil", true)
-			-- the heart: two diamond lobes and a bigger diamond for its point
-			for _, lobe in { -1, 1 } do
-				tag(block(Vector3.new(0.16, 0.16, 0.05), WHITE, eyePoint(ex, ey, ix + lobe * 0.078, 0.02, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, math.rad(45)), NEON, "Heart"), "Pupil", true)
-			end
-			tag(block(Vector3.new(0.2, 0.2, 0.05), WHITE, eyePoint(ex, ey, ix, -0.08, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, math.rad(45)), NEON, "Heart"), "Pupil", true)
-			tag(ball(0.07, WHITE, eyePoint(ex, ey, ix - side * 0.19, -0.2, CROWN_FRONT - 0.25), NEON, "Glint"), "Pupil", true)
-			-- lashes: the thick top line, its flick past the outer corner and a soft line underneath
-			block(Vector3.new(W + 0.08, 0.15, 0.12), LASH, eyePoint(ex, ey, side * 0.02, H / 2 + 0.03, CROWN_FRONT - 0.25), nil, "Lash")
-			block(Vector3.new(0.32, 0.12, 0.12), LASH, eyePoint(ex, ey, side * (W / 2 + 0.1), H / 2 - 0.07, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, -side * 0.55), nil, "Lash")
-			block(Vector3.new(0.14, 0.1, 0.12), LASH, eyePoint(ex, ey, -side * (W / 2 + 0.02), H / 2 - 0.02, CROWN_FRONT - 0.25) * CFrame.Angles(0, 0, side * 0.35), nil, "Lash")
-			block(Vector3.new(0.42, 0.05, 0.08), rgb(95, 88, 100), eyePoint(ex, ey, side * 0.14, -H / 2 - 0.01, CROWN_FRONT - 0.2), nil, "Lash")
-			-- the drops at the outer corner
-			for i, drop in { { 0, 0.15, 0.22 }, { 0.18, 0.12, 0.17 } } do
-				local tear = ellipsoid(Vector3.new(drop[2], drop[3], 0.08), rgb(195, 228, 255), eyePoint(ex, ey, side * (W / 2 - 0.04 - drop[1]), -H / 2 - 0.09 - i * 0.03, CROWN_FRONT - 0.14), Enum.Material.Glass, "Tear")
-				tear.Transparency = 0.15
-				tear.Reflectance = 0.3
-			end
-		end
-
-		-- Dizzy anime eyes: a thick lash line, a swirly iris (rings getting smaller and turning as they
-		-- go in, dark and light in turn), grey shadows under them and worried brows (Look.Eyes "Spiral")
-		local function spiralEye(side: number)
-			local W, H = 0.84, 0.66
-			local ex, ey = lean(side * 0.52, EYE_Y - 0.04)
-			local LASH = rgb(22, 20, 26)
-			tag(ellipsoid(Vector3.new(W, H, 0.34), WHITE, eyePoint(ex, ey, 0, 0, CROWN_FRONT), nil, "Eye"), "EyeWhite", true)
-			local ix = -side * 0.03
-			for ring = 0, 4 do
-				local size = 0.58 - ring * 0.11
-				local color = if ring % 2 == 0 then look.Iris else rgb(235, 235, 240)
-				local cf = eyePoint(ex, ey, ix, -0.02, CROWN_FRONT - 0.19 - ring * 0.012) * CFrame.Angles(0, 0, side * ring * 0.32)
-				tag(block(Vector3.new(size, size, 0.05), color, cf, nil, if ring == 0 then "Pupil" else "Iris"), "Pupil", true)
-			end
-			tag(ball(0.07, WHITE, eyePoint(ex, ey, ix - side * 0.2, 0.17, CROWN_FRONT - 0.27), NEON, "Glint"), "Pupil", true)
-			-- lashes: the thick top line with a flick at the corner, a soft line underneath
-			block(Vector3.new(W + 0.08, 0.15, 0.12), LASH, eyePoint(ex, ey, side * 0.02, H / 2 + 0.03, CROWN_FRONT - 0.27), nil, "Lash")
-			block(Vector3.new(0.3, 0.11, 0.12), LASH, eyePoint(ex, ey, side * (W / 2 + 0.09), H / 2 - 0.06, CROWN_FRONT - 0.27) * CFrame.Angles(0, 0, -side * 0.5), nil, "Lash")
-			block(Vector3.new(0.4, 0.05, 0.08), rgb(95, 88, 100), eyePoint(ex, ey, side * 0.12, -H / 2 - 0.01, CROWN_FRONT - 0.2), nil, "Lash")
-			-- grey shadows under the eyes and worried brows, high up and slanting up to the middle
-			block(Vector3.new(W * 0.8, 0.14, 0.04), rgb(150, 140, 150), eyePoint(ex, ey, side * 0.04, -H / 2 - 0.1, CROWN_FRONT - 0.13), nil, "EyeBag").Transparency = 0.35
-			block(Vector3.new(0.5, 0.06, 0.2), rgb(50, 40, 45), eyePoint(ex, ey, -side * 0.06, H / 2 + 0.24, CROWN_FRONT - 0.06) * CFrame.Angles(0, 0, -side * 0.28), nil, "Brow")
-		end
-
 		for _, side in { -1, 1 } do
-			if look.Eyes == "Heart" then
-				heartEye(side)
-			elseif look.Eyes == "Spiral" then
-				spiralEye(side)
-			elseif not eyesCovered and not (partsSet.EyePatch and side == 1) then
+			if not eyesCovered and not (partsSet.EyePatch and side == 1) then
 				roundEye(side)
 			end
-			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" and look.Eyes ~= "Spiral" then
+			if mood ~= "Fierce" and mood ~= "Mighty" and mood ~= "Spooky" and mood ~= "Robot" and mood ~= "Cool" then
 				ellipsoid(Vector3.new(0.4, 0.22, 0.1), rgb(255, 120, 150), onFace(side * 0.9, TOP - 1.1, 0), nil, "Cheek").Transparency = 0.3
-				if look.Eyes == "Heart" then
-					-- anime blush lines
-					for i = -1, 1 do
-						block(Vector3.new(0.05, 0.22, 0.06), rgb(255, 95, 135), onFace(side * (0.92 + i * 0.11), TOP - 1.1, 0.04) * CFrame.Angles(0, 0, -0.45), nil, "Blush")
-					end
-				end
 			end
 		end
 
@@ -6262,33 +6103,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			local function corner(part: BasePart)
 				part:SetAttribute("Mouth", "Corner")
 			end
-			if look.Eyes == "Spiral" then
-				-- a little nose mark, a big open "o" mouth, and drool running out of it in strands that
-				-- hang down over the hole, each with a drop at its end
-				block(Vector3.new(0.05, 0.07, 0.06), rgb(70, 60, 65), onFace(0.04, EYE_Y - 0.42, 0.03), nil, "Nose")
-				-- (placed straight in front of the glaze: face() would pull the bits that hang over the
-				-- hole back onto the glaze, and tip the mouth with the tube's curve)
-				local function hanging(x: number, y: number, depth: number?): CFrame
-					local lx, ly = lean(x, y)
-					return at(lx, ly, SHOULDER_FRONT - (depth or 0.15)) * tiltCf
-				end
-				local mouthMid = mouthY - 0.195
-				middle(ellipsoid(Vector3.new(0.44, 0.54, 0.12), rgb(40, 25, 30), hanging(0, mouthMid, 0.1), nil, "Mouth"))
-				local lip = mouthMid - 0.26
-				corner(ellipsoid(Vector3.new(0.26, 0.1, 0.1), rgb(150, 140, 150), hanging(0, lip + 0.08), nil, "Mouth"))
-				local drool = rgb(205, 225, 240)
-				local function droolPart(size: Vector3, cf: CFrame)
-					local part = block(size, drool, cf, Enum.Material.Glass, "Drool")
-					part.Transparency = 0.2
-					part.Reflectance = 0.3
-					corner(part)
-				end
-				droolPart(Vector3.new(0.3, 0.07, 0.08), hanging(0, lip))
-				for _, strand in { { X = 0.05, Length = 0.55, Width = 0.09 }, { X = -0.08, Length = 0.36, Width = 0.07 }, { X = 0.13, Length = 0.2, Width = 0.06 } } do
-					droolPart(Vector3.new(strand.Width, strand.Length, 0.07), hanging(strand.X, lip - strand.Length / 2))
-					droolPart(Vector3.one * (strand.Width * 1.7), hanging(strand.X, lip - strand.Length - strand.Width * 0.6))
-				end
-			elseif mood == "Happy" then
+			if mood == "Happy" then
 				middle(ellipsoid(Vector3.new(0.44, 0.24, 0.1), dark, onFace(0, mouthY - 0.06, 0.02), nil, "Mouth"))
 				corner(ellipsoid(Vector3.new(0.24, 0.1, 0.1), pink, onFace(0, mouthY - 0.12, 0.05), nil, "Tongue"))
 				for _, side in { -1, 1 } do
@@ -9466,9 +9281,10 @@ return ItemModel
 
 	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
-	  -----|-----------------  Z = SafeZoneZ  (safe zone line)
-	  bases | lobby plaza | bases
-	       (spawn, treadmills by the bases, sell stall, leaderboards along the back wall)
+	  -----|-----------------  Z = SafeZoneZ  (safe zone line, the plaza is open to the lane)
+	  [1] |                 | [2]       rows of bases down both sides (the arms of the C)
+	  [3] |   lobby plaza   | [4]       (spawn, belts beside the arms, sell stall)
+	      [5] boards [6]                the back row (the leaderboards stand between 5 and 6)
 
 	Each biome's Domer sleeps in a back corner (GuardHome) with the biome's donut boxes around him
 	(BoxSpots). A biome's entrance (AreaStart) has a speed gate: players slower than its
@@ -9589,19 +9405,29 @@ function Layout.LobbyArrival(): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- The lobby's two conveyor belts (Config.Conveyors), side by side: the first carries you to the
--- front (+Z, towards the lane), the second to the back. Center is the middle of the belt's top.
+-- The lobby's conveyor belts (Config.Conveyors): a pair along each arm of the C, just in front of the
+-- bases (between the bases and the plaza), so they're right there when you step out of your base. In
+-- each pair the belt nearest the bases carries you to the front (+Z, towards the lane) and the
+-- other to the back. Center is the middle of the belt's top.
 export type Conveyor = { Name: string, Center: Vector3, Length: number, Direction: Vector3 }
 function Layout.Conveyors(): { Conveyor }
 	local c = Config.Conveyors
 	local front = map.SafeZoneZ - c.Front
-	local back = map.SafeZoneZ - map.HubDepth + c.Back
-	local offset = (c.Width + c.Gap) / 2
+	-- (they run along the arms of the C and stop just before the back row of bases)
+	local back = Layout.BackRowZ() + Layout.PlotDepth / 2 + c.Back
 	local z = (front + back) / 2
-	return {
-		{ Name = "ToFront", Center = Vector3.new(c.X - offset, 0, z), Length = front - back, Direction = Vector3.new(0, 0, 1) },
-		{ Name = "ToBack", Center = Vector3.new(c.X + offset, 0, z), Length = front - back, Direction = Vector3.new(0, 0, -1) },
-	}
+	local length = front - back
+	-- where the bases end (their open side, towards the plaza), then back off by BaseGap
+	local baseFront = map.HubHalfWidth - Layout.PlotDepth - 4
+	local middle = baseFront - c.BaseGap - (c.Width + c.Gap / 2) -- the middle of a pair of belts
+	local offset = (c.Width + c.Gap) / 2
+	local belts: { Conveyor } = {}
+	for _, side in { -1, 1 } do
+		local suffix = if side == -1 then "Left" else "Right"
+		table.insert(belts, { Name = "ToFront" .. suffix, Center = Vector3.new(side * (middle + offset), 0, z), Length = length, Direction = Vector3.new(0, 0, 1) })
+		table.insert(belts, { Name = "ToBack" .. suffix, Center = Vector3.new(side * (middle - offset), 0, z), Length = length, Direction = Vector3.new(0, 0, -1) })
+	end
+	return belts
 end
 
 -- Where the lobby's leaderboards stand: along the very back wall.
@@ -9609,14 +9435,16 @@ function Layout.LeaderboardZ(): number
 	return map.SafeZoneZ - map.HubDepth + 10
 end
 
--- The sell stall: in the plaza, to one side of the path to the lane.
+-- The sell stall: out of the way in the middle of the plaza, halfway back (behind the spawn, clear
+-- of the path to the lane), facing the lane. Easy to reach from the belts on either side.
 function Layout.SellStallCFrame(): CFrame
-	local position = Vector3.new(-70, 0, map.SafeZoneZ - 120)
-	return CFrame.lookAt(position, position + Vector3.new(1, 0, 0))
+	local position = Vector3.new(0, 0, map.SafeZoneZ - map.HubDepth / 2)
+	return CFrame.lookAt(position, position + Vector3.new(0, 0, 1))
 end
 
 --------------------------------------------------------------------------------
--- Plots: odd numbers on the left (-X), even on the right (+X), row 0 nearest the lane.
+-- Plots: a C round the plaza. 1-4 are the arms (odd on the left (-X), even on the right (+X), row 0
+-- nearest the lane), 5-6 the back row, left to right (no corner bases). Every base faces the plaza.
 --
 -- A base is a donut shop with an open pen in front of it (like Steal an Egg): a fenced patch of
 -- ground with a low gate at the front, where the donuts roam and boxes wait to open. The pen grows
@@ -9624,21 +9452,38 @@ end
 -- sideways and backwards, with the shop moving back behind it.
 --------------------------------------------------------------------------------
 Layout.PlotWidth = 150 -- plot space X (sideways)
-Layout.PlotDepth = 150 -- plot space Z (front, by the plaza, to back)
-Layout.PlotRowSpacing = 170 -- bases in a row are this far apart (centre to centre)
-Layout.PlotFirstRowZ = 95 -- the first row's centre, this far behind the safe-zone line
+Layout.PlotDepth = 130 -- plot space Z (front, by the plaza, to back)
+Layout.PlotRowSpacing = 156 -- bases down a side are this far apart (centre to centre)
+Layout.PlotFirstRowZ = 85 -- the first row's centre, this far behind the safe-zone line
+Layout.SideRows = 2 -- bases down each side of the plaza (the arms of the C); the back row comes after them
+Layout.BackRowHalfGap = 75 -- half the gap between the back row's two bases (the leaderboards stand in it)
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
 
+-- Z of the middle of the back row of bases (and of the front edge of it: + PlotDepth / 2).
+function Layout.BackRowZ(): number
+	return map.SafeZoneZ - Layout.PlotFirstRowZ - Layout.SideRows * Layout.PlotRowSpacing
+end
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
-	local side = if plotIndex % 2 == 1 then -1 else 1
-	local row = (plotIndex - 1) // 2
-	local x = side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 4)
-	local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
-	local center = Vector3.new(x, 0, z)
-	-- LookVector points out of the plot's open side, towards the plaza.
-	return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
+	local armBases = Layout.SideRows * 2
+	if plotIndex <= armBases then
+		-- an arm of the C: down the left (odd) or right (even) wall, facing the middle of the plaza
+		local side = if plotIndex % 2 == 1 then -1 else 1
+		local row = (plotIndex - 1) // 2
+		local x = side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 4)
+		local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
+		local center = Vector3.new(x, 0, z)
+		-- LookVector points out of the plot's open side, towards the plaza.
+		return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
+	end
+	-- the back row, left to right, facing the lane
+	-- (just two: the corner bases are gone, the leaderboards stand in the gap between them)
+	local innerX = Layout.BackRowHalfGap + Layout.PlotWidth / 2
+	local xs = { -innerX, innerX }
+	local center = Vector3.new(xs[math.clamp(plotIndex - armBases, 1, #xs)], 0, Layout.BackRowZ())
+	return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
 end
 
 -- The pen for a base with room for `slots` donuts: about CellSize x CellSize per donut, a little
@@ -11403,6 +11248,9 @@ return Signal
 	UnlockBiome: the trail unlocks for good the first time your Speed is enough to get into that
 	biome (the HUD shows a "!" on the Trails button, and it's put on for you if you wear none).
 
+	Cost: a trail with a Cost is bought with in-game money (Trails window -> BUY, ShopService BuyTrail)
+	and is yours for good. Fast Guy costs $100M.
+
 	Fast Guy: you run so fast you leave frozen frames of yourself behind - 24 a second, glowing
 	blue-white afterimages - a streak of light, and now and then a pane of glass that cracks and
 	shatters behind you.
@@ -11417,7 +11265,8 @@ export type Trail = {
 	Description: string,
 	Color: Color3, -- the afterimages / streak
 	Accent: Color3, -- outlines and glass edges
-	UnlockBiome: number?,
+	UnlockBiome: number?, -- unlocks for good when your Speed gets you into this biome
+	Cost: number?, -- in-game money to buy it in the Trails window (nil = not for sale)
 	Order: number,
 }
 
@@ -11431,7 +11280,7 @@ Trails.List = {
 		Description = "Run so fast you leave frozen frames of yourself behind, and the air cracks like glass.",
 		Color = Color3.fromRGB(165, 215, 255),
 		Accent = Color3.fromRGB(255, 255, 255),
-		UnlockBiome = 4,
+		Cost = 100_000_000,
 		Order = 1,
 	},
 } :: { Trail }
@@ -11576,7 +11425,7 @@ UpdateNotes.List = {
 			{ Title = "Trails", Tag = "NEW", Lines = {
 				"Open Trails on the left to wear one",
 				"FAST GUY: leave frozen afterimages and shattering glass behind you",
-				"It unlocks when you reach 40K Speed (biome 4's Speed)",
+				"Buy it in the Trails window for $100M",
 			} },
 			{ Title = "Bases & Shop", Tag = "Changed", Lines = {
 				"Every base is a donut shop with a pen: upgrade it at the sign by the gate (7 to 20 donuts)",
@@ -13870,7 +13719,7 @@ local TEMPLATE: Data = {
 	Version = DATA_VERSION,
 	Money = 0,
 	TotalEarned = 0,
-	Speed = 0,
+	Speed = Config.Speed.StartSpeed,
 	TreadmillLevel = 1,
 	SpeedMultLevel = 0,
 	Slots = {},
@@ -13881,7 +13730,7 @@ local TEMPLATE: Data = {
 	DiscoveredMutations = {},
 	IndexClaims = {},
 	BestDonutScore = 0,
-	BestSpeed = 0,
+	BestSpeed = Config.Speed.StartSpeed,
 	Expansions = 0,
 	BaseLevel = 1,
 	PlayTime = 0,
@@ -14013,8 +13862,8 @@ local function migrate(data: Data, isNew: boolean)
 		if not isNew then
 			data.Money = 0
 			data.TotalEarned = 0
-			data.Speed = 0
-			data.BestSpeed = 0
+			data.Speed = Config.Speed.StartSpeed
+			data.BestSpeed = Config.Speed.StartSpeed
 			data.TreadmillLevel = 1
 			data.SpeedMultLevel = 0
 			data.Slots = {}
@@ -18050,11 +17899,15 @@ function DecorProps.Build(theme: string, folder: Instance, areaId: number, zs: n
 		return CFrame.lookAt(position, Vector3.new(0, 0, position.Z))
 	end
 
-	-- The set piece, twice: a third and two thirds of the way along, on opposite sides
+	-- The set piece, twice: a third and two thirds of the way along, on opposite sides. A short
+	-- biome gets it once, near the entrance: Domer's corner fills one side of it, so two would
+	-- both land on the other side and leave no room for anything else.
 	local length = ze - zs
+	local short = length < 300
 	local reserved: { { Z: number, Side: number } } = {}
 	local side = if rng:NextNumber() < 0.5 then -1 else 1
-	for _, f in { 0.32, 0.7 } do
+	local spots: { number } = if short then { 0.3 } else { 0.32, 0.7 }
+	for _, f in spots do
 		local position = Vector3.new(side * FEATURE_X, 0, zs + length * f)
 		if not clear(position, 16) then
 			position = Vector3.new(-side * FEATURE_X, 0, position.Z) -- (Domer's side: try the other one)
@@ -18066,8 +17919,9 @@ function DecorProps.Build(theme: string, folder: Instance, areaId: number, zs: n
 		side = -side
 	end
 
-	-- Single props all the way along both sides
-	local step = math.max(38, length / 14)
+	-- Single props all the way along both sides (closer together in a short biome, where the
+	-- entrance and Domer's corner take up most of the room)
+	local step = if short then 18 else math.max(38, length / 14)
 	local z = zs + ENTRANCE + 8
 	local last: Builder? = nil
 	while z < ze - 24 do
@@ -18339,7 +18193,7 @@ local function stop()
 	PetService.SetHatchBoost(1)
 	if event then
 		for _, player in Players:GetPlayers() do
-			Remotes.Event("Notify"):FireClient(player, `{event.Icon} {event.Name} is over.`, "event")
+			Remotes.Event("Notify"):FireClient(player, `{event.Name} is over.`, "event")
 		end
 	end
 end
@@ -20476,7 +20330,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 15
+local MAP_VERSION = 17
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -20569,9 +20423,9 @@ local function buildSellStall(parent: Instance)
 	sign.MaxDistance = 260
 	sign.Parent = counter
 	Build.Text(sign, "💰 SELL DONUTS", { TextColor3 = rgb(120, 255, 140), TextStrokeColor3 = rgb(10, 50, 20) })
-	-- A donut shopkeeper on the counter
+	-- A donut shopkeeper on the counter, facing the customers (a donut's front is -Z, like the stall's)
 	local keeper = DonutModel.Build(Donuts.List[2], { Scale = 0.9, NoEffects = true })
-	DonutModel.PlaceOn(keeper, at(4, 4, -2) * CFrame.Angles(0, math.pi, 0))
+	DonutModel.PlaceOn(keeper, at(4, 4, -2))
 	keeper.Parent = stall
 	stall.PrimaryPart = counter
 	stall.Parent = parent
@@ -20672,7 +20526,7 @@ local function buildRidge(hub: Instance)
 	ridge.Parent = hub
 end
 
--- The two conveyor belts down the middle of the lobby (Layout.Conveyors): a dark metal belt that
+-- The conveyor belts in front of the bases on each side of the lobby (Layout.Conveyors): a dark metal belt that
 -- carries whoever stands on it (its velocity: Config.Conveyors.Speed), low glowing rails, arrows
 -- the clients slide along it (client/Conveyors) and a sign over the end you get on at.
 local function setConveyorSpeed(belt: BasePart)
@@ -24388,7 +24242,7 @@ return ProductService
 	  BuySpeedMultiplier, BuyTreadmill, BuyBaseSize (a bigger pen)   (in-game money)
 	  BuyIncubatorUpgrade "Speed" | "Size"                            (in-game money)
 	  BuySkin <id>, EquipSkin <id>                     (bought with your Speed stat)
-	  EquipTrail <id | "">                             (trails unlock with Speed: shared/Trails)
+	  BuyTrail <id>, EquipTrail <id | "">              (trails cost in-game money: shared/Trails)
 	  BuyPass <key>                                    (Robux game passes)
 	  ClaimIndex { DonutId, Kind }, ClaimIndexAll
 	  TeleportArea <id>                                (Teleporter game pass)
@@ -24699,6 +24553,28 @@ function Actions.EquipTrail(player: Player, profile: DataService.Profile, trailI
 		return
 	end
 	player:SetAttribute("Trail", if data.EquippedTrail ~= "" then data.EquippedTrail else nil)
+	DataService.PushState(player)
+end
+
+-- Trails window: buy a trail with in-game money (Trail.Cost). It's yours for good, and you put it on.
+function Actions.BuyTrail(player: Player, profile: DataService.Profile, trailId: any)
+	local data = profile.Data
+	local trail = if type(trailId) == "string" then Trails.ById[trailId] else nil
+	if not trail or not trail.Cost then
+		return
+	end
+	if data.OwnedTrails[trail.Id] then
+		notify(player, "You already own that trail!", "error")
+		return
+	end
+	if not DataService.TrySpend(player, trail.Cost) then
+		notify(player, "Not enough money! Need " .. Format.Money(trail.Cost), "error")
+		return
+	end
+	data.OwnedTrails[trail.Id] = true
+	data.EquippedTrail = trail.Id
+	player:SetAttribute("Trail", trail.Id)
+	notify(player, `{trail.Icon} You bought the {trail.Name} trail! You're wearing it now.`, "success")
 	DataService.PushState(player)
 end
 
@@ -32767,7 +32643,7 @@ local function build()
 	local events = section("🌍 Start a server event (for the whole server)", 150)
 	for _, event in Events.List do
 		if not event.OwnerOnly then
-			button(events, `{event.Icon} {event.Name}`, event.Color, function()
+			button(events, event.Name, event.Color, function()
 				command("Event", event.Id)
 			end)
 		end
@@ -33935,7 +33811,7 @@ function EventBanner.Init()
 			pill.Visible = event ~= nil and left > 0 and card == nil
 			if event and pill.Visible then
 				pill.BackgroundColor3 = event.Color:Lerp(Color3.new(0, 0, 0), 0.35)
-				pillLabel.Text = `{event.Icon} {string.upper(event.Name)}  •  {Format.Duration(left)}`
+				pillLabel.Text = `{string.upper(event.Name)}  •  {Format.Duration(left)}`
 				-- Sit under the Luck Event pill when both are running
 				local luckEndsAt = workspace:GetAttribute("LuckEndsAt")
 				local luck = type(luckEndsAt) == "number" and luckEndsAt > workspace:GetServerTimeNow()
@@ -34269,7 +34145,7 @@ local function buildAreaInfo(gui: ScreenGui)
 			local endsAt = workspace:GetAttribute("EventEndsAt")
 			local event = if type(eventId) == "string" then Events.ById[eventId] else nil
 			if event and type(endsAt) == "number" then
-				eventLabel.Text = `{event.Icon} {event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`
+				eventLabel.Text = `{event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`
 				eventLabel.TextColor3 = event.Color
 			else
 				eventLabel.Text = ""
@@ -39433,6 +39309,9 @@ local function buildCard(list: Instance, trail: TrailList.Trail)
 	local button = Theme.Button({ Text = "WEAR", Color = Theme.Colors.Green, Size = UDim2.fromOffset(140, 46), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -10, 1, -10), Parent = card })
 	button.Activated:Connect(function()
 		if not unlocked(trail) then
+			if trail.Cost then
+				State.Action("BuyTrail", trail.Id)
+			end
 			return
 		end
 		State.Action("EquipTrail", if State.Get("Trail") == trail.Id then "" else trail.Id)
@@ -39454,6 +39333,10 @@ local function refresh()
 				card.Status.Text = if on then `<font color="#8dff6a">✓ You're wearing it</font>` else "✓ Unlocked"
 				Theme.SetButtonText(card.Button, if on then "TAKE OFF" else "WEAR")
 				Theme.SetButtonColor(card.Button, if on then Theme.Colors.Orange else Theme.Colors.Green)
+			elseif trail.Cost then
+				card.Status.Text = `Costs <font color="#8dff6a"><b>{Format.Money(trail.Cost)}</b></font>`
+				Theme.SetButtonText(card.Button, "BUY " .. Format.Money(trail.Cost))
+				Theme.SetButtonColor(card.Button, Theme.Colors.Green)
 			elseif need then
 				local area = trail.UnlockBiome and Areas.List[trail.UnlockBiome]
 				card.Status.Text = `🔒 Reach <font color="#c9a0ff"><b>⚡{Format.Number(need)}</b></font> Speed{if area then ` (biome {area.Id}: {area.Name})` else ""}`
