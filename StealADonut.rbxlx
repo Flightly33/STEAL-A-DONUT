@@ -1702,6 +1702,8 @@ Config.EternalStorm = {
 	Duration = 180,
 	-- Ambience all through the storm (client/StormFX): a loop in the background, and now and then
 	-- distant thunder or the other sound (taking turns, Gap seconds apart)
+	-- a falling rock (a tiny meteor) crashing down: louder the closer you are
+	RockCrash = { Id = "rbxassetid://122368977681778", Volume = 0.7 },
 	Ambience = {
 		Loop = { Id = "rbxassetid://9114222288", Volume = 0.3 },
 		Thunder = { Id = "rbxassetid://9119840732", Volume = 0.5 },
@@ -1776,6 +1778,7 @@ Config.CosmicDonut = {
 -- fists into the lane near the crater. Enabled = false: no giant.
 Config.CosmicGiant = {
 	Enabled = true,
+	AppearAt = 135, -- seconds into the Eternal Storm (2:15 of its 3:00) that he climbs out, over the meteor's crater (it lands at about 1:38)
 	SlamEvery = 7, -- seconds between slams (one fist at a time)
 	KnockRadius = 30, -- studs round where a fist lands: anyone inside is knocked flying and drops what they carry
 	FlingPower = 130,
@@ -2138,6 +2141,12 @@ Config.Sounds = {
 	Announce = "", -- big announcements for the whole server
 	Event = "", -- a server event starting
 	CustomVolume = 0.4, -- volume for pasted sounds (0 to 1)
+}
+
+-- Fast Guy trail (client/TrailFX): the sound every pane of glass makes when it shatters behind you
+-- (you hear your own trail only). The audio is loud, so it plays very quietly: 0 to 1.
+Config.TrailSounds = {
+	Glass = { Id = "rbxassetid://134429275459040", Volume = 0.05 },
 }
 
 -- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).
@@ -12768,10 +12777,11 @@ UpdateNotes.List = {
 				"It cracks open in a glowing crater with 8 meteor shards around it: be quick, there aren't enough for everyone",
 				"The Eternal Storm now comes every 2 hours on the real clock, at the same moment in every server, with a countdown at the top of the screen",
 				"When the storm ends, the meteor's crater and any shards left on the ground evaporate: grab them while you can!",
-				"The storm sounds bigger now: a rumbling background all the way through, with distant thunder rolling in now and then",
+				"The storm sounds bigger now: a rumbling background all the way through, with distant thunder rolling in now and then, and every falling rock crashes when it lands",
+				"Fast Guy trail: every pane of glass you leave behind now breaks with a soft glass sound",
 			} },
 			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
-				"After the meteor crashes, a black hole tears open over the lane and a GIANT Domer in cosmic armour climbs out of it",
+				"2 minutes 15 seconds into the storm, a black hole tears open over the meteor's crater and a GIANT Domer in cosmic armour climbs out of it",
 				"He comes out of a bigger black hole, closer to the lobby, with his own entrance sound, a shock wave and title card, and a boss bar shows how long he's staying",
 				"Look closer: a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
 				"His cosmic eyes: glowing irises with a black-hole pupil and a twinkling star in it. They follow you round the lane, blink, narrow when he's about to hit, and open wide as his eye beams charge",
@@ -19707,8 +19717,9 @@ return DecorProps
 	    shared/StormClock - or the owner's 👑 button): a giant black hole hangs over the lane, huge
 	    rocks crash down where people are (whoever they land on is flung), and purple lightning
 	    strikes boxes all over the game - every one it hits becomes ETERNAL. Halfway through,
-	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService);
-	    when it ends, the meteor's crater and the shards left on the ground evaporate. The server
+	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService), and
+	    at 2:15 Cosmic Domer climbs out of a black hole over its crater (GiantService); when it
+	    ends, the meteor's crater and the shards left on the ground evaporate. The server
 	    picks where rocks land and which boxes get struck, and tells every client (StormBlock /
 	    StormStrike) so they all see the same thing; client/StormFX draws it.
 	Only one event runs at a time. Clients read it from workspace attributes (EventId, EventEndsAt),
@@ -19916,6 +19927,13 @@ local function eternalStorm(myToken: number, length: number)
 			MeteorService.Start()
 		end
 	end)
+	-- Later (2:15 of a 3:00 storm): Cosmic Domer climbs out of a black hole over its crater
+	task.delay(length * Config.CosmicGiant.AppearAt / storm.Duration, function()
+		local crater = MeteorService.Site()
+		if token == myToken and crater then
+			GiantService.Start(crater)
+		end
+	end)
 	-- Rocks
 	task.spawn(function()
 		while token == myToken do
@@ -20118,9 +20136,10 @@ return EventService
         <Properties>
           <string name="Name">GiantService</string>
           <string name="Source"><![CDATA[--[[
-	GiantService: Cosmic Domer (shared/Giant). Once the Cosmic Meteor has crashed into the lane
-	(MeteorService), a black hole tears open over the lane just past the crater and a colossal
-	Domer climbs out of it - for the rest of the Eternal Storm. Every Config.CosmicGiant.SlamEvery
+	GiantService: Cosmic Domer (shared/Giant). After the Cosmic Meteor has crashed into the lane
+	(MeteorService), at 2:15 into the Eternal Storm (Config.CosmicGiant.AppearAt: EventService
+	starts him) a black hole tears open over the lane just past the crater and a colossal Domer
+	climbs out of it - for the rest of the storm. Every Config.CosmicGiant.SlamEvery
 	seconds he attacks, working through Config.CosmicGiant.Pattern:
 	  Slam   he slowly smashes a fist into the lane near the crater: anyone within KnockRadius of it
 	         is knocked flying and drops whatever they're carrying (ItemService.Fling)
@@ -23489,8 +23508,8 @@ return MapBuilder
 	the first biomes (in the front half of the lane, away from Domer). Every client plays the show on
 	the same clock (client/MeteorFX: the white screen, the shaking, the sky cracking, the fall); here
 	it lands - anyone right under it is flung - and cracks open in a crater with its shards lying
-	round it (Config.CosmicDonut.Pieces). Then Cosmic Domer climbs out of a black hole over the
-	crater (GiantService).
+	round it (Config.CosmicDonut.Pieces). Later in the storm (Config.CosmicGiant.AppearAt)
+	Cosmic Domer climbs out of a black hole over the crater (EventService starts GiantService).
 
 	A shard is carried like an egg (StealService.StartCustom): one at a time, nobody chases you, and
 	it's yours once you're back over the lobby line (Data.MeteorShards). Get flung or knocked and it
@@ -23514,7 +23533,6 @@ local Remotes = require(Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local StealService = require(script.Parent.StealService)
 local ItemService = require(script.Parent.ItemService)
-local GiantService = require(script.Parent.GiantService)
 
 local MeteorService = {}
 
@@ -23526,6 +23544,7 @@ local rng = Random.new()
 local folder: Folder? = nil
 local landing = 0 -- (bumped by Clear: a meteor still on its way doesn't land)
 local active = false -- a meteor has landed this storm (its shards can lie on the ground)
+local landedAt: Vector3? = nil -- where it landed (this storm)
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -23693,8 +23712,7 @@ local function land(at: Vector3, seed: number, myLanding: number)
 		local distance = Meteor.CRATER * r:NextNumber(0.6, 1.1)
 		placeShard(at + Vector3.new(math.cos(angle), 0, math.sin(angle)) * distance, seed + i)
 	end
-	-- and Cosmic Domer climbs out of a black hole over it (GiantService)
-	GiantService.Start(at)
+	landedAt = at -- (Cosmic Domer climbs out over it later in the storm: EventService)
 end
 
 -- Start the show (EventService, halfway through the storm). Returns where it'll land.
@@ -23717,11 +23735,17 @@ end
 function MeteorService.Clear()
 	landing += 1
 	active = false
+	landedAt = nil
 	if folder then
 		for _, child in folder:GetChildren() do
 			evaporate(child)
 		end
 	end
+end
+
+-- Where this storm's meteor landed (nil if it hasn't yet, or the storm's over).
+function MeteorService.Site(): Vector3?
+	return landedAt
 end
 
 -- The shards lying on the ground right now (tests, the admin panel).
@@ -35625,7 +35649,7 @@ local function part(name: string, size: Vector3, cf: CFrame, color: Color3, mate
 	return p
 end
 
-local function sound(at: Vector3, id: string, speed: number, volume: number, range: number)
+local function sound(at: Vector3, id: string, speed: number, volume: number, range: number, life: number?)
 	local holder = part("Sound", Vector3.one, CFrame.new(at), WHITE, Enum.Material.SmoothPlastic)
 	holder.Transparency = 1
 	local s = Instance.new("Sound")
@@ -35637,7 +35661,7 @@ local function sound(at: Vector3, id: string, speed: number, volume: number, ran
 	s.RollOffMaxDistance = range
 	s.Parent = holder
 	s:Play()
-	task.delay(4, function()
+	task.delay(life or 4, function()
 		holder:Destroy()
 	end)
 end
@@ -35782,7 +35806,7 @@ local function impact(rock: Rock)
 	boom.Parent = folder
 	ring(at, size * 1.6, rgb(200, 170, 140), 0.7)
 	ring(at, size * 1.1, PURPLE, 0.5)
-	thunder(at, false)
+	sound(at, STORM.RockCrash.Id, 1, STORM.RockCrash.Volume, 600, 10)
 	shake(at, 1.4, 220)
 	local pieces: { BasePart } = {}
 	local crater = part("Crater", Vector3.new(0.3, size * 1.3, size * 1.3), CFrame.new(at + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.pi / 2), rgb(70, 52, 44), Enum.Material.Slate)
@@ -36239,7 +36263,8 @@ return StormFX
 	    every other frame after that, so the run looks like it's made of frozen frames
 	  * a streak of light behind the torso
 	  * every PANE_EVERY seconds a pane of glass with white edges is left behind them; a moment
-	    later it shatters into shards that fly back and fall
+	    later it shatters into shards that fly back and fall, with a quiet glass-break sound
+	    (Config.TrailSounds.Glass) for your own trail
 	Only players near the camera get the effect. The copies are cloned once per character (one
 	afterimage per frame until there are GHOSTS of them) and then reused: nothing is created while
 	running. Everything here is client-side.
@@ -36248,9 +36273,12 @@ return StormFX
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trails = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Trails"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Trails = require(Shared:WaitForChild("Trails"))
+local Config = require(Shared:WaitForChild("Config"))
 
 local TrailFX = {}
 
@@ -36268,7 +36296,7 @@ local SHARDS_PER_PANE = 10
 local SHARD_LIFE = 0.8
 local MAX_SHARDS = 60
 local GRAVITY = 55
-local GLASS_SOUND = "rbxasset://sounds/electronicpingshort.wav"
+local GLASS = Config.TrailSounds.Glass -- the shatter sound (one per pane, very quiet)
 local IDLE_CLEANUP = 20
 
 type Ghost = { Parts: { BasePart }, Age: number }
@@ -36459,17 +36487,11 @@ local function playGlass(runner: Runner)
 	if runner.Player ~= localPlayer then
 		return -- only your own trail makes a sound
 	end
-	if not glassSound then
-		local sound = Instance.new("Sound")
-		sound.Name = "TrailGlass"
-		sound.SoundId = GLASS_SOUND
-		sound.Volume = 0.08
-		sound.Parent = SoundService
-		glassSound = sound
+	local sound = glassSound
+	if sound then
+		sound.PlaybackSpeed = rng:NextNumber(0.92, 1.08) -- no two panes sound exactly alike
+		SoundService:PlayLocalSound(sound)
 	end
-	local sound = glassSound :: Sound
-	sound.PlaybackSpeed = 2.4 + rng:NextNumber() * 0.5
-	SoundService:PlayLocalSound(sound)
 end
 
 local function shatter(runner: Runner, pane: Pane, trail: Trails.Trail)
@@ -36739,6 +36761,17 @@ function TrailFX.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "TrailFX"
 	folder.Parent = workspace
+	local sound = Instance.new("Sound")
+	sound.Name = "TrailGlass"
+	sound.SoundId = GLASS.Id
+	sound.Volume = GLASS.Volume
+	sound.Parent = SoundService
+	glassSound = sound
+	task.spawn(function()
+		pcall(function()
+			ContentProvider:PreloadAsync({ sound })
+		end)
+	end)
 	for _, player in Players:GetPlayers() do
 		track(player)
 	end
