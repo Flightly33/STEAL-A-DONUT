@@ -51,6 +51,7 @@ Giant.LENGTH = Giant.IMPACT + Giant.HOLD + Giant.RETURN
 Giant.STAR_CHARGE = 1.3 -- star rain: fists up, the hole flares...
 Giant.STAR_FALL = 2.2 -- ...then the stars fall (landing at STAR_CHARGE + STAR_FALL)
 Giant.STAR_SPREAD = 0.5 -- (seconds between the first and the last star landing)
+Giant.STAR_LAUNCH_SPREAD = 0.6 -- (...and between the first and the last leaving his fists, each with its own launch sound)
 Giant.BEAM_CHARGE = 1.7 -- eye beam: his eyes charge up, the line glows...
 Giant.BEAM_SWEEP = 2.4 -- ...then the beams sweep along it
 
@@ -181,6 +182,11 @@ function Giant.BeamPoint(from: Vector3, to: Vector3, a: number): Vector3
 end
 
 -- When star `i` of `count` lands (seconds after its rain started).
+-- When star `i` of `count` leaves his fists (seconds after its rain started): one after another.
+function Giant.StarLaunch(i: number, count: number): number
+	return Giant.STAR_CHARGE + (if count > 1 then (i - 1) / (count - 1) else 0) * Giant.STAR_LAUNCH_SPREAD
+end
+
 function Giant.StarLanding(i: number, count: number): number
 	return Giant.STAR_CHARGE + Giant.STAR_FALL + (if count > 1 then (i - 1) / (count - 1) else 0) * Giant.STAR_SPREAD
 end

@@ -928,7 +928,6 @@ local function updateRains(now: number)
 		local t = now - rain.Start
 		if not rain.Launched and t >= Giant.STAR_CHARGE then
 			rain.Launched = true
-			play("StarLaunch", GIANT.StarRain.LaunchVolume)
 			screenFlash(0.2, Giant.VIOLET)
 		end
 		local done = true
@@ -938,7 +937,7 @@ local function updateRains(now: number)
 			end
 			if not star.Landed then
 				done = false
-				local launch = rain.Start + Giant.STAR_CHARGE
+				local launch = rain.Start + Giant.StarLaunch(i, #rain.Stars)
 				if now >= star.Land then
 					star.Landed = true
 					if now < star.Land + 1 then
@@ -956,6 +955,8 @@ local function updateRains(now: number)
 					local position = bezier(from, control, star.Target + Vector3.new(0, 4, 0), a * a)
 					local p = star.Part
 					if not p then
+						-- it leaves his fist: its launch sound (each star its own, a touch higher or lower)
+						oneShot(GIANT.Sounds.StarLaunch, GIANT.StarRain.LaunchVolume, rng:NextNumber(0.94, 1.06))
 						local ball = part("CosmicStar", Vector3.one * 12, CFrame.new(position), rgb(255, 220, 150), Enum.Material.Neon)
 						ball.Shape = Enum.PartType.Ball
 						local a0 = Instance.new("Attachment")

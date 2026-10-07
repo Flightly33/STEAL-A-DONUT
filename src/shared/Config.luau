@@ -432,7 +432,7 @@ Config.CosmicGiant = {
 		Count = 7, -- stars he pulls out of the black hole
 		Radius = 16, -- studs round where each lands: anyone inside is knocked flying
 		Spread = { 25, 110 }, -- how far from the crater they land (studs)
-		LaunchVolume = 0.2, -- Sounds.StarLaunch (a loud one)
+		LaunchVolume = 0.15, -- Sounds.StarLaunch, once for every star as it leaves his fist (a loud one)
 		ImpactVolume = 0.35, -- Sounds.StarImpact (loud too; one for every star, a few at most each moment)
 	},
 	Beam = {
