@@ -344,8 +344,26 @@ Config.GlobalStats = {
 -- purple lightning strikes donuts in every world's lanes: every donut it hits becomes ETERNAL
 -- (x50 money, purple glow, a storm of purple lightning round it). Only lane donuts get struck.
 Config.EternalStorm = {
-	Weight = 0.6, -- how often it's picked compared to the other events (they add up to ~125: about 1 in 200)
+	Weight = 0.6, -- (only if Schedule is off) how often it's picked compared to the other events
 	Duration = 180,
+	-- Ambience all through the storm (client/StormFX): a loop in the background, and now and then
+	-- distant thunder or the other sound (taking turns, Gap seconds apart)
+	Ambience = {
+		Loop = { Id = "rbxassetid://9114222288", Volume = 0.3 },
+		Thunder = { Id = "rbxassetid://9119840732", Volume = 0.5 },
+		Other = { Id = "rbxassetid://236328669", Volume = 0.4 },
+		Gap = { 9, 20 },
+	},
+	-- When it comes (shared/StormClock): on the real clock, the same moment on every server - every
+	-- Every hours, on the hour, counting from Hour, in US Pacific time: 12am, 2am ... 2pm, 4pm ...
+	-- A countdown at the top of the screen shows how long until the next one.
+	Schedule = {
+		Enabled = true,
+		Every = 2, -- hours between storms
+		Hour = 14, -- one of the times it comes (2pm); the others are every Every hours from it
+		UtcOffset = -8, -- US Pacific standard time...
+		DaylightSaving = true, -- ...an hour later from the second Sunday in March to the first in November
+	},
 	StrikeInterval = { 7, 12 }, -- seconds between lightning strikes that turn a donut Eternal
 	BlockInterval = { 1.2, 2.6 }, -- seconds between falling rocks (in each world someone is in)
 	BlockSize = { 18, 34 }, -- studs
@@ -386,7 +404,7 @@ Config.CosmicDonut = {
 	Enabled = true,
 	ShardCost = 10, -- meteor shards to craft The Cosmic Donut
 	Pieces = 8, -- shards a meteor cracks into (fewer than ShardCost: a Cosmic Donut takes more than one meteor)
-	StormWeight = 6.5, -- while Enabled the Eternal Storm comes about every 2 hours (instead of EternalStorm.Weight)
+	StormWeight = 6.5, -- (only if EternalStorm.Schedule is off) the storm's weight while Enabled, instead of EternalStorm.Weight
 	ShardLife = 240, -- seconds the shards lie on the lane after the meteor lands
 	Biomes = { 2, 3 }, -- the biomes it can land in (never the first, right by the lobby: too easy; still close enough that everyone can get there in time)
 	FlingPower = 140, -- anyone it lands on
@@ -414,6 +432,8 @@ Config.CosmicGiant = {
 		Count = 7, -- stars he pulls out of the black hole
 		Radius = 16, -- studs round where each lands: anyone inside is knocked flying
 		Spread = { 25, 110 }, -- how far from the crater they land (studs)
+		LaunchVolume = 0.2, -- Sounds.StarLaunch (a loud one)
+		ImpactVolume = 0.35, -- Sounds.StarImpact (loud too; one for every star, a few at most each moment)
 	},
 	Beam = {
 		Radius = 12, -- studs either side of his eye beams' path that knock you flying
@@ -424,6 +444,8 @@ Config.CosmicGiant = {
 		Impact = "rbxassetid://91288569991875", -- his fist hitting the lane
 		Laser = "rbxassetid://126321934365548", -- his laser eyes (a 3 second sound: it loops for as long as they're on)
 		Emerge = "rbxassetid://9125404769", -- him coming out of the black hole
+		StarLaunch = "rbxassetid://80568077150111", -- star rain: the stars (his missiles) launching from his fists
+		StarImpact = "rbxassetid://107480513009908", -- ...and each one hitting the lane
 	},
 }
 

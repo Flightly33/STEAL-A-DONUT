@@ -9,8 +9,10 @@
 
 	A shard is carried like an egg (StealService.StartCustom): one at a time, nobody chases you, and
 	it's yours once you're back over the lobby line (Data.MeteorShards). Get flung or knocked and it
-	drops right there for anyone to grab. Shards nobody takes vanish after ShardLife seconds. Spend
-	them at the Cosmic Forge (CraftService).
+	drops right there for anyone to grab. When the storm ends (EventService calls Clear) the crater
+	and every shard left on the ground evaporate (client/MeteorFX draws it); one you're carrying is
+	still yours to bring home, but drop it after that and it evaporates too. Spend them at the
+	Cosmic Forge (CraftService).
 ]]
 
 local Players = game:GetService("Players")
@@ -37,6 +39,8 @@ local REACH = 14 -- how close you have to be to take a shard
 
 local rng = Random.new()
 local folder: Folder? = nil
+local landing = 0 -- (bumped by Clear: a meteor still on its way doesn't land)
+local active = false -- a meteor has landed this storm (its shards can lie on the ground)
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -117,8 +121,24 @@ local function deposit(player: Player): boolean
 	return true
 end
 
+-- Fade it away (every client draws the evaporating: client/MeteorFX), then remove it.
+local function evaporate(model: Instance)
+	if model:GetAttribute("EvaporateAt") then
+		return
+	end
+	model:SetAttribute("EvaporateAt", workspace:GetServerTimeNow())
+	for _, prompt in model:GetDescendants() do
+		if prompt:IsA("ProximityPrompt") then
+			prompt.Enabled = false
+		end
+	end
+	task.delay(Meteor.EVAPORATE + 0.2, function()
+		model:Destroy()
+	end)
+end
+
 take = function(player: Player, shard: Model)
-	if not shard.Parent then
+	if not shard.Parent or shard:GetAttribute("EvaporateAt") then
 		return
 	end
 	local root = StealService.CanPickUp(player, shard:GetPivot().Position, REACH + 4)
@@ -148,7 +168,10 @@ take = function(player: Player, shard: Model)
 				local half = Layout.AreaHalfWidth(area) - 4
 				spot = Vector3.new(math.clamp(spot.X, -half, half), 0, spot.Z)
 			end
-			placeShard(spot, rng:NextInteger(1, 1_000_000))
+			local dropped = placeShard(spot, rng:NextInteger(1, 1_000_000))
+			if not active then
+				evaporate(dropped) -- (the storm's over: it doesn't stay)
+			end
 		end,
 	})
 	if started then
@@ -157,7 +180,11 @@ take = function(player: Player, shard: Model)
 end
 
 -- It hits: whoever's under it is flung, the crater and the shards appear.
-local function land(at: Vector3, seed: number)
+local function land(at: Vector3, seed: number, myLanding: number)
+	if landing ~= myLanding then
+		return -- (the storm ended before it got here)
+	end
+	active = true
 	for _, player in Players:GetPlayers() do
 		local character = player.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
@@ -169,9 +196,8 @@ local function land(at: Vector3, seed: number)
 		end
 	end
 	local site = getFolder()
-	local old = site:FindFirstChild("MeteorCrater")
-	if old then
-		old:Destroy()
+	for _, old in site:GetChildren() do
+		old:Destroy() -- (anything left from an earlier meteor)
 	end
 	local crater = Meteor.BuildShell(at, seed)
 	crater:SetAttribute("ExpiresAt", os.clock() + COSMIC.ShardLife)
@@ -198,8 +224,19 @@ function MeteorService.Start(): Vector3?
 	task.delay(LEAD + Meteor.SHATTER_AT, function()
 		Remotes.Event("AreaAnnouncement"):FireAllClients(`☄️ A COSMIC METEOR IS CRASHING INTO {string.upper(Areas.List[areaId].Name)}! GRAB ITS SHARDS!`, Color3.fromRGB(200, 120, 255))
 	end)
-	task.delay(LEAD + Meteor.IMPACT_AT, land, at, seed)
+	task.delay(LEAD + Meteor.IMPACT_AT, land, at, seed, landing)
 	return at
+end
+
+-- The storm's over (EventService): the crater and every shard left on the ground evaporate.
+function MeteorService.Clear()
+	landing += 1
+	active = false
+	if folder then
+		for _, child in folder:GetChildren() do
+			evaporate(child)
+		end
+	end
 end
 
 -- The shards lying on the ground right now (tests, the admin panel).
@@ -220,7 +257,7 @@ MeteorService.Take = function(player: Player, shard: Model)
 end
 
 function MeteorService.Init()
-	-- shards nobody took, and the crater, fade away after a while
+	-- shards nobody took, and the crater, evaporate after a while (if the storm hasn't ended first)
 	local accumulator = 0
 	RunService.Heartbeat:Connect(function(dt)
 		accumulator += dt
@@ -232,7 +269,7 @@ function MeteorService.Init()
 		for _, child in folder:GetChildren() do
 			local expires = child:GetAttribute("ExpiresAt")
 			if type(expires) == "number" and now >= expires then
-				child:Destroy()
+				evaporate(child)
 			end
 		end
 	end)

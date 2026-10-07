@@ -5,14 +5,21 @@
 	icon, its name and what it does) with a little fanfare, and pulses so nobody misses it. After a
 	few seconds it shrinks into a pill at the top of the screen with a countdown, which stays until
 	the event ends. Players who join mid-event just get the pill.
+
+	Also the countdown to the next Eternal Storm ("ETERNAL STORM IN 1:23:45"): it comes on the real
+	clock (shared/StormClock), so this is worked out right here, the same on every server. It sits
+	in the first free row at the top (under the Luck Event, event and box pills when they're up)
+	and hides while the storm is on (the event pill counts that down).
 ]]
 
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Events = require(Shared.Events)
 local Format = require(Shared.Format)
+local StormClock = require(Shared.StormClock)
 
 local Theme = require(script.Parent.Theme)
 
@@ -23,6 +30,61 @@ local holder: Frame -- screen-size scaling for the big card (the card has its ow
 local pill: Frame
 local pillLabel: TextLabel
 local card: Frame? = nil
+local countdown: Frame
+local countdownLabel: TextLabel
+local otherPills: { [string]: GuiObject } = {} -- (the Luck Event and box pills, once found)
+
+local STORM_TEXT = Color3.fromRGB(235, 215, 255)
+local STORM_SOON = Color3.fromRGB(255, 140, 225)
+
+-- "1:23:45", or "4:05" under an hour.
+local function clockText(seconds: number): string
+	local s = math.max(0, math.floor(seconds))
+	local h, m, sec = s // 3600, (s % 3600) // 60, s % 60
+	return if h > 0 then string.format("%d:%02d:%02d", h, m, sec) else string.format("%d:%02d", m, sec)
+end
+
+-- The first row at the top of the screen that nothing else is using.
+local function freeRow(): number
+	local taken: { [number]: boolean } = {}
+	if pill.Visible then
+		taken[pill.Position.Y.Offset] = true
+	end
+	local playerGui = gui.Parent
+	for _, name in { "LuckEvent", "BoxPill" } do
+		local other = otherPills[name]
+		if not other and playerGui then
+			local found = playerGui:FindFirstChild(name, true)
+			if found and found:IsA("GuiObject") then
+				otherPills[name] = found
+				other = found
+			end
+		end
+		if other and other.Visible then
+			taken[other.Position.Y.Offset] = true
+		end
+	end
+	for _, row in { 4, 46, 88, 130 } do
+		if not taken[row] then
+			return row
+		end
+	end
+	return 172
+end
+
+local function updateCountdown()
+	local now = workspace:GetServerTimeNow()
+	local schedule = Config.EternalStorm.Schedule
+	countdown.Visible = schedule.Enabled and workspace:GetAttribute("EventId") ~= "EternalStorm" and StormClock.Current(now) == nil
+	if not countdown.Visible then
+		return
+	end
+	local left = StormClock.Next(now) - now
+	countdownLabel.Text = `ETERNAL STORM IN {clockText(left)}`
+	-- the last minute: brighter, pulsing
+	countdownLabel.TextColor3 = if left <= 60 then STORM_TEXT:Lerp(STORM_SOON, 0.5 + 0.5 * math.sin(now * 6)) else STORM_TEXT
+	countdown.Position = UDim2.new(0.5, 0, 0, freeRow())
+end
 
 local function endsIn(): number
 	local endsAt = workspace:GetAttribute("EventEndsAt")
@@ -112,6 +174,28 @@ function EventBanner.Init()
 	})
 	Theme.AutoScale(pill)
 	pillLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -8), Position = UDim2.fromOffset(10, 4), StrokeThickness = 2, Parent = pill })
+	countdown = Theme.new("Frame", {
+		Name = "StormCountdown",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 4),
+		Size = UDim2.fromOffset(330, 34),
+		BackgroundColor3 = Color3.new(1, 1, 1), -- (the gradient gives it its colours)
+		BackgroundTransparency = 0.12,
+		Visible = false,
+		Parent = gui,
+	}, {
+		Theme.Corner(17),
+		Theme.Stroke(2.5, Color3.fromRGB(180, 110, 255)),
+		Theme.Gradient(Color3.fromRGB(70, 34, 130), Color3.fromRGB(24, 10, 50)),
+	})
+	Theme.AutoScale(countdown)
+	countdownLabel = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextColor3 = STORM_TEXT, Size = UDim2.new(1, -16, 1, -6), Position = UDim2.fromOffset(8, 3), StrokeThickness = 2, Parent = countdown })
+	task.spawn(function()
+		while true do
+			updateCountdown()
+			task.wait(0.25)
+		end
+	end)
 
 	local shownId: string? = workspace:GetAttribute("EventId") :: string? -- (joined mid-event: pill only)
 	workspace:GetAttributeChangedSignal("EventId"):Connect(function()

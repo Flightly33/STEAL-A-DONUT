@@ -13,6 +13,10 @@
 	         huge shake (bigger the closer you are; the two impact sounds). The server builds the
 	         cracked-open meteor and its shards right then (they're the real thing you can grab).
 
+	When the storm ends the server marks the crater and the shards left on the ground EvaporateAt
+	(server/MeteorService): here they evaporate - fading, the shards floating up and shrinking - in a
+	puff of glittering purple mist, before the server removes them.
+
 	Also spins the black hole horizon round The Cosmic Donut floating over the Cosmic Forge
 	(tagged "HorizonSpin"; donuts in pens are spun by DonutIdle).
 ]]
@@ -646,6 +650,85 @@ local function spinHorizons()
 	end
 end
 
+--------------------------------------------------------------------------------
+-- Evaporating: the crater and the shards when the storm ends
+--------------------------------------------------------------------------------
+local evaporating: { [Instance]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+
+local function evaporate(model: Model)
+	if evaporating[model] then
+		return
+	end
+	evaporating[model] = true
+	local shard = model.Name == "MeteorShard"
+	local info = TweenInfo.new(Meteor.EVAPORATE, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	for _, item in model:GetDescendants() do
+		if item:IsA("BasePart") then
+			-- (only here: the server removes the real thing once it's gone)
+			local goal: { [string]: any } = { Transparency = 1 }
+			if shard then
+				goal.CFrame = item.CFrame + Vector3.new(0, 7, 0)
+				goal.Size = item.Size * 0.35
+			end
+			TweenService:Create(item, info, goal):Play()
+		elseif item:IsA("Light") then
+			TweenService:Create(item, info, { Brightness = 0 }):Play()
+		elseif item:IsA("ParticleEmitter") then
+			item.Enabled = false
+		elseif item:IsA("ProximityPrompt") then
+			item.Enabled = false
+		end
+	end
+	-- a puff of glittering purple mist rising off it
+	local ok, cf, size = pcall(function()
+		return model:GetBoundingBox()
+	end)
+	local center = if ok then (cf :: CFrame).Position else model:GetPivot().Position
+	local extent = if ok then size :: Vector3 else Vector3.new(4, 4, 4)
+	local mist = part("Evaporate", Vector3.new(math.max(extent.X, 2), 1, math.max(extent.Z, 2)), CFrame.new(center.X, center.Y - extent.Y / 2 + 1, center.Z), WHITE, Enum.Material.SmoothPlastic)
+	mist.Transparency = 1
+	local scale = math.clamp(extent.Magnitude / 12, 0.6, 5)
+	local smoke = emitter(mist, "rbxasset://textures/particles/smoke_main.dds", ColorSequence.new(rgb(200, 150, 255), rgb(255, 230, 255)), 2.2 * scale, 10 * scale, 2.2, 0.35)
+	smoke.Speed = NumberRange.new(5, 12)
+	smoke.Acceleration = Vector3.new(0, 6, 0)
+	smoke.SpreadAngle = Vector2.new(25, 25)
+	smoke.EmissionDirection = Enum.NormalId.Top
+	local glitter = emitter(mist, "rbxasset://textures/particles/sparkles_main.dds", ColorSequence.new(WHITE, CYAN), 0.8 * math.sqrt(scale), 14 * scale, 1.6, 1)
+	glitter.Speed = NumberRange.new(6, 16)
+	glitter.EmissionDirection = Enum.NormalId.Top
+	glitter.Size = NumberSequence.new(0.8 * math.sqrt(scale), 0)
+	task.delay(Meteor.EVAPORATE * 0.85, function()
+		smoke.Enabled = false
+		glitter.Enabled = false
+	end)
+	task.delay(Meteor.EVAPORATE + 3, function()
+		mist:Destroy()
+	end)
+end
+
+local function watchSiteModel(model: Instance)
+	if not model:IsA("Model") then
+		return
+	end
+	local function check()
+		if model:GetAttribute("EvaporateAt") then
+			evaporate(model)
+		end
+	end
+	model:GetAttributeChangedSignal("EvaporateAt"):Connect(check)
+	check()
+end
+
+local function watchSite(site: Instance)
+	if site.Name ~= "MeteorSite" then
+		return
+	end
+	for _, child in site:GetChildren() do
+		watchSiteModel(child)
+	end
+	site.ChildAdded:Connect(watchSiteModel)
+end
+
 function MeteorFX.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "MeteorFXLocal"
@@ -667,6 +750,10 @@ function MeteorFX.Init()
 		end
 	end
 	Remotes.Event("Meteor").OnClientEvent:Connect(onMeteor)
+	for _, child in workspace:GetChildren() do
+		watchSite(child)
+	end
+	workspace.ChildAdded:Connect(watchSite)
 	for _, instance in CollectionService:GetTagged("HorizonSpin") do
 		task.spawn(addHorizon, instance)
 	end

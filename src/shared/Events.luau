@@ -84,10 +84,13 @@ for _, event in Events.List do
 	Events.ById[event.Id] = event
 end
 
--- How often an event is picked right now: the Eternal Storm comes far more often while The Cosmic
--- Donut can be crafted (its meteor brings the shards: Config.CosmicDonut).
+-- How often an event is picked right now. The Eternal Storm never is while it comes on the clock
+-- (Config.EternalStorm.Schedule); otherwise it comes far more often while The Cosmic Donut can be
+-- crafted (its meteor brings the shards: Config.CosmicDonut).
 function Events.Weight(event: Event): number
-	if event.Kind == "EternalStorm" and Config.CosmicDonut.Enabled then
+	if event.Kind == "EternalStorm" and Config.EternalStorm.Schedule.Enabled then
+		return 0 -- (it comes on the clock instead: shared/StormClock)
+	elseif event.Kind == "EternalStorm" and Config.CosmicDonut.Enabled then
 		return Config.CosmicDonut.StormWeight
 	end
 	return event.Weight

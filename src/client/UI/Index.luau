@@ -110,16 +110,16 @@ local function preview(parent: Instance, donut: Donuts.Donut, sky: Color3?): Vie
 	return viewport
 end
 
--- How a box is described over its donuts: "📦 EPIC DONUT BOX • 25% of boxes • opens in 10m", with
+-- How a box is described over its donuts: "EPIC DONUT BOX • 25% of boxes • opens in 10m", with
 -- the boosted chance too while a Luck Event runs.
 local function boxTitle(biome: number, tier: Boxes.Tier, lucky: boolean): string
 	local chance = Boxes.TierChance(biome, tier.Id)
 	local share = if chance >= 1 then "every box" else `{math.floor(chance * 1000 + 0.5) / 10}% of boxes`
 	if lucky and chance < 1 then
 		local boosted = Boxes.TierChance(biome, tier.Id, Config.LuckEvent.RarityLuck)
-		share ..= ` → 🍀 {math.floor(boosted * 1000 + 0.5) / 10}%`
+		share ..= ` → {math.floor(boosted * 1000 + 0.5) / 10}% with luck`
 	end
-	return `📦 {string.upper(tier.Name)} • {share} • opens in {Format.Duration(Boxes.HatchSeconds(tier.Id, "Small"))}`
+	return `{string.upper(tier.Name)} • {share} • opens in {Format.Duration(Boxes.HatchSeconds(tier.Id, "Small"))}`
 end
 
 -- The box titles on the pages built so far (refresh() updates them when a Luck Event starts or ends).
@@ -157,7 +157,7 @@ local function refresh()
 		if rarity.Order >= Config.GlobalStats.ShowFromRarity and Donuts.Spawnable(donut) then
 			local spawned = if counts then counts[1] or 0 else 0
 			local gotHome = if counts then counts[2] or 0 else 0
-			card.Global.Text = if stats then `🌍 {Format.Number(spawned)} spawned ({percent(spawned, totalSpawns)}) • {Format.Number(gotHome)} found` else "🌍 loading..."
+			card.Global.Text = if stats then `{Format.Number(spawned)} spawned ({percent(spawned, totalSpawns)}) • {Format.Number(gotHome)} found` else "loading..."
 		else
 			card.Global.Text = ""
 		end
@@ -182,20 +182,20 @@ local function refresh()
 		end
 		card.Status.Visible = not canClaim
 		if claimed == "Speed" then
-			card.Status.Text = `✓ +{speed or 0}% speed`
+			card.Status.Text = `Claimed +{speed or 0}% speed`
 			card.Status.TextColor3 = Color3.fromRGB(200, 160, 255)
 		elseif claimed then
-			card.Status.Text = `✓ Claimed {Format.Money(cash)}`
+			card.Status.Text = `Claimed {Format.Money(cash)}`
 			card.Status.TextColor3 = Theme.Colors.Money
 		else
-			card.Status.Text = if speed then `🎁 {Format.Money(cash)} or +{speed}% speed` else `🎁 {Format.Money(cash)}`
+			card.Status.Text = if speed then `Reward: {Format.Money(cash)} or +{speed}% speed` else `Reward: {Format.Money(cash)}`
 			card.Status.TextColor3 = Color3.fromRGB(200, 200, 210)
 		end
 	end
 	local bonus = State.Number("IndexBonus")
 	local unclaimed = Index.UnclaimedCount()
-	counter.Text = `Discovered {found}/{#Donuts.List}   •   📖 Speed bonus: +{bonus}%   •   🎁 {unclaimed} to claim`
-	Theme.SetButtonText(claimAll, if unclaimed > 0 then `🎁 Claim All ({unclaimed})` else "🎁 Claim All")
+	counter.Text = `Discovered {found}/{#Donuts.List}   •   Speed bonus: +{bonus}%   •   {unclaimed} to claim`
+	Theme.SetButtonText(claimAll, if unclaimed > 0 then `Claim All ({unclaimed})` else "Claim All")
 	Theme.SetButtonColor(claimAll, if unclaimed > 0 then Theme.Colors.Green else Theme.Colors.Gray)
 	-- Mutations: chance per spawn + how many were found in the whole game
 	local parts = {}
@@ -203,12 +203,12 @@ local function refresh()
 		if mutation.Order > 0 then
 			local counts = stats and stats.M[mutation.Id]
 			local foundCount = if counts then counts[2] or 0 else 0
-			local boosted = if lucky and not mutation.EventOnly then ` → 🍀 {percent(mutation.Chance * Config.LuckEvent.MutationLuck, 1)}` else ""
-			local chance = if mutation.EventOnly then "⚡ Eternal Storm only" else percent(mutation.Chance, 1)
+			local boosted = if lucky and not mutation.EventOnly then ` → {percent(mutation.Chance * Config.LuckEvent.MutationLuck, 1)} with luck` else ""
+			local chance = if mutation.EventOnly then "Eternal Storm only" else percent(mutation.Chance, 1)
 			table.insert(parts, `<font color="#{mutation.Color:ToHex()}">{mutation.Id}</font> {chance}{boosted} ({if stats then Format.Number(foundCount) else "?"} found)`)
 		end
 	end
-	legend.Text = (if lucky then `🍀 Luck Event: rarer boxes x{Config.LuckEvent.RarityLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck}!  ` else "") .. "🌍 " .. table.concat(parts, "  ")
+	legend.Text = (if lucky then `Luck Event: rarer boxes x{Config.LuckEvent.RarityLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck}!  ` else "") .. table.concat(parts, "  ")
 	for _, entry in boxTitles do
 		entry.Label.Text = boxTitle(entry.Biome, entry.Tier, lucky)
 	end
@@ -252,13 +252,13 @@ local function buildCard(grid: Instance, donut: Donuts.Donut, order: number, pal
 	end
 	-- Reward buttons
 	local speed = Economy.IndexSpeedReward(donut.Id)
-	local cash = Theme.Button({ Text = "💵 " .. Format.Money(Economy.IndexCashReward(donut.Id)), Color = Theme.Colors.Green, Size = UDim2.new(if speed then 0.5 else 1, -8, 0, 32), Position = UDim2.new(0, 5, 1, -38), Parent = cardFrame })
+	local cash = Theme.Button({ Text = Format.Money(Economy.IndexCashReward(donut.Id)), Color = Theme.Colors.Green, Size = UDim2.new(if speed then 0.5 else 1, -8, 0, 32), Position = UDim2.new(0, 5, 1, -38), Parent = cardFrame })
 	cash.Activated:Connect(function()
 		State.Action("ClaimIndex", { DonutId = donut.Id, Kind = "Cash" })
 	end)
 	local speedButton: TextButton? = nil
 	if speed then
-		local button = Theme.Button({ Text = `⚡ +{speed}%`, Color = Theme.Colors.Purple, Size = UDim2.new(0.5, -8, 0, 32), Position = UDim2.new(0.5, 3, 1, -38), Parent = cardFrame })
+		local button = Theme.Button({ Text = `+{speed}% speed`, Color = Theme.Colors.Purple, Size = UDim2.new(0.5, -8, 0, 32), Position = UDim2.new(0.5, 3, 1, -38), Parent = cardFrame })
 		button.Activated:Connect(function()
 			State.Action("ClaimIndex", { DonutId = donut.Id, Kind = "Speed" })
 		end)
@@ -328,10 +328,10 @@ local function buildPage(pageId: number)
 		})
 		local badge = Theme.new("Frame", { Name = "Badge", BackgroundColor3 = palette.Accent, Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(6, 6), Parent = header }, { Theme.Corner(20), Theme.Stroke(2.5) })
 		Theme.Label({ Text = tostring(area.Id), TextColor3 = palette.Bottom, Size = UDim2.fromScale(1, 1), StrokeThickness = 0, Parent = badge })
-		Theme.Label({ Name = "Title", Text = `{palette.Icons[1]}  {string.upper(area.Name)}`, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -230, 0, 32), Position = UDim2.fromOffset(56, 4), StrokeThickness = 2.5, Parent = header })
+		Theme.Label({ Name = "Title", Text = string.upper(area.Name), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -230, 0, 32), Position = UDim2.fromOffset(56, 4), StrokeThickness = 2.5, Parent = header })
 		Theme.Label({ Name = "Subtitle", Text = `BIOME {area.Id}`, Font = Theme.Font, TextColor3 = palette.Accent, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -230, 0, 16), Position = UDim2.fromOffset(57, 34), StrokeThickness = 1.5, Parent = header })
 		local chip = Theme.new("Frame", { Name = "Escape", BackgroundColor3 = Color3.fromRGB(20, 20, 30), BackgroundTransparency = 0.25, AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(200, 32), Position = UDim2.new(1, -10, 0.5, 0), Parent = header }, { Theme.Corner(16), Theme.Stroke(2, palette.Accent) })
-		Theme.Label({ Text = if escape > 0 then `⚡ {Format.Number(escape)} to escape` else "⚡ any speed escapes", Font = Theme.Font, TextColor3 = Color3.fromRGB(255, 230, 90), Size = UDim2.new(1, -12, 1, -6), Position = UDim2.fromOffset(6, 3), StrokeThickness = 1.5, Parent = chip })
+		Theme.Label({ Text = if escape > 0 then `{Format.Number(escape)} speed to escape` else "any speed escapes", Font = Theme.Font, TextColor3 = Color3.fromRGB(255, 230, 90), Size = UDim2.new(1, -12, 1, -6), Position = UDim2.fromOffset(6, 3), StrokeThickness = 1.5, Parent = chip })
 		content = inner
 		return panel, palette
 	end
@@ -366,7 +366,7 @@ local function buildPage(pageId: number)
 			end
 		end
 		if #crafted > 0 then
-			local frame = section("☄️ CRAFTED AT THE COSMIC FORGE • LIMITED TIME", Color3.fromRGB(190, 120, 255), 24)
+			local frame = section("CRAFTED AT THE COSMIC FORGE • LIMITED TIME", Color3.fromRGB(190, 120, 255), 24)
 			local cells = grid(frame, 28)
 			for index, donut in crafted do
 				buildCard(cells, donut, index, palette)
@@ -380,7 +380,7 @@ local function buildPage(pageId: number)
 			end
 		end
 		if #extra > 0 then
-			local frame = section("🛠 ADMIN PANEL ONLY", Rarities.Get("Admin").Color, 24)
+			local frame = section("ADMIN PANEL ONLY", Rarities.Get("Admin").Color, 24)
 			local cells = grid(frame, 28)
 			for index, donut in extra do
 				buildCard(cells, donut, index, palette)
@@ -394,9 +394,9 @@ function Index.Open()
 end
 
 function Index.Init()
-	modal = Modal.new("📖 DONUT INDEX", Theme.Colors.Blue, Vector2.new(780, 540))
+	modal = Modal.new("DONUT INDEX", Theme.Colors.Blue, Vector2.new(780, 540))
 	counter = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -196, 0, 24), Position = UDim2.fromOffset(0, 50), Parent = modal.Body })
-	claimAll = Theme.Button({ Name = "ClaimAll", Text = "🎁 Claim All", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(186, 28), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 47), Parent = modal.Body })
+	claimAll = Theme.Button({ Name = "ClaimAll", Text = "Claim All", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(186, 28), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 47), Parent = modal.Body })
 	claimAll.Activated:Connect(function()
 		if Index.UnclaimedCount() > 0 then
 			State.Action("ClaimIndexAll")

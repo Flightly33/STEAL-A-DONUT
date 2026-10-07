@@ -8,11 +8,12 @@
 	    the ground: whoever grabs it gets chased by that biome's Domer).
 	  * Egg Shower: eggs keep dropping in every biome that can have eggs.
 	  * 2x Incubator Speed: every incubator hatches twice as fast.
-	  * The Eternal Storm (very rare, or the owner's 👑 button): a giant black hole hangs over the
-	    lane, huge rocks crash down where people are (whoever they land on is flung), and purple
-	    lightning strikes boxes all over the game - every one it hits becomes ETERNAL. Halfway
-	    through, while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down
-	    (MeteorService). The server
+	  * The Eternal Storm (on the real clock - every 2 hours, the same moment on every server:
+	    shared/StormClock - or the owner's 👑 button): a giant black hole hangs over the lane, huge
+	    rocks crash down where people are (whoever they land on is flung), and purple lightning
+	    strikes boxes all over the game - every one it hits becomes ETERNAL. Halfway through,
+	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService);
+	    when it ends, the meteor's crater and the shards left on the ground evaporate. The server
 	    picks where rocks land and which boxes get struck, and tells every client (StormBlock /
 	    StormStrike) so they all see the same thing; client/StormFX draws it.
 	Only one event runs at a time. Clients read it from workspace attributes (EventId, EventEndsAt),
@@ -43,6 +44,7 @@ local MeteorService = require(script.Parent.MeteorService)
 local GiantService = require(script.Parent.GiantService)
 local Decor = require(script.Parent.Decor)
 local Layout = require(Shared.Layout)
+local StormClock = require(Shared.StormClock)
 
 local EventService = {}
 
@@ -245,6 +247,7 @@ local function stop()
 		stormSky = nil
 	end
 	GiantService.Stop() -- (Cosmic Domer sinks back into his black hole)
+	MeteorService.Clear() -- (and the meteor's crater and shards evaporate)
 	workspace:SetAttribute("EventId", nil)
 	workspace:SetAttribute("EventEndsAt", nil)
 	for _, area in Areas.List do
@@ -349,6 +352,43 @@ local function boxRush()
 	workspace:SetAttribute("BoxRushEndsAt", nil)
 end
 
+-- The Eternal Storm on the real clock (StormClock): every server starts it at the same moment. A
+-- server that starts up in the middle of one joins in for what's left of it.
+local lastStormStart: number? = nil
+
+-- One look at the clock (`now`, Unix time): starts the storm if one is due (once per scheduled
+-- storm: if the owner ends it early, it stays ended). Returns when the next one starts.
+function EventService.StormTick(now: number): number
+	local started = StormClock.Current(now)
+	if started and started ~= lastStormStart then
+		lastStormStart = started
+		local left = started + storm.Duration - now
+		if left > 20 and not (current and current.Kind == "EternalStorm") then
+			EventService.Start(Events.ById.EternalStorm, left)
+		end
+	end
+	local nextAt = StormClock.Next(now)
+	workspace:SetAttribute("StormNextAt", nextAt)
+	return nextAt
+end
+
+local function stormClock()
+	while true do
+		local now = workspace:GetServerTimeNow()
+		local nextAt = EventService.StormTick(now)
+		task.wait(math.clamp(nextAt - now + 0.05, 0.1, 30))
+	end
+end
+
+-- Is the Eternal Storm on, or about to start (within `seconds`)? (Other events wait for it.)
+local function stormSoon(seconds: number): boolean
+	if not storm.Schedule.Enabled then
+		return false
+	end
+	local now = workspace:GetServerTimeNow()
+	return StormClock.Current(now) ~= nil or StormClock.Next(now) - now < seconds
+end
+
 function EventService.Init()
 	task.spawn(function()
 		while true do
@@ -360,10 +400,14 @@ function EventService.Init()
 	if not Config.Events.Enabled then
 		return
 	end
+	if storm.Schedule.Enabled then
+		task.spawn(stormClock)
+	end
 	task.spawn(function()
 		task.wait(Config.Events.FirstDelay)
 		while true do
-			if #Players:GetPlayers() > 0 and not current then
+			-- (not one that would be cut short by the storm)
+			if #Players:GetPlayers() > 0 and not current and not stormSoon(Config.Events.Duration + 10) then
 				EventService.Start(Events.Pick(rng, lastId))
 			end
 			task.wait(Config.Events.Duration + rng:NextNumber(Config.Events.Interval[1], Config.Events.Interval[2]))

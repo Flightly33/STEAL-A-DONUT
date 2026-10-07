@@ -10,6 +10,8 @@
 	  * purple lightning (StormStrike): a giant bolt from the sky onto a donut, which turns ETERNAL
 	  * and smaller purple bolts flickering down all around you while it lasts
 	  * shooting stars streaking across the sky
+	  * ambience (Config.EternalStorm.Ambience): a loop in the background the whole time, and now
+	    and then distant thunder or the other sound, taking turns
 	  * the cosmic sky (Config.EternalStorm.Sky, made in Blender - art/eternal_sky), once its images
 	    are uploaded: the whole sky turns into space with a galaxy band, slowly turning, and a giant
 	    black hole hangs high in front of you wherever you go (its disk spinning, the light bent
@@ -21,6 +23,7 @@
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -51,6 +54,9 @@ local shakeUntil, shakeStrength = 0, 0
 local nextAmbient = 0
 local nextComet = 0
 local setMusic: ((boolean) -> ())? = nil
+-- the storm's ambience (Config.EternalStorm.Ambience): a loop, and now and then thunder or the other
+local ambience: { [string]: Sound } = {}
+local ambienceToken = 0
 type Comet = { Part: BasePart, Velocity: Vector3, Born: number }
 local comets: { Comet } = {}
 
@@ -469,6 +475,49 @@ end
 --------------------------------------------------------------------------------
 -- Start / stop
 --------------------------------------------------------------------------------
+-- Ambience all through the storm: the loop fades in, and every Gap seconds distant thunder or the
+-- other sound plays, taking turns (so they never pile up).
+local function startAmbience()
+	ambienceToken += 1
+	local myToken = ambienceToken
+	local settings = STORM.Ambience
+	local loop = ambience.Loop
+	if loop then
+		loop.Volume = 0
+		loop:Play()
+		TweenService:Create(loop, TweenInfo.new(2.5), { Volume = settings.Loop.Volume }):Play()
+	end
+	task.spawn(function()
+		local thunderNext = rng:NextNumber() < 0.6
+		while true do
+			task.wait(rng:NextNumber(settings.Gap[1], settings.Gap[2]))
+			if ambienceToken ~= myToken then
+				return
+			end
+			local s = if thunderNext then ambience.Thunder else ambience.Other
+			if s then
+				s.TimePosition = 0
+				s:Play()
+			end
+			thunderNext = not thunderNext
+		end
+	end)
+end
+
+local function stopAmbience()
+	ambienceToken += 1
+	local myToken = ambienceToken
+	local loop = ambience.Loop
+	if loop then
+		TweenService:Create(loop, TweenInfo.new(2.5), { Volume = 0 }):Play()
+		task.delay(2.6, function()
+			if ambienceToken == myToken then
+				loop:Stop()
+			end
+		end)
+	end
+end
+
 local function setActive(on: boolean)
 	if on == active then
 		return
@@ -489,6 +538,11 @@ local function setActive(on: boolean)
 	end
 	if setMusic then
 		setMusic(on)
+	end
+	if on then
+		startAmbience()
+	else
+		stopAmbience()
 	end
 	swapSky(on)
 	if on then
@@ -598,6 +652,21 @@ function StormFX.Init(onMusic: ((boolean) -> ())?)
 	folder = Instance.new("Folder")
 	folder.Name = "StormFXLocal"
 	folder.Parent = workspace
+	-- the ambience sounds (made now, so they've loaded by the time a storm comes)
+	local ambienceFolder = Instance.new("Folder")
+	ambienceFolder.Name = "StormAmbience"
+	ambienceFolder.Parent = SoundService
+	type AmbienceSound = { Id: string, Volume: number }
+	local sounds: { [string]: AmbienceSound } = { Loop = STORM.Ambience.Loop, Thunder = STORM.Ambience.Thunder, Other = STORM.Ambience.Other }
+	for name, info in sounds do
+		local s = Instance.new("Sound")
+		s.Name = name
+		s.SoundId = info.Id
+		s.Volume = info.Volume
+		s.Looped = name == "Loop"
+		s.Parent = ambienceFolder
+		ambience[name] = s
+	end
 	grade = Instance.new("ColorCorrectionEffect")
 	grade.Name = "StormGrade"
 	grade.Enabled = false

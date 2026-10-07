@@ -5,12 +5,13 @@
 	a neon grid on Neon Streets, gears in the Clockwork Void, a starfield and a swirl round The
 	Black Hole...
 
-	Everything is drawn with plain UI frames and emoji (nothing to upload). The details sit behind
+	Everything is drawn with plain UI frames - no emoji, nothing to upload. The details sit behind
 	the donut cards, faded, so the cards stay easy to read.
 
 	  Palette  - Top / Bottom: the panel's gradient; Accent: its border, header and chips;
 	             Card / CardTop: the donut cards; Sky: behind the 3D donuts; Bits: detail colours
-	  Pattern  - which background (see PATTERNS below); Icons - emoji scattered over it
+	  Pattern  - which background (see PATTERNS below); down both edges: gems, rings and
+	             sparkles in the biome's colours
 ]]
 
 local Theme = require(script.Parent.Theme)
@@ -29,29 +30,28 @@ export type Palette = {
 	Sky: Color3,
 	Bits: { Color3 },
 	Pattern: string,
-	Icons: { string },
 }
 
 local SPRINKLES = { rgb(255, 90, 120), rgb(255, 220, 70), rgb(90, 200, 255), rgb(255, 255, 255), rgb(140, 230, 110) }
 
 IndexThemes.Palettes = {
-	Park = { Top = rgb(86, 170, 74), Bottom = rgb(34, 92, 46), Accent = rgb(255, 150, 210), Card = rgb(30, 70, 40), CardTop = rgb(52, 112, 60), Sky = rgb(150, 210, 255), Bits = SPRINKLES, Pattern = "Sprinkles", Icons = { "🌳", "🌸", "🍩", "🌼", "🦋" } },
-	Lake = { Top = rgb(80, 170, 235), Bottom = rgb(150, 70, 140), Accent = rgb(255, 180, 225), Card = rgb(40, 60, 110), CardTop = rgb(70, 100, 165), Sky = rgb(190, 225, 255), Bits = { rgb(255, 255, 255), rgb(255, 170, 215), rgb(170, 230, 255) }, Pattern = "Waves", Icons = { "🌊", "💧", "🦆", "🐟", "🌸" } },
-	Desert = { Top = rgb(238, 196, 112), Bottom = rgb(176, 98, 46), Accent = rgb(255, 236, 170), Card = rgb(110, 62, 30), CardTop = rgb(160, 100, 52), Sky = rgb(255, 224, 170), Bits = { rgb(255, 245, 225), rgb(255, 225, 160), rgb(230, 170, 100) }, Pattern = "Dunes", Icons = { "🌵", "☀️", "🐪", "🏜️", "🦂" } },
-	Jungle = { Top = rgb(40, 150, 90), Bottom = rgb(16, 66, 48), Accent = rgb(255, 210, 60), Card = rgb(18, 60, 42), CardTop = rgb(36, 104, 66), Sky = rgb(170, 230, 170), Bits = { rgb(255, 80, 100), rgb(255, 205, 50), rgb(90, 210, 100), rgb(170, 100, 255), rgb(255, 150, 50), rgb(70, 180, 255) }, Pattern = "Jellybeans", Icons = { "🌴", "🍃", "🦜", "🐒", "🍌" } },
-	Ice = { Top = rgb(150, 215, 250), Bottom = rgb(48, 100, 180), Accent = rgb(225, 245, 255), Card = rgb(36, 70, 130), CardTop = rgb(70, 120, 190), Sky = rgb(225, 240, 255), Bits = { rgb(255, 255, 255), rgb(210, 240, 255) }, Pattern = "Snow", Icons = { "❄️", "⛄", "🐧", "🧊", "🏔️" } },
-	Lava = { Top = rgb(250, 120, 40), Bottom = rgb(90, 18, 18), Accent = rgb(255, 210, 90), Card = rgb(70, 22, 18), CardTop = rgb(130, 44, 26), Sky = rgb(255, 190, 140), Bits = { rgb(255, 220, 90), rgb(255, 140, 40), rgb(255, 80, 30) }, Pattern = "Embers", Icons = { "🔥", "🌋", "🥐", "🍞" } },
-	Chocolate = { Top = rgb(130, 78, 48), Bottom = rgb(42, 22, 14), Accent = rgb(255, 190, 90), Card = rgb(52, 30, 20), CardTop = rgb(92, 56, 36), Sky = rgb(210, 170, 140), Bits = { rgb(90, 52, 32), rgb(150, 95, 60) }, Pattern = "ChocolateBar", Icons = { "🍫", "🍄", "⛏️", "💎", "🕯️" } },
-	Candy = { Top = rgb(232, 60, 84), Bottom = rgb(120, 18, 44), Accent = rgb(255, 255, 255), Card = rgb(96, 18, 40), CardTop = rgb(160, 40, 70), Sky = rgb(255, 210, 225), Bits = { rgb(255, 255, 255), rgb(255, 180, 200) }, Pattern = "Peppermint", Icons = { "🍬", "🍭", "🧁", "🍫", "🍪" } },
-	Toys = { Top = rgb(70, 140, 245), Bottom = rgb(36, 50, 150), Accent = rgb(255, 215, 50), Card = rgb(34, 46, 120), CardTop = rgb(60, 90, 190), Sky = rgb(200, 225, 255), Bits = { rgb(235, 60, 60), rgb(255, 205, 50), rgb(70, 190, 90), rgb(255, 140, 40), rgb(170, 90, 230) }, Pattern = "Blocks", Icons = { "🧸", "🚂", "🎲", "🪁", "🎈" } },
-	Haunted = { Top = rgb(110, 60, 160), Bottom = rgb(24, 40, 32), Accent = rgb(150, 255, 130), Card = rgb(36, 28, 54), CardTop = rgb(70, 48, 100), Sky = rgb(170, 160, 210), Bits = { rgb(230, 240, 255), rgb(150, 255, 130) }, Pattern = "Mist", Icons = { "👻", "🎃", "🦇", "🕸️", "🕯️" } },
-	Clouds = { Top = rgb(140, 200, 255), Bottom = rgb(230, 140, 200), Accent = rgb(255, 255, 255), Card = rgb(70, 90, 160), CardTop = rgb(110, 140, 215), Sky = rgb(235, 245, 255), Bits = { rgb(255, 255, 255), rgb(255, 230, 245) }, Pattern = "Clouds", Icons = { "☁️", "🎈", "🌈", "🧁", "🪁" } },
-	CyberStreets = { Top = rgb(30, 24, 70), Bottom = rgb(8, 8, 22), Accent = rgb(0, 230, 255), Card = rgb(16, 16, 40), CardTop = rgb(36, 30, 80), Sky = rgb(40, 30, 80), Bits = { rgb(0, 230, 255), rgb(255, 60, 200), rgb(255, 230, 0) }, Pattern = "NeonGrid", Icons = { "🌃", "💡", "🛹", "🎧" } },
-	RobotFactory = { Top = rgb(120, 126, 140), Bottom = rgb(40, 42, 50), Accent = rgb(255, 195, 0), Card = rgb(44, 46, 56), CardTop = rgb(80, 84, 98), Sky = rgb(200, 205, 215), Bits = { rgb(255, 195, 0), rgb(25, 25, 30) }, Pattern = "Hazard", Icons = { "🤖", "⚙️", "🔩", "🏭", "🔧" } },
-	Clockwork = { Top = rgb(90, 64, 120), Bottom = rgb(30, 20, 40), Accent = rgb(230, 180, 80), Card = rgb(40, 28, 54), CardTop = rgb(76, 54, 96), Sky = rgb(220, 200, 170), Bits = { rgb(230, 180, 80), rgb(190, 140, 60) }, Pattern = "Gears", Icons = { "⚙️", "🕰️", "⏳", "🔑" } },
-	Heaven = { Top = rgb(255, 236, 170), Bottom = rgb(200, 150, 70), Accent = rgb(255, 255, 255), Card = rgb(120, 86, 40), CardTop = rgb(180, 140, 70), Sky = rgb(255, 250, 230), Bits = { rgb(255, 255, 255), rgb(255, 240, 160) }, Pattern = "Glow", Icons = { "✨", "😇", "☁️", "👑", "🌟" } },
-	Glitch = { Top = rgb(30, 10, 40), Bottom = rgb(4, 4, 8), Accent = rgb(255, 0, 220), Card = rgb(18, 8, 26), CardTop = rgb(44, 16, 60), Sky = rgb(30, 20, 40), Bits = { rgb(255, 0, 220), rgb(0, 230, 255), rgb(255, 255, 255), rgb(20, 20, 20) }, Pattern = "Pixels", Icons = { "👾", "💾", "⚠️", "📺" } },
-	BlackHole = { Top = rgb(40, 20, 80), Bottom = rgb(4, 2, 12), Accent = rgb(190, 120, 255), Card = rgb(18, 10, 38), CardTop = rgb(44, 26, 84), Sky = rgb(14, 8, 30), Bits = { rgb(255, 255, 255), rgb(200, 170, 255), rgb(255, 170, 90) }, Pattern = "Space", Icons = { "🌌", "🪐", "☄️", "⭐", "🛸" } },
+	Park = { Top = rgb(86, 170, 74), Bottom = rgb(34, 92, 46), Accent = rgb(255, 150, 210), Card = rgb(30, 70, 40), CardTop = rgb(52, 112, 60), Sky = rgb(150, 210, 255), Bits = SPRINKLES, Pattern = "Sprinkles" },
+	Lake = { Top = rgb(80, 170, 235), Bottom = rgb(150, 70, 140), Accent = rgb(255, 180, 225), Card = rgb(40, 60, 110), CardTop = rgb(70, 100, 165), Sky = rgb(190, 225, 255), Bits = { rgb(255, 255, 255), rgb(255, 170, 215), rgb(170, 230, 255) }, Pattern = "Waves" },
+	Desert = { Top = rgb(238, 196, 112), Bottom = rgb(176, 98, 46), Accent = rgb(255, 236, 170), Card = rgb(110, 62, 30), CardTop = rgb(160, 100, 52), Sky = rgb(255, 224, 170), Bits = { rgb(255, 245, 225), rgb(255, 225, 160), rgb(230, 170, 100) }, Pattern = "Dunes" },
+	Jungle = { Top = rgb(40, 150, 90), Bottom = rgb(16, 66, 48), Accent = rgb(255, 210, 60), Card = rgb(18, 60, 42), CardTop = rgb(36, 104, 66), Sky = rgb(170, 230, 170), Bits = { rgb(255, 80, 100), rgb(255, 205, 50), rgb(90, 210, 100), rgb(170, 100, 255), rgb(255, 150, 50), rgb(70, 180, 255) }, Pattern = "Jellybeans" },
+	Ice = { Top = rgb(150, 215, 250), Bottom = rgb(48, 100, 180), Accent = rgb(225, 245, 255), Card = rgb(36, 70, 130), CardTop = rgb(70, 120, 190), Sky = rgb(225, 240, 255), Bits = { rgb(255, 255, 255), rgb(210, 240, 255) }, Pattern = "Snow" },
+	Lava = { Top = rgb(250, 120, 40), Bottom = rgb(90, 18, 18), Accent = rgb(255, 210, 90), Card = rgb(70, 22, 18), CardTop = rgb(130, 44, 26), Sky = rgb(255, 190, 140), Bits = { rgb(255, 220, 90), rgb(255, 140, 40), rgb(255, 80, 30) }, Pattern = "Embers" },
+	Chocolate = { Top = rgb(130, 78, 48), Bottom = rgb(42, 22, 14), Accent = rgb(255, 190, 90), Card = rgb(52, 30, 20), CardTop = rgb(92, 56, 36), Sky = rgb(210, 170, 140), Bits = { rgb(90, 52, 32), rgb(150, 95, 60) }, Pattern = "ChocolateBar" },
+	Candy = { Top = rgb(232, 60, 84), Bottom = rgb(120, 18, 44), Accent = rgb(255, 255, 255), Card = rgb(96, 18, 40), CardTop = rgb(160, 40, 70), Sky = rgb(255, 210, 225), Bits = { rgb(255, 255, 255), rgb(255, 180, 200) }, Pattern = "Peppermint" },
+	Toys = { Top = rgb(70, 140, 245), Bottom = rgb(36, 50, 150), Accent = rgb(255, 215, 50), Card = rgb(34, 46, 120), CardTop = rgb(60, 90, 190), Sky = rgb(200, 225, 255), Bits = { rgb(235, 60, 60), rgb(255, 205, 50), rgb(70, 190, 90), rgb(255, 140, 40), rgb(170, 90, 230) }, Pattern = "Blocks" },
+	Haunted = { Top = rgb(110, 60, 160), Bottom = rgb(24, 40, 32), Accent = rgb(150, 255, 130), Card = rgb(36, 28, 54), CardTop = rgb(70, 48, 100), Sky = rgb(170, 160, 210), Bits = { rgb(230, 240, 255), rgb(150, 255, 130) }, Pattern = "Mist" },
+	Clouds = { Top = rgb(140, 200, 255), Bottom = rgb(230, 140, 200), Accent = rgb(255, 255, 255), Card = rgb(70, 90, 160), CardTop = rgb(110, 140, 215), Sky = rgb(235, 245, 255), Bits = { rgb(255, 255, 255), rgb(255, 230, 245) }, Pattern = "Clouds" },
+	CyberStreets = { Top = rgb(30, 24, 70), Bottom = rgb(8, 8, 22), Accent = rgb(0, 230, 255), Card = rgb(16, 16, 40), CardTop = rgb(36, 30, 80), Sky = rgb(40, 30, 80), Bits = { rgb(0, 230, 255), rgb(255, 60, 200), rgb(255, 230, 0) }, Pattern = "NeonGrid" },
+	RobotFactory = { Top = rgb(120, 126, 140), Bottom = rgb(40, 42, 50), Accent = rgb(255, 195, 0), Card = rgb(44, 46, 56), CardTop = rgb(80, 84, 98), Sky = rgb(200, 205, 215), Bits = { rgb(255, 195, 0), rgb(25, 25, 30) }, Pattern = "Hazard" },
+	Clockwork = { Top = rgb(90, 64, 120), Bottom = rgb(30, 20, 40), Accent = rgb(230, 180, 80), Card = rgb(40, 28, 54), CardTop = rgb(76, 54, 96), Sky = rgb(220, 200, 170), Bits = { rgb(230, 180, 80), rgb(190, 140, 60) }, Pattern = "Gears" },
+	Heaven = { Top = rgb(255, 236, 170), Bottom = rgb(200, 150, 70), Accent = rgb(255, 255, 255), Card = rgb(120, 86, 40), CardTop = rgb(180, 140, 70), Sky = rgb(255, 250, 230), Bits = { rgb(255, 255, 255), rgb(255, 240, 160) }, Pattern = "Glow" },
+	Glitch = { Top = rgb(30, 10, 40), Bottom = rgb(4, 4, 8), Accent = rgb(255, 0, 220), Card = rgb(18, 8, 26), CardTop = rgb(44, 16, 60), Sky = rgb(30, 20, 40), Bits = { rgb(255, 0, 220), rgb(0, 230, 255), rgb(255, 255, 255), rgb(20, 20, 20) }, Pattern = "Pixels" },
+	BlackHole = { Top = rgb(40, 20, 80), Bottom = rgb(4, 2, 12), Accent = rgb(190, 120, 255), Card = rgb(18, 10, 38), CardTop = rgb(44, 26, 84), Sky = rgb(14, 8, 30), Bits = { rgb(255, 255, 255), rgb(200, 170, 255), rgb(255, 170, 90) }, Pattern = "Space" },
 } :: { [string]: Palette }
 
 local FALLBACK: Palette = IndexThemes.Palettes.Park
@@ -307,23 +307,30 @@ function IndexThemes.Decorate(backdrop: Instance, theme: string, seed: number)
 	if pattern then
 		pattern(ctx)
 	end
-	-- big faded emoji down both edges (where the cards don't cover them)
+	-- gems, rings and sparkles down both edges (where the cards don't cover them), in the biome's
+	-- colours
 	for i = 1, 14 do
 		local left = i % 2 == 0
-		local icon = palette.Icons[((i - 1) % #palette.Icons) + 1]
-		Theme.new("TextLabel", {
-			Name = "Icon",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(if left then ctx.Rng:NextNumber(0.02, 0.07) else ctx.Rng:NextNumber(0.93, 0.98), (i - 0.5) / 14),
-			Size = UDim2.fromOffset(60, 60),
-			BackgroundTransparency = 1,
-			Text = icon,
-			TextSize = ctx.Rng:NextInteger(30, 46),
-			TextTransparency = 0.45,
-			Rotation = ctx.Rng:NextNumber(-20, 20),
-			Font = Enum.Font.GothamBold,
-			Parent = backdrop,
-		})
+		local x = if left then ctx.Rng:NextNumber(0.025, 0.065) else ctx.Rng:NextNumber(0.935, 0.975)
+		local y = (i - 0.5) / 14
+		local size = ctx.Rng:NextNumber(26, 40)
+		local color = if i % 4 == 0 then palette.Accent else bit(ctx)
+		local kind = i % 3
+		if kind == 0 then
+			-- a gem: a diamond with a lighter facet in it
+			shape(ctx, x, y, size * 0.75, size * 0.75, color, 0.35, 0.18, 45)
+			shape(ctx, x - 0.004, y - 0.004, size * 0.3, size * 0.3, color:Lerp(WHITE, 0.6), 0.3, 0.2, 45)
+		elseif kind == 1 then
+			-- a ring with a dot in the middle
+			ring(ctx, x, y, size * 0.8, color, 4, 0.35)
+			shape(ctx, x, y, size * 0.22, size * 0.22, color, 0.3, 1)
+		else
+			-- a sparkle: a tall and a short beam crossed, a little diamond where they meet
+			local turn = ctx.Rng:NextNumber(-12, 12)
+			shape(ctx, x, y, size * 0.16, size, color, 0.35, 1, turn)
+			shape(ctx, x, y, size * 0.62, size * 0.14, color, 0.35, 1, turn)
+			shape(ctx, x, y, size * 0.26, size * 0.26, color:Lerp(WHITE, 0.5), 0.25, 0.2, 45 + turn)
+		end
 	end
 end
 

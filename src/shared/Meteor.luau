@@ -25,6 +25,7 @@ Meteor.SIZE = 34 -- studs across, the rock
 -- where it comes through the sky: high up over the lane, further out (so the lobby sees it coming)
 Meteor.ENTRY = Vector3.new(170, 650, 430)
 Meteor.CRATER = 46 -- studs across
+Meteor.EVAPORATE = 2.5 -- seconds: the crater and the shards evaporating when the storm ends
 
 local rgb = Color3.fromRGB
 local ROCK = { rgb(58, 44, 72), rgb(46, 36, 60), rgb(72, 54, 84) }

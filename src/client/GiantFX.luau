@@ -45,7 +45,7 @@ local CLOSE_TIME = 1.5 -- seconds: the hole closing after he's gone
 local GIANT = Config.CosmicGiant
 local WHITE = rgb(255, 255, 255)
 -- (Roblox's own sounds for the parts that didn't come with one: nothing to upload)
-local ROAR, THUD, WHOOSH = "rbxasset://sounds/action_falling.mp3", "rbxasset://sounds/action_jump_land.mp3", "rbxasset://sounds/Rocket whoosh 01.wav"
+local ROAR, THUD = "rbxasset://sounds/action_falling.mp3", "rbxasset://sounds/action_jump_land.mp3"
 
 type Slam = { Hand: string, Target: Vector3, Start: number, Swung: boolean, Hit: boolean, Warning: Model?, Charge: BasePart?, Trail: Trail? }
 type Star = { Target: Vector3, Land: number, Part: BasePart?, Warning: Model?, Landed: boolean }
@@ -84,6 +84,7 @@ local flash: Frame? = nil
 local flashUntil, flashStrength = 0, 0
 local grade: ColorCorrectionEffect? = nil
 local flare = 0 -- how bright the hole is flaring (star rain)
+local lastStarImpact = 0
 
 -- his eyes: which way they look (Giant.IrisFrame), his lids (Giant.Lid) and brows (Giant.Brow)
 local BLINK = 0.22 -- seconds
@@ -901,7 +902,12 @@ local function starLanded(star: Star)
 		star.Warning = nil
 	end
 	local at = star.Target
-	oneShot(THUD, 1, 0.55)
+	-- the impact sound (it's loud: a few at most each moment, however many land together)
+	local clock = os.clock()
+	if clock - lastStarImpact >= 0.15 then
+		lastStarImpact = clock
+		oneShot(GIANT.Sounds.StarImpact, GIANT.StarRain.ImpactVolume, 1)
+	end
 	shake(0.6 + 2 * closeness(at, 700))
 	ring(at, GIANT.StarRain.Radius * 2.6, rgb(255, 200, 120), 0.6, 0.5)
 	ring(at, GIANT.StarRain.Radius * 1.6, WHITE, 0.4, 0.7)
@@ -922,7 +928,7 @@ local function updateRains(now: number)
 		local t = now - rain.Start
 		if not rain.Launched and t >= Giant.STAR_CHARGE then
 			rain.Launched = true
-			oneShot(WHOOSH, 1.2, 0.55)
+			play("StarLaunch", GIANT.StarRain.LaunchVolume)
 			screenFlash(0.2, Giant.VIOLET)
 		end
 		local done = true
@@ -1292,7 +1298,7 @@ function GiantFX.Init()
 	sf.Name = "GiantSounds"
 	sf.Parent = SoundService
 	soundFolder = sf
-	local ids: { [string]: string } = { Swing = GIANT.Sounds.Swing, Impact = GIANT.Sounds.Impact, Emerge = GIANT.Sounds.Emerge }
+	local ids: { [string]: string } = { Swing = GIANT.Sounds.Swing, Impact = GIANT.Sounds.Impact, Emerge = GIANT.Sounds.Emerge, StarLaunch = GIANT.Sounds.StarLaunch, StarImpact = GIANT.Sounds.StarImpact }
 	for name, id in ids do
 		local s = Instance.new("Sound")
 		s.Name = name
