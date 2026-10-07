@@ -408,6 +408,16 @@ Config.CosmicGiant = {
 	KnockRadius = 30, -- studs round where a fist lands: anyone inside is knocked flying and drops what they carry
 	FlingPower = 130,
 	Reach = { 15, 60 }, -- how far from the crater his fists land (studs)
+	-- What he does, over and over (one attack every SlamEvery seconds)
+	Pattern = { "Slam", "Slam", "Stars", "Slam", "Slam", "Beam" },
+	StarRain = {
+		Count = 7, -- stars he pulls out of the black hole
+		Radius = 16, -- studs round where each lands: anyone inside is knocked flying
+		Spread = { 25, 110 }, -- how far from the crater they land (studs)
+	},
+	Beam = {
+		Radius = 12, -- studs either side of his eye beams' path that knock you flying
+	},
 	Sounds = {
 		Swing = "rbxassetid://9039691442", -- his arm swinging down
 		Impact = "rbxassetid://91288569991875", -- his fist hitting the lane

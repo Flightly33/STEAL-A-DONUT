@@ -19,6 +19,8 @@
 		Meteor(info)                       the Cosmic Meteor: { Position, StartAt (server time), Seed, Area } - play the show
 		CosmicCrafted(info)                you crafted The Cosmic Donut: { Shards } - celebrate
 		GiantSlam(info)                    Cosmic Domer smashes a fist: { Hand, Target, StartAt (server time) }
+		GiantStarRain(info)                Cosmic Domer pulls stars out of the black hole: { Targets, StartAt }
+		GiantBeam(info)                    Cosmic Domer sweeps his eye beams across the lane: { From, To, StartAt }
 
 	Client -> Server
 		Action(name, arg)                  shop purchases, equip skin, run speed, teleport home...
@@ -35,7 +37,7 @@ local RunService = game:GetService("RunService")
 -- otherwise the client's WaitForChild finds this script instead of the folder and hangs forever.
 local FOLDER_NAME = "GameRemotes"
 
-local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "BoxesReset", "BoxOpened", "SkipOdds", "Meteor", "CosmicCrafted", "GiantSlam" }
+local EVENTS = { "Notify", "State", "ChaseStarted", "ChaseEnded", "OfflineEarnings", "LeaderboardUpdated", "AreaAnnouncement", "Action", "ClientReady", "Flung", "EggHatched", "AdminPanel", "CrateOpened", "StormBlock", "StormStrike", "BoxesReset", "BoxOpened", "SkipOdds", "Meteor", "CosmicCrafted", "GiantSlam", "GiantStarRain", "GiantBeam" }
 local FUNCTIONS = { "GetLeaderboard", "GetGlobalStats", "GetSellList" }
 
 local Remotes = {}
