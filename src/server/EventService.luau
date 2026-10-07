@@ -40,6 +40,7 @@ local PlotService = require(script.Parent.PlotService)
 local PetService = require(script.Parent.PetService)
 local ItemService = require(script.Parent.ItemService)
 local MeteorService = require(script.Parent.MeteorService)
+local GiantService = require(script.Parent.GiantService)
 local Decor = require(script.Parent.Decor)
 local Layout = require(Shared.Layout)
 
@@ -243,6 +244,7 @@ local function stop()
 		stormSky:Destroy()
 		stormSky = nil
 	end
+	GiantService.Stop() -- (Cosmic Domer sinks back into his black hole)
 	workspace:SetAttribute("EventId", nil)
 	workspace:SetAttribute("EventEndsAt", nil)
 	for _, area in Areas.List do

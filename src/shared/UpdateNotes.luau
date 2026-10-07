@@ -68,6 +68,13 @@ UpdateNotes.List = {
 				"It cracks open in a glowing crater with meteor shards all around it",
 				"The Eternal Storm comes about every 2 hours now (while the meteor is around)",
 			} },
+			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
+				"After the meteor crashes, a black hole tears open over the lane and a GIANT Domer in cosmic armour climbs out of it",
+				"Every few seconds he slowly raises a huge fist and smashes it into the lane near the crater",
+				"A glowing circle shows where it's going to land: get out of it! If he hits you, you go flying and drop whatever you're carrying",
+				"Every screen in the server shakes when his fist hits the ground",
+				"He sinks back into the black hole when the Eternal Storm ends",
+			} },
 			{ Title = "Meteor Shards", Tag = "NEW", Lines = {
 				"Grab a shard from round the crater and run it back to the lobby to keep it",
 				"Nobody chases you, but get hit by a bat or flung and you drop it for anyone to grab!",

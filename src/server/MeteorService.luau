@@ -4,7 +4,8 @@
 	the first biomes (in the front half of the lane, away from Domer). Every client plays the show on
 	the same clock (client/MeteorFX: the white screen, the shaking, the sky cracking, the fall); here
 	it lands - anyone right under it is flung - and cracks open in a crater with its shards lying
-	round it (Config.CosmicDonut.Pieces).
+	round it (Config.CosmicDonut.Pieces). Then Cosmic Domer climbs out of a black hole over the
+	crater (GiantService).
 
 	A shard is carried like an egg (StealService.StartCustom): one at a time, nobody chases you, and
 	it's yours once you're back over the lobby line (Data.MeteorShards). Get flung or knocked and it
@@ -26,6 +27,7 @@ local Remotes = require(Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local StealService = require(script.Parent.StealService)
 local ItemService = require(script.Parent.ItemService)
+local GiantService = require(script.Parent.GiantService)
 
 local MeteorService = {}
 
@@ -180,6 +182,8 @@ local function land(at: Vector3, seed: number)
 		local distance = Meteor.CRATER * r:NextNumber(0.6, 1.1)
 		placeShard(at + Vector3.new(math.cos(angle), 0, math.sin(angle)) * distance, seed + i)
 	end
+	-- and Cosmic Domer climbs out of a black hole over it (GiantService)
+	GiantService.Start(at)
 end
 
 -- Start the show (EventService, halfway through the storm). Returns where it'll land.

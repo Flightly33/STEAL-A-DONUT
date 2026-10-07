@@ -399,6 +399,21 @@ Config.CosmicDonut = {
 	},
 }
 
+-- Cosmic Domer (shared/Giant, server/GiantService): after the Cosmic Meteor crashes, a colossal
+-- Domer climbs out of a black hole over the lane for the rest of the Eternal Storm and smashes his
+-- fists into the lane near the crater. Enabled = false: no giant.
+Config.CosmicGiant = {
+	Enabled = true,
+	SlamEvery = 7, -- seconds between slams (one fist at a time)
+	KnockRadius = 30, -- studs round where a fist lands: anyone inside is knocked flying and drops what they carry
+	FlingPower = 130,
+	Reach = { 15, 60 }, -- how far from the crater his fists land (studs)
+	Sounds = {
+		Swing = "rbxassetid://9039691442", -- his arm swinging down
+		Impact = "rbxassetid://91288569991875", -- his fist hitting the lane
+	},
+}
+
 Config.Events = {
 	Enabled = true,
 	FirstDelay = 90, -- seconds after the server starts
