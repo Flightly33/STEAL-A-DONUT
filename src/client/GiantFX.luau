@@ -85,6 +85,12 @@ local flashUntil, flashStrength = 0, 0
 local grade: ColorCorrectionEffect? = nil
 local flare = 0 -- how bright the hole is flaring (star rain)
 
+-- his eyes: which way they look (Giant.IrisFrame), his lids (Giant.Lid) and brows (Giant.Brow)
+local BLINK = 0.22 -- seconds
+local look = Vector2.new(0, -0.6)
+local lidClosed, browAnger = 0, 0
+local nextBlink, blinkStart = 0, -10
+
 -- Server time -> os.clock()
 local function localTime(serverTime: number): number
 	return os.clock() + (serverTime - workspace:GetServerTimeNow())
@@ -397,6 +403,7 @@ local function ensureBuilt(at: Vector3)
 	if built and site == at then
 		return
 	end
+	nextBlink = os.clock() + rng:NextNumber(2, 4) -- (not the moment he appears)
 	if built then
 		clear() -- (a different giant: forget the old one's attacks too)
 	end
@@ -581,9 +588,81 @@ local function collectPortal(open: number, now: number, parts: { BasePart }, fra
 	scaled(giant.Swirl, L.Portal * CFrame.Angles(0, 0, -now * 0.9 * speedUp))
 end
 
+--------------------------------------------------------------------------------
+-- His eyes: they follow you, blink every few seconds, glare at where he's about to hit (lids
+-- down, brows frowning), open wide as his eye beams charge, and look up at the stars he summons
+--------------------------------------------------------------------------------
+local function eyeMood(now: number, head: CFrame): (Vector2, number, number)
+	for _, beam in beams do
+		local t = now - beam.Start
+		if t >= 0 and t < Giant.BEAM_CHARGE + Giant.BEAM_SWEEP then
+			local a = math.clamp((t - Giant.BEAM_CHARGE) / Giant.BEAM_SWEEP, 0, 1)
+			return Giant.LookAt(head, Giant.BeamPoint(beam.From, beam.To, a)), if t < Giant.BEAM_CHARGE then -0.35 else 0.15, 1
+		end
+	end
+	for _, slam in slams do
+		local t = now - slam.Start
+		if t >= 0 and t < Giant.IMPACT + Giant.HOLD then
+			return Giant.LookAt(head, slam.Target), 0.3, 1
+		end
+	end
+	if summoning(now) > 0.3 then
+		return Vector2.new(0, 1), -0.2, 0.5
+	end
+	local player = Players.LocalPlayer
+	local character = player and player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return Giant.LookAt(head, root.CFrame.Position), 0, 0.25
+	end
+	return Vector2.new(0, -0.6), 0, 0.2
+end
+
+local function updateEyes(now: number, dt: number, head: CFrame)
+	local want, lid, anger = eyeMood(now, head)
+	look = look:Lerp(want, math.min(1, dt * 7))
+	lidClosed += (lid - lidClosed) * math.min(1, dt * 10)
+	browAnger += (anger - browAnger) * math.min(1, dt * 6)
+	if math.abs(lid - lidClosed) < 0.002 then
+		lidClosed = lid
+	end
+	if now >= nextBlink then
+		blinkStart = now
+		nextBlink = now + rng:NextNumber(2.5, 6)
+	end
+end
+
+-- How shut his eyes are right now (a blink shuts them all the way).
+local function lidNow(now: number): number
+	local b = (now - blinkStart) / BLINK
+	if b >= 0 and b < 1 then
+		return math.max(lidClosed, math.sin(b * math.pi))
+	end
+	return lidClosed
+end
+
+local function collectEyes(body: CFrame, now: number, parts: { BasePart }, frames: { CFrame })
+	local giant = built :: Giant.Built
+	local closed = lidNow(now)
+	for side, eye in giant.Eyes do
+		Giant.Collect(eye.Iris, body * Giant.IrisFrame(side, look), parts, frames)
+		local lidFrame, lidSize, lashFrame = Giant.Lid(side, closed)
+		if (eye.Lid.Size - lidSize).Magnitude > 0.01 then
+			eye.Lid.Size = lidSize
+		end
+		table.insert(parts, eye.Lid)
+		table.insert(frames, body * lidFrame)
+		table.insert(parts, eye.Lash)
+		table.insert(frames, body * lashFrame)
+		table.insert(parts, eye.Brow)
+		table.insert(frames, body * Giant.Brow(side, browAnger))
+	end
+end
+
 local function collectBody(body: CFrame, now: number, parts: { BasePart }, frames: { CFrame })
 	local giant = built :: Giant.Built
 	Giant.Collect(giant.Body, body, parts, frames)
+	collectEyes(body, now, parts, frames)
 	local head = body * Giant.HEAD
 	Giant.Collect(giant.Crown, head * CFrame.new(0, Giant.HEAD_SIZE * 0.62, 0) * CFrame.Angles(math.rad(14), 0, math.rad(-8)) * CFrame.Angles(0, now * 0.6, 0), parts, frames)
 	Giant.Collect(giant.Halo, head * CFrame.new(0, 0.15 * S, 0.95 * S) * CFrame.Angles(0, 0, now * 0.25), parts, frames)
@@ -988,7 +1067,7 @@ local function updateBeams(now: number, body: CFrame?)
 			local point = Giant.BeamPoint(beam.From, beam.To, a)
 			local index = 1
 			for _, side in { "Left", "Right" } do
-				local eye = (body * Giant.Eye(side)).Position
+				local eye = (body * Giant.Eye(side, look)).Position
 				local hit = point + Vector3.new(if side == "Left" then -2 else 2, 0, 0)
 				local length = (hit - eye).Magnitude
 				local cf = CFrame.lookAt((eye + hit) / 2, hit)
@@ -1172,6 +1251,7 @@ local function update(dt: number)
 	end
 	-- him, his arms, the hole (everything moved in one go)
 	local body = bodyFrame(now, out, attackTwist(now))
+	updateEyes(now, dt, body * Giant.HEAD)
 	updateBeams(now, body)
 	local parts: { BasePart } = {}
 	local frames: { CFrame } = {}
@@ -1246,6 +1326,11 @@ end
 -- (tests) the giant being drawn right now, if any
 function GiantFX.Current(): Giant.Built?
 	return built
+end
+
+-- (tests) his next blink, in `seconds`
+function GiantFX.BlinkIn(seconds: number)
+	nextBlink = os.clock() + seconds
 end
 
 return GiantFX

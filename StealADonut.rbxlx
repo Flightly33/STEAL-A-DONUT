@@ -8993,9 +8993,10 @@ return Format
 	              crater (each with a glowing circle where it'll land)
 	  EYE BEAM    his eyes charge up, a line glows on the lane, and two beams sweep along it
 
-	Built out of blocks like everything else (about 600 of them: armour plates, gold trim, rivets,
+	Built out of blocks like everything else (about 650 of them: armour plates, gold trim, rivets,
 	a reactor core in his chest, a star halo, orbiting moons and asteroids, a nebula cape...).
-	Every part is anchored; the client moves them.
+	Every part is anchored; the client moves them. His eyes are alive: they follow you, blink, and
+	narrow (with a frown) when he attacks.
 ]]
 
 local Giant = {}
@@ -9043,10 +9044,70 @@ Giant.HEAD = CFrame.new(0, 2.78 * S0 + Giant.HEAD_SIZE / 2, -0.05 * S0)
 Giant.CORE = CFrame.new(0, 1.75 * S0, -1.08 * S0)
 local FACE = Giant.HEAD_SIZE / 1.3 -- (Domer's face, scaled to this head)
 
--- Where each eye looks out from (the waist's frame): his eye beams start here.
-function Giant.Eye(side: string): CFrame
+-- His eyes (in FACE units, the head's frame): round eyeballs like Domer's, each with an iris made
+-- of balls sunk into it one inside the next (a dark ring, the glowing iris, a violet ring, a pink
+-- "event horizon" and a black-hole pupil), so it stays flush however far the eye turns.
+local EYE_X, EYE_Y, EYE_Z, EYE_R = 0.27, 0.16, -0.6, 0.28 -- (bulging out of his face, like Domer's)
+type IrisLayer = { Name: string, Radius: number, Depth: number } -- (Depth: its centre from the eyeball's)
+local IRIS_LAYERS: { IrisLayer } = {
+	{ Name = "IrisRing", Radius = 0.269, Depth = 0.016 },
+	{ Name = "Iris", Radius = 0.242, Depth = 0.05 },
+	{ Name = "IrisInner", Radius = 0.192, Depth = 0.105 },
+	{ Name = "EventHorizon", Radius = 0.12, Depth = 0.184 },
+	{ Name = "Pupil", Radius = 0.068, Depth = 0.243 },
+}
+local PUPIL_FRONT = 0.311
+Giant.LOOK_YAW = 0.38 -- how far (radians) his eyes turn left / right...
+Giant.LOOK_UP = 0.14 -- ...up (his heavy lids hide the rest)...
+Giant.LOOK_DOWN = 0.32 -- ...and down
+
+-- The centre of an eyeball (the waist's frame).
+function Giant.EyeCenter(side: string): CFrame
 	local x = if side == "Left" then -1 else 1
-	return Giant.HEAD * CFrame.new(x * 0.25 * FACE, 0.14 * FACE, -0.82 * FACE)
+	return Giant.HEAD * CFrame.new(x * EYE_X * FACE, EYE_Y * FACE, EYE_Z * FACE)
+end
+
+-- An iris's frame (the waist's frame; -Z out of the eye) with the eyes turned by `look`
+-- (-1..1 each way: +X towards his right, +Y up). Both eyes turn a little in, towards his nose.
+function Giant.IrisFrame(side: string, look: Vector2): CFrame
+	local x = if side == "Left" then -1 else 1
+	local yaw = math.clamp(look.X, -1, 1) * Giant.LOOK_YAW
+	local pitch = if look.Y >= 0 then math.min(look.Y, 1) * Giant.LOOK_UP else math.max(look.Y, -1) * Giant.LOOK_DOWN
+	return Giant.EyeCenter(side) * CFrame.Angles(0, -yaw + x * 0.04, 0) * CFrame.Angles(pitch, 0, 0)
+end
+
+-- Where each eye looks out from, its pupil (the waist's frame): his eye beams start here.
+function Giant.Eye(side: string, look: Vector2?): CFrame
+	return Giant.IrisFrame(side, look or Vector2.zero) * CFrame.new(0, 0, -PUPIL_FRONT * FACE)
+end
+
+-- Which way to turn his eyes (see IrisFrame) to look at `target`, his head being at `head` (world).
+function Giant.LookAt(head: CFrame, target: Vector3): Vector2
+	local p = head:PointToObjectSpace(target)
+	local forward = math.max(-p.Z, 1)
+	local yaw = math.atan2(p.X, forward)
+	local pitch = math.atan2(p.Y, forward)
+	return Vector2.new(math.clamp(yaw / Giant.LOOK_YAW, -1, 1), math.clamp(pitch / (if pitch >= 0 then Giant.LOOK_UP else Giant.LOOK_DOWN), -1, 1))
+end
+
+-- His upper eyelid (the waist's frame), `closed`: 0 = as usual (heavy, over the top of his iris),
+-- 1 = shut, below 0 = eyes wide open. Its centre, its size and the dark lash line along its edge.
+function Giant.Lid(side: string, closed: number): (CFrame, Vector3, CFrame)
+	local x = if side == "Left" then -1 else 1
+	local height = math.max(0.04, 0.2 + math.clamp(closed, -0.35, 1) * 0.46)
+	-- (it hugs the eyeball: only as deep as the eye bulges out under its edge, plus the iris)
+	local bottom = 0.48 - height - EYE_Y
+	local bulge = if bottom <= 0 then EYE_R else math.sqrt(math.max(0, EYE_R * EYE_R - bottom * bottom))
+	local back, front = 0.24, -EYE_Z + bulge + 0.065 -- (+ the iris and its highlights)
+	local top = Giant.HEAD * CFrame.new(x * EYE_X * FACE, 0.48 * FACE, 0) * CFrame.Angles(0, 0, x * 0.12)
+	return top * CFrame.new(0, -height / 2 * FACE, -(back + front) / 2 * FACE), Vector3.new(0.62, height, front - back) * FACE, top * CFrame.new(0, -height * FACE, -(front + 0.01) * FACE)
+end
+
+-- His eyebrow (the waist's frame), `anger` 0..1: lower and steeper when he's angry.
+function Giant.Brow(side: string, anger: number): CFrame
+	local x = if side == "Left" then -1 else 1
+	local a = math.clamp(anger, 0, 1)
+	return Giant.HEAD * CFrame.new(x * 0.27 * FACE, (0.55 - 0.06 * a) * FACE, -0.77 * FACE) * CFrame.Angles(0, 0, x * (0.22 + 0.2 * a))
 end
 
 export type Layout = {
@@ -9175,6 +9236,13 @@ local function ringOf(p: Piece, model: Instance, name: string, center: CFrame, r
 	end
 end
 
+export type Eye = {
+	Iris: Piece, -- in the iris's frame (IrisFrame)
+	Lid: BasePart, -- the upper eyelid (Lid: it grows down to blink)
+	Lash: BasePart, -- the lash line along its edge
+	Brow: BasePart,
+}
+
 export type Built = {
 	Model: Model,
 	Body: Piece, -- in the waist's frame
@@ -9190,6 +9258,7 @@ export type Built = {
 	Swirl: Piece, -- the spiral arms pouring into the hole (spin fast)
 	Core: BasePart, -- the reactor (pulses)
 	Irises: { [string]: BasePart }, -- his glowing eyes (they blaze before an eye beam)
+	Eyes: { [string]: Eye }, -- what moves in each eye (see IrisFrame, Lid and Brow)
 	Fists: { [string]: BasePart },
 	Palms: { [string]: BasePart }, -- glowing palms (charge up before a slam)
 }
@@ -9277,15 +9346,48 @@ function Giant.Build(): Built
 	end
 	add(body, model, "Head", Vector3.one * headSize, head, skin)
 	local irises: { [string]: BasePart } = {}
+	local eyes: { [string]: Eye } = {}
+	local function ball(p: Piece, name: string, radius: number, offset: CFrame, color: Color3, material: Enum.Material?): Part
+		local made = add(p, model, name, Vector3.one * radius * 2 * k, offset, color, material)
+		made.Shape = Enum.PartType.Ball
+		return made
+	end
 	for _, side in { -1, 1 } do
 		local name = if side < 0 then "Left" else "Right"
-		h("Eye", Vector3.one * 0.56, CFrame.new(side * 0.27, 0.16, -0.5), rgb(245, 245, 255))
-		h("Eyelid", Vector3.new(0.6, 0.2, 0.6), CFrame.new(side * 0.27, 0.38, -0.52) * CFrame.Angles(0, 0, side * 0.12), skin:Lerp(BLACK, 0.06))
-		irises[name] = h("Iris", Vector3.new(0.26, 0.26, 0.05), CFrame.new(side * 0.25, 0.14, -0.79), Giant.CYAN, neon)
-		h("Pupil", Vector3.new(0.1, 0.1, 0.06), CFrame.new(side * 0.25, 0.14, -0.81) * CFrame.Angles(0, 0, math.rad(45)), WHITE, neon)
-		h("Brow", Vector3.new(0.5, 0.11, 0.14), CFrame.new(side * 0.27, 0.53, -0.66) * CFrame.Angles(0, 0, side * 0.22), skin:Lerp(BLACK, 0.18))
+		-- a shadowy socket round a big round eyeball, a puffy lower lid under it
+		h("EyeSocket", Vector3.new(0.68, 0.64, 0.05), CFrame.new(side * EYE_X, 0.17, -0.665), skin:Lerp(Giant.VIOLET, 0.4):Lerp(BLACK, 0.25))
+		local eyeball = h("Eye", Vector3.one * EYE_R * 2, CFrame.new(side * EYE_X, EYE_Y, EYE_Z), rgb(242, 244, 255))
+		eyeball.Shape = Enum.PartType.Ball
+		h("LowerLid", Vector3.new(0.46, 0.06, 0.2), CFrame.new(side * EYE_X, -0.13, -0.66), skin:Lerp(BLACK, 0.08))
+		h("LowerLidLine", Vector3.new(0.4, 0.022, 0.03), CFrame.new(side * EYE_X, -0.1, -0.75), skin:Lerp(BLACK, 0.45))
+		-- the iris (in its own frame, so it can look round): layers of balls, glowing flecks
+		-- round it, a twinkling star in the black-hole pupil, and two shiny highlights
+		local iris = piece()
+		for _, layer in IRIS_LAYERS do
+			local layerName, radius, depth = layer.Name, layer.Radius, layer.Depth
+			local color = if layerName == "IrisRing" then rgb(16, 24, 80) elseif layerName == "Iris" then Giant.CYAN elseif layerName == "IrisInner" then Giant.VIOLET elseif layerName == "EventHorizon" then Giant.PINK else rgb(6, 2, 14)
+			local made = ball(iris, layerName, radius, CFrame.new(0, 0, -depth * k), color, if layerName == "IrisRing" or layerName == "Pupil" then nil else neon)
+			if layerName == "Iris" then
+				irises[name] = made
+			end
+		end
+		for n = 0, 11 do
+			local angle = n / 12 * math.pi * 2
+			add(iris, model, "IrisFleck", Vector3.new(0.014, if n % 2 == 0 then 0.055 else 0.04, 0.012) * k, CFrame.new(0, 0, -0.259 * k) * CFrame.Angles(0, 0, angle) * CFrame.new(0, 0.122 * k, 0) * CFrame.Angles(0.53, 0, 0), if n % 3 == 0 then Giant.PINK:Lerp(WHITE, 0.6) else rgb(215, 255, 255), neon)
+		end
+		-- (a little diamond, like the stars on his hairs - not an "x" or a "+", which read as
+		-- knocked out or as a cross)
+		add(iris, model, "PupilStar", Vector3.new(0.03, 0.03, 0.01) * k, CFrame.new(0, 0, -(PUPIL_FRONT + 0.002) * k) * CFrame.Angles(0, 0, math.rad(45)), WHITE, neon)
+		ball(iris, "Catchlight", 0.0375, CFrame.new(0.07 * k, 0.075 * k, -0.2695 * k), WHITE, neon)
+		ball(iris, "Catchlight", 0.018, CFrame.new(-0.06 * k, -0.055 * k, -0.2792 * k), WHITE, neon)
+		-- his heavy upper lid with its lash line, and his brow (they move: blinking, squinting, frowning)
+		local lidFrame, lidSize, lashFrame = Giant.Lid(name, 0)
+		local lid = part(model, "Eyelid", lidSize, lidFrame, skin:Lerp(BLACK, 0.06))
+		local lash = part(model, "LashLine", Vector3.new(0.64, 0.055, 0.04) * k, lashFrame, BLACK)
+		local brow = part(model, "Brow", Vector3.new(0.52, 0.11, 0.24) * k, Giant.Brow(name, 0), skin:Lerp(BLACK, 0.18))
+		eyes[name] = { Iris = iris, Lid = lid, Lash = lash, Brow = brow }
 		for n = 0, 1 do
-			h("WarPaint", Vector3.new(0.28, 0.045, 0.04), CFrame.new(side * 0.32, -0.08 - n * 0.09, -0.66) * CFrame.Angles(0, 0, side * 0.25), if n == 0 then Giant.PINK else Giant.VIOLET, neon)
+			h("WarPaint", Vector3.new(0.26, 0.045, 0.04), CFrame.new(side * 0.36, -0.2 - n * 0.08, -0.69) * CFrame.Angles(0, 0, side * 0.25), if n == 0 then Giant.PINK else Giant.VIOLET, neon)
 		end
 		h("Ear", Vector3.one * 0.34, CFrame.new(side * 0.66, -0.05, 0.05), skin)
 		h("Earring", Vector3.new(0.06, 0.24, 0.24), CFrame.new(side * 0.7, -0.32, 0.05), gold, foil)
@@ -9302,7 +9404,7 @@ function Giant.Build(): Built
 	h("Circlet", Vector3.new(1.32, 0.14, 0.06), CFrame.new(0, 0.5, -0.66), gold, foil)
 	h("Circlet", Vector3.new(1.32, 0.14, 0.06), CFrame.new(0, 0.5, 0.66), gold, foil)
 	h("CircletJewel", Vector3.new(0.2, 0.2, 0.1), CFrame.new(0, 0.52, -0.7) * CFrame.Angles(0, 0, math.rad(45)), Giant.CYAN, neon)
-	h("Nose", Vector3.new(0.3, 0.3, 0.46), CFrame.new(0, -0.05, -0.72), skin)
+	h("Nose", Vector3.new(0.28, 0.28, 0.46), CFrame.new(0, -0.12, -0.72), skin)
 	h("Stubble", Vector3.new(0.95, 0.62, 0.7), CFrame.new(0, -0.33, -0.33), rgb(120, 85, 180))
 	local r = Random.new(9)
 	for _ = 1, 7 do
@@ -9459,6 +9561,7 @@ function Giant.Build(): Built
 		Swirl = swirl,
 		Core = core,
 		Irises = irises,
+		Eyes = eyes,
 		Fists = fists,
 		Palms = palms,
 	}
@@ -12517,7 +12620,8 @@ UpdateNotes.List = {
 			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
 				"After the meteor crashes, a black hole tears open over the lane and a GIANT Domer in cosmic armour climbs out of it",
 				"He comes out with a roar, a shock wave and his own title card, and a boss bar shows how long he's staying",
-				"Look closer: glowing eyes, a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
+				"Look closer: a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
+				"His cosmic eyes: glowing irises with a black-hole pupil and a twinkling star in it. They follow you round the lane, blink, narrow when he's about to hit, and open wide as his eye beams charge",
 				"SLAM: he slowly raises a glowing fist and smashes it into the lane near the crater, with crystal spikes, cracks and a scorch mark",
 				"STAR RAIN: he throws both fists up and hurls burning stars all round the crater",
 				"EYE BEAM: his eyes blaze white, then two beams burn a line right across the lane",
@@ -32416,6 +32520,12 @@ local flashUntil, flashStrength = 0, 0
 local grade: ColorCorrectionEffect? = nil
 local flare = 0 -- how bright the hole is flaring (star rain)
 
+-- his eyes: which way they look (Giant.IrisFrame), his lids (Giant.Lid) and brows (Giant.Brow)
+local BLINK = 0.22 -- seconds
+local look = Vector2.new(0, -0.6)
+local lidClosed, browAnger = 0, 0
+local nextBlink, blinkStart = 0, -10
+
 -- Server time -> os.clock()
 local function localTime(serverTime: number): number
 	return os.clock() + (serverTime - workspace:GetServerTimeNow())
@@ -32728,6 +32838,7 @@ local function ensureBuilt(at: Vector3)
 	if built and site == at then
 		return
 	end
+	nextBlink = os.clock() + rng:NextNumber(2, 4) -- (not the moment he appears)
 	if built then
 		clear() -- (a different giant: forget the old one's attacks too)
 	end
@@ -32912,9 +33023,81 @@ local function collectPortal(open: number, now: number, parts: { BasePart }, fra
 	scaled(giant.Swirl, L.Portal * CFrame.Angles(0, 0, -now * 0.9 * speedUp))
 end
 
+--------------------------------------------------------------------------------
+-- His eyes: they follow you, blink every few seconds, glare at where he's about to hit (lids
+-- down, brows frowning), open wide as his eye beams charge, and look up at the stars he summons
+--------------------------------------------------------------------------------
+local function eyeMood(now: number, head: CFrame): (Vector2, number, number)
+	for _, beam in beams do
+		local t = now - beam.Start
+		if t >= 0 and t < Giant.BEAM_CHARGE + Giant.BEAM_SWEEP then
+			local a = math.clamp((t - Giant.BEAM_CHARGE) / Giant.BEAM_SWEEP, 0, 1)
+			return Giant.LookAt(head, Giant.BeamPoint(beam.From, beam.To, a)), if t < Giant.BEAM_CHARGE then -0.35 else 0.15, 1
+		end
+	end
+	for _, slam in slams do
+		local t = now - slam.Start
+		if t >= 0 and t < Giant.IMPACT + Giant.HOLD then
+			return Giant.LookAt(head, slam.Target), 0.3, 1
+		end
+	end
+	if summoning(now) > 0.3 then
+		return Vector2.new(0, 1), -0.2, 0.5
+	end
+	local player = Players.LocalPlayer
+	local character = player and player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root and root:IsA("BasePart") then
+		return Giant.LookAt(head, root.CFrame.Position), 0, 0.25
+	end
+	return Vector2.new(0, -0.6), 0, 0.2
+end
+
+local function updateEyes(now: number, dt: number, head: CFrame)
+	local want, lid, anger = eyeMood(now, head)
+	look = look:Lerp(want, math.min(1, dt * 7))
+	lidClosed += (lid - lidClosed) * math.min(1, dt * 10)
+	browAnger += (anger - browAnger) * math.min(1, dt * 6)
+	if math.abs(lid - lidClosed) < 0.002 then
+		lidClosed = lid
+	end
+	if now >= nextBlink then
+		blinkStart = now
+		nextBlink = now + rng:NextNumber(2.5, 6)
+	end
+end
+
+-- How shut his eyes are right now (a blink shuts them all the way).
+local function lidNow(now: number): number
+	local b = (now - blinkStart) / BLINK
+	if b >= 0 and b < 1 then
+		return math.max(lidClosed, math.sin(b * math.pi))
+	end
+	return lidClosed
+end
+
+local function collectEyes(body: CFrame, now: number, parts: { BasePart }, frames: { CFrame })
+	local giant = built :: Giant.Built
+	local closed = lidNow(now)
+	for side, eye in giant.Eyes do
+		Giant.Collect(eye.Iris, body * Giant.IrisFrame(side, look), parts, frames)
+		local lidFrame, lidSize, lashFrame = Giant.Lid(side, closed)
+		if (eye.Lid.Size - lidSize).Magnitude > 0.01 then
+			eye.Lid.Size = lidSize
+		end
+		table.insert(parts, eye.Lid)
+		table.insert(frames, body * lidFrame)
+		table.insert(parts, eye.Lash)
+		table.insert(frames, body * lashFrame)
+		table.insert(parts, eye.Brow)
+		table.insert(frames, body * Giant.Brow(side, browAnger))
+	end
+end
+
 local function collectBody(body: CFrame, now: number, parts: { BasePart }, frames: { CFrame })
 	local giant = built :: Giant.Built
 	Giant.Collect(giant.Body, body, parts, frames)
+	collectEyes(body, now, parts, frames)
 	local head = body * Giant.HEAD
 	Giant.Collect(giant.Crown, head * CFrame.new(0, Giant.HEAD_SIZE * 0.62, 0) * CFrame.Angles(math.rad(14), 0, math.rad(-8)) * CFrame.Angles(0, now * 0.6, 0), parts, frames)
 	Giant.Collect(giant.Halo, head * CFrame.new(0, 0.15 * S, 0.95 * S) * CFrame.Angles(0, 0, now * 0.25), parts, frames)
@@ -33319,7 +33502,7 @@ local function updateBeams(now: number, body: CFrame?)
 			local point = Giant.BeamPoint(beam.From, beam.To, a)
 			local index = 1
 			for _, side in { "Left", "Right" } do
-				local eye = (body * Giant.Eye(side)).Position
+				local eye = (body * Giant.Eye(side, look)).Position
 				local hit = point + Vector3.new(if side == "Left" then -2 else 2, 0, 0)
 				local length = (hit - eye).Magnitude
 				local cf = CFrame.lookAt((eye + hit) / 2, hit)
@@ -33503,6 +33686,7 @@ local function update(dt: number)
 	end
 	-- him, his arms, the hole (everything moved in one go)
 	local body = bodyFrame(now, out, attackTwist(now))
+	updateEyes(now, dt, body * Giant.HEAD)
 	updateBeams(now, body)
 	local parts: { BasePart } = {}
 	local frames: { CFrame } = {}
@@ -33577,6 +33761,11 @@ end
 -- (tests) the giant being drawn right now, if any
 function GiantFX.Current(): Giant.Built?
 	return built
+end
+
+-- (tests) his next blink, in `seconds`
+function GiantFX.BlinkIn(seconds: number)
+	nextBlink = os.clock() + seconds
 end
 
 return GiantFX

@@ -71,7 +71,8 @@ UpdateNotes.List = {
 			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
 				"After the meteor crashes, a black hole tears open over the lane and a GIANT Domer in cosmic armour climbs out of it",
 				"He comes out with a roar, a shock wave and his own title card, and a boss bar shows how long he's staying",
-				"Look closer: glowing eyes, a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
+				"Look closer: a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
+				"His cosmic eyes: glowing irises with a black-hole pupil and a twinkling star in it. They follow you round the lane, blink, narrow when he's about to hit, and open wide as his eye beams charge",
 				"SLAM: he slowly raises a glowing fist and smashes it into the lane near the crater, with crystal spikes, cracks and a scorch mark",
 				"STAR RAIN: he throws both fists up and hurls burning stars all round the crater",
 				"EYE BEAM: his eyes blaze white, then two beams burn a line right across the lane",
