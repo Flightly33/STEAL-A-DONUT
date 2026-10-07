@@ -266,7 +266,8 @@ local function startAmbience()
 	local bloom = Lighting:WaitForChild("Bloom", 10) :: BloomEffect?
 	local info = TweenInfo.new(2.5, Enum.EasingStyle.Sine)
 	local function apply(areaId: number)
-		local amb = if areaId > 0 then Areas.List[areaId].Ambience else Areas.Hub
+		local storming = workspace:GetAttribute("EventId") == "EternalStorm"
+		local amb = if storming then Areas.Storm elseif areaId > 0 then Areas.List[areaId].Ambience else Areas.Hub
 		-- Day -> night goes forwards through sunset (ClockTime wraps at 24) instead of rewinding the sun.
 		local clock = amb.ClockTime
 		if clock < 6 and Lighting.ClockTime > 6 then
@@ -296,6 +297,10 @@ local function startAmbience()
 	if AreaTracker.Current >= 0 then
 		apply(AreaTracker.Current)
 	end
+	-- the Eternal Storm turns every area to its night sky, and back when it's over
+	workspace:GetAttributeChangedSignal("EventId"):Connect(function()
+		apply(math.max(AreaTracker.Current, 0))
+	end)
 end
 
 --------------------------------------------------------------------------------

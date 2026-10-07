@@ -87,6 +87,10 @@ UpdateNotes.List = {
 				"Every Epic and rarer donut has its OWN aura, made from its name: flames, falling snow, lightning, god rays, hearts, coins or snowflakes circling it... no two are the same",
 				"The rarer the donut, the more its aura does (Icon donuts have 6 effects!), and they glow with a shiny outline when you're close",
 			} },
+			{ Title = "Cosmic Storm", Tag = "Eternal Storm", Lines = {
+				"The Eternal Storm turns the sky to midnight, with shooting stars streaking across it",
+				"The black hole's glowing spiral arms spin round, so you can see the whole thing turning",
+			} },
 			{ Title = "Fancier Boxes", Tag = "Changed", Lines = {
 				"Every box rarity looks different now: ribbons, bows, gold corners and a lid you can see",
 				"Legendary and Mythic boxes sit open a crack with light pouring out",

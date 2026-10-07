@@ -89,6 +89,20 @@ end
 
 Areas.Hub = DAY
 
+-- The Eternal Storm (client/Effects swaps this in everywhere while it lasts): midnight under a
+-- purple sky, thin air so the stars and the black hole show through, a strong glow
+Areas.Storm = ambience({
+	ClockTime = 0,
+	Tint = Color3.fromRGB(235, 220, 255),
+	Saturation = 0.2,
+	Contrast = 0.22,
+	Ambient = Color3.fromRGB(95, 75, 150),
+	AtmosphereColor = Color3.fromRGB(110, 60, 190),
+	AtmosphereDensity = 0.2,
+	Haze = 0.3,
+	Bloom = 0.85,
+})
+
 Areas.List = {
 	{
 		-- Forest

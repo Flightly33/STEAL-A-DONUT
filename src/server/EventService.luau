@@ -195,16 +195,20 @@ local function strike()
 end
 
 local function eternalStorm(myToken: number)
-	-- A black hole high over every world
-	local sky = Instance.new("Folder")
-	sky.Name = "StormSky"
-	for _, world in Areas.Worlds do
-		local laneEnd = Layout.LaneEnd(world.Id)
-		local center = Vector3.new(world.OffsetX, storm.HoleHeight, (laneEnd - Config.Map.HubDepth) / 2)
-		Decor.BlackHole(sky, center, storm.HoleScale, { View = Vector3.new(0, -0.75, -1), Tilt = 22, Roll = 9, JetLength = 4 })
+	-- A black hole high over every world - unless the cosmic sky's images are set up
+	-- (Config.EternalStorm.Sky): then every client draws its own, always high in front of them
+	local cosmic = storm.Sky.Disk ~= "" and storm.Sky.Halo ~= ""
+	if not cosmic then
+		local sky = Instance.new("Folder")
+		sky.Name = "StormSky"
+		for _, world in Areas.Worlds do
+			local laneEnd = Layout.LaneEnd(world.Id)
+			local center = Vector3.new(world.OffsetX, storm.HoleHeight, (laneEnd - Config.Map.HubDepth) / 2)
+			Decor.BlackHole(sky, center, storm.HoleScale, { View = Vector3.new(0, -0.75, -1), Tilt = 22, Roll = 9, JetLength = 4 })
+		end
+		sky.Parent = workspace
+		stormSky = sky
 	end
-	sky.Parent = workspace
-	stormSky = sky
 	-- Rocks
 	task.spawn(function()
 		while token == myToken do

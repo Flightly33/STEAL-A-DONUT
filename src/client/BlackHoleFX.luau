@@ -3,6 +3,7 @@
 	  * the lens rings (the photon ring and the light bent round the shadow) turn to face your camera
 	  * hot spots orbit in the disk, the inner ones faster
 	  * the swirl of infalling sparks and dust turns (the sparks are locked to it, so they spiral in)
+	  * the disk's spiral arms spin round, so you see the whole disk turning
 	  * the glow breathes
 	  * the lab's containment rings spin and wobble, and its containment reading flickers
 	  * in The Black Hole the colour grading throbs slowly, as if space itself were pulsing
@@ -21,7 +22,7 @@ local AreaTracker = require(script.Parent.AreaTracker)
 local BlackHoleFX = {}
 
 local AREA = #Areas.List -- The Black Hole (the last biome)
-local VIEW_DISTANCE = 2500
+local VIEW_DISTANCE = 6000 -- (the Eternal Storm's hangs high over the middle of a long lane)
 local LAB_DISTANCE = 300
 
 type Spot = { Part: BasePart, Radius: number, Angle: number, Speed: number }
@@ -31,6 +32,8 @@ type Hole = {
 	Lens: BasePart?,
 	Inflow: BasePart?,
 	Spin: number,
+	Swirl: BasePart?,
+	SwirlSpin: number,
 	Spots: { Spot },
 	Glow: PointLight?,
 	GlowBase: number,
@@ -86,6 +89,7 @@ local function addHole(instance: Instance): Hole?
 	end
 	local lens = instance:FindFirstChild("Lens")
 	local inflow = instance:FindFirstChild("Inflow")
+	local swirl = instance:FindFirstChild("Swirl")
 	local glow = core:FindFirstChild("Glow")
 	local spots: { Spot } = {}
 	for _, child in instance:GetChildren() do
@@ -99,6 +103,8 @@ local function addHole(instance: Instance): Hole?
 		Lens = if lens and lens:IsA("BasePart") then lens else nil,
 		Inflow = if inflow and inflow:IsA("BasePart") then inflow else nil,
 		Spin = if inflow then number(inflow, "Spin") else 0,
+		Swirl = if swirl and swirl:IsA("BasePart") then swirl else nil,
+		SwirlSpin = if swirl then number(swirl, "Spin") else 0,
 		Spots = spots,
 		Glow = if glow and glow:IsA("PointLight") then glow else nil,
 		GlowBase = if glow and glow:IsA("PointLight") then glow.Brightness else 0,
@@ -157,6 +163,9 @@ function BlackHoleFX.Init()
 			end
 			if hole.Inflow then
 				hole.Inflow.CFrame = hole.Disk * CFrame.Angles(0, t * hole.Spin, 0)
+			end
+			if hole.Swirl then
+				hole.Swirl.CFrame = hole.Disk * CFrame.Angles(0, t * hole.SwirlSpin, 0)
 			end
 			if hole.Glow then
 				hole.Glow.Brightness = hole.GlowBase * (1 + 0.18 * math.sin(t * 1.7))

@@ -9,6 +9,11 @@
 	    shakes the screen of everyone close by (the server flings anyone it lands on)
 	  * purple lightning (StormStrike): a giant bolt from the sky onto a donut, which turns ETERNAL
 	  * and smaller purple bolts flickering down all around you while it lasts
+	  * shooting stars streaking across the sky
+	  * the cosmic sky (Config.EternalStorm.Sky, made in Blender - art/eternal_sky), once its images
+	    are uploaded: the whole sky turns into space with a galaxy band, slowly turning, and a giant
+	    black hole hangs high in front of you wherever you go (its disk spinning, the light bent
+	    round it always facing you), with a spinning galaxy behind you
 	The server decides where rocks land and which donuts are struck; everything here is just the
 	look, made on this client only.
 ]]
@@ -19,6 +24,7 @@ local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
 
 local StormFX = {}
@@ -43,7 +49,29 @@ local flash = 0
 local dim = 0 -- how dark the storm makes everything (eases in and out)
 local shakeUntil, shakeStrength = 0, 0
 local nextAmbient = 0
+local nextComet = 0
 local setMusic: ((boolean) -> ())? = nil
+type Comet = { Part: BasePart, Velocity: Vector3, Born: number }
+local comets: { Comet } = {}
+
+-- The cosmic sky. Distances in studs from your camera, angles in degrees: the black hole hangs
+-- down the lane (+Z, the way you run out of the lobby) and up in the sky, the galaxy behind you.
+local STORM = Config.EternalStorm
+local FACES = { "SkyboxBk", "SkyboxDn", "SkyboxFt", "SkyboxLf", "SkyboxRt", "SkyboxUp" }
+local HOLE_DISTANCE, HOLE_ELEVATION = 1250, 28
+local CORE_RADIUS = 190 -- the shadow
+local DISK_SIZE = 2048 -- (as big as a part can be)
+local DISK_VIEW = 12 -- how far above its edge you see the disk from
+local HALO_RING = 0.3 -- where the photon ring is in the halo image (radius / half its size)
+local GALAXY_DISTANCE, GALAXY_ELEVATION, GALAXY_SIZE = 1700, 35, 1600
+type Placed = { Part: BasePart, Offset: CFrame }
+type Spinner = { Image: ImageLabel, Speed: number }
+local cosmos: Folder? = nil
+local placed: { Placed } = {}
+local spinners: { Spinner } = {}
+type SavedSky = { Storm: Sky, Original: Sky? }
+local savedSky: SavedSky? = nil
+local skyTurn = 0
 
 local function part(name: string, size: Vector3, cf: CFrame, color: Color3, material: Enum.Material, parent: Instance?): Part
 	local p = Instance.new("Part")
@@ -277,6 +305,168 @@ local function ambient(now: number)
 end
 
 --------------------------------------------------------------------------------
+-- Shooting stars
+--------------------------------------------------------------------------------
+local function comet(now: number)
+	if now < nextComet then
+		return
+	end
+	nextComet = now + rng:NextNumber(0.6, 1.8)
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	-- somewhere high round you, streaking across and a little down
+	local angle = rng:NextNumber(0, TAU)
+	local from = camera.CFrame.Position + Vector3.new(math.cos(angle) * 700, rng:NextNumber(380, 700), math.sin(angle) * 700)
+	local across = Vector3.new(-math.sin(angle), 0, math.cos(angle)) * (if rng:NextNumber() < 0.5 then 1 else -1)
+	local velocity = (across + Vector3.new(0, -0.35, 0)).Unit * rng:NextNumber(900, 1400)
+	local streak = part("Comet", Vector3.new(2.2, 2.2, 140), CFrame.lookAt(from, from + velocity), if rng:NextNumber() < 0.5 then LIGHT_PURPLE else WHITE, Enum.Material.Neon)
+	streak.Transparency = 0.1
+	table.insert(comets, { Part = streak, Velocity = velocity, Born = now })
+end
+
+--------------------------------------------------------------------------------
+-- The cosmic sky (Config.EternalStorm.Sky)
+--------------------------------------------------------------------------------
+local function skyId(name: string): string?
+	local id = (STORM.Sky :: any)[name]
+	return if type(id) == "string" and id ~= "" then id else nil
+end
+
+local function setOrientation(sky: Sky, value: Vector3)
+	pcall(function()
+		(sky :: any).SkyboxOrientation = value
+	end)
+end
+
+-- The skybox: a space skybox of our own takes the normal one's place in Lighting (on this screen
+-- only) while the storm lasts - no sun or moon, no extra stars on top of the painted ones
+local function swapSky(on: boolean)
+	if on then
+		for _, face in FACES do
+			if not skyId(face) then
+				return -- (all six, or the sky stays as it is)
+			end
+		end
+		local storm = Instance.new("Sky")
+		storm.Name = "StormSkybox"
+		for _, face in FACES do
+			(storm :: any)[face] = skyId(face)
+		end
+		storm.CelestialBodiesShown = false
+		storm.StarCount = 0
+		local original = Lighting:FindFirstChildOfClass("Sky")
+		if original then
+			original.Parent = nil
+		end
+		storm.Parent = Lighting
+		savedSky = { Storm = storm, Original = original }
+		skyTurn = 0
+	elseif savedSky then
+		local saved = savedSky
+		savedSky = nil
+		saved.Storm:Destroy()
+		if saved.Original then
+			saved.Original.Parent = Lighting
+		end
+	end
+end
+
+local function image(parent: Instance, id: string, speed: number): ImageLabel
+	local label = Instance.new("ImageLabel")
+	label.Name = "Image"
+	label.Size = UDim2.fromScale(1, 1)
+	label.BackgroundTransparency = 1
+	label.Image = id
+	label.Parent = parent
+	table.insert(spinners, { Image = label, Speed = speed })
+	return label
+end
+
+-- A flat, glowing picture on both faces of an invisible part (the disk, the galaxy), turning
+local function picture(name: string, size: number, id: string, glow: number, speed: number): BasePart
+	local holder = part(name, Vector3.new(size, 0.2, size), CFrame.identity, WHITE, Enum.Material.SmoothPlastic, cosmos)
+	holder.Transparency = 1
+	for _, face in { Enum.NormalId.Top, Enum.NormalId.Bottom } do
+		local gui = Instance.new("SurfaceGui")
+		gui.Name = face.Name
+		gui.Face = face
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		gui.CanvasSize = Vector2.new(1024, 1024)
+		gui.LightInfluence = 0
+		gui.Brightness = glow
+		gui.MaxDistance = 100000
+		gui.Parent = holder
+		image(gui, id, if face == Enum.NormalId.Top then speed else -speed)
+	end
+	return holder
+end
+
+-- A frame at `center` whose top faces `normal`, its sides level
+local function flat(center: Vector3, normal: Vector3): CFrame
+	local right = Vector3.yAxis:Cross(normal)
+	right = if right.Magnitude < 0.01 then Vector3.xAxis else right.Unit
+	return CFrame.fromMatrix(center, right, normal)
+end
+
+-- The black hole and the galaxy: built once the storm starts, and kept where they are in the sky
+-- as you move (update moves them with your camera, so they look as far away as the stars)
+local function buildCosmos()
+	local disk, halo = skyId("Disk"), skyId("Halo")
+	if not (disk and halo) then
+		return
+	end
+	local folder = Instance.new("Folder")
+	folder.Name = "StormCosmos"
+	folder.Parent = workspace
+	cosmos = folder
+	local elevation = math.rad(HOLE_ELEVATION)
+	local ahead = Vector3.new(0, math.sin(elevation), math.cos(elevation))
+	local center = ahead * HOLE_DISTANCE
+	-- the shadow: Neon ignores light, so black Neon stays pitch black
+	local core = part("Core", Vector3.one * CORE_RADIUS * 2, CFrame.identity, rgb(0, 0, 0), Enum.Material.Neon, folder)
+	core.Shape = Enum.PartType.Ball
+	table.insert(placed, { Part = core, Offset = CFrame.new(center) })
+	-- the disk, almost edge-on: tipped so you see a little of its top over the near edge
+	local tip = math.rad(HOLE_ELEVATION + DISK_VIEW)
+	local diskPart = picture("Disk", DISK_SIZE, disk, 1.6, STORM.DiskSpin)
+	table.insert(placed, { Part = diskPart, Offset = flat(center, Vector3.new(0, math.cos(tip), -math.sin(tip))) })
+	-- the halo: the light from behind the hole bent round it, always turned towards you
+	local anchor = part("HaloAnchor", Vector3.one, CFrame.identity, WHITE, Enum.Material.SmoothPlastic, folder)
+	anchor.Transparency = 1
+	local board = Instance.new("BillboardGui")
+	board.Name = "Halo"
+	local span = 2 * CORE_RADIUS * 1.04 / HALO_RING
+	board.Size = UDim2.new(span, 0, span, 0)
+	board.LightInfluence = 0
+	board.Brightness = 1.8
+	board.MaxDistance = 100000
+	board.Adornee = anchor
+	board.Parent = anchor
+	image(board, halo, 5)
+	table.insert(placed, { Part = anchor, Offset = CFrame.new(center) })
+	-- the galaxy, behind you, seen at a slant
+	local galaxy = skyId("Galaxy")
+	if galaxy then
+		local up = math.rad(GALAXY_ELEVATION)
+		local spot = Vector3.new(0, math.sin(up), -math.cos(up)) * GALAXY_DISTANCE
+		local lean = math.rad(GALAXY_ELEVATION + 50)
+		local galaxyPart = picture("Galaxy", GALAXY_SIZE, galaxy, 1.4, 3)
+		table.insert(placed, { Part = galaxyPart, Offset = flat(spot, Vector3.new(0, math.cos(lean), math.sin(lean))) })
+	end
+end
+
+local function clearCosmos()
+	if cosmos then
+		cosmos:Destroy()
+		cosmos = nil
+	end
+	table.clear(placed)
+	table.clear(spinners)
+end
+
+--------------------------------------------------------------------------------
 -- Start / stop
 --------------------------------------------------------------------------------
 local function setActive(on: boolean)
@@ -299,6 +489,12 @@ local function setActive(on: boolean)
 	end
 	if setMusic then
 		setMusic(on)
+	end
+	swapSky(on)
+	if on then
+		buildCosmos()
+	else
+		clearCosmos()
 	end
 end
 
@@ -357,6 +553,35 @@ local function update(dt: number)
 	end
 	if active then
 		ambient(now)
+		comet(now)
+	end
+	-- shooting stars fly and fade
+	for i = #comets, 1, -1 do
+		local c = comets[i]
+		local age = now - c.Born
+		if age > 0.9 or not active then
+			c.Part:Destroy()
+			table.remove(comets, i)
+		else
+			c.Part.CFrame += c.Velocity * dt
+			c.Part.Transparency = 0.1 + 0.9 * (age / 0.9) ^ 2
+		end
+	end
+	-- the cosmic sky: the black hole and galaxy stay put in the sky as you move, their pictures
+	-- spin, and the whole skybox slowly turns (tipped, so the galaxy band rolls across the sky)
+	local camera = workspace.CurrentCamera
+	if cosmos and camera then
+		local origin = CFrame.new(camera.CFrame.Position)
+		for _, item in placed do
+			item.Part.CFrame = origin * item.Offset
+		end
+		for _, spinner in spinners do
+			spinner.Image.Rotation = (spinner.Image.Rotation + spinner.Speed * dt) % 360
+		end
+	end
+	if savedSky then
+		skyTurn = (skyTurn + STORM.SkySpin * dt) % 360
+		setOrientation(savedSky.Storm, Vector3.new(18, skyTurn, 0))
 	end
 	-- lightning flashes the whole sky
 	if flash > 0 then

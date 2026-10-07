@@ -12,6 +12,8 @@
 	  Lens        - rings that always face the camera (client/BlackHoleFX turns them): the photon
 	                ring, and the far side of the disk bent up over the top and under the bottom
 	  Hot spots   - bright clumps orbiting in the disk with glowing trails (moved by the client)
+	  Swirl       - four spiral arms of glowing gas winding in through the disk; the client spins
+	                them, so you can see the whole disk turning
 	  Jets        - blue-white jets out of both poles, with sparks shooting along them
 	  Inflow      - sparks and dust spiralling in (a spinning emitter with LockedToPart)
 	  Star        - optional: a star being torn apart, its gas streaming into the disk
@@ -465,6 +467,37 @@ function BlackHoleModel.Build(parent: Instance, center: Vector3, scale: number, 
 		trail.WidthScale = NumberSequence.new(1, 0.2)
 		setBrightness(trail, 1.3)
 		trail.Parent = spot
+	end
+
+	-- Spiral arms: gas winding in from the edge of the disk to the shadow, purple outside and
+	-- white-hot inside, its smoke flowing inwards. The client spins the Swirl part (and the arms
+	-- with it), the same way as the hot spots orbit.
+	local swirl = part({ Name = "Swirl", Size = Vector3.one, CFrame = disk, Transparency = 1 })
+	swirl:SetAttribute("Spin", 0.3)
+	local STEPS = 9
+	for arm = 0, 3 do
+		local previous: Attachment? = nil
+		for i = 0, STEPS do
+			local k = i / STEPS
+			local radius = r * (4.3 - 2.95 * k)
+			local angle = arm / 4 * TAU + k * math.rad(220)
+			local point = attach(swirl, `Arm{arm}_{i}`, CFrame.new(math.cos(angle) * radius, r * 0.02, -math.sin(angle) * radius))
+			if previous then
+				local k0 = (i - 1) / STEPS
+				local b = beam(swirl, previous, point)
+				b.Width0 = r * (0.55 - 0.4 * k0)
+				b.Width1 = r * (0.55 - 0.4 * k)
+				b.Color = ColorSequence.new(rgb(150, 70, 255):Lerp(rgb(255, 236, 200), k0), rgb(150, 70, 255):Lerp(rgb(255, 236, 200), k))
+				b.Transparency = NumberSequence.new(0.55 - 0.3 * k0, 0.55 - 0.3 * k)
+				b.Texture = SMOKE
+				b.TextureMode = Enum.TextureMode.Wrap
+				b.TextureLength = r * 1.4
+				b.TextureSpeed = 0.7
+				b.ZOffset = r * 0.14
+				setBrightness(b, 1.6)
+			end
+			previous = point
+		end
 	end
 
 	-- A star being torn apart: its gas streams round into the disk

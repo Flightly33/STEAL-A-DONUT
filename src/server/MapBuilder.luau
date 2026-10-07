@@ -47,7 +47,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 17
+local MAP_VERSION = 18
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -935,8 +935,8 @@ local function setupLighting()
 		clouds.Color = rgb(255, 255, 255)
 		clouds.Parent = terrain
 	end
-	-- Roblox's own sky, with lots of stars for the night-time areas (World 2 swaps in the galaxy
-	-- skybox from Config.GalaxySky on the client)
+	-- Roblox's own sky, with lots of stars for the night-time areas (the Eternal Storm swaps in its
+	-- cosmic skybox from Config.EternalStorm.Sky on the client)
 	local sky = ensure("Sky", "Sky") :: Sky
 	sky.StarCount = 5000
 	sky.CelestialBodiesShown = true

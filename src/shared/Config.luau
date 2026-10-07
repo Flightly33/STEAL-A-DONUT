@@ -352,7 +352,26 @@ Config.EternalStorm = {
 	FallTime = 2.6, -- seconds from a rock appearing in the sky to it hitting the ground
 	FlingPower = 115,
 	HoleScale = 20, -- the black hole in the sky (The Black Hole's own is 3)
-	HoleHeight = 900,
+	HoleHeight = 760,
+	-- The cosmic sky, made in Blender (art/eternal_sky). Upload the images in Studio (Asset Manager >
+	-- Bulk Import) and paste each one's id here, like "rbxassetid://1234567890":
+	--   the six Skybox faces: space full of stars, nebulae and a galaxy band, slowly turning
+	--   Disk + Halo: a giant black hole hanging high in front of you wherever you are, its disk
+	--     spinning (instead of the black hole made of parts); Galaxy: a spinning galaxy behind you
+	-- Leave them empty and the storm keeps its built-in look.
+	Sky = {
+		SkyboxFt = "",
+		SkyboxBk = "",
+		SkyboxLf = "",
+		SkyboxRt = "",
+		SkyboxUp = "",
+		SkyboxDn = "",
+		Disk = "",
+		Halo = "",
+		Galaxy = "",
+	},
+	SkySpin = 1.2, -- degrees per second the cosmic sky turns
+	DiskSpin = 16, -- degrees per second the black hole's disk spins
 	-- The event's song: the Radetzky March from the Creator Store. Empty (or an id that won't load)
 	-- = a built-in version of the march played with Roblox's own sounds.
 	MusicId = "rbxassetid://1844280451",
