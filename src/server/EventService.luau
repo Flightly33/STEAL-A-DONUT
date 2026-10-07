@@ -12,8 +12,9 @@
 	    shared/StormClock - or the owner's 👑 button): a giant black hole hangs over the lane, huge
 	    rocks crash down where people are (whoever they land on is flung), and purple lightning
 	    strikes boxes all over the game - every one it hits becomes ETERNAL. Halfway through,
-	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService);
-	    when it ends, the meteor's crater and the shards left on the ground evaporate. The server
+	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService), and
+	    at 2:15 Cosmic Domer climbs out of a black hole over its crater (GiantService); when it
+	    ends, the meteor's crater and the shards left on the ground evaporate. The server
 	    picks where rocks land and which boxes get struck, and tells every client (StormBlock /
 	    StormStrike) so they all see the same thing; client/StormFX draws it.
 	Only one event runs at a time. Clients read it from workspace attributes (EventId, EventEndsAt),
@@ -219,6 +220,13 @@ local function eternalStorm(myToken: number, length: number)
 	task.delay(length / 2, function()
 		if token == myToken then
 			MeteorService.Start()
+		end
+	end)
+	-- Later (2:15 of a 3:00 storm): Cosmic Domer climbs out of a black hole over its crater
+	task.delay(length * Config.CosmicGiant.AppearAt / storm.Duration, function()
+		local crater = MeteorService.Site()
+		if token == myToken and crater then
+			GiantService.Start(crater)
 		end
 	end)
 	-- Rocks

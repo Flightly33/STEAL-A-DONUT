@@ -68,10 +68,11 @@ UpdateNotes.List = {
 				"It cracks open in a glowing crater with 8 meteor shards around it: be quick, there aren't enough for everyone",
 				"The Eternal Storm now comes every 2 hours on the real clock, at the same moment in every server, with a countdown at the top of the screen",
 				"When the storm ends, the meteor's crater and any shards left on the ground evaporate: grab them while you can!",
-				"The storm sounds bigger now: a rumbling background all the way through, with distant thunder rolling in now and then",
+				"The storm sounds bigger now: a rumbling background all the way through, with distant thunder rolling in now and then, and every falling rock crashes when it lands",
+				"Fast Guy trail: every pane of glass you leave behind now breaks with a soft glass sound",
 			} },
 			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
-				"After the meteor crashes, a black hole tears open over the lane and a GIANT Domer in cosmic armour climbs out of it",
+				"2 minutes 15 seconds into the storm, a black hole tears open over the meteor's crater and a GIANT Domer in cosmic armour climbs out of it",
 				"He comes out of a bigger black hole, closer to the lobby, with his own entrance sound, a shock wave and title card, and a boss bar shows how long he's staying",
 				"Look closer: a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
 				"His cosmic eyes: glowing irises with a black-hole pupil and a twinkling star in it. They follow you round the lane, blink, narrow when he's about to hit, and open wide as his eye beams charge",

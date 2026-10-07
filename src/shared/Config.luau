@@ -348,6 +348,8 @@ Config.EternalStorm = {
 	Duration = 180,
 	-- Ambience all through the storm (client/StormFX): a loop in the background, and now and then
 	-- distant thunder or the other sound (taking turns, Gap seconds apart)
+	-- a falling rock (a tiny meteor) crashing down: louder the closer you are
+	RockCrash = { Id = "rbxassetid://122368977681778", Volume = 0.7 },
 	Ambience = {
 		Loop = { Id = "rbxassetid://9114222288", Volume = 0.3 },
 		Thunder = { Id = "rbxassetid://9119840732", Volume = 0.5 },
@@ -422,6 +424,7 @@ Config.CosmicDonut = {
 -- fists into the lane near the crater. Enabled = false: no giant.
 Config.CosmicGiant = {
 	Enabled = true,
+	AppearAt = 135, -- seconds into the Eternal Storm (2:15 of its 3:00) that he climbs out, over the meteor's crater (it lands at about 1:38)
 	SlamEvery = 7, -- seconds between slams (one fist at a time)
 	KnockRadius = 30, -- studs round where a fist lands: anyone inside is knocked flying and drops what they carry
 	FlingPower = 130,
@@ -784,6 +787,12 @@ Config.Sounds = {
 	Announce = "", -- big announcements for the whole server
 	Event = "", -- a server event starting
 	CustomVolume = 0.4, -- volume for pasted sounds (0 to 1)
+}
+
+-- Fast Guy trail (client/TrailFX): the sound every pane of glass makes when it shatters behind you
+-- (you hear your own trail only). The audio is loud, so it plays very quietly: 0 to 1.
+Config.TrailSounds = {
+	Glass = { Id = "rbxassetid://134429275459040", Volume = 0.05 },
 }
 
 -- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).

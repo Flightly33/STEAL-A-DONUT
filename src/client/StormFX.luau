@@ -97,7 +97,7 @@ local function part(name: string, size: Vector3, cf: CFrame, color: Color3, mate
 	return p
 end
 
-local function sound(at: Vector3, id: string, speed: number, volume: number, range: number)
+local function sound(at: Vector3, id: string, speed: number, volume: number, range: number, life: number?)
 	local holder = part("Sound", Vector3.one, CFrame.new(at), WHITE, Enum.Material.SmoothPlastic)
 	holder.Transparency = 1
 	local s = Instance.new("Sound")
@@ -109,7 +109,7 @@ local function sound(at: Vector3, id: string, speed: number, volume: number, ran
 	s.RollOffMaxDistance = range
 	s.Parent = holder
 	s:Play()
-	task.delay(4, function()
+	task.delay(life or 4, function()
 		holder:Destroy()
 	end)
 end
@@ -254,7 +254,7 @@ local function impact(rock: Rock)
 	boom.Parent = folder
 	ring(at, size * 1.6, rgb(200, 170, 140), 0.7)
 	ring(at, size * 1.1, PURPLE, 0.5)
-	thunder(at, false)
+	sound(at, STORM.RockCrash.Id, 1, STORM.RockCrash.Volume, 600, 10)
 	shake(at, 1.4, 220)
 	local pieces: { BasePart } = {}
 	local crater = part("Crater", Vector3.new(0.3, size * 1.3, size * 1.3), CFrame.new(at + Vector3.new(0, 0.12, 0)) * CFrame.Angles(0, 0, math.pi / 2), rgb(70, 52, 44), Enum.Material.Slate)

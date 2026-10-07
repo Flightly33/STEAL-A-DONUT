@@ -7,7 +7,8 @@
 	    every other frame after that, so the run looks like it's made of frozen frames
 	  * a streak of light behind the torso
 	  * every PANE_EVERY seconds a pane of glass with white edges is left behind them; a moment
-	    later it shatters into shards that fly back and fall
+	    later it shatters into shards that fly back and fall, with a quiet glass-break sound
+	    (Config.TrailSounds.Glass) for your own trail
 	Only players near the camera get the effect. The copies are cloned once per character (one
 	afterimage per frame until there are GHOSTS of them) and then reused: nothing is created while
 	running. Everything here is client-side.
@@ -16,9 +17,12 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Trails = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Trails"))
+local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Trails = require(Shared:WaitForChild("Trails"))
+local Config = require(Shared:WaitForChild("Config"))
 
 local TrailFX = {}
 
@@ -36,7 +40,7 @@ local SHARDS_PER_PANE = 10
 local SHARD_LIFE = 0.8
 local MAX_SHARDS = 60
 local GRAVITY = 55
-local GLASS_SOUND = "rbxasset://sounds/electronicpingshort.wav"
+local GLASS = Config.TrailSounds.Glass -- the shatter sound (one per pane, very quiet)
 local IDLE_CLEANUP = 20
 
 type Ghost = { Parts: { BasePart }, Age: number }
@@ -227,17 +231,11 @@ local function playGlass(runner: Runner)
 	if runner.Player ~= localPlayer then
 		return -- only your own trail makes a sound
 	end
-	if not glassSound then
-		local sound = Instance.new("Sound")
-		sound.Name = "TrailGlass"
-		sound.SoundId = GLASS_SOUND
-		sound.Volume = 0.08
-		sound.Parent = SoundService
-		glassSound = sound
+	local sound = glassSound
+	if sound then
+		sound.PlaybackSpeed = rng:NextNumber(0.92, 1.08) -- no two panes sound exactly alike
+		SoundService:PlayLocalSound(sound)
 	end
-	local sound = glassSound :: Sound
-	sound.PlaybackSpeed = 2.4 + rng:NextNumber() * 0.5
-	SoundService:PlayLocalSound(sound)
 end
 
 local function shatter(runner: Runner, pane: Pane, trail: Trails.Trail)
@@ -507,6 +505,17 @@ function TrailFX.Init()
 	folder = Instance.new("Folder")
 	folder.Name = "TrailFX"
 	folder.Parent = workspace
+	local sound = Instance.new("Sound")
+	sound.Name = "TrailGlass"
+	sound.SoundId = GLASS.Id
+	sound.Volume = GLASS.Volume
+	sound.Parent = SoundService
+	glassSound = sound
+	task.spawn(function()
+		pcall(function()
+			ContentProvider:PreloadAsync({ sound })
+		end)
+	end)
 	for _, player in Players:GetPlayers() do
 		track(player)
 	end
