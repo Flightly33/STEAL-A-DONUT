@@ -8,7 +8,7 @@
 
 	  * the black hole tears open: spiral arms pour into it, its rings swirl, lightning crackles
 	    off its torn edge
-	  * he climbs out of it with a ROAR (a shock wave, every screen shakes) and his title card
+	  * he climbs out of it with his entrance sound (Sounds.Emerge), a shock wave (every screen shakes) and his title card
 	    slams onto the screen; a boss bar at the top shows how long until he leaves
 	  * all the time: his reactor pulses, his halo turns, moons circle his shoulders, asteroids his
 	    waist, his cape sways, his crown of planets circles his head
@@ -45,12 +45,12 @@ local CLOSE_TIME = 1.5 -- seconds: the hole closing after he's gone
 local GIANT = Config.CosmicGiant
 local WHITE = rgb(255, 255, 255)
 -- (Roblox's own sounds for the parts that didn't come with one: nothing to upload)
-local ROAR, THUD, WHOOSH, HUM = "rbxasset://sounds/action_falling.mp3", "rbxasset://sounds/action_jump_land.mp3", "rbxasset://sounds/Rocket whoosh 01.wav", "rbxasset://sounds/electronicpingshort.wav"
+local ROAR, THUD, WHOOSH = "rbxasset://sounds/action_falling.mp3", "rbxasset://sounds/action_jump_land.mp3", "rbxasset://sounds/Rocket whoosh 01.wav"
 
 type Slam = { Hand: string, Target: Vector3, Start: number, Swung: boolean, Hit: boolean, Warning: Model?, Charge: BasePart?, Trail: Trail? }
 type Star = { Target: Vector3, Land: number, Part: BasePart?, Warning: Model?, Landed: boolean }
 type Rain = { Start: number, Stars: { Star }, Launched: boolean }
-type Beam = { From: Vector3, To: Vector3, Start: number, Warning: Model?, Parts: { BasePart }, Fired: boolean, Hum: Sound?, NextScorch: number }
+type Beam = { From: Vector3, To: Vector3, Start: number, Warning: Model?, Parts: { BasePart }, Fired: boolean, Laser: Sound?, LaserOn: boolean, NextScorch: number }
 type Debris = { Part: BasePart, Velocity: Vector3, Spin: Vector3, Born: number, Life: number }
 type Bolt = { Parts: { BasePart }, Born: number, Life: number }
 type Spike = { Part: BasePart, Base: CFrame, Height: number, Born: number }
@@ -341,8 +341,8 @@ local function clearAttacks()
 		for _, p in beam.Parts do
 			p:Destroy()
 		end
-		if beam.Hum then
-			beam.Hum:Destroy()
+		if beam.Laser then
+			beam.Laser:Destroy()
 		end
 	end
 	table.clear(beams)
@@ -1004,14 +1004,15 @@ local function onBeam(info: any)
 		disc("BeamEnd", GIANT.Beam.Radius, at + Vector3.new(0, 0.35, 0), WHITE, Enum.Material.Neon, 0.5, model)
 	end
 	model.Parent = folder
-	local hum = Instance.new("Sound")
-	hum.SoundId = HUM
-	hum.Looped = true
-	hum.PlaybackSpeed = 0.18
-	hum.Volume = 0.6
-	hum.Parent = soundFolder
-	hum:Play()
-	table.insert(beams, { From = from, To = to, Start = localTime(info.StartAt), Warning = model, Parts = {}, Fired = false, Hum = hum, NextScorch = 0 })
+	-- the laser eyes sound: from when his eyes start to charge until the beams stop, looping
+	-- (it's 3 seconds long; the charge and the sweep together are longer)
+	local template = soundFolder:FindFirstChild("Laser")
+	local laser = if template and template:IsA("Sound") then template:Clone() else nil
+	if laser then
+		laser.Name = "LaserPlaying"
+		laser.Parent = soundFolder
+	end
+	table.insert(beams, { From = from, To = to, Start = localTime(info.StartAt), Warning = model, Parts = {}, Fired = false, Laser = laser, LaserOn = false, NextScorch = 0 })
 end
 
 local function updateBeams(now: number, body: CFrame?)
@@ -1020,6 +1021,13 @@ local function updateBeams(now: number, body: CFrame?)
 	for b = #beams, 1, -1 do
 		local beam = beams[b]
 		local t = now - beam.Start
+		-- the laser eyes sound: on as his eyes start to charge, looping until the beams stop
+		local laser = beam.Laser
+		if laser and not beam.LaserOn and t >= 0 and t < Giant.BEAM_CHARGE + Giant.BEAM_SWEEP then
+			beam.LaserOn = true
+			laser.TimePosition = 0
+			laser:Play()
+		end
 		-- charging: his eyes blaze white and swell
 		local charge = math.clamp(t / Giant.BEAM_CHARGE, 0, 1)
 		if giant then
@@ -1038,7 +1046,6 @@ local function updateBeams(now: number, body: CFrame?)
 		if sweeping and body then
 			if not beam.Fired then
 				beam.Fired = true
-				oneShot(WHOOSH, 1.4, 0.35)
 				screenFlash(0.25, rgb(255, 120, 200))
 				if beam.Warning then
 					beam.Warning:Destroy()
@@ -1094,9 +1101,10 @@ local function updateBeams(now: number, body: CFrame?)
 				p:Destroy()
 			end
 			table.clear(beam.Parts)
-			if beam.Hum then
-				beam.Hum:Destroy()
-				beam.Hum = nil
+			if beam.Laser then
+				beam.Laser:Stop()
+				beam.Laser:Destroy()
+				beam.Laser = nil
 			end
 			if beam.Warning then
 				beam.Warning:Destroy()
@@ -1188,8 +1196,7 @@ local function update(dt: number)
 	if not roared and age >= Giant.OPEN and not leaving then
 		roared = true
 		if age < Giant.OPEN + Giant.RISE + 3 then
-			oneShot(ROAR, 2, 0.22)
-			oneShot(ROAR, 1.5, 0.3)
+			play("Emerge", 1)
 			oneShot(THUD, 1.5, 0.25)
 			shake(2.6)
 			screenFlash(0.35, Giant.VIOLET)
@@ -1285,7 +1292,7 @@ function GiantFX.Init()
 	sf.Name = "GiantSounds"
 	sf.Parent = SoundService
 	soundFolder = sf
-	local ids: { [string]: string } = { Swing = GIANT.Sounds.Swing, Impact = GIANT.Sounds.Impact }
+	local ids: { [string]: string } = { Swing = GIANT.Sounds.Swing, Impact = GIANT.Sounds.Impact, Emerge = GIANT.Sounds.Emerge }
 	for name, id in ids do
 		local s = Instance.new("Sound")
 		s.Name = name
@@ -1293,6 +1300,13 @@ function GiantFX.Init()
 		s.Parent = sf
 		sounds[name] = { s }
 	end
+	-- (each eye beam plays a copy of this, looping)
+	local laser = Instance.new("Sound")
+	laser.Name = "Laser"
+	laser.SoundId = GIANT.Sounds.Laser
+	laser.Volume = GIANT.Beam.Volume
+	laser.Looped = true
+	laser.Parent = sf
 	bulkMove = pcall(function()
 		workspace:BulkMoveTo({}, {}, Enum.BulkMoveMode.FireCFrameChanged)
 	end)

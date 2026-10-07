@@ -30,8 +30,8 @@
 local Giant = {}
 
 Giant.S = 48 -- his scale: Domer is ~2 studs wide, this one ~150
-Giant.PORTAL_OFFSET = Vector3.new(0, 118, 175) -- the hole, from the crater
-Giant.PORTAL_RADIUS = 165
+Giant.PORTAL_OFFSET = Vector3.new(0, 130, 120) -- the hole, from the crater (just past it, towards the end of the lane)
+Giant.PORTAL_RADIUS = 215
 Giant.LEAN = math.rad(18) -- leaning out of the hole towards the lobby
 Giant.UPPER = 3.2 -- arm lengths (in S): long enough to reach all round the crater
 Giant.FORE = 3.0

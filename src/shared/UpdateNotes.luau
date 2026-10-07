@@ -64,13 +64,13 @@ UpdateNotes.List = {
 			{ Title = "The Cosmic Meteor", Tag = "NEW Event", Lines = {
 				"Halfway through every Eternal Storm, the whole screen flashes white... then EVERYTHING shakes",
 				"The sky cracks open like glass, and a giant burning meteor bursts through and falls",
-				"It smashes into the lane in one of the first biomes: watch out, it flings anyone right under it!",
-				"It cracks open in a glowing crater with meteor shards all around it",
+				"It smashes into the lane in biome 2 or 3 (never the first one!): watch out, it flings anyone right under it!",
+				"It cracks open in a glowing crater with 8 meteor shards around it: be quick, there aren't enough for everyone",
 				"The Eternal Storm comes about every 2 hours now (while the meteor is around)",
 			} },
 			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
 				"After the meteor crashes, a black hole tears open over the lane and a GIANT Domer in cosmic armour climbs out of it",
-				"He comes out with a roar, a shock wave and his own title card, and a boss bar shows how long he's staying",
+				"He comes out of a bigger black hole, closer to the lobby, with his own entrance sound, a shock wave and title card, and a boss bar shows how long he's staying",
 				"Look closer: a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
 				"His cosmic eyes: glowing irises with a black-hole pupil and a twinkling star in it. They follow you round the lane, blink, narrow when he's about to hit, and open wide as his eye beams charge",
 				"SLAM: he slowly raises a glowing fist and smashes it into the lane near the crater, with crystal spikes, cracks and a scorch mark",

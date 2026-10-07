@@ -385,10 +385,10 @@ Config.EternalStorm = {
 Config.CosmicDonut = {
 	Enabled = true,
 	ShardCost = 10, -- meteor shards to craft The Cosmic Donut
-	Pieces = 12, -- shards a meteor cracks into
+	Pieces = 8, -- shards a meteor cracks into (fewer than ShardCost: a Cosmic Donut takes more than one meteor)
 	StormWeight = 6.5, -- while Enabled the Eternal Storm comes about every 2 hours (instead of EternalStorm.Weight)
 	ShardLife = 240, -- seconds the shards lie on the lane after the meteor lands
-	Biomes = { 1, 3 }, -- the biomes it can land in (close to the lobby, so everyone can get there)
+	Biomes = { 2, 3 }, -- the biomes it can land in (never the first, right by the lobby: too easy; still close enough that everyone can get there in time)
 	FlingPower = 140, -- anyone it lands on
 	-- (Creator Store sounds: they have to be public, or allowed in this game, to play)
 	Sounds = {
@@ -417,10 +417,13 @@ Config.CosmicGiant = {
 	},
 	Beam = {
 		Radius = 12, -- studs either side of his eye beams' path that knock you flying
+		Volume = 0.1, -- the laser eyes sound (it's a loud one)
 	},
 	Sounds = {
 		Swing = "rbxassetid://9039691442", -- his arm swinging down
 		Impact = "rbxassetid://91288569991875", -- his fist hitting the lane
+		Laser = "rbxassetid://126321934365548", -- his laser eyes (a 3 second sound: it loops for as long as they're on)
+		Emerge = "rbxassetid://9125404769", -- him coming out of the black hole
 	},
 }
 
