@@ -465,7 +465,8 @@ def render_preview(frames, size, back=False, start=0):
     gmat.use_nodes = True
     gb = gmat.node_tree.nodes["Principled BSDF"]
     gb.inputs["Base Color"].default_value = (0.09, 0.32, 0.05, 1)
-    gb.inputs["Roughness"].default_value = 0.9
+    gb.inputs["Roughness"].default_value = 1.0
+    gb.inputs["Specular IOR Level"].default_value = 0.0  # (matte: no mirror-like sheen far away)
     ground.data.materials.append(gmat)
     for side in (-1, 1):
         bpy.ops.mesh.primitive_cube_add(size=1, location=(side * 50, 0, 9))
@@ -475,6 +476,7 @@ def render_preview(frames, size, back=False, start=0):
         wmat.use_nodes = True
         wb = wmat.node_tree.nodes["Principled BSDF"]
         wb.inputs["Base Color"].default_value = (0.12, 0.05, 0.1, 1)
+        wb.inputs["Specular IOR Level"].default_value = 0.0
         wall.data.materials.append(wmat)
     sun = bpy.data.objects.new("Sun", bpy.data.lights.new("Sun", "SUN"))
     sun.data.energy = 0.6
@@ -520,7 +522,7 @@ def render_preview(frames, size, back=False, start=0):
     galaxy = textured_plane("Galaxy", os.path.join(OUT, "galaxy.png"), 1600, glow=1.4)
     galaxy.matrix_world = Matrix.Translation(eye + Vector((0, math.cos(up), math.sin(up))) * 1700) @ look_rotation(-Vector((0, -math.sin(lean), math.cos(lean))))
     if back:
-        cam.matrix_world = Matrix.Translation(eye) @ look_rotation(Vector((0, 1, math.tan(math.radians(20)))))
+        cam.matrix_world = Matrix.Translation(eye) @ look_rotation(Vector((0, 1, math.tan(math.radians(34)))))
         sc.render.filepath = os.path.join(OUT, "preview_back.png")
         bpy.ops.render.render(write_still=True)
         print("PREVIEW back")
