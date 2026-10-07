@@ -10,7 +10,9 @@
 	  * 2x Incubator Speed: every incubator hatches twice as fast.
 	  * The Eternal Storm (very rare, or the owner's 👑 button): a giant black hole hangs over the
 	    lane, huge rocks crash down where people are (whoever they land on is flung), and purple
-	    lightning strikes boxes all over the game - every one it hits becomes ETERNAL. The server
+	    lightning strikes boxes all over the game - every one it hits becomes ETERNAL. Halfway
+	    through, while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down
+	    (MeteorService). The server
 	    picks where rocks land and which boxes get struck, and tells every client (StormBlock /
 	    StormStrike) so they all see the same thing; client/StormFX draws it.
 	Only one event runs at a time. Clients read it from workspace attributes (EventId, EventEndsAt),
@@ -37,6 +39,7 @@ local BoxService = require(script.Parent.BoxService)
 local PlotService = require(script.Parent.PlotService)
 local PetService = require(script.Parent.PetService)
 local ItemService = require(script.Parent.ItemService)
+local MeteorService = require(script.Parent.MeteorService)
 local Decor = require(script.Parent.Decor)
 local Layout = require(Shared.Layout)
 
@@ -194,7 +197,7 @@ local function strike()
 	end
 end
 
-local function eternalStorm(myToken: number)
+local function eternalStorm(myToken: number, length: number)
 	-- A black hole high over every world - unless the cosmic sky's images are set up
 	-- (Config.EternalStorm.Sky): then every client draws its own, always high in front of them
 	local cosmic = storm.Sky.Disk ~= "" and storm.Sky.Halo ~= ""
@@ -209,6 +212,12 @@ local function eternalStorm(myToken: number)
 		sky.Parent = workspace
 		stormSky = sky
 	end
+	-- Halfway through: the Cosmic Meteor (if The Cosmic Donut can be crafted)
+	task.delay(length / 2, function()
+		if token == myToken then
+			MeteorService.Start()
+		end
+	end)
 	-- Rocks
 	task.spawn(function()
 		while token == myToken do
@@ -302,7 +311,7 @@ function EventService.Start(event: Events.Event, duration: number?)
 	elseif event.Kind == "DoubleHatch" then
 		PetService.SetHatchBoost(Config.Events.HatchBoost)
 	elseif event.Kind == "EternalStorm" then
-		task.spawn(eternalStorm, myToken)
+		task.spawn(eternalStorm, myToken, length)
 	end
 	task.delay(length, function()
 		if token == myToken then

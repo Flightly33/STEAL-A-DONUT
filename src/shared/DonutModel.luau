@@ -1891,7 +1891,7 @@ function DonutModel.CreateBillboard(donut: Donut, income: number, level: number?
 			CollectionService:AddTag(tag, "RainbowText")
 		end
 	end
-	local rarityLabel = line("Rarity", rarity.Id, rarity.Color, 0.9, 1)
+	local rarityLabel = line("Rarity", if donut.Crafted then `{rarity.Id} • LIMITED` else rarity.Id, rarity.Color, 0.9, 1)
 	if rarity.Rainbow then
 		CollectionService:AddTag(rarityLabel, "RainbowText")
 	end

@@ -63,6 +63,15 @@ DonutLooks.Overrides = {
 	tralalerobeach = { Shoe = rgb(40, 110, 235), ShoeAccent = rgb(255, 140, 40) },
 	frigocamel = { Feet = "Boots" }, -- Frigo Camelo wears boots
 	lirililarila = { Feet = "Sandals" },
+	-- The Cosmic Donut: galaxy glaze (violet with a cyan raised middle), glowing stars on it,
+	-- starry eyes, high-tops in deep space blue
+	cosmicdonut = {
+		Mood = "Cute", Glaze = "TwoTone", Accent = rgb(225, 130, 255), Rim = rgb(70, 25, 150),
+		Marking = "Stars", MarkGlow = true, Sprinkles = "Nonpareils",
+		Iris = rgb(150, 90, 255), GlowEyes = true, Lashes = true,
+		Feet = "HighTops", Shoe = rgb(40, 22, 95), ShoeAccent = rgb(90, 225, 255), Sole = rgb(255, 255, 255),
+		Effects = true, BiomeDetails = false, Scale = 1.1,
+	},
 } :: { [string]: { [string]: any } }
 
 local function hashString(text: string): number

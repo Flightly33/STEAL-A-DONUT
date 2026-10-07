@@ -378,6 +378,27 @@ Config.EternalStorm = {
 	MusicVolume = 1, -- x the player's music volume
 }
 
+-- The Cosmic Donut (limited time). Halfway through every Eternal Storm a huge meteor shatters the
+-- sky and cracks open on the lane: carry its shards back to the lobby (one at a time) and craft The
+-- Cosmic Donut with them at the Cosmic Forge by the spawn. Enabled = false ends it - no more
+-- meteors or crafting, and the storm goes back to being super rare (anyone who made one keeps it).
+Config.CosmicDonut = {
+	Enabled = true,
+	ShardCost = 10, -- meteor shards to craft The Cosmic Donut
+	Pieces = 12, -- shards a meteor cracks into
+	StormWeight = 6.5, -- while Enabled the Eternal Storm comes about every 2 hours (instead of EternalStorm.Weight)
+	ShardLife = 240, -- seconds the shards lie on the lane after the meteor lands
+	Biomes = { 1, 3 }, -- the biomes it can land in (close to the lobby, so everyone can get there)
+	FlingPower = 140, -- anyone it lands on
+	-- (Creator Store sounds: they have to be public, or allowed in this game, to play)
+	Sounds = {
+		Flash = "rbxassetid://113285467514193", -- the screen goes white
+		Shatter = "rbxassetid://9117235691", -- the sky shatters and the meteor bursts through
+		Fall = "rbxassetid://87028588436252", -- the meteor falling
+		Impact = { "rbxassetid://82448878741528", "rbxassetid://9114587083" }, -- it hits the lane and cracks open
+	},
+}
+
 Config.Events = {
 	Enabled = true,
 	FirstDelay = 90, -- seconds after the server starts

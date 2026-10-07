@@ -1,10 +1,10 @@
 --[[
-	Carried: the box (or donut, or egg) each player is carrying, drawn by every client.
+	Carried: the box (or donut, or egg, or meteor shard) each player is carrying, drawn by every client.
 
 	The server only sets attributes on the carrier - CarryingDonut (the box's tier, the donut's or
-	the egg's id), CarryKind ("Box" / "Egg"), CarryMutation and CarrySize - and every client
-	builds the model itself: boxes and donuts held in both arms in front of you (arms raised), eggs
-	above the head. Nothing is sent over
+	the egg's id), CarryKind ("Box" / "Egg" / "Shard"), CarryMutation and CarrySize - and every client
+	builds the model itself: boxes, shards and donuts held in both arms in front of you (arms raised),
+	eggs above the head. Nothing is sent over
 	the network and nothing is welded into a character on the server, which is what used to make the
 	first second of a steal stutter on phones (a donut is ~110 parts).
 
@@ -23,6 +23,7 @@ local Pets = require(Shared.Pets)
 local DonutModel = require(Shared.DonutModel)
 local PetModel = require(Shared.PetModel)
 local BoxModel = require(Shared.BoxModel)
+local Meteor = require(Shared.Meteor)
 
 local Carried = {}
 
@@ -31,6 +32,7 @@ local player = Players.LocalPlayer :: Player
 local DONUT_SCALE = 0.45
 local EGG_SCALE = 0.6
 local BOX_SCALE = 0.7
+local SHARD_SCALE = 0.75
 local BUILD_RANGE = 250 -- other players' carried donuts are drawn within this many studs of you...
 local DROP_RANGE = 320 -- ...and removed again past this
 local SPARE_LIFETIME = 6 -- seconds a donut built in advance (while holding Steal) is kept
@@ -51,7 +53,7 @@ local function keyFor(target: Player): string?
 	local kind = target:GetAttribute("CarryKind")
 	local mutation = target:GetAttribute("CarryMutation")
 	local size = target:GetAttribute("CarrySize")
-	local tag = if kind == "Egg" then "Egg" elseif kind == "Box" then "Box" else "Donut"
+	local tag = if kind == "Egg" then "Egg" elseif kind == "Box" then "Box" elseif kind == "Shard" then "Shard" else "Donut"
 	return `{tag}|{id}|{mutation or "None"}|{size or "Normal"}`
 end
 
@@ -61,11 +63,13 @@ local function build(key: string): Model?
 	if fields[1] == "Egg" then
 		local egg = Pets.EggById[fields[2]]
 		model = if egg then PetModel.BuildEgg(egg, { Scale = EGG_SCALE }) else nil
-	elseif fields[1] == "Box" then
-		local box = BoxModel.Build(fields[2], fields[4], { Mutation = fields[3], Scale = BOX_SCALE })
-		-- A box is built to stand still: every part anchored, none joined. Weld them all to its root
-		-- so the whole box moves with you (otherwise only the invisible root came along and the box
-		-- stayed hanging in the air where you grabbed it).
+	elseif fields[1] == "Box" or fields[1] == "Shard" then
+		local box = if fields[1] == "Box"
+			then BoxModel.Build(fields[2], fields[4], { Mutation = fields[3], Scale = BOX_SCALE })
+			else Meteor.BuildShard(SHARD_SCALE, 7)
+		-- A box (or a shard) is built to stand still: every part anchored, none joined. Weld them all
+		-- to its root so the whole box moves with you (otherwise only the invisible root came along
+		-- and the box stayed hanging in the air where you grabbed it).
 		local root = box.PrimaryPart
 		if root then
 			for _, part in box:GetDescendants() do

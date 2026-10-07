@@ -180,8 +180,18 @@ local function onChaseStarted(info: ChaseInfo)
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
 	Theme.PlaySound("Grab")
-	Theme.PlaySound("Steal")
-	if kind == "Box" then
+	if kind == "Shard" then
+		-- (nobody chases you for a meteor shard: just get it back over the lobby line)
+		bannerTitle.Text = "☄️ Bring the meteor shard back to the lobby!"
+		bannerTitle.TextColor3 = Color3.fromRGB(215, 160, 255)
+		setEdges(true, Color3.fromRGB(160, 80, 255))
+		Notifications.Toast("You grabbed a METEOR SHARD! Don't get hit - you'll drop it!", "rare")
+	else
+		Theme.PlaySound("Steal")
+	end
+	if kind == "Shard" then
+		-- (the toast above)
+	elseif kind == "Box" then
 		-- (for a box, DonutId is the box tier)
 		local tier = Boxes.Tier(info.DonutId)
 		local boxSize = Boxes.Size(info.Size)
@@ -294,7 +304,7 @@ local function bigText(text: string, color: Color3, duration: number)
 	end)
 end
 
-type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string?, Tier: string?, BoxBack: boolean? }
+type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string?, Tier: string?, BoxBack: boolean?, Count: number?, Cost: number? }
 
 local function onChaseEnded(result: ChaseResult)
 	Settings.SetChasing(false)
@@ -316,6 +326,14 @@ local function onChaseEnded(result: ChaseResult)
 		if result.Kind == "Egg" then
 			local egg = result.EggId and Pets.EggById[result.EggId]
 			bigText("🥚 EGG SECURED!", if egg then egg.Accent else Theme.Colors.Pink, 2)
+			Theme.PlaySound("Deposit")
+			return
+		elseif result.Kind == "Shard" then
+			local count, cost = result.Count or 0, result.Cost or Config.CosmicDonut.ShardCost
+			bigText(`☄️ METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), 2.2)
+			if count >= cost then
+				Notifications.Banner("THE COSMIC DONUT", Color3.fromRGB(170, 90, 255), 3, "You have enough shards! Craft it at the Cosmic Forge by the spawn")
+			end
 			Theme.PlaySound("Deposit")
 			return
 		elseif result.Kind == "Box" then

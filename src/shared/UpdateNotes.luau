@@ -53,6 +53,38 @@ end
 
 UpdateNotes.List = {
 	{
+		Version = 7,
+		Name = "The Cosmic Meteor",
+		Date = "Oct 7, 2026",
+		Color = Color3.fromRGB(36, 18, 78),
+		Accent = Color3.fromRGB(205, 160, 255),
+		Decor = "Stars",
+		Emblem = { Frosting = Color3.fromRGB(130, 60, 255), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 230, 255), Color3.fromRGB(255, 120, 220) }, Dough = Color3.fromRGB(24, 14, 52) },
+		Sections = {
+			{ Title = "The Cosmic Meteor", Tag = "NEW Event", Lines = {
+				"Halfway through every Eternal Storm, the whole screen flashes white... then EVERYTHING shakes",
+				"The sky cracks open like glass, and a giant burning meteor bursts through and falls",
+				"It smashes into the lane in one of the first biomes: watch out, it flings anyone right under it!",
+				"It cracks open in a glowing crater with meteor shards all around it",
+				"The Eternal Storm comes about every 2 hours now (while the meteor is around)",
+			} },
+			{ Title = "Meteor Shards", Tag = "NEW", Lines = {
+				"Grab a shard from round the crater and run it back to the lobby to keep it",
+				"Nobody chases you, but get hit by a bat or flung and you drop it for anyone to grab!",
+				"Shards nobody takes fade away after a few minutes, so be quick",
+			} },
+			{ Title = "The Cosmic Donut", Tag = "LIMITED TIME", Lines = {
+				"Bring 10 meteor shards to the new Cosmic Forge by the spawn to craft THE COSMIC DONUT",
+				"The best donut in the game: it earns twice as much as the best donut from any box",
+				"Swirling space colours, a glowing black hole horizon spinning round it, falling stars and a cosmic aura",
+				"It's only here for a limited time, so collect your shards while you can!",
+			} },
+		},
+		Sidebar = {
+			{ Title = "Crafted Donut", Items = { { Kind = "Donut", Id = "cosmicdonut", Note = "10 meteor shards at the Cosmic Forge" } } },
+		},
+	},
+	{
 		Version = 6,
 		Name = "Donut Boxes",
 		Date = "Oct 4, 2026",

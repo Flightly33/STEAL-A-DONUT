@@ -136,10 +136,15 @@ function ItemCard.Describe(item: Item): Info
 			Color = rarity.Color,
 			Stats = {
 				{ Label = "Money", Value = `{Format.Money(donut.Income)}/s`, Color = MONEY },
-				{ Label = "Box chance", Value = if spawnable then percent(Donuts.Chance(donut)) else "Admin only", Color = CHANCE },
+				{ Label = "Box chance", Value = if spawnable then percent(Donuts.Chance(donut)) elseif donut.Crafted then "Crafted" else "Admin only", Color = CHANCE },
 				{ Label = "Biome", Value = tostring(donut.Area), Color = PLACE },
 			},
-			Lines = if spawnable and box
+			Lines = if donut.Crafted
+				then {
+					`Never comes out of a box: bring {Config.CosmicDonut.ShardCost} {paint("meteor shards", rgb(200, 130, 255))} to the {paint("Cosmic Forge", rgb(200, 130, 255))} by the spawn to craft it.`,
+					`The meteor crashes down halfway through the {paint("Eternal Storm", rgb(170, 90, 255))}. {paint("LIMITED TIME!", rgb(255, 120, 220))}`,
+				}
+				elseif spawnable and box
 				then {
 					`Comes out of a {paint(box.Name, box.Color)} from {paint(if area then area.Name else "the lane", if area then area.Trim else PLACE)}. Steal one before {paint(Config.Guard.Name, rgb(255, 90, 90))} wakes up!`,
 					`Can come as {table.concat(mutations, ", ")} for more money.`,
@@ -148,7 +153,7 @@ function ItemCard.Describe(item: Item): Info
 					`Never comes out of a box: only the {paint("admin panel", rarity.Color)} can make one.`,
 					`Can come as {table.concat(mutations, ", ")} for more money.`,
 				},
-			HowTo = if spawnable and box then `{box.Name}, {areaName(donut.Area)}` else "Admin panel only",
+			HowTo = if donut.Crafted then "Cosmic Forge (limited)" elseif spawnable and box then `{box.Name}, {areaName(donut.Area)}` else "Admin panel only",
 		}
 	elseif item.Kind == "Pet" and Pets.ById[item.Id] then
 		local pet = Pets.ById[item.Id]

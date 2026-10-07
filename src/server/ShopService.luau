@@ -41,6 +41,7 @@ local InventoryService = require(script.Parent.InventoryService)
 local PetService = require(script.Parent.PetService)
 local ProductService = require(script.Parent.ProductService)
 local Ownership = require(script.Parent.Ownership)
+local CraftService = require(script.Parent.CraftService)
 
 local ShopService = {}
 
@@ -495,6 +496,10 @@ function Actions.SetSpeedLimit(player: Player, profile: DataService.Profile, lim
 end
 
 -- The small "Drop box" button: put the box down where you stand.
+function Actions.CraftCosmic(player: Player)
+	CraftService.Craft(player)
+end
+
 function Actions.DropCarried(player: Player)
 	local carry = StealService.GetCarry(player)
 	if carry and carry.Kind == "Box" then

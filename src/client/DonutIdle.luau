@@ -67,7 +67,7 @@ local BREATHE_RATE = 15
 local BREATHE_PERIOD = 2.6 -- seconds per breath
 local STRETCH, SQUASH = 0.04, 0.025 -- taller by 4% breathing in, 2.5% thinner
 
-type Limb = { Weld: Weld, Base: CFrame, Pivot: CFrame, Kind: string, Side: number, Phase: number }
+type Limb = { Weld: Weld, Base: CFrame, Pivot: CFrame, Kind: string, Side: number, Phase: number, Axis: Vector3?, Spin: number }
 type Eye = { Part: BasePart, Size: Vector3, Color: Color3 }
 type Pupil = { Part: BasePart, Weld: Weld, Base: CFrame }
 type Mouth = { Part: BasePart, Weld: Weld, Base: CFrame, Size: Vector3, Corners: { BasePart } }
@@ -275,6 +275,8 @@ local function register(instance: Instance)
 				local key = string.format("%.2f,%.2f,%.2f", pivotPosition.X, pivotPosition.Y, pivotPosition.Z)
 				local phase = phases[key] or rng:NextNumber(0, TAU)
 				phases[key] = phase
+				local axis = part:GetAttribute("Axis")
+				local spinRate = part:GetAttribute("Spin")
 				table.insert(limbs, {
 					Weld = weld,
 					Base = weld.C0,
@@ -282,6 +284,8 @@ local function register(instance: Instance)
 					Kind = kind,
 					Side = if type(side) == "number" then side else 0,
 					Phase = phase,
+					Axis = if typeof(axis) == "Vector3" then axis else nil,
+					Spin = if type(spinRate) == "number" then spinRate else 1,
 				})
 				hasArms = hasArms or kind == "Arm"
 			end
@@ -679,6 +683,8 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 			rotation = CFrame.Angles(0.06 * math.sin(t * 2.1 + limb.Phase), 0, 0.12 * math.sin(t * 2.6 + limb.Phase))
 		elseif kind == "Roll" then -- clock hands, wind-up keys: turns round the front-back axis
 			rotation = CFrame.Angles(0, 0, (t * 1.6) % TAU)
+		elseif kind == "Horizon" and limb.Axis then -- a ring spinning round its own (tipped) axis
+			rotation = CFrame.fromAxisAngle(limb.Axis, (t * limb.Spin) % TAU)
 		else
 			rotation = CFrame.identity
 		end

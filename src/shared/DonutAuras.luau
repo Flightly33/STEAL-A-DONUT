@@ -197,7 +197,9 @@ for _, element in DonutAuras.Elements do
 end
 
 -- Per-donut choices: { Primary = element id, Secondary = element id }.
-DonutAuras.Overrides = {} :: { [string]: { Primary: string?, Secondary: string? } }
+DonutAuras.Overrides = {
+	cosmicdonut = { Primary = "Cosmos", Secondary = "Void" }, -- stars and galaxies, with the black hole's pull
+} :: { [string]: { Primary: string?, Secondary: string? } }
 
 -- How many effects, and how strong, by rarity order (Epic = 4 ...).
 local TIERS: { [number]: { Count: number, Intensity: number } } = {

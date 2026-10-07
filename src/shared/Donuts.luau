@@ -27,7 +27,8 @@ export type Donut = {
 	Name: string,
 	Rarity: string,
 	Area: number, -- the biome whose boxes it comes out of
-	Box: string?, -- which of that biome's boxes (Boxes.luau tier id); nil = admin panel only
+	Box: string?, -- which of that biome's boxes (Boxes.luau tier id); nil = admin panel only (or crafted)
+	Crafted: boolean?, -- never in a box: crafted at the Cosmic Forge (limited time, Config.CosmicDonut)
 	Income: number,
 	Weight: number, -- chance relative to the other donuts in the same box
 	Dough: Color3,
@@ -56,7 +57,7 @@ local function D(id: string, name: string, rarity: string, area: number, income:
 	return {
 		Id = id, Name = name, Rarity = rarity, Area = area, Box = nil, Income = income, Weight = weight,
 		Dough = dough, Frosting = frosting, Sprinkles = sprinkles, Parts = parts,
-		Score = 0, Index = 0,
+		Score = 0, Index = 0, Crafted = nil :: boolean?,
 	}
 end
 
@@ -297,7 +298,15 @@ Donuts.List = {
 	D("wormholio", "Wormholio Infinitoni", "Secret", 34, 2.9e27, 0.012, rgb(0, 0, 0), rgb(170, 90, 255), STARS, { "Wings", "Halo", "Crown", "Orbit", "Tentacles", "Wormhole" }),
 	-- The first ICON donut: the rarest natural spawn (about 1 in 70,000 spawns in The Black Hole)
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
+	---------------------------------------------------------------- Limited time
+	-- THE COSMIC DONUT: never in a box - crafted from 10 meteor shards at the Cosmic Forge while
+	-- Config.CosmicDonut is on (the meteor falls halfway through the Eternal Storm). The best donut
+	-- in the game: a black hole's horizon spins round it. (Its biome and income are set below.)
+	D("cosmicdonut", "The Cosmic Donut", "Icon", 0, 0, 0, rgb(24, 14, 52), rgb(130, 60, 255), { rgb(255, 255, 255), rgb(120, 230, 255), rgb(255, 120, 220), rgb(255, 240, 150) }, { "Legs", "Arms", "CosmicHorizon", "GalaxySwirl", "FallingStars" }),
 } :: { Donut }
+
+-- Crafted donuts (only in the Index under The Black Hole): twice what the best donut in any box earns.
+local CRAFTED = { cosmicdonut = true }
 
 --------------------------------------------------------------------------------
 -- Update 6: donuts come out of donut BOXES (Boxes.luau). Every donut above now lives in one of
@@ -427,8 +436,23 @@ for biome, sources in BIOME_DONUTS do
 		end
 	end
 end
+local best = 0
 for _, donut in Donuts.List do
-	assert(donut.Area >= 1 and donut.Area <= #Areas.List and (donut.Box ~= nil or Rarities.Get(donut.Rarity).AdminOnly), "Donut not in any biome's boxes: " .. donut.Id)
+	if not CRAFTED[donut.Id] then
+		best = math.max(best, donut.Income)
+	end
+end
+for _, donut in Donuts.List do
+	if CRAFTED[donut.Id] then
+		donut.Crafted = true
+		donut.Area = #Areas.List
+		donut.Box = nil
+		donut.Weight = 0
+		donut.Income = best * 2
+	end
+end
+for _, donut in Donuts.List do
+	assert(donut.Area >= 1 and donut.Area <= #Areas.List and (donut.Box ~= nil or Rarities.Get(donut.Rarity).AdminOnly or donut.Crafted), "Donut not in any biome's boxes: " .. donut.Id)
 end
 
 Donuts.ById = {} :: { [string]: Donut }

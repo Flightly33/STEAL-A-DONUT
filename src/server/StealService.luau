@@ -19,8 +19,9 @@
 	CarrySize (and CarryArea for boxes). The server never builds or welds a model for it.
 
 	Everything you can carry uses the same system:
-	  Box  -> a donut box from a biome (BoxService)
-	  Egg  -> a pet egg from a biome (see PetService; returns to its spot when lost)
+	  Box   -> a donut box from a biome (BoxService)
+	  Egg   -> a pet egg from a biome (see PetService; returns to its spot when lost)
+	  Shard -> a meteor shard (MeteorService; yours in the lobby, drops where you are when lost)
 ]]
 
 local RunService = game:GetService("RunService")
@@ -53,8 +54,10 @@ export type Carry = {
 	Secured: boolean, -- made it to the lobby
 	LastPos: Vector3,
 	LastTime: number,
-	-- Custom behaviour (eggs): deposit returns false to keep carrying; lost puts it back.
+	-- Custom behaviour (eggs, meteor shards): deposit returns false to keep carrying; lost puts it
+	-- back. DepositInLobby: it's yours the moment you're back in the lobby (else: in your own base).
 	OnDeposit: ((Player) -> boolean)?,
+	DepositInLobby: boolean?,
 	OnLost: ((Player) -> ())?,
 }
 
@@ -171,7 +174,9 @@ function StealService.Knock(player: Player)
 	clearCarry(player)
 	GuardService.StopChase(player)
 	if player.Parent then
-		local reason = if carry.Kind == "Box" then "You got hit and dropped the box! Grab it before someone else does!" else "You got hit! It went back where it came from."
+		local reason = if carry.Kind == "Box" then "You got hit and dropped the box! Grab it before someone else does!"
+			elseif carry.Kind == "Shard" then "You got hit and dropped the meteor shard! Grab it before someone else does!"
+			else "You got hit! It went back where it came from."
 		Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Lost", Reason = reason, Kind = carry.Kind })
 	end
 end
@@ -352,7 +357,7 @@ local function updateCarriers()
 
 		if not carry.Secured and Layout.IsSafe(pos) then
 			carry.Secured = true
-			if carry.Kind ~= "Box" then
+			if carry.Kind ~= "Box" and not carry.DepositInLobby then
 				GuardService.StopChase(player, "Safe")
 				Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Safe", DonutId = carry.DonutId, Kind = carry.Kind })
 			end
@@ -360,7 +365,7 @@ local function updateCarriers()
 		if carry.Secured then
 			if carry.Kind == "Box" then
 				depositBox(player, carry)
-			elseif PlotService.IsInOwnPlot(player, pos) then
+			elseif carry.DepositInLobby or PlotService.IsInOwnPlot(player, pos) then
 				depositHome(player, carry)
 			end
 		end

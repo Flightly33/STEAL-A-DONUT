@@ -1602,6 +1602,54 @@ function A.FallingStars(k: Kit)
 	end
 end
 
+-- The Cosmic Donut: a black hole's horizon spinning round it, tipped forward like Saturn's rings -
+-- the dark shadow band inside, the thin white photon ring, the accretion disk of glowing gas
+-- (white-hot on one side, through gold and pink to violet on the other, so you can see it turn),
+-- bright clumps riding in it, and a faint violet haze outside. Every piece is a "Horizon" limb:
+-- the client spins it round the ring's own axis (Axis), Spin radians a second.
+function A.CosmicHorizon(k: Kit)
+	local tilt = CFrame.Angles(math.rad(-28), 0, math.rad(12))
+	local axis = tilt.UpVector
+	local radius = k.R + 2.0
+	local function spin(part: BasePart)
+		k.limb(part, "Horizon", 0, 0, 0, 0)
+		part:SetAttribute("Axis", axis)
+		part:SetAttribute("Spin", 1.3)
+	end
+	local hot = { rgb(255, 255, 245), rgb(255, 225, 140), rgb(255, 150, 70), rgb(255, 90, 160), rgb(170, 80, 255), rgb(110, 50, 220) }
+	local function heat(t: number): Color3
+		-- 0 = the hot side, 0.5 = the far side, back to 0
+		local x = math.min(t, 1 - t) * 2 * (#hot - 1)
+		local i = math.floor(x)
+		return hot[i + 1]:Lerp(hot[math.min(i + 2, #hot)], x - i)
+	end
+	local function ring(name: string, r: number, count: number, width: number, thick: number, color: (number) -> Color3, transparency: number)
+		local length = 2 * math.pi * r / count * 1.08
+		for i = 0, count - 1 do
+			local t = i / count
+			local cf = k.at(0, 0, 0) * tilt * CFrame.Angles(0, t * TAU, 0) * CFrame.new(r * k.s, 0, 0)
+			local piece = k.block(Vector3.new(width, thick, length), color(t), cf, NEON, name)
+			piece.Transparency = transparency
+			spin(piece)
+		end
+	end
+	ring("Horizon", radius - 0.5, 18, 0.32, 0.13, function()
+		return rgb(6, 0, 14)
+	end, 0)
+	ring("PhotonRing", radius - 0.28, 18, 0.09, 0.16, function()
+		return rgb(255, 250, 235)
+	end, 0)
+	ring("Accretion", radius + 0.1, 20, 0.62, 0.1, heat, 0)
+	ring("HorizonHaze", radius + 0.72, 16, 0.45, 0.06, function(t)
+		return rgb(150, 70, 255):Lerp(rgb(80, 210, 255), 0.5 + 0.5 * math.cos(t * TAU * 2))
+	end, 0.5)
+	for i = 0, 3 do
+		local a = i / 4 * TAU + 0.4
+		local cf = k.at(0, 0, 0) * tilt * CFrame.Angles(0, a, 0) * CFrame.new((radius + 0.1) * k.s, 0.12 * k.s, 0)
+		spin(k.block(Vector3.one * 0.36, rgb(255, 240, 210), cf * CFrame.Angles(0.6, 0.6, 0), NEON, "HotSpot"))
+	end
+end
+
 function A.Flower(k: Kit)
 	local center = k.at(0.5, k.TOP + 0.55, -0.05)
 	local petal = k.Frosting:Lerp(WHITE, 0.3)

@@ -144,7 +144,9 @@ local function refresh()
 		local rarity = Rarities.Get(donut.Rarity)
 		local cash = Economy.IndexCashReward(id)
 		local speed = Economy.IndexSpeedReward(id)
-		local chance = if not Donuts.Spawnable(donut) then "Admin panel only" else `{string.format("%.2g", Donuts.Chance(donut) * 100)}% of box`
+		local chance = if donut.Crafted then "Crafted at the Cosmic Forge • LIMITED"
+			elseif not Donuts.Spawnable(donut) then "Admin panel only"
+			else `{string.format("%.2g", Donuts.Chance(donut) * 100)}% of box`
 		card.Rarity.Text = `{rarity.Id} • {chance}`
 		local counts = stats and stats.D[id]
 		if rarity.Order >= Config.GlobalStats.ShowFromRarity and Donuts.Spawnable(donut) then
@@ -311,11 +313,25 @@ local function buildPage(pageId: number)
 				end
 			end
 		end
-		-- donuts only the admin panel makes
-		local extra = {}
+		-- donuts crafted at the Cosmic Forge (limited time)
+		local crafted = {}
 		local inBiome: { Donuts.Donut } = Donuts.ByArea[biome] or {}
 		for _, donut in inBiome do
-			if not donut.Box then
+			if donut.Crafted then
+				table.insert(crafted, donut)
+			end
+		end
+		if #crafted > 0 then
+			local frame = section("☄️ CRAFTED AT THE COSMIC FORGE • LIMITED TIME", Color3.fromRGB(190, 120, 255), 24)
+			local cells = grid(frame, 28)
+			for index, donut in crafted do
+				buildCard(cells, donut, index)
+			end
+		end
+		-- donuts only the admin panel makes
+		local extra = {}
+		for _, donut in inBiome do
+			if not donut.Box and not donut.Crafted then
 				table.insert(extra, donut)
 			end
 		end

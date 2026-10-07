@@ -38,6 +38,7 @@ export type Snapshot = {
 	TutorialEggClaimed: boolean?,
 	Admin: boolean?,
 	GodMode: boolean?,
+	MeteorShards: number?, -- for The Cosmic Donut (UI/CosmicForge)
 }
 
 local State = {}

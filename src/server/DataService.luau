@@ -81,6 +81,7 @@ export type Data = {
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
 	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
 	AdminRevoked: boolean, -- the game's owner took their admin panel away (the chat code won't work)
+	MeteorShards: number, -- shards from the Cosmic Meteor (MeteorService), spent at the Cosmic Forge
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -144,6 +145,7 @@ local TEMPLATE: Data = {
 	NotesOnLogin = true,
 	TutorialEggClaimed = false,
 	AdminRevoked = false,
+	MeteorShards = 0,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -659,6 +661,7 @@ function DataService.PushState(player: Player)
 		SeenUpdate = profile.Data.SeenUpdate,
 		NotesOnLogin = profile.Data.NotesOnLogin,
 		TutorialEggClaimed = profile.Data.TutorialEggClaimed,
+		MeteorShards = profile.Data.MeteorShards,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})

@@ -157,6 +157,13 @@ function Layout.LeaderboardZ(): number
 	return map.SafeZoneZ - map.HubDepth + 10
 end
 
+-- The Cosmic Forge (Config.CosmicDonut): in the plaza in front of the spawn, to its left, turned
+-- to face it.
+function Layout.CosmicForgeCFrame(): CFrame
+	local position = Vector3.new(-48, 0, map.SafeZoneZ - 132)
+	return CFrame.lookAt(position, Vector3.new(0, 0, map.SafeZoneZ - 170))
+end
+
 -- The sell stall: out of the way in the middle of the plaza, halfway back (behind the spawn, clear
 -- of the path to the lane), facing the lane. Easy to reach from the belts on either side.
 function Layout.SellStallCFrame(): CFrame
