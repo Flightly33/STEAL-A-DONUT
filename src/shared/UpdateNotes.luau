@@ -79,6 +79,17 @@ UpdateNotes.List = {
 				"Swirling space colours, a glowing black hole horizon spinning round it, falling stars and a cosmic aura",
 				"It's only here for a limited time, so collect your shards while you can!",
 			} },
+			{ Title = "Index Makeover", Tag = "NEW Look", Lines = {
+				"Every biome in the Index has its own colours and background: sprinkles in Sprinkle Park, snow on Glacier Glaze, peppermint stripes in Candy Cane Canyon, a neon grid on Neon Streets, gears in the Clockwork Void, stars round The Black Hole...",
+				"Each biome's donuts sit on its own sky, under a big header with its number and the Speed you need to escape it",
+			} },
+			{ Title = "Biome Fixes", Tag = "Fixed", Lines = {
+				"Chocolate Caverns has a real cave ceiling: huge rock beams from wall to wall with big stalactites hanging from them",
+				"Candy Cane Canyon's chocolate bar bridges now go all the way across the canyon",
+				"Cloud Bakery's rainbow arches right over the lane from wall to wall",
+				"Clockwork Void's giant gears sit on axles in the walls and turn properly; its clock tower got its clock back",
+				"Neon Streets' signs are bolted to the walls, Donut Heaven's giant donut sits on top of its golden gate, and The Black Hole's holograms beam up from projectors",
+			} },
 		},
 		Sidebar = {
 			{ Title = "Crafted Donut", Items = { { Kind = "Donut", Id = "cosmicdonut", Note = "10 meteor shards at the Cosmic Forge" } } },

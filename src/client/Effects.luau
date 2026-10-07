@@ -4,6 +4,7 @@
 	  DonutRainbow             - frosting cycles through the rainbow (Celestial, Secret)
 	  RainbowPart / RainbowText- rainbow parts and labels
 	  SpinSlow                 - floating crystals and halo rings
+	  GearSpin                 - gears on the walls turn round their axles (SpinDir = 1 / -1)
 	  TreadmillBelt            - belt slats scroll backwards
 	  Area ambience            - lighting, fog and colour grading change per area
 	  Owner-only prompts       - hide Upgrade/Sell prompts on other people's donuts
@@ -106,6 +107,14 @@ local function startDonutEffects()
 		end
 		return nil
 	end)
+	type Gear = { Model: Model, Base: CFrame, Dir: number }
+	local gears: { [Instance]: Gear } = track("GearSpin", function(instance): Gear?
+		if instance:IsA("Model") and instance.PrimaryPart then
+			local dir = instance:GetAttribute("SpinDir")
+			return { Model = instance, Base = instance:GetPivot(), Dir = if type(dir) == "number" then dir else 1 }
+		end
+		return nil
+	end)
 
 	local colourClock = 0
 	local spinClock = 0
@@ -154,6 +163,14 @@ local function startDonutEffects()
 					spinners[model] = nil
 				elseif (s.Base.Position - cam).Magnitude < 350 then
 					s.Model:PivotTo(s.Base * CFrame.Angles(0, t * 0.5, math.sin(t) * 0.2))
+				end
+			end
+			-- (a gear's pivot faces out of the wall: it turns round its own Z, the axle)
+			for model, g in gears do
+				if not model.Parent then
+					gears[model] = nil
+				elseif (g.Base.Position - cam).Magnitude < 350 then
+					g.Model:PivotTo(g.Base * CFrame.Angles(0, 0, t * 0.35 * g.Dir))
 				end
 			end
 		end

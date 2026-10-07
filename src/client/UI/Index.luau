@@ -8,6 +8,10 @@
 	once: the speed bonus where a donut offers one (until the bonus is capped), cash for the rest. The dots under a donut show which mutations
 	of it you've found.
 
+	Every biome has its own colour scheme and background (UI/IndexThemes): its colours behind its
+	donuts, little details that match it (snow, sprinkles, gears, a starfield...) and big faded
+	emoji down the sides.
+
 	Global rarity scale: Legendary and rarer donuts show how many times they've spawned and been
 	found in the WHOLE game (every server), and what share of all spawns that is. The line at the
 	top does the same for every mutation. (StatsService on the server keeps the counts.)
@@ -28,6 +32,7 @@ local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
+local IndexThemes = require(script.Parent.IndexThemes)
 local State = require(script.Parent.Parent.State)
 
 local Index = {}
@@ -81,9 +86,9 @@ function Index.UnclaimedCount(): number
 	return count
 end
 
-local function preview(parent: Instance, donut: Donuts.Donut): ViewportFrame
+local function preview(parent: Instance, donut: Donuts.Donut, sky: Color3?): ViewportFrame
 	local viewport = Theme.new("ViewportFrame", {
-		BackgroundColor3 = Color3.fromRGB(25, 25, 40),
+		BackgroundColor3 = sky or Color3.fromRGB(25, 25, 40),
 		Size = UDim2.new(1, -12, 0, 96),
 		Position = UDim2.fromOffset(6, 6),
 		Ambient = Color3.fromRGB(170, 170, 170),
@@ -219,13 +224,15 @@ local function fetchStats()
 	end
 end
 
-local function buildCard(grid: Instance, donut: Donuts.Donut, order: number)
+local function buildCard(grid: Instance, donut: Donuts.Donut, order: number, palette: IndexThemes.Palette?)
 	local rarity = Rarities.Get(donut.Rarity)
-	local cardFrame = Theme.new("Frame", { BackgroundColor3 = Theme.Colors.PanelLight, LayoutOrder = order, Parent = grid }, {
+	-- (a little see-through, so the biome's background details show behind the cards)
+	local cardFrame = Theme.new("Frame", { BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = if palette then 0.18 else 0, LayoutOrder = order, Parent = grid }, {
 		Theme.Corner(12),
 		Theme.Stroke(3, rarity.Color),
+		Theme.Gradient(if palette then palette.CardTop else Theme.Colors.PanelLight, if palette then palette.Card else Theme.Colors.Panel),
 	})
-	local viewport = preview(cardFrame, donut)
+	local viewport = preview(cardFrame, donut, if palette then palette.Sky else nil)
 	local rarityLabel = Theme.Label({ Text = rarity.Id, TextColor3 = rarity.Color, Font = Theme.Font, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 104), StrokeThickness = 1.5, Parent = cardFrame })
 	local nameLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -8, 0, 26), Position = UDim2.fromOffset(4, 122), StrokeThickness = 1.5, Parent = cardFrame })
 	local info = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Theme.Colors.Money, Size = UDim2.new(1, -8, 0, 17), Position = UDim2.fromOffset(4, 148), StrokeThickness = 1.2, Parent = cardFrame })
@@ -283,11 +290,50 @@ local function buildPage(pageId: number)
 	pages[pageId] = scroll
 	local range = PAGES[pageId]
 	local order = 0
+	local content: Instance = scroll
 	local function section(title: string, color: Color3, size: number): (Frame, TextLabel)
 		order += 1
-		local frame = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = scroll })
+		local frame = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, LayoutOrder = order, Parent = content })
 		local label = Theme.Label({ Text = title, TextColor3 = color, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, size), Parent = frame })
 		return frame, label
+	end
+	-- A biome's own panel: its colours, its background details (behind) and its donuts (in front).
+	local function biomePanel(area: Areas.Area): (Frame, IndexThemes.Palette)
+		local palette = IndexThemes.Get(area.Theme)
+		order += 1
+		local panel = Theme.new("Frame", {
+			Name = "Biome" .. area.Id,
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			ClipsDescendants = true,
+			LayoutOrder = order,
+			Parent = scroll,
+		}, {
+			Theme.Corner(16),
+			Theme.Stroke(3, palette.Accent),
+			Theme.Gradient(palette.Top, palette.Bottom),
+		})
+		local backdrop = Theme.new("Frame", { Name = "Backdrop", BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), ZIndex = 1, Parent = panel })
+		IndexThemes.Decorate(backdrop, area.Theme, area.Id * 7919)
+		local inner = Theme.new("Frame", { Name = "Content", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, ZIndex = 2, Parent = panel }, {
+			Theme.new("UIListLayout", { Padding = UDim.new(0, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
+			Theme.new("UIPadding", { PaddingTop = UDim.new(0, 10), PaddingBottom = UDim.new(0, 14), PaddingLeft = UDim.new(0, 14), PaddingRight = UDim.new(0, 14) }),
+		})
+		-- the header: the biome's number in a badge, its name, and the Speed you need to escape it
+		local escape = Economy.EscapeSpeed(area.Id)
+		local header = Theme.new("Frame", { Name = "Header", BackgroundColor3 = palette.Bottom, BackgroundTransparency = 0.35, Size = UDim2.new(1, 0, 0, 52), LayoutOrder = 0, Parent = inner }, {
+			Theme.Corner(12),
+			Theme.Stroke(2, palette.Accent),
+		})
+		local badge = Theme.new("Frame", { Name = "Badge", BackgroundColor3 = palette.Accent, Size = UDim2.fromOffset(40, 40), Position = UDim2.fromOffset(6, 6), Parent = header }, { Theme.Corner(20), Theme.Stroke(2.5) })
+		Theme.Label({ Text = tostring(area.Id), TextColor3 = palette.Bottom, Size = UDim2.fromScale(1, 1), StrokeThickness = 0, Parent = badge })
+		Theme.Label({ Name = "Title", Text = `{palette.Icons[1]}  {string.upper(area.Name)}`, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -230, 0, 32), Position = UDim2.fromOffset(56, 4), StrokeThickness = 2.5, Parent = header })
+		Theme.Label({ Name = "Subtitle", Text = `BIOME {area.Id}`, Font = Theme.Font, TextColor3 = palette.Accent, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -230, 0, 16), Position = UDim2.fromOffset(57, 34), StrokeThickness = 1.5, Parent = header })
+		local chip = Theme.new("Frame", { Name = "Escape", BackgroundColor3 = Color3.fromRGB(20, 20, 30), BackgroundTransparency = 0.25, AnchorPoint = Vector2.new(1, 0.5), Size = UDim2.fromOffset(200, 32), Position = UDim2.new(1, -10, 0.5, 0), Parent = header }, { Theme.Corner(16), Theme.Stroke(2, palette.Accent) })
+		Theme.Label({ Text = if escape > 0 then `⚡ {Format.Number(escape)} to escape` else "⚡ any speed escapes", Font = Theme.Font, TextColor3 = Color3.fromRGB(255, 230, 90), Size = UDim2.new(1, -12, 1, -6), Position = UDim2.fromOffset(6, 3), StrokeThickness = 1.5, Parent = chip })
+		content = inner
+		return panel, palette
 	end
 	local function grid(parent: Instance, y: number): Frame
 		return Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, y), Size = UDim2.new(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Parent = parent }, {
@@ -299,9 +345,7 @@ local function buildPage(pageId: number)
 		if not area then
 			continue
 		end
-		local escape = Economy.EscapeSpeed(area.Id)
-		local need = if escape > 0 then `⚡{Format.Number(escape)} to escape` else "any speed escapes"
-		section(`BIOME {area.Id} • {string.upper(area.Name)} • {need}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.3), 32)
+		local _, palette = biomePanel(area)
 		for _, tier in Boxes.TiersFor(biome) do
 			local list = Donuts.ByBox[biome] and Donuts.ByBox[biome][tier.Id]
 			if list and #list > 0 then
@@ -309,7 +353,7 @@ local function buildPage(pageId: number)
 				table.insert(boxTitles, { Label = label, Biome = biome, Tier = tier })
 				local cells = grid(frame, 28)
 				for index, donut in list do
-					buildCard(cells, donut, index)
+					buildCard(cells, donut, index, palette)
 				end
 			end
 		end
@@ -325,7 +369,7 @@ local function buildPage(pageId: number)
 			local frame = section("☄️ CRAFTED AT THE COSMIC FORGE • LIMITED TIME", Color3.fromRGB(190, 120, 255), 24)
 			local cells = grid(frame, 28)
 			for index, donut in crafted do
-				buildCard(cells, donut, index)
+				buildCard(cells, donut, index, palette)
 			end
 		end
 		-- donuts only the admin panel makes
@@ -339,7 +383,7 @@ local function buildPage(pageId: number)
 			local frame = section("🛠 ADMIN PANEL ONLY", Rarities.Get("Admin").Color, 24)
 			local cells = grid(frame, 28)
 			for index, donut in extra do
-				buildCard(cells, donut, index)
+				buildCard(cells, donut, index, palette)
 			end
 		end
 	end

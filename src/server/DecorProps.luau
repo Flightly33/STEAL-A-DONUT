@@ -274,9 +274,9 @@ local function lighthouse(parent: Instance, cf: CFrame, _rng: Random): Model
 	for i = 0, 3 do
 		cyl(m, "Tower", 3.2, 4.6 - i * 0.45, at(cf, 0, 2.8 + i * 3.2, 0), if i % 2 == 0 then rgb(230, 60, 60) else WHITE)
 	end
-	cyl(m, "Gallery", 0.5, 4.2, at(cf, 0, 14.6, 0), rgb(40, 40, 45), M.Metal)
-	cyl(m, "Lamp", 2.2, 2.6, at(cf, 0, 16, 0), rgb(255, 240, 160), M.Neon, 0.1)
-	ball(m, "Dome", 3, at(cf, 0, 17.3, 0), rgb(230, 60, 60))
+	cyl(m, "Gallery", 0.5, 4.2, at(cf, 0, 14.2, 0), rgb(40, 40, 45), M.Metal)
+	cyl(m, "Lamp", 2.2, 2.6, at(cf, 0, 15.5, 0), rgb(255, 240, 160), M.Neon, 0.1)
+	ball(m, "Dome", 3, at(cf, 0, 16.9, 0), rgb(230, 60, 60))
 	return m
 end
 

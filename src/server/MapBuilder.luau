@@ -47,7 +47,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 18
+local MAP_VERSION = 19
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -601,7 +601,7 @@ local function buildArea(parent: Instance, area: Areas.Area)
 	local decor = Instance.new("Folder")
 	decor.Name = "Decor"
 	decor.Parent = folder
-	Decor.BuildTheme(area.Theme, decor, zs, ze, Random.new(area.Id * 104729))
+	Decor.BuildTheme(area.Theme, decor, zs, ze, Random.new(area.Id * 104729), half)
 	if not area.HalfWidth then
 		widenDecor(decor, half)
 	end
