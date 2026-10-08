@@ -50,7 +50,7 @@ local function refresh()
 		return
 	end
 	local have, cost = shards(), COSMIC.ShardCost
-	shardsLabel.Text = `☄️ Meteor Shards: <b>{have}/{cost}</b>`
+	shardsLabel.Text = `Meteor Shards: <b>{have}/{cost}</b>`
 	fill.Size = UDim2.fromScale(math.clamp(have / cost, 0, 1), 1)
 	local text = craftButton:FindFirstChild("Text") :: TextLabel?
 	if text then
@@ -148,7 +148,7 @@ local function hookPrompt()
 end
 
 function CosmicForge.Init()
-	modal = Modal.new("☄️ COSMIC FORGE", rgb(110, 50, 200), Vector2.new(640, 430))
+	modal = Modal.new("Cosmic Forge", rgb(110, 50, 200), Vector2.new(640, 430))
 	local body = modal.Body
 	-- the donut, in a little window into space
 	local viewport = Theme.new("ViewportFrame", {
@@ -161,14 +161,14 @@ function CosmicForge.Init()
 		Parent = body,
 	}, { Theme.Corner(14), Theme.Stroke(3, VIOLET), Theme.Gradient(rgb(40, 20, 80), rgb(8, 4, 20)) })
 	buildPreview(viewport)
-	Theme.Label({ Text = "✦ LIMITED TIME ✦", TextColor3 = PINK, Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 1, -34), StrokeThickness = 2, Parent = viewport })
+	Theme.Label({ Text = "LIMITED TIME", TextColor3 = PINK, Size = UDim2.new(1, -16, 0, 26), Position = UDim2.new(0, 8, 1, -34), StrokeThickness = 2, Parent = viewport })
 
 	local right = Theme.new("Frame", { Name = "Info", BackgroundTransparency = 1, Position = UDim2.new(0.42, 14, 0, 0), Size = UDim2.new(0.58, -14, 1, 0), Parent = body })
 	Theme.Label({ Text = "THE COSMIC DONUT", TextColor3 = rgb(225, 195, 255), Size = UDim2.new(1, 0, 0, 40), StrokeThickness = 3, Parent = right })
 	local donut = Donuts.ById[DONUT_ID]
 	local income = if donut then Economy.DonutIncome(donut.Id, 1, "None", "Normal") else 0
 	Theme.Label({
-		Text = `<font color="#{CYAN:ToHex()}">ICON • CRAFTED</font>  💰 <b>{Format.Money(income)}/s</b>`,
+		Text = `<font color="#{CYAN:ToHex()}">ICON • CRAFTED</font> <b>{Format.Money(income)}/s</b>`,
 		Font = Theme.Font,
 		RichText = true,
 		TextColor3 = rgb(140, 255, 120),
@@ -194,7 +194,7 @@ function CosmicForge.Init()
 	local bar = Theme.new("Frame", { Name = "Progress", BackgroundColor3 = rgb(30, 18, 55), Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 162), Parent = right }, { Theme.Corner(11), Theme.Stroke(2.5) })
 	fill = Theme.new("Frame", { Name = "Fill", BackgroundColor3 = Color3.new(1, 1, 1), Size = UDim2.fromScale(0, 1), Parent = bar }, { Theme.Corner(11), Theme.Gradient(PINK, VIOLET) })
 	Theme.Label({
-		Text = "How to get shards: when the <b>Eternal Storm</b> comes, a meteor smashes into the lane halfway through. Grab a shard from round its crater and run it back to the lobby. Get hit and you drop it!",
+		Text = "How to get shards: when the <b>Eternal Storm</b> comes, a meteor smashes into the lane 45 seconds in. Grab a shard from round its crater and run it back to the lobby. Get hit and you drop it!",
 		Font = Theme.Font,
 		RichText = true,
 		TextScaled = false,
@@ -208,7 +208,7 @@ function CosmicForge.Init()
 		StrokeThickness = 1,
 		Parent = right,
 	})
-	craftButton = Theme.Button({ Name = "Craft", Text = "CRAFT IT!", Icon = "☄️", Color = VIOLET, Size = UDim2.new(1, 0, 0, 58), AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Parent = right })
+	craftButton = Theme.Button({ Name = "Craft", Text = "CRAFT IT!", Color = VIOLET, Size = UDim2.new(1, 0, 0, 58), AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Parent = right })
 	craftButton.Activated:Connect(function()
 		if shards() < COSMIC.ShardCost then
 			Notifications.Toast(`You need {COSMIC.ShardCost - shards()} more meteor shards!`, "error")
@@ -221,7 +221,7 @@ function CosmicForge.Init()
 	refresh()
 	Remotes.Event("CosmicCrafted").OnClientEvent:Connect(function()
 		modal:Close()
-		Notifications.Banner("🌌 THE COSMIC DONUT 🌌", VIOLET, 4, "You crafted it! It's in your base")
+		Notifications.Banner("THE COSMIC DONUT", VIOLET, 4, "You crafted it! It's in your base")
 		Theme.PlaySound("Event")
 	end)
 	task.spawn(hookPrompt)

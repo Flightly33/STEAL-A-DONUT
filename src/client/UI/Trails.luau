@@ -1,5 +1,5 @@
 --[[
-	Trails window (the 💨 Trails button on the HUD): every trail, what it looks like, and how to get
+	Trails window (the Trails button on the HUD): every trail, what it looks like, and how to get
 	it. Locked trails show how much Speed they still need; unlocked ones can be put on and taken
 	off. The effects themselves are drawn by client/TrailFX. The server checks every press.
 ]]
@@ -46,11 +46,8 @@ end
 -- A little picture of the trail: a runner with fading see-through copies behind them and a glass
 -- pane cracking (made of plain UI, so it costs nothing).
 local function preview(parent: Instance, trail: TrailList.Trail)
-	local box = Theme.new("Frame", { Size = UDim2.fromOffset(150, 150), Position = UDim2.fromOffset(10, 10), BackgroundColor3 = Color3.fromRGB(22, 30, 52), Parent = parent }, {
-		Theme.Corner(12),
-		Theme.Stroke(2.5, trail.Accent),
-		Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Color3.fromRGB(70, 110, 170), Color3.fromRGB(20, 26, 46)) }),
-	})
+	-- on studs, like every picture in the game's windows
+	local box = Theme.Picture(parent, UDim2.fromOffset(150, 150), UDim2.fromOffset(10, 10), Color3.fromRGB(60, 96, 150), Vector2.new(150, 150))
 	-- glass pane with cracks, behind the runner
 	local pane = Theme.new("Frame", { Size = UDim2.fromOffset(52, 78), Position = UDim2.fromOffset(12, 30), Rotation = -8, BackgroundColor3 = trail.Color, BackgroundTransparency = 0.7, Parent = box }, {
 		Theme.new("UIStroke", { Color = trail.Accent, Thickness = 2, Transparency = 0.1 }),
@@ -64,23 +61,39 @@ local function preview(parent: Instance, trail: TrailList.Trail)
 			Theme.new("UIStroke", { Color = trail.Accent, Thickness = 1 }),
 		})
 	end
-	-- the afterimages, oldest (faintest) first, and the runner in front
+	-- the afterimages, oldest (faintest) first, and the runner in front: a blocky figure mid-stride
 	for i = 1, 4 do
-		local runner = Theme.Label({ Text = "🏃", Size = UDim2.fromOffset(70, 70), Position = UDim2.fromOffset(18 + i * 13, 44), StrokeThickness = 0, Parent = box })
-		runner.TextTransparency = if i == 4 then 0 else 0.85 - i * 0.15
-		runner.TextColor3 = trail.Color
-		runner.ZIndex = 2 + i
+		local x, y = 30 + i * 13, 50
+		local transparency = if i == 4 then 0 else 0.85 - i * 0.15
+		for _, piece in {
+			{ 22, 0, 16, 16, 0 }, -- head
+			{ 20, 17, 20, 24, 8 }, -- body (leaning into the run)
+			{ 8, 20, 8, 20, 50 }, -- back arm
+			{ 40, 18, 8, 20, -45 }, -- front arm
+			{ 14, 40, 9, 24, 35 }, -- back leg
+			{ 34, 40, 9, 24, -30 }, -- front leg
+		} do
+			Theme.new("Frame", {
+				Name = "Runner",
+				Position = UDim2.fromOffset(x + piece[1], y + piece[2]),
+				Size = UDim2.fromOffset(piece[3], piece[4]),
+				Rotation = piece[5],
+				BackgroundColor3 = trail.Color,
+				BackgroundTransparency = transparency,
+				BorderSizePixel = 0,
+				ZIndex = 2 + i,
+				Parent = box,
+			})
+		end
 	end
-	Theme.Label({ Text = trail.Icon, Size = UDim2.fromOffset(34, 34), Position = UDim2.new(1, -38, 0, 4), StrokeThickness = 0, ZIndex = 8, Parent = box })
 end
 
 local function buildCard(list: Instance, trail: TrailList.Trail)
-	local card = Theme.new("Frame", { Name = trail.Id, Size = UDim2.new(1, -12, 0, 170), BackgroundColor3 = Theme.Colors.PanelLight, LayoutOrder = trail.Order, Parent = list }, {
-		Theme.Corner(14),
-		Theme.Stroke(3, trail.Color),
-	})
+	local card = Theme.Card(list, trail.Order, trail.Color)
+	card.Name = trail.Id
+	card.Size = UDim2.new(1, -12, 0, 170)
 	preview(card, trail)
-	Theme.Label({ Text = `{trail.Icon} {string.upper(trail.Name)} TRAIL`, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = trail.Color, Size = UDim2.new(1, -184, 0, 34), Position = UDim2.fromOffset(174, 10), Parent = card })
+	Theme.Label({ Text = `{string.upper(trail.Name)} TRAIL`, TextXAlignment = Enum.TextXAlignment.Left, TextColor3 = trail.Color, Size = UDim2.new(1, -184, 0, 34), Position = UDim2.fromOffset(174, 10), Parent = card })
 	Theme.Label({ Text = trail.Description, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -184, 0, 44), Position = UDim2.fromOffset(174, 46), StrokeThickness = 1.2, Parent = card })
 	local status = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -184, 0, 22), Position = UDim2.fromOffset(174, 92), StrokeThickness = 1.2, Parent = card })
 	local bar = Theme.new("Frame", { Size = UDim2.new(1, -330, 0, 22), Position = UDim2.fromOffset(174, 128), BackgroundColor3 = Theme.Colors.Outline, Parent = card }, { Theme.Corner(8), Theme.Stroke(2) })
@@ -109,7 +122,7 @@ local function refresh()
 			card.Bar.Visible = not open and need ~= nil
 			if open then
 				local on = wearing == trail.Id
-				card.Status.Text = if on then `<font color="#8dff6a">✓ You're wearing it</font>` else "✓ Unlocked"
+				card.Status.Text = if on then `<font color="#8dff6a">You're wearing it</font>` else "Unlocked"
 				Theme.SetButtonText(card.Button, if on then "TAKE OFF" else "WEAR")
 				Theme.SetButtonColor(card.Button, if on then Theme.Colors.Orange else Theme.Colors.Green)
 			elseif trail.Cost then
@@ -118,12 +131,12 @@ local function refresh()
 				Theme.SetButtonColor(card.Button, Theme.Colors.Green)
 			elseif need then
 				local area = trail.UnlockBiome and Areas.List[trail.UnlockBiome]
-				card.Status.Text = `🔒 Reach <font color="#c9a0ff"><b>⚡{Format.Number(need)}</b></font> Speed{if area then ` (biome {area.Id}: {area.Name})` else ""}`
+				card.Status.Text = `Reach <font color="#c9a0ff"><b>{Format.Number(need)}</b></font> Speed{if area then ` (biome {area.Id}: {area.Name})` else ""}`
 				card.Fill.Size = UDim2.fromScale(math.clamp(best / need, 0, 1), 1)
 				Theme.SetButtonText(card.Button, "LOCKED")
 				Theme.SetButtonColor(card.Button, Theme.Colors.Gray)
 			else
-				card.Status.Text = "🔒 Coming soon"
+				card.Status.Text = "Coming soon"
 				Theme.SetButtonText(card.Button, "LOCKED")
 				Theme.SetButtonColor(card.Button, Theme.Colors.Gray)
 			end
@@ -132,7 +145,7 @@ local function refresh()
 end
 
 function Trails.Init()
-	modal = Modal.new("💨 TRAILS", Theme.Colors.Blue, Vector2.new(640, 420))
+	modal = Modal.new("Trails", Theme.Colors.Blue, Vector2.new(640, 420))
 	Theme.Label({
 		Text = "Trails show behind you while you run fast. Everyone near you can see them!",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), StrokeThickness = 1.4, Parent = modal.Body,

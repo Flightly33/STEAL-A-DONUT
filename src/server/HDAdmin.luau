@@ -372,7 +372,7 @@ function ServerActions.announce(caller, value)
 		notify(caller, "Couldn't check that message with Roblox's filter, so it wasn't sent. Try again.", "error")
 		return false
 	end
-	Remotes.Event("AreaAnnouncement"):FireAllClients(`📢 {caller.DisplayName}: {text}`, rgb(255, 220, 90))
+	Remotes.Event("AreaAnnouncement"):FireAllClients(`{caller.DisplayName}: {text}`, rgb(255, 220, 90))
 	return true
 end
 
@@ -409,7 +409,7 @@ function HDAdmin.Run(caller: Player, arg: any)
 		if not owner then
 			notify(caller, "Only the game's owner can do that.", "error")
 		elseif serverAction(caller, arg.Value) ~= false then
-			notify(caller, `✅ {arg.Action} done`, "success")
+			notify(caller, `{arg.Action} done`, "success")
 		end
 		return
 	end
@@ -436,7 +436,7 @@ function HDAdmin.Run(caller: Player, arg: any)
 			end
 		end
 	end
-	notify(caller, `✅ {arg.Action}: {count} player{if count == 1 then "" else "s"}{if skipped > 0 then " (the game's owner is protected)" else ""}`, "success")
+	notify(caller, `{arg.Action}: {count} player{if count == 1 then "" else "s"}{if skipped > 0 then " (the game's owner is protected)" else ""}`, "success")
 end
 
 function HDAdmin.IsBanned(player: Player): boolean

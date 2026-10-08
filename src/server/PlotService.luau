@@ -385,7 +385,7 @@ function PlotService.RefreshPodium(player: Player)
 
 	local profile = DataService.Get(player)
 	local mode = if profile then profile.Data.PodiumMode else "Rarest"
-	local title = if mode == "Earner" then `💰 {player.DisplayName}'s Top Earner` else `👑 {player.DisplayName}'s Rarest Donut`
+	local title = if mode == "Earner" then `{player.DisplayName}'s Top Earner` else `{player.DisplayName}'s Rarest Donut`
 
 	local slot = pickPodiumDonut(player)
 	local donut = slot and Donuts.ById[slot.Id]
@@ -560,7 +560,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 
 	local favorite = Instance.new("ProximityPrompt")
 	favorite.Name = "FavoritePrompt"
-	favorite.ActionText = if profile.Data.Favorite == tostring(slotIndex) then "💔 Unfavorite" else "❤ Favorite"
+	favorite.ActionText = if profile.Data.Favorite == tostring(slotIndex) then "Unfavorite" else "Favorite"
 	favorite.ObjectText = "Follows you at 1/3 size"
 	favorite.KeyboardKeyCode = Enum.KeyCode.R
 	favorite.GamepadKeyCode = Enum.KeyCode.ButtonB
@@ -612,7 +612,7 @@ local function syncFavorite(player: Player)
 		local root = model.PrimaryPart
 		local prompt = root and root:FindFirstChild("FavoritePrompt") :: ProximityPrompt?
 		if prompt then
-			prompt.ActionText = if profile.Data.Favorite == tostring(index) then "💔 Unfavorite" else "❤ Favorite"
+			prompt.ActionText = if profile.Data.Favorite == tostring(index) then "Unfavorite" else "Favorite"
 		end
 	end
 end
@@ -630,7 +630,7 @@ function PlotService.FavoriteSlot(player: Player, slotIndex: number)
 		notify(player, "Unfavorited. It stays on your base.")
 	else
 		profile.Data.Favorite = key
-		notify(player, `❤ {Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)} is your favorite! It follows you around (and keeps earning on its stand).`, "success")
+		notify(player, `{Rarities.DisplayName(donut.Name, slot.Mutation, slot.Size)} is your favorite! It follows you around (and keeps earning on its stand).`, "success")
 	end
 	syncFavorite(player)
 	DataService.PushState(player)
@@ -786,7 +786,7 @@ function PlotService.RecordFind(player: Player, donutId: string, mutationId: str
 		DataService.PushState(player)
 	end
 	if isNew and Economy.IndexCashReward(donut.Id) > 0 then
-		notify(player, "📖 New donut! Claim its reward in the Index.", "success")
+		notify(player, "New donut! Claim its reward in the Index.", "success")
 	end
 end
 
@@ -812,7 +812,7 @@ local function markReady(player: Player, slotIndex: number, model: Model, announ
 		local profile = DataService.Get(player)
 		local box = profile and profile.Data.PenBoxes[tostring(slotIndex)]
 		if box then
-			notify(player, `📦 Your {Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil)} is ready! Click it to open it.`, "success")
+			notify(player, `Your {Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil)} is ready! Click it to open it.`, "success")
 		end
 	end
 end
@@ -983,7 +983,7 @@ local function openBox(player: Player, slotIndex: number)
 		Mutation = mutation,
 		Size = size,
 	})
-	notify(player, `📦 You got {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
+	notify(player, `You got {Rarities.DisplayName(donut.Name, mutation, size)}! It's in your inventory - put it in your pen.`, "success")
 	task.delay(OPEN_ANIMATION, function()
 		if model then
 			model:Destroy()
@@ -1272,7 +1272,7 @@ local function buildRoyal(plot: Model, fx: Instance, center: CFrame, size: Vecto
 	label.LightInfluence = 0
 	label.MaxDistance = 400
 	label.Parent = crown:FindFirstChild("Cushion")
-	Build.Text(label, "👑 OWNER'S BASE 👑", { TextColor3 = rgb(255, 215, 90) })
+	Build.Text(label, "OWNER'S BASE", { TextColor3 = rgb(255, 215, 90) })
 	crown.Parent = fx
 end
 
@@ -1431,7 +1431,7 @@ function PlotService.BuySize(player: Player): boolean
 	profile.Data.BaseLevel += 1
 	DataService.SyncAttributes(player)
 	PlotService.RefreshPen(player)
-	notify(player, `🍩 Your base got bigger! Room for {PlotService.GetSlotCount(player)} donuts now.`, "success")
+	notify(player, `Your base got bigger! Room for {PlotService.GetSlotCount(player)} donuts now.`, "success")
 	return true
 end
 

@@ -99,9 +99,9 @@ function CrateService.Open(player: Player, crateId: string, source: string?): Re
 		return nil
 	end
 	Remotes.Event("CrateOpened"):FireClient(player, result)
-	notify(player, `🎁 {crate.Name}: you got {got}!`, "success")
+	notify(player, `{crate.Name}: you got {got}!`, "success")
 	if crate.Order >= 4 or reward.Kind == "Pet" then
-		Remotes.Event("AreaAnnouncement"):FireAllClients(`🎁 {player.DisplayName} opened a {string.upper(crate.Name)} and got {got}!`, crate.Color)
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} opened a {string.upper(crate.Name)} and got {got}!`, crate.Color)
 	end
 	DataService.PushState(player)
 	return result
@@ -182,13 +182,13 @@ local function spawnCrate(spot: Spot, crate: Crates.Crate, position: Vector3)
 	gui.LightInfluence = 0
 	gui.MaxDistance = 160
 	gui.Parent = root
-	Build.Text(gui, `🎁 {crate.Name}`, { TextColor3 = crate.Color:Lerp(Color3.new(1, 1, 1), 0.35), Font = Enum.Font.FredokaOne })
+	Build.Text(gui, `{crate.Name}`, { TextColor3 = crate.Color:Lerp(Color3.new(1, 1, 1), 0.35), Font = Enum.Font.FredokaOne })
 	model.Parent = spot.Container
 	spot.Model = model
 	spot.SpawnedAt = os.clock()
 	if crate.Order >= 3 then
 		local area = Areas.List[spot.AreaId]
-		Remotes.Event("AreaAnnouncement"):FireAllClients(`🎁 A {string.upper(crate.Name)} appeared in {area.Name}!`, crate.Color)
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`A {string.upper(crate.Name)} appeared in {area.Name}!`, crate.Color)
 	end
 end
 

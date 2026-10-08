@@ -17,7 +17,7 @@
 	  (saved: the code stops working for them) or give it back.
 	* Every command is checked on the server: the client only asks.
 
-	Type SIZE_CODE ("ender=rich") instead to get ONLY the BIGGER BASE buttons (a small 🏢 BASE
+	Type SIZE_CODE ("ender=rich") instead to get ONLY the BIGGER BASE buttons (a small BASE
 	window and HUD button, no admin panel), for this session, up to Config.Admin.MaxSlots donuts.
 	Also hidden from chat, also off for anyone the owner took admin away from.
 ]]
@@ -85,14 +85,14 @@ local function allowed(player: Player): boolean
 end
 
 -- Give a player the admin panel. `quietly` (the owner joining, or the owner giving it back) doesn't
--- pop the panel open: it just says the 🛠 ADMIN button is there.
+-- pop the panel open: it just says the ADMIN button is there.
 local function unlock(player: Player, quietly: string?)
 	local profile = DataService.Get(player)
 	if not profile or not allowed(player) then
 		return
 	end
 	if profile.Data.AdminRevoked and not isOwner(player) then
-		notify(player, "🚫 The game's owner took your admin access away.", "error")
+		notify(player, "The game's owner took your admin access away.", "error")
 		return
 	end
 	if not profile.Session.Admin then
@@ -102,7 +102,7 @@ local function unlock(player: Player, quietly: string?)
 		end
 		player:SetAttribute("Admin", true)
 		DataService.PushState(player)
-		notify(player, quietly or "🛠 Admin panel unlocked! (Admin players don't show up on the global leaderboards)", "success")
+		notify(player, quietly or "Admin panel unlocked! (Admin players don't show up on the global leaderboards)", "success")
 	end
 	player:SetAttribute("AdminOwner", isOwner(player))
 	if not quietly then
@@ -110,7 +110,7 @@ local function unlock(player: Player, quietly: string?)
 	end
 end
 
--- The base code: only the 🏢 BIGGER BASE buttons (the client opens the window when "SizeAccess"
+-- The base code: only the BIGGER BASE buttons (the client opens the window when "SizeAccess"
 -- is set).
 local function unlockSize(player: Player)
 	local profile = DataService.Get(player)
@@ -118,13 +118,13 @@ local function unlockSize(player: Player)
 		return
 	end
 	if profile.Data.AdminRevoked and not isOwner(player) then
-		notify(player, "🚫 The game's owner took your admin access away.", "error")
+		notify(player, "The game's owner took your admin access away.", "error")
 		return
 	end
 	if not profile.Session.SizeAccess then
 		profile.Session.SizeAccess = true
 		player:SetAttribute("SizeAccess", true)
-		notify(player, `🏢 Base builder unlocked! Make your base bigger (up to {Config.Admin.MaxSlots} donuts) with the 🏢 BASE button.`, "success")
+		notify(player, `Base builder unlocked! Make your base bigger (up to {Config.Admin.MaxSlots} donuts) with the BASE button.`, "success")
 	end
 end
 
@@ -136,24 +136,24 @@ local function growBase(player: Player, profile: DataService.Profile, count: any
 	local change = math.floor(tonumber(count) or 1)
 	if change < 0 then
 		if profile.Data.BaseLevel <= 1 then
-			notify(player, "🏢 Your base is already as small as it gets!", "error")
+			notify(player, "Your base is already as small as it gets!", "error")
 			return
 		end
 		profile.Data.BaseLevel = math.max(profile.Data.BaseLevel + math.max(change, -cap), 1)
 		DataService.SyncAttributes(player)
 		PlotService.RefreshPen(player)
-		notify(player, `🏢 Your base holds {PlotService.GetSlotCount(player)} donuts now (any that don't fit are kept safe until it's bigger again).`, "success")
+		notify(player, `Your base holds {PlotService.GetSlotCount(player)} donuts now (any that don't fit are kept safe until it's bigger again).`, "success")
 		return
 	end
 	if profile.Data.BaseLevel >= cap then
-		notify(player, `🏢 Your base already holds {Economy.SlotCount(cap)} donuts, as big as a base gets!`, "error")
+		notify(player, `Your base already holds {Economy.SlotCount(cap)} donuts, as big as a base gets!`, "error")
 		return
 	end
 	local add = math.clamp(change, 1, cap)
 	profile.Data.BaseLevel = math.min(profile.Data.BaseLevel + add, cap)
 	DataService.SyncAttributes(player)
 	PlotService.RefreshPen(player)
-	notify(player, `🏢 Your base holds {PlotService.GetSlotCount(player)} donuts now!`, "success")
+	notify(player, `Your base holds {PlotService.GetSlotCount(player)} donuts now!`, "success")
 end
 
 --------------------------------------------------------------------------------
@@ -230,7 +230,7 @@ function Commands.SpawnBox(player: Player, _profile: DataService.Profile, arg: a
 		spot = Vector3.new(0, 0, Config.Map.SafeZoneZ + 30)
 	end
 	BoxService.Plant(areaId, spot, tier, size, mutation)
-	notify(player, `📦 {Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)} dropped in {Areas.List[areaId].Name}`, "success")
+	notify(player, `{Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)} dropped in {Areas.List[areaId].Name}`, "success")
 end
 
 -- A box straight into your inventory: { Tier, Size, Area, Mutation }
@@ -243,7 +243,7 @@ function Commands.Box(player: Player, _profile: DataService.Profile, arg: any)
 	local size = if type(arg.Size) == "string" and Boxes.SizeById[arg.Size] then arg.Size else "Small"
 	local mutation = if type(arg.Mutation) == "string" and Rarities.MutationById[arg.Mutation] then arg.Mutation else "None"
 	if InventoryService.AddBox(player, tier, size, area, mutation) then
-		notify(player, `📦 {Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)} added to your inventory`, "success")
+		notify(player, `{Rarities.DisplayName(Boxes.DisplayName(tier, size), mutation, nil)} added to your inventory`, "success")
 	else
 		notify(player, "Your inventory is full!", "error")
 	end
@@ -254,13 +254,13 @@ function Commands.OpenBoxes(player: Player, profile: DataService.Profile)
 	for key in profile.Data.PenBoxes do
 		PlotService.SkipBox(player, tonumber(key))
 	end
-	notify(player, "📦 Your boxes are opening!", "success")
+	notify(player, "Your boxes are opening!", "success")
 end
 
 -- A fresh batch of boxes in every biome, for everyone.
 function Commands.ResetBoxes(player: Player)
 	BoxService.ResetAll()
-	notify(player, "📦 Every biome has new boxes.", "success")
+	notify(player, "Every biome has new boxes.", "success")
 end
 
 function Commands.Egg(player: Player, _profile: DataService.Profile, eggId: any)
@@ -300,7 +300,7 @@ function Commands.SpawnCrate(player: Player, _profile: DataService.Profile, crat
 		areaId = 1
 	end
 	if type(crateId) == "string" and CrateService.SpawnInArea(areaId, crateId) then
-		notify(player, `🎁 {crateId} crate spawned in {Areas.List[areaId].Name}`, "success")
+		notify(player, `{crateId} crate spawned in {Areas.List[areaId].Name}`, "success")
 	end
 end
 
@@ -308,7 +308,7 @@ end
 function Commands.Event(player: Player, _profile: DataService.Profile, eventId: any)
 	local event = if type(eventId) == "string" then Events.ById[eventId] else nil
 	if event and event.OwnerOnly and not isOwner(player) then
-		notify(player, `👑 Only the game's owner can start the {event.Name}.`, "error")
+		notify(player, `Only the game's owner can start the {event.Name}.`, "error")
 		return
 	end
 	if event then
@@ -326,7 +326,7 @@ end
 -- Owner only: the Eternal Storm, right now.
 function Commands.EternalStorm(player: Player)
 	if not isOwner(player) then
-		notify(player, "👑 Only the game's owner can start the Eternal Storm.", "error")
+		notify(player, "Only the game's owner can start the Eternal Storm.", "error")
 		return
 	end
 	EventService.StartById("EternalStorm")
@@ -335,7 +335,7 @@ end
 function Commands.GodMode(player: Player, profile: DataService.Profile)
 	profile.Session.GodMode = not profile.Session.GodMode
 	DataService.PushState(player)
-	notify(player, if profile.Session.GodMode then `🛡 {Config.Guard.Name} can't catch you now` else `{Config.Guard.Name} can catch you again`, "success")
+	notify(player, if profile.Session.GodMode then `{Config.Guard.Name} can't catch you now` else `{Config.Guard.Name} can catch you again`, "success")
 end
 
 function Commands.Teleport(player: Player, _profile: DataService.Profile, areaId: any)
@@ -354,18 +354,18 @@ end
 function Commands.Fly(player: Player, _profile: DataService.Profile, mode: any)
 	local value = if mode == "Fly" or mode == "Carpet" then mode else nil
 	player:SetAttribute("FlyMode", value)
-	notify(player, if value == "Carpet" then "🧞 Magic carpet! Space = up, Shift = down." elseif value then "🕊 You can fly! Space = up, Shift = down." else "Back on your feet.", "success")
+	notify(player, if value == "Carpet" then "Magic carpet! Space = up, Shift = down." elseif value then "You can fly! Space = up, Shift = down." else "Back on your feet.", "success")
 end
 
 function Commands.ResetMoney(player: Player, profile: DataService.Profile)
 	DataService.TrySpend(player, profile.Data.Money)
-	notify(player, "💸 Money reset to $0.", "success")
+	notify(player, "Money reset to $0.", "success")
 end
 
 -- Every donut on your base is gone.
 function Commands.ClearDonuts(player: Player)
 	PlotService.ClearAll(player)
-	notify(player, "🍩 All the donuts on your base were removed.", "success")
+	notify(player, "All the donuts on your base were removed.", "success")
 end
 
 -- HD Admin-style player commands (kill, bring, jail, kick, speed, noclip...): see HDAdmin.luau.
@@ -404,11 +404,11 @@ function Commands.RevokeAdmin(player: Player, _profile: DataService.Profile, tar
 			other:SetAttribute("AdminOwner", false)
 			other:SetAttribute("FlyMode", nil)
 			DataService.PushState(other)
-			notify(other, "🚫 The game's owner took your admin access away.", "error")
+			notify(other, "The game's owner took your admin access away.", "error")
 			count += 1
 		end
 	end
-	notify(player, `🚫 Admin removed from {count} player{if count == 1 then "" else "s"}`, "success")
+	notify(player, `Admin removed from {count} player{if count == 1 then "" else "s"}`, "success")
 end
 
 -- Owner only: give someone their admin panel back.
@@ -422,26 +422,26 @@ function Commands.RestoreAdmin(player: Player, _profile: DataService.Profile, ta
 		local profile = DataService.Get(other)
 		if profile and profile.Data.AdminRevoked then
 			profile.Data.AdminRevoked = false
-			unlock(other, "🛠 The game's owner gave you admin! Press the 🛠 ADMIN button.")
+			unlock(other, "The game's owner gave you admin! Press the ADMIN button.")
 			count += 1
 		end
 	end
-	notify(player, `✅ Admin given back to {count} player{if count == 1 then "" else "s"}`, "success")
+	notify(player, `Admin given back to {count} player{if count == 1 then "" else "s"}`, "success")
 end
 
--- The admin panel's 👑 bigger-base buttons: the owner, or anyone who typed the base code.
+-- The admin panel's bigger-base buttons: the owner, or anyone who typed the base code.
 function Commands.GrowBase(player: Player, profile: DataService.Profile, count: any)
 	if not isOwner(player) and not profile.Session.SizeAccess then
-		notify(player, "👑 Only the game's owner can make bases that big.", "error")
+		notify(player, "Only the game's owner can make bases that big.", "error")
 		return
 	end
 	growBase(player, profile, count)
 end
 
--- Owner only: put the 👑 Owner's Throne skin on your base (or back to the Classic one).
+-- Owner only: put the Owner's Throne skin on your base (or back to the Classic one).
 function Commands.OwnerSkin(player: Player, profile: DataService.Profile)
 	if not isOwner(player) then
-		notify(player, "👑 Only the game's owner can use that skin!", "error")
+		notify(player, "Only the game's owner can use that skin!", "error")
 		return
 	end
 	profile.Data.EquippedSkin = if profile.Data.EquippedSkin == "Owner" then "Classic" else "Owner"
@@ -492,7 +492,7 @@ function AdminService.Init()
 			command(player, profile, arg.Arg)
 		end
 	end)
-	-- The 🏢 BASE window (the base code, or the owner)
+	-- The BASE window (the base code, or the owner)
 	ShopService.RegisterAction("GrowBase", function(player: Player, profile, count: any)
 		if profile.Session.SizeAccess or isOwner(player) then
 			growBase(player, profile, count)
@@ -502,7 +502,7 @@ function AdminService.Init()
 	-- The game's owner always has the admin panel, without typing the code
 	DataService.ProfileLoaded:Connect(function(player: Player)
 		if isOwner(player) then
-			unlock(player, "🛠 Welcome back, owner! Your admin panel is on the 🛠 ADMIN button.")
+			unlock(player, "Welcome back, owner! Your admin panel is on the ADMIN button.")
 		end
 	end)
 

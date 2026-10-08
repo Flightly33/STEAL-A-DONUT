@@ -1,8 +1,7 @@
 --[[
-	GiantService: Cosmic Domer (shared/Giant). After the Cosmic Meteor has crashed into the lane
-	(MeteorService), at 2:15 into the Eternal Storm (Config.CosmicGiant.AppearAt: EventService
-	starts him) a black hole tears open over the lane just past the crater and a colossal Domer
-	climbs out of it - for the rest of the storm. Every Config.CosmicGiant.SlamEvery
+	GiantService: Cosmic Domer (shared/Giant). Once the Cosmic Meteor has crashed into the lane
+	(MeteorService), a black hole tears open over the lane just past the crater and a colossal
+	Domer climbs out of it - for the rest of the Eternal Storm. Every Config.CosmicGiant.SlamEvery
 	seconds he attacks, working through Config.CosmicGiant.Pattern:
 	  Slam   he slowly smashes a fist into the lane near the crater: anyone within KnockRadius of it
 	         is knocked flying and drops whatever they're carrying (ItemService.Fling)
@@ -228,7 +227,7 @@ function GiantService.Start(site: Vector3): boolean
 	workspace:SetAttribute("GiantSite", site)
 	workspace:SetAttribute("GiantSince", workspace:GetServerTimeNow())
 	workspace:SetAttribute("GiantLeaveAt", nil)
-	Remotes.Event("AreaAnnouncement"):FireAllClients("🌌 COSMIC DOMER IS CLIMBING OUT OF THE BLACK HOLE! WATCH OUT FOR HIS FISTS!", Giant.PINK)
+	Remotes.Event("AreaAnnouncement"):FireAllClients("COSMIC DOMER IS CLIMBING OUT OF THE BLACK HOLE! WATCH OUT FOR HIS FISTS!", Giant.PINK)
 	task.spawn(function()
 		task.wait(Giant.OPEN + Giant.RISE)
 		local lastHand: string? = nil

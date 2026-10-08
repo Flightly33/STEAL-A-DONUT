@@ -294,7 +294,7 @@ local function depositBox(player: Player, carry: Carry)
 	BoxService.Release(record)
 	local name = Rarities.DisplayName(Boxes.DisplayName(record.Tier, record.Size), record.Mutation, nil)
 	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Deposited", Kind = "Box", Tier = record.Tier, Size = record.Size, Mutation = record.Mutation })
-	notify(player, `📦 {name} is in your inventory! Hold it and click in your pen to put it down.`, "success")
+	notify(player, `{name} is in your inventory! Hold it and click in your pen to put it down.`, "success")
 	player:SetAttribute("BoxesStolen", ((player:GetAttribute("BoxesStolen") :: number?) or 0) + 1) -- (the tutorial watches this)
 end
 

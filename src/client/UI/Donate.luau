@@ -23,7 +23,7 @@ function Donate.Open()
 end
 
 function Donate.Init()
-	modal = Modal.new("💖 SUPPORT THE GAME", Theme.Colors.Pink, Vector2.new(560, 430))
+	modal = Modal.new("Support the Game", Theme.Colors.Pink, Vector2.new(560, 430))
 	local body = modal.Body
 	local total = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 44), StrokeThickness = 1.5, Parent = body })
 
@@ -31,7 +31,7 @@ function Donate.Init()
 		Theme.new("UIGridLayout", { CellSize = UDim2.new(1 / 3, -8, 0, 66), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for order, product in Config.Donations.Products do
-		local button = Theme.Button({ Text = `R$ {Format.Commas(product.Amount)}`, Icon = "💖", Color = Theme.Colors.Pink, Size = UDim2.new(), LayoutOrder = order, Parent = grid })
+		local button = Theme.Button({ Text = `R$ {Format.Commas(product.Amount)}`, Icon = "heart", Color = Theme.Colors.Pink, Size = UDim2.new(), LayoutOrder = order, Parent = grid })
 		-- the title this tip gives, under the price
 		Theme.Label({
 			Text = product.Title, Font = Theme.Font, TextColor3 = product.Color, StrokeThickness = 1.5,
@@ -43,11 +43,10 @@ function Donate.Init()
 	end
 
 	-- Luck Event
-	local luck = Theme.new("Frame", { BackgroundColor3 = Theme.Colors.PanelLight, Position = UDim2.fromOffset(0, 196), Size = UDim2.new(1, 0, 0, 150), Parent = body }, {
-		Theme.Corner(14),
-		Theme.Stroke(3, Color3.fromRGB(60, 200, 90)),
-	})
-	Theme.Label({ Text = "🍀 LUCK EVENT", TextColor3 = Color3.fromRGB(130, 255, 150), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 8), Parent = luck })
+	local luck = Theme.Card(body, 0, Color3.fromRGB(60, 200, 90))
+	luck.Position = UDim2.fromOffset(0, 196)
+	luck.Size = UDim2.new(1, 0, 0, 150)
+	Theme.Label({ Text = "LUCK EVENT", TextColor3 = Color3.fromRGB(130, 255, 150), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 8), Parent = luck })
 	Theme.Label({
 		Text = `For {Format.Duration(Config.LuckEvent.Duration)}, for everyone in this server: every box but each biome's most common one x{Config.LuckEvent.RarityLuck} as likely, mutations x{Config.LuckEvent.MutationLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck}, eggs x2. The Index shows the boosted odds.`,
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 42), StrokeThickness = 1.2, Parent = luck,

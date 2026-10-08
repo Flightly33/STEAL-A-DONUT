@@ -1,5 +1,9 @@
 --[[
-	Theme: colours, fonts and small UI building helpers (chunky outlined "simulator" style).
+	Theme: colours, fonts and small UI building helpers - the game's own look: chunky rounded white
+	text with a thick black outline (Fredoka One), windows with an orange header and a dark green
+	body, and the stud pattern of the bricks everything is built from (Theme.Studs) on headers and
+	cards. Messages and instructions are that text on a dark band that fades out at its ends
+	(Theme.Band).
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -16,7 +20,7 @@ local Theme = {}
 local rgb = Color3.fromRGB
 
 Theme.Font = Enum.Font.FredokaOne
-Theme.Title = Enum.Font.LuckiestGuy
+Theme.Title = Enum.Font.FredokaOne
 
 Theme.Colors = {
 	Green = rgb(80, 215, 50),
@@ -29,9 +33,14 @@ Theme.Colors = {
 	Gray = rgb(120, 120, 130),
 	Money = rgb(90, 255, 70),
 	Speed = rgb(120, 60, 255),
-	Panel = rgb(35, 35, 55),
-	PanelLight = rgb(55, 55, 80),
-	Outline = rgb(15, 15, 25),
+	Panel = rgb(42, 45, 39), -- rows and cards inside a window: dark grey with a hint of green
+	PanelLight = rgb(64, 68, 60),
+	Window = rgb(64, 96, 44), -- a window's body (dark green)...
+	WindowDark = rgb(36, 56, 26), -- ...darker towards the bottom
+	HeaderTop = rgb(255, 202, 110), -- a window's header (orange)...
+	HeaderBottom = rgb(250, 166, 46),
+	Gold = rgb(255, 214, 92), -- counts next to a title: "Index (12/88)"
+	Outline = rgb(15, 15, 15),
 	White = rgb(255, 255, 255),
 }
 
@@ -333,6 +342,109 @@ function Theme.Label(props: { [string]: any }): TextLabel
 	return label
 end
 
+-- The stud pattern: a grid of studs filling `parent` (`size` = the area to cover, in pixels), each
+-- drawn as the little shadow on its left and bottom edges, over whatever is behind it - like the
+-- top of a brick. `Cell` = stud spacing, `Color`/`Transparency` = the shadows'.
+export type StudOptions = { Cell: number?, Color: Color3?, Transparency: number?, ZIndex: number? }
+function Theme.Studs(parent: Instance, size: Vector2, options: StudOptions?): Frame
+	local o: StudOptions = options or {}
+	local cell = o.Cell or 18
+	local color = o.Color or Color3.new(0, 0, 0)
+	local transparency = o.Transparency or 0.78
+	local zIndex = o.ZIndex or 1
+	local holder = Instance.new("Frame")
+	holder.Name = "Studs"
+	holder.BackgroundTransparency = 1
+	holder.Size = UDim2.fromScale(1, 1)
+	holder.ClipsDescendants = true
+	holder.ZIndex = zIndex
+	local stud = math.floor(cell * 0.58 + 0.5) -- a stud's width
+	local line = math.max(1, math.floor(cell * 0.12 + 0.5)) -- its shadow's thickness
+	local offset = math.floor((cell - stud) / 2)
+	local function bar(x: number, y: number, w: number, h: number)
+		local f = Instance.new("Frame")
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = color
+		f.BackgroundTransparency = transparency
+		f.Position = UDim2.fromOffset(x, y)
+		f.Size = UDim2.fromOffset(w, h)
+		f.ZIndex = zIndex
+		f.Parent = holder
+	end
+	for i = 0, math.ceil(size.X / cell) - 1 do
+		for j = 0, math.ceil(size.Y / cell) - 1 do
+			local x, y = i * cell + offset, j * cell + offset
+			bar(x, y, line, stud - line) -- its left edge
+			bar(x, y + stud - line, stud, line) -- its bottom edge
+		end
+	end
+	holder.Parent = parent
+	return holder
+end
+
+-- A card inside a window, like the rows of the reference: dark, a thick black outline, slightly
+-- rounded, with a line of `accent` along its top.
+function Theme.Card(parent: Instance, order: number, accent: Color3): Frame
+	local card = Theme.new("Frame", {
+		BackgroundColor3 = Theme.Colors.Panel,
+		BackgroundTransparency = 0.05,
+		LayoutOrder = order,
+	}, {
+		Theme.Corner(6),
+		Theme.Stroke(3),
+	})
+	Theme.new("Frame", { Name = "Accent", BackgroundColor3 = accent, BorderSizePixel = 0, Position = UDim2.fromOffset(6, 0), Size = UDim2.new(1, -12, 0, 4), Parent = card })
+	card.Parent = parent
+	return card
+end
+
+-- A picture area on studs in `color` (the reference's item pictures): put a see-through
+-- ViewportFrame in it. `area` = how much of it the studs cover (its biggest size, in pixels).
+function Theme.Picture(parent: Instance, size: UDim2, position: UDim2, color: Color3, area: Vector2): Frame
+	local picture = Theme.new("Frame", {
+		Name = "Picture",
+		BackgroundColor3 = color,
+		ClipsDescendants = true,
+		Size = size,
+		Position = position,
+	}, {
+		Theme.Corner(6),
+		Theme.Stroke(2),
+	})
+	Theme.Studs(picture, area, { Cell = 22, Transparency = 0.72 })
+	picture.Parent = parent
+	return picture
+end
+
+-- A dark band behind a line of text (messages, instructions, the tutorial): see-through black that
+-- fades away towards both ends, with no edge - like a shadow the text sits on.
+function Theme.Band(props: { [string]: any }): Frame
+	local band = Theme.new("Frame", {
+		Name = "Band",
+		BackgroundColor3 = Color3.new(0, 0, 0),
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+	})
+	for key, value in props do
+		if key ~= "Parent" and key ~= "Darkness" then
+			(band :: any)[key] = value
+		end
+	end
+	local dark = 1 - (props.Darkness or 0.6)
+	Theme.new("UIGradient", {
+		Name = "Fade",
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.2, dark),
+			NumberSequenceKeypoint.new(0.8, dark),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = band,
+	})
+	band.Parent = props.Parent
+	return band
+end
+
 local function lighten(color: Color3, amount: number): Color3
 	return color:Lerp(Color3.new(1, 1, 1), amount)
 end
@@ -354,7 +466,7 @@ function Theme.Bounce(button: GuiObject)
 	TweenService:Create(s, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 end
 
--- Big chunky button: coloured gradient, dark outline, outlined text, optional emoji icon.
+-- Big chunky button: coloured gradient, dark outline, outlined text, optional icon (a UI/Icons name).
 function Theme.Button(props: {
 	Text: string,
 	Color: Color3,
@@ -386,22 +498,11 @@ function Theme.Button(props: {
 	if props.Icon then
 		local drawn = Icons.For(props.Icon)
 		if drawn then
-			-- a chunky white outlined icon (UI/Icons) instead of the emoji
+			-- a chunky white outlined icon (UI/Icons)
 			Icons.Draw(drawn, button, props.Color, {
 				Size = UDim2.fromScale(0.74, 0.74),
 				AnchorPoint = Vector2.new(0, 0.5),
 				Position = UDim2.new(0, 8, 0.5, 0),
-			})
-		else
-			Theme.Label({
-				Name = "Icon",
-				Text = props.Icon,
-				Font = Enum.Font.GothamBold,
-				Size = UDim2.fromScale(0.8, 0.8), -- square: both relative to the button height
-				SizeConstraint = Enum.SizeConstraint.RelativeYY,
-				AnchorPoint = Vector2.new(0, 0.5),
-				Position = UDim2.new(0, 6, 0.5, 0),
-				Parent = button,
 			})
 		end
 		textX = 0.3

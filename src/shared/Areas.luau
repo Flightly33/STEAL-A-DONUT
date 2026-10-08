@@ -58,7 +58,6 @@ export type World = {
 	BridgeLength: number,
 	WalkMultiplier: number,
 	Color: Color3,
-	Icon: string,
 }
 
 local Config = require(script.Parent.Config)
@@ -285,7 +284,7 @@ end
 -- (One lane now: the old worlds and their portals are gone. Kept as a single world so code that
 -- asks "which world" still has an answer.)
 Areas.Worlds = {
-	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56), Icon = "🍩" },
+	{ Id = 1, Name = "Donut Land", OffsetX = 0, BridgeLength = 0, WalkMultiplier = 1, Color = Color3.fromRGB(120, 210, 56) },
 } :: { World }
 
 Areas.ByWorld = {} :: { [number]: { Area } }

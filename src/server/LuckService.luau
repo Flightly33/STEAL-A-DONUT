@@ -31,7 +31,7 @@ local function stop()
 	workspace:SetAttribute("LuckEndsAt", nil)
 	workspace:SetAttribute("LuckBy", nil)
 	for _, player in Players:GetPlayers() do
-		Remotes.Event("Notify"):FireClient(player, "🍀 The Luck Event is over.", "event")
+		Remotes.Event("Notify"):FireClient(player, "The Luck Event is over.", "event")
 	end
 end
 
@@ -55,8 +55,8 @@ function LuckService.Start(by: Player?, seconds: number?, source: string?)
 	local who = if by then by.DisplayName else "Someone"
 	local from = if source then ` from a {source}` else ""
 	local text = if wasActive
-		then `🍀 {who} added {Format.Duration(duration)} to the LUCK EVENT{from}! ({Format.Duration(endsAt - now)} left)`
-		else `🍀 {who} started a LUCK EVENT{from}! Rarer boxes, more mutations and bigger sizes for {Format.Duration(duration)}!`
+		then `{who} added {Format.Duration(duration)} to the LUCK EVENT{from}! ({Format.Duration(endsAt - now)} left)`
+		else `{who} started a LUCK EVENT{from}! Rarer boxes, more mutations and bigger sizes for {Format.Duration(duration)}!`
 	Remotes.Event("AreaAnnouncement"):FireAllClients(text, Color3.fromRGB(90, 255, 120))
 	if not wasActive then
 		-- A fresh batch of boxes right away so everyone sees the luck kick in

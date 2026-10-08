@@ -2,7 +2,7 @@
 	UpdateNotes: the Update Log that pops up every time a player joins (UI/UpdateNotes).
 
 	PUBLISHING AN UPDATE? Add a new entry at the TOP of UpdateNotes.List with the next Version number.
-	It shows on every join (a brand-new player's tutorial starts once they close it). The 📰 UPDATES
+	It shows on every join (a brand-new player's tutorial starts once they close it). The UPDATES
 	button on the side shows every update any time.
 
 	  Version  - goes up by one every update (1, 2, 3...)
@@ -53,6 +53,40 @@ end
 
 UpdateNotes.List = {
 	{
+		Version = 8,
+		Name = "Studs & Sounds",
+		Date = "Oct 8, 2026",
+		Color = Color3.fromRGB(46, 72, 32),
+		Accent = Color3.fromRGB(255, 196, 90),
+		Decor = "Sparkles",
+		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
+		Sections = {
+			{ Title = "A New Look", Tag = "NEW Look", Lines = {
+				"Every window has a new look: an orange header covered in studs, like the bricks the whole game is built from, a big red X and a dark green body",
+				"Shop items, pets and trails sit on studs too",
+				"Messages, announcements, events and the tutorial are now big outlined letters on a dark band across the screen",
+				"No more emojis anywhere: every icon is drawn by the game itself",
+			} },
+			{ Title = "The New Index", Tag = "NEW Look", Lines = {
+				"One biome at a time: flip through them with the arrows on the biome's banner",
+				"Every box the biome's Domer guards, how often it turns up, an arrow, then every donut that can come out of it with its chance",
+				"Donuts you haven't found yet are dark silhouettes on studs, called ???",
+				"Box sizes and box mutations at the bottom of every page: how likely each one is and how much more it earns",
+				"The title shows how many donuts you've found: Index (12/88)",
+			} },
+			{ Title = "Sounds", Tag = "NEW", Lines = {
+				"Every biome has its own background sounds",
+				"Sneak up to Domer's boxes and you'll hear him snoring: the closer you get to him, the louder it gets",
+			} },
+			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {
+				"The meteor now crashes 45 seconds into the storm, anywhere from biome 2 to biome 6",
+				"Cosmic Domer climbs out of the black hole over its crater the moment it lands, and guards the shards for the rest of the storm",
+				"His star rain fires twice as many rockets",
+			} },
+		},
+		Sidebar = {},
+	},
+	{
 		Version = 7,
 		Name = "The Cosmic Meteor",
 		Date = "Oct 7, 2026",
@@ -62,9 +96,9 @@ UpdateNotes.List = {
 		Emblem = { Frosting = Color3.fromRGB(130, 60, 255), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 230, 255), Color3.fromRGB(255, 120, 220) }, Dough = Color3.fromRGB(24, 14, 52) },
 		Sections = {
 			{ Title = "The Cosmic Meteor", Tag = "NEW Event", Lines = {
-				"Halfway through every Eternal Storm, the whole screen flashes white... then EVERYTHING shakes",
+				"45 seconds into every Eternal Storm, the whole screen flashes white... then EVERYTHING shakes",
 				"The sky cracks open like glass, and a giant burning meteor bursts through and falls",
-				"It smashes into the lane in biome 2 or 3 (never the first one!): watch out, it flings anyone right under it!",
+				"It smashes into the lane anywhere from biome 2 to biome 6 (never the first one!): watch out, it flings anyone right under it!",
 				"It cracks open in a glowing crater with 8 meteor shards around it: be quick, there aren't enough for everyone",
 				"The Eternal Storm now comes every 2 hours on the real clock, at the same moment in every server, with a countdown at the top of the screen",
 				"When the storm ends, the meteor's crater and any shards left on the ground evaporate: grab them while you can!",
@@ -72,12 +106,12 @@ UpdateNotes.List = {
 				"Fast Guy trail: every pane of glass you leave behind now breaks with a soft glass sound",
 			} },
 			{ Title = "Cosmic Domer", Tag = "NEW Boss", Lines = {
-				"2 minutes 15 seconds into the storm, a black hole tears open over the meteor's crater and a GIANT Domer in cosmic armour climbs out of it",
+				"The moment it lands, a black hole tears open over its crater and a GIANT Domer in cosmic armour climbs out to guard the shards till the storm ends",
 				"He comes out of a bigger black hole, closer to the lobby, with his own entrance sound, a shock wave and title card, and a boss bar shows how long he's staying",
 				"Look closer: a crown of planets, a halo, a reactor in his chest, crystal shoulder armour, rune gauntlets, a starry cape, moons and asteroids circling him",
 				"His cosmic eyes: glowing irises with a black-hole pupil and a twinkling star in it. They follow you round the lane, blink, narrow when he's about to hit, and open wide as his eye beams charge",
 				"SLAM: he slowly raises a glowing fist and smashes it into the lane near the crater, with crystal spikes, cracks and a scorch mark",
-				"STAR RAIN: he throws both fists up and launches burning stars all round the crater, and you hear every one hit",
+				"STAR RAIN: he throws both fists up and fires a volley of 14 burning star rockets all round the crater, and you hear every one launch and hit",
 				"EYE BEAM: his eyes blaze white, then two beams burn a line right across the lane",
 				"Every attack shows you where it'll hit first (glowing circles and lines): get out of them! If you're hit, you go flying and drop whatever you're carrying",
 				"Every screen in the server shakes when his fist hits the ground",
@@ -302,11 +336,11 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Cleaner Buttons", Tag = "Improvements", Lines = {
 				"Shiny new cartoon icons on every button",
-				"Music on/off, next song and volume are now in ⚙️ Settings",
-				"No more Worlds button: walk through the portals in the hub (Teleporter owners get a 🌀 TELEPORT button)",
+				"Music on/off, next song and volume are now in Settings",
+				"No more Worlds button: walk through the portals in the hub (Teleporter owners get a TELEPORT button)",
 			} },
 			{ Title = "Hide UI", Tag = "NEW", Lines = {
-				"Press X (or the 👁 HIDE UI button) to clear the screen for screenshots",
+				"Press X (or the HIDE UI button) to clear the screen for screenshots",
 				"Press X again or tap SHOW UI to bring it all back",
 			} },
 			{ Title = "Softer Sounds", Tag = "Improvements", Lines = {

@@ -103,7 +103,7 @@ end
 
 function UpdateNotes.Init()
 	ItemCard.Init()
-	modal = Modal.new("UPDATE LOG", Theme.Colors.Orange, Vector2.new(WIDTH, HEIGHT))
+	modal = Modal.new("Update Log", Theme.Colors.Orange, Vector2.new(WIDTH, HEIGHT))
 	local frame = modal.Frame
 	-- Our own top bar instead of the usual window header
 	local header = frame:FindFirstChild("Header")
@@ -342,7 +342,7 @@ function UpdateNotes.Init()
 			Theme.Padding(12),
 			Theme.new("UIGradient", { Rotation = 90, Color = ColorSequence.new(Theme.Darken(color, 0.55), rgb(0, 0, 0)) }),
 		})
-		text({ Text = table.concat(titles, `  <font color="#{accent:ToHex()}">✦</font>  `), RichText = true, TextSize = 22, LineHeight = 1.1, Size = UDim2.fromScale(1, 0), StrokeThickness = 2, Parent = box })
+		text({ Text = table.concat(titles, `  <font color="#{accent:ToHex()}"></font>  `), RichText = true, TextSize = 22, LineHeight = 1.1, Size = UDim2.fromScale(1, 0), StrokeThickness = 2, Parent = box })
 		add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 6) }))
 		add(box)
 		add(Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 8) }))

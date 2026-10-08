@@ -1,9 +1,9 @@
 --[[
-	HideUI: the 👁 HIDE UI button (or X on a keyboard) clears the screen for screenshots and videos.
+	HideUI: the HIDE UI button (or X on a keyboard) clears the screen for screenshots and videos.
 
 	Hides every screen GUI of ours (HUD, windows, notifications, the base marker...) and Roblox's own
 	(chat, player list, hotbar), on this player's screen only. Steal prompts stay so you can still
-	play. Press X again, or tap the small 👁 SHOW UI pill, to bring everything back exactly as it was.
+	play. Press X again, or tap the small SHOW UI pill, to bring everything back exactly as it was.
 	Anything that opens while the UI is hidden stays hidden until you show it again.
 ]]
 
@@ -140,7 +140,7 @@ function HideUI.Init()
 	pillGui = gui
 	local button = Theme.Button({
 		Name = "Show",
-		Text = if UserInputService.KeyboardEnabled then "👁 SHOW UI (X)" else "👁 SHOW UI",
+		Text = if UserInputService.KeyboardEnabled then "SHOW UI (X)" else "SHOW UI",
 		Color = Theme.Colors.Gray,
 		Size = UDim2.fromOffset(170, 40),
 		AnchorPoint = Vector2.new(1, 1),

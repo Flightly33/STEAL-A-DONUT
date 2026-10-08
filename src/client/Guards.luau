@@ -4,8 +4,10 @@
 	* Builds YOUR sleeping Domer in every biome's back corner (only you can see him; everyone has
 	  their own): in the first biomes he's asleep on his back on his couch (GuardModel.Sleep), later
 	  on he sleeps standing up with his head down (GuardModel.Doze). Eyes shut; every breath out puffs
-	  a few Z's out of his open mouth, and up close you hear him snore (a deep rattling breath in, a
-	  soft breath out: made from Roblox's own sounds, or Config.Guard.SnoreSoundId).
+	  a few Z's out of his open mouth, and up close you hear him snore: Config.Guard.SnoreSoundId
+	  while you're close enough to grab one of his boxes (their prompts' reach), louder the closer
+	  you get to him - or, with no snore pasted there, a deep rattling breath in and a soft breath
+	  out made from Roblox's own sounds, whenever you're near him.
 	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId).
 	* When you steal a box the server spawns your chasing guard: your sleeping one disappears in a
 	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
@@ -24,6 +26,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
 local Config = require(Shared.Config)
 local GuardModel = require(Shared.GuardModel)
+local Layout = require(Shared.Layout)
 
 local player = Players.LocalPlayer :: Player
 
@@ -41,7 +44,12 @@ type Sleeper = {
 	Snoring: boolean,
 }
 
-local SNORE_RANGE = 85 -- studs: how far away you can hear him
+local SNORE_RANGE = 85 -- studs: how far away you can hear him (the built-in snore)
+local CUSTOM_SNORE = Config.Guard.SnoreSoundId ~= ""
+-- (the pasted snore: SnoreVolume within SNORE_NEAR studs of him, down to a third of it at
+-- SNORE_FAR - about as far as you can be from him and still reach one of his boxes)
+local SNORE_NEAR = 16
+local SNORE_FAR = Layout.BoxRadius + 22
 local Z_RANGE = 240 -- ...and see his Z's
 local BREATH = 3.8 -- seconds per breath (in 1.7 s, out 1.3 s, then a pause)
 local BREATH_IN = 1.7
@@ -99,16 +107,22 @@ local function makeSnore(mouth: BasePart?): Sound?
 	if not mouth then
 		return nil
 	end
-	local custom = Config.Guard.SnoreSoundId
 	local sound = Instance.new("Sound")
 	sound.Name = "Snore"
-	sound.SoundId = if custom ~= "" then custom else "rbxasset://sounds/action_falling.mp3"
+	sound.SoundId = if CUSTOM_SNORE then Config.Guard.SnoreSoundId else "rbxasset://sounds/action_falling.mp3"
 	sound.Looped = true
 	sound.Volume = 0
-	sound.RollOffMode = Enum.RollOffMode.InverseTapered
-	sound.RollOffMinDistance = 15
-	sound.RollOffMaxDistance = SNORE_RANGE
-	if custom == "" then
+	if CUSTOM_SNORE then
+		-- (it comes from his mouth, but how loud it is is up to breathe: no fading with distance here)
+		sound.RollOffMode = Enum.RollOffMode.Linear
+		sound.RollOffMinDistance = 300
+		sound.RollOffMaxDistance = 400
+	else
+		sound.RollOffMode = Enum.RollOffMode.InverseTapered
+		sound.RollOffMinDistance = 15
+		sound.RollOffMaxDistance = SNORE_RANGE
+	end
+	if not CUSTOM_SNORE then
 		local rattle = Instance.new("TremoloSoundEffect")
 		rattle.Frequency = 22
 		rattle.Depth = 0.85
@@ -178,9 +192,34 @@ local function puffZs(sleeper: Sleeper)
 	end
 end
 
+-- How loud the pasted snore is `distance` studs from him.
+local function snoreVolume(distance: number): number
+	local t = math.clamp((distance - SNORE_NEAR) / (SNORE_FAR - SNORE_NEAR), 0, 1)
+	return Config.Guard.SnoreVolume * (1 - t * 2 / 3)
+end
+
+-- The biomes with a box you're close enough to grab right now (within its prompt's reach).
+local function boxesInReach(at: Vector3?): { [number]: boolean }
+	local areas = {}
+	if not at then
+		return areas
+	end
+	for _, box in CollectionService:GetTagged("LaneBox") do
+		local primary = if box:IsA("Model") then box.PrimaryPart else nil
+		local prompt = primary and primary:FindFirstChild("StealPrompt")
+		if primary and prompt and prompt:IsA("ProximityPrompt") then
+			local position = primary.CFrame.Position
+			if (position - at).Magnitude <= prompt.MaxActivationDistance then
+				areas[Layout.AreaAt(position)] = true
+			end
+		end
+	end
+	return areas
+end
+
 -- One step of his breathing (every few frames): the snore swells while he breathes in, a soft
--- whoosh and the Z's come out while he breathes out.
-local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: boolean)
+-- whoosh and the Z's come out while he breathes out. (`loudness`: for a pasted snore.)
+local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: boolean, loudness: number)
 	local cycle = (now + sleeper.Phase) % BREATH
 	local out = cycle >= BREATH_IN and cycle < BREATH_IN + BREATH_OUT
 	if out and not sleeper.BreathingOut and seen then
@@ -189,6 +228,20 @@ local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: bool
 	sleeper.BreathingOut = out
 	local sound = sleeper.Snore
 	if not sound then
+		return
+	end
+	if CUSTOM_SNORE then
+		-- a real recording: it fades in when you get in reach of his boxes, swells as you get
+		-- closer to him, and fades out (then stops) when you leave
+		sound.Volume += ((if heard then loudness else 0) - sound.Volume) * 0.3
+		if heard and not sleeper.Snoring then
+			sleeper.Snoring = true
+			sound:Play()
+		elseif not heard and sleeper.Snoring and sound.Volume < 0.005 then
+			sleeper.Snoring = false
+			sound.Volume = 0
+			sound:Stop()
+		end
 		return
 	end
 	if heard ~= sleeper.Snoring then
@@ -200,10 +253,6 @@ local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: bool
 		end
 	end
 	if not heard then
-		return
-	end
-	if Config.Guard.SnoreSoundId ~= "" then
-		sound.Volume = 0.6
 		return
 	end
 	local rattle = sound:FindFirstChildOfClass("TremoloSoundEffect")
@@ -286,7 +335,7 @@ local function buildSleeper(areaId: number)
 	end
 	status.Text = "" -- (the Z's come out of his mouth)
 	local facing = marker.CFrame.LookVector * Vector3.new(1, 0, 1)
-	local floor = Vector3.new(marker.Position.X, 0, marker.Position.Z)
+	local floor = marker.CFrame.Position * Vector3.new(1, 0, 1)
 	local home = CFrame.lookAt(floor, floor + (if facing.Magnitude > 0.01 then facing.Unit else Vector3.new(0, 0, -1)))
 	model:PivotTo(if onCouch then GuardModel.CouchCFrame(home) else GuardModel.StandCFrame(home))
 	model.Parent = folder
@@ -369,13 +418,18 @@ local function onGuardAdded(instance: Instance)
 end
 
 function Guards.Init()
-	-- Load his animations now, not the moment he first wakes up
+	-- Load his animations (and his snore) now, not the moment they're first needed
 	task.spawn(function()
-		local list = {}
+		local list: { Instance } = {}
 		for _, id in { Config.Guard.WalkAnimation, Config.Guard.IdleAnimation } do
 			local animation = Instance.new("Animation")
 			animation.AnimationId = id
 			table.insert(list, animation)
+		end
+		if CUSTOM_SNORE then
+			local snore = Instance.new("Sound")
+			snore.SoundId = Config.Guard.SnoreSoundId
+			table.insert(list, snore)
 		end
 		pcall(function()
 			ContentProvider:PreloadAsync(list)
@@ -400,14 +454,28 @@ function Guards.Init()
 	-- Breathing: snoring and Z's for the sleepers near you
 	task.spawn(function()
 		local started = os.clock()
+		local reach: { [number]: boolean } = {}
+		local nextReach = 0
 		while true do
 			task.wait(0.05)
 			local camera = workspace.CurrentCamera
 			local eye = if camera then camera.CFrame.Position else Vector3.zero
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+			local at = if root then root.CFrame.Position else nil
 			local now = os.clock() - started
-			for _, sleeper in sleepers do
+			if CUSTOM_SNORE and now >= nextReach then
+				nextReach = now + 0.2
+				reach = boxesInReach(at)
+			end
+			for areaId, sleeper in sleepers do
 				local distance = if sleeper.Hidden then math.huge else (sleeper.Home.Position - eye).Magnitude
-				breathe(sleeper, now, distance < Z_RANGE, distance < SNORE_RANGE + 10)
+				if CUSTOM_SNORE then
+					local fromYou = if at and not sleeper.Hidden then (sleeper.Home.Position - at).Magnitude else math.huge
+					breathe(sleeper, now, distance < Z_RANGE, reach[areaId] == true and not sleeper.Hidden, snoreVolume(fromYou))
+				else
+					breathe(sleeper, now, distance < Z_RANGE, distance < SNORE_RANGE + 10, 0)
+				end
 			end
 		end
 	end)

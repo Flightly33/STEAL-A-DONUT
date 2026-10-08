@@ -50,8 +50,8 @@ Giant.LENGTH = Giant.IMPACT + Giant.HOLD + Giant.RETURN
 
 Giant.STAR_CHARGE = 1.3 -- star rain: fists up, the hole flares...
 Giant.STAR_FALL = 2.2 -- ...then the stars fall (landing at STAR_CHARGE + STAR_FALL)
-Giant.STAR_SPREAD = 0.5 -- (seconds between the first and the last star landing)
-Giant.STAR_LAUNCH_SPREAD = 0.6 -- (...and between the first and the last leaving his fists, each with its own launch sound)
+Giant.STAR_SPREAD = 1 -- (seconds between the first and the last star landing)
+Giant.STAR_LAUNCH_SPREAD = 1.2 -- (...and between the first and the last leaving his fists, each with its own launch sound)
 Giant.BEAM_CHARGE = 1.7 -- eye beam: his eyes charge up, the line glows...
 Giant.BEAM_SWEEP = 2.4 -- ...then the beams sweep along it
 

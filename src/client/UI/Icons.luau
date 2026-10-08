@@ -1,8 +1,10 @@
 --[[
 	Icons: chunky cartoon icons for the HUD and windows (like the big simulator games): a soft white
 	body with a thick black outline, a drop shadow, a bit of shading and a shiny highlight, drawn
-	from plain Frames so there's nothing to upload. They replace these emojis wherever a
-	Theme.Button or a HUD square uses one: 🛒 📖 🐾 🔄 🛠 🏠 🏢 🌀 🚀 🎨 💖 📰 🎵 ⚙️ 👁
+	from plain Frames so there's nothing to upload (and no emoji anywhere in the game). A
+	Theme.Button or a HUD square takes one by name: cart, book, paw, cycle, tools, house, building,
+	globe, rocket, palette, heart, news, note, gear, eye, bolt (Speed), cash, coin, clover (luck),
+	egg, gift.
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -325,7 +327,7 @@ SHAPES.news = {
 	box(0.45, 0.76, 0.42, 0.035, { fill = "ink", r = 0.5 }),
 }
 
--- Two quavers joined by a beam (♫). The beam's corners land exactly on the stems' outer edges, so
+-- Two quavers joined by a beam (). The beam's corners land exactly on the stems' outer edges, so
 -- the outline runs straight from one to the other.
 SHAPES.note = {
 	ellipse(0.3, 0.75, 0.28, 0.21, { rot = -20 }),
@@ -356,33 +358,66 @@ SHAPES.eye = {
 	circle(0.44, 0.44, 0.07, { fill = "shine" }),
 }
 
-local BY_EMOJI: { [string]: string } = {
-	["🛒"] = "cart",
-	["📖"] = "book",
-	["🐾"] = "paw",
-	["🔄"] = "cycle",
-	["🛠"] = "tools",
-	["🛠️"] = "tools",
-	["🏠"] = "house",
-	["🏢"] = "building",
-	["🌀"] = "globe",
-	["🌍"] = "globe",
-	["🚀"] = "rocket",
-	["🎨"] = "palette",
-	["💖"] = "heart",
-	["📰"] = "news",
-	["🎵"] = "note",
-	["⚙️"] = "gear",
-	["⚙"] = "gear",
-	["👁"] = "eye",
+-- A lightning bolt (Speed)
+local YELLOW = Color3.fromRGB(255, 214, 60)
+SHAPES.bolt = {
+	box(0.6, 0.27, 0.2, 0.44, { rot = 24, r = 0.12, color = YELLOW }),
+	box(0.5, 0.5, 0.5, 0.15, { rot = -22, r = 0.2, color = YELLOW }),
+	box(0.4, 0.73, 0.2, 0.44, { rot = 24, r = 0.12, color = YELLOW }),
+	shine(0.57, 0.2, 0.05, 0.14, 24),
 }
 
--- The icon's name for an emoji (or a name), if there's a drawn icon for it.
-function Icons.For(emojiOrName: string): string?
-	if SHAPES[emojiOrName] then
-		return emojiOrName
-	end
-	return BY_EMOJI[emojiOrName]
+-- A banknote on top of another (money)
+local GREEN = Color3.fromRGB(110, 225, 90)
+SHAPES.cash = {
+	box(0.56, 0.42, 0.78, 0.46, { rot = -8, r = 0.12, back = 1, color = GREEN }),
+	box(0.47, 0.58, 0.78, 0.46, { rot = -8, r = 0.12, color = GREEN }),
+	circle(0.47, 0.58, 0.22, { fill = Color3.fromRGB(60, 160, 60) }),
+	box(0.21, 0.62, 0.06, 0.06, { rot = -8, fill = "ink", r = 0.5 }),
+	box(0.73, 0.54, 0.06, 0.06, { rot = -8, fill = "ink", r = 0.5 }),
+	shine(0.3, 0.45, 0.14, 0.04, -8),
+}
+
+-- A gold coin
+SHAPES.coin = {
+	circle(0.5, 0.5, 0.78, { color = Color3.fromRGB(255, 200, 50) }),
+	circle(0.5, 0.5, 0.46, { fill = Color3.fromRGB(240, 165, 30) }),
+	box(0.5, 0.5, 0.08, 0.26, { fill = "ink", r = 0.5 }),
+	shine(0.34, 0.3, 0.14, 0.05, -40),
+}
+
+-- A four-leaf clover (luck)
+SHAPES.clover = {
+	capsule(0.52, 0.55, 0.66, 0.9, 0.09, { color = GREEN }),
+	circle(0.36, 0.36, 0.34, { color = GREEN }),
+	circle(0.64, 0.36, 0.34, { color = GREEN }),
+	circle(0.36, 0.62, 0.34, { color = GREEN }),
+	circle(0.64, 0.62, 0.34, { color = GREEN }),
+	shine(0.3, 0.3, 0.1, 0.05, -40),
+}
+
+-- A speckled egg
+SHAPES.egg = {
+	ellipse(0.5, 0.53, 0.6, 0.78, { color = Color3.fromRGB(255, 240, 205) }),
+	circle(0.4, 0.45, 0.09, { fill = Color3.fromRGB(255, 170, 80), plain = true }),
+	circle(0.6, 0.62, 0.12, { fill = Color3.fromRGB(255, 170, 80), plain = true }),
+	circle(0.45, 0.74, 0.07, { fill = Color3.fromRGB(255, 170, 80), plain = true }),
+	shine(0.38, 0.3, 0.06, 0.14, -20),
+}
+
+-- A present with a ribbon and a bow
+SHAPES.gift = {
+	box(0.5, 0.64, 0.66, 0.5, { r = 0.08, color = Color3.fromRGB(240, 70, 90) }),
+	box(0.5, 0.38, 0.76, 0.18, { r = 0.1, color = Color3.fromRGB(240, 70, 90) }),
+	box(0.5, 0.56, 0.14, 0.7, { fill = YELLOW }),
+	ellipse(0.4, 0.22, 0.2, 0.14, { rot = 25, fill = YELLOW }),
+	ellipse(0.6, 0.22, 0.2, 0.14, { rot = -25, fill = YELLOW }),
+	shine(0.27, 0.34, 0.1, 0.04, 0),
+}
+
+-- The icon's name, if there's a drawn icon for it.
+function Icons.For(name: string): string?
+	return if SHAPES[name] then name else nil
 end
 
 -- A see-through step: opaque before `at` (0-1 along the gradient), invisible after it.

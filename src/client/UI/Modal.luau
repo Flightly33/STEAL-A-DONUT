@@ -1,5 +1,10 @@
 --[[
 	Modal: a centred pop-up window (Shop, Index, Leaderboards...). Only one is open at a time.
+
+	Every window looks the same: an orange header with the stud pattern and two streaks of light,
+	its title in big white outlined letters (and a gold count after it, SetCount: "Index (12/88)"),
+	a red X, and a dark green body with faint studs. (The studs are drawn the first time the window
+	opens, so windows nobody opens cost nothing.)
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -13,13 +18,19 @@ export type Modal = {
 	Frame: Frame,
 	Body: Frame,
 	Title: TextLabel,
+	Count: TextLabel,
+	Size: Vector2,
+	Studded: boolean,
 	OnOpen: (() -> ())?,
 	OnClose: (() -> ())?,
 	Open: (self: Modal) -> (),
 	Close: (self: Modal) -> (),
 	Toggle: (self: Modal) -> (),
 	IsOpen: (self: Modal) -> boolean,
+	SetCount: (self: Modal, text: string?) -> (),
 }
+
+local HEADER = 58
 
 local gui: ScreenGui? = nil
 local current: Modal? = nil
@@ -31,50 +42,109 @@ local function getGui(): ScreenGui
 	return gui :: ScreenGui
 end
 
-function Modal.new(title: string, color: Color3, size: Vector2): Modal
+-- (`_color` is from before every window had the same orange header.)
+function Modal.new(title: string, _color: Color3, size: Vector2): Modal
 	local holder = Theme.new("Frame", {
 		Name = title,
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.52),
 		Size = UDim2.fromOffset(size.X, size.Y),
-		BackgroundColor3 = Theme.Colors.Panel,
+		BackgroundColor3 = Color3.new(1, 1, 1),
 		Visible = false,
 		Parent = getGui(),
 	}, {
-		Theme.Corner(18),
+		Theme.Corner(12),
 		Theme.Stroke(4),
-		Theme.Gradient(Theme.Colors.PanelLight, Theme.Colors.Panel),
+		Theme.Gradient(Theme.Colors.Window, Theme.Colors.WindowDark),
 	})
 	Theme.AutoScale(holder) -- (only one UIScale per object works, so the open "pop" tweens this one too)
 
 	local header = Theme.new("Frame", {
 		Name = "Header",
-		Size = UDim2.new(1, 0, 0, 58),
-		BackgroundColor3 = color,
+		Size = UDim2.new(1, 0, 0, HEADER),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		ClipsDescendants = true,
 		Parent = holder,
 	}, {
-		Theme.Corner(18),
-		Theme.Gradient(Theme.Lighten(color, 0.2), Theme.Darken(color, 0.1)),
+		Theme.Corner(12),
+		Theme.Gradient(Theme.Colors.HeaderTop, Theme.Colors.HeaderBottom),
 	})
-	-- Square off the header's bottom corners
-	Theme.new("Frame", { Size = UDim2.new(1, 0, 0, 18), Position = UDim2.new(0, 0, 1, -18), BackgroundColor3 = Theme.Darken(color, 0.1), BorderSizePixel = 0, Parent = header })
-	local titleLabel = Theme.Label({ Name = "Title", Text = title, Size = UDim2.new(1, -120, 0, 44), Position = UDim2.fromOffset(20, 7), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 3, Parent = header })
+	-- Square off the header's bottom corners, with a dark line under it
+	Theme.new("Frame", { Name = "Square", Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 1, -14), BackgroundColor3 = Theme.Colors.HeaderBottom, BorderSizePixel = 0, Parent = header })
+	Theme.new("Frame", { Name = "Line", Size = UDim2.new(1, 0, 0, 4), Position = UDim2.fromOffset(0, HEADER - 2), BackgroundColor3 = Theme.Colors.Outline, BorderSizePixel = 0, ZIndex = 3, Parent = holder })
+	-- two streaks of light across it, behind the title
+	for i, streak in { { X = 150, W = 26 }, { X = 188, W = 12 } } do
+		Theme.new("Frame", {
+			Name = "Streak" .. i,
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.new(0, streak.X, 0.5, 0),
+			Size = UDim2.fromOffset(streak.W, HEADER * 2),
+			Rotation = 24,
+			BackgroundColor3 = Color3.new(1, 1, 1),
+			BackgroundTransparency = 0.72,
+			BorderSizePixel = 0,
+			ZIndex = 2,
+			Parent = header,
+		})
+	end
+
+	local titleRow = Theme.new("Frame", {
+		Name = "TitleRow",
+		BackgroundTransparency = 1,
+		Position = UDim2.fromOffset(18, 4),
+		Size = UDim2.new(1, -90, 1, -8),
+		ZIndex = 3,
+		Parent = header,
+	}, {
+		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local titleLabel = Theme.Label({ Name = "Title", Text = title, TextScaled = false, TextSize = 40, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), StrokeThickness = 3.5, ZIndex = 3, LayoutOrder = 1, Parent = titleRow })
+	local count = Theme.Label({ Name = "Count", Text = "", TextColor3 = Theme.Colors.Gold, TextScaled = false, TextSize = 34, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.new(0, 0, 1, 0), StrokeThickness = 3, ZIndex = 3, LayoutOrder = 2, Visible = false, Parent = titleRow })
 
 	local close = Theme.Button({ Name = "Close", Text = "X", Color = Theme.Colors.Red, Size = UDim2.fromOffset(46, 46), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -8, 0, 6), Parent = header })
+	close.ZIndex = 3
 
 	local body = Theme.new("Frame", {
 		Name = "Body",
 		BackgroundTransparency = 1,
-		Position = UDim2.fromOffset(14, 68),
-		Size = UDim2.new(1, -28, 1, -80),
+		Position = UDim2.fromOffset(14, HEADER + 10),
+		Size = UDim2.new(1, -28, 1, -(HEADER + 22)),
+		ZIndex = 2,
 		Parent = holder,
 	})
 
-	local self = setmetatable({ Frame = holder, Body = body, Title = titleLabel, OnOpen = nil, OnClose = nil }, Modal) :: any
+	local self = setmetatable({ Frame = holder, Body = body, Title = titleLabel, Count = count, Size = size, Studded = false, OnOpen = nil, OnClose = nil }, Modal) :: any
 	close.Activated:Connect(function()
 		self:Close()
 	end)
 	return self
+end
+
+-- "(12/88)" in gold after the title (nil: none).
+function Modal.SetCount(self: Modal, text: string?)
+	self.Count.Text = text or ""
+	self.Count.Visible = text ~= nil and text ~= ""
+end
+
+-- The studs: on the header, and faintly on the body (the first time the window opens).
+local function addStuds(self: Modal)
+	if self.Studded then
+		return
+	end
+	self.Studded = true
+	local header = self.Frame:FindFirstChild("Header") :: Frame
+	local headerStuds = Theme.Studs(header, Vector2.new(self.Size.X, HEADER), { Cell = 22, Color = Color3.fromRGB(150, 70, 0), Transparency = 0.72 })
+	headerStuds.ZIndex = 1
+	local area = Theme.new("Frame", {
+		Name = "BodyStuds",
+		BackgroundTransparency = 1,
+		ClipsDescendants = true,
+		Position = UDim2.fromOffset(0, HEADER),
+		Size = UDim2.new(1, 0, 1, -HEADER),
+		ZIndex = 1,
+		Parent = self.Frame,
+	})
+	Theme.Studs(area, Vector2.new(self.Size.X, self.Size.Y - HEADER), { Cell = 30, Transparency = 0.86 })
 end
 
 function Modal.Open(self: Modal)
@@ -82,6 +152,7 @@ function Modal.Open(self: Modal)
 		current:Close()
 	end
 	current = self
+	addStuds(self)
 	if not self.Frame.Visible and Theme.SinceKeyPress() > 0.4 then
 		Theme.PlaySound("Open") -- (opened with a button, the button's click is enough)
 	end

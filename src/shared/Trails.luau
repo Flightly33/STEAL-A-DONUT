@@ -19,7 +19,6 @@ local Areas = require(script.Parent.Areas)
 export type Trail = {
 	Id: string,
 	Name: string,
-	Icon: string,
 	Description: string,
 	Color: Color3, -- the afterimages / streak
 	Accent: Color3, -- outlines and glass edges
@@ -34,7 +33,6 @@ Trails.List = {
 	{
 		Id = "FastGuy",
 		Name = "Fast Guy",
-		Icon = "💨",
 		Description = "Run so fast you leave frozen frames of yourself behind, and the air cracks like glass.",
 		Color = Color3.fromRGB(165, 215, 255),
 		Accent = Color3.fromRGB(255, 255, 255),

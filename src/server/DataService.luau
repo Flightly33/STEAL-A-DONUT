@@ -609,7 +609,7 @@ function DataService.CheckTrails(player: Player)
 				data.EquippedTrail = trail.Id
 				player:SetAttribute("Trail", trail.Id)
 			end
-			Remotes.Event("Notify"):FireClient(player, `{trail.Icon} You unlocked the {trail.Name} trail!` .. (if wear then " You're wearing it now." else " Put it on in Trails."), "rare")
+			Remotes.Event("Notify"):FireClient(player, `You unlocked the {trail.Name} trail!` .. (if wear then " You're wearing it now." else " Put it on in Trails."), "rare")
 		end
 	end
 	if changed then

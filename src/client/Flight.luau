@@ -2,7 +2,7 @@
 	Flight and noclip (admin panel): the server sets your "FlyMode" attribute to "Fly" or "Carpet"; this flies.
 
 	  Move with the normal controls (WASD / thumbstick); the way you face follows the camera.
-	  Space / the ⬆ button = up, Shift or Ctrl / the ⬇ button = down. Looking up or down while moving
+	  Space / the button = up, Shift or Ctrl / the button = down. Looking up or down while moving
 	  forward also climbs or dives.
 	  "Carpet" puts a magic carpet (with tassels and sparkles) under your feet.
 	Speed: your walk speed x Config.Admin.FlySpeed (at least 60).
@@ -128,13 +128,13 @@ local function apply()
 	end
 end
 
--- ⬆ / ⬇ buttons for phones and tablets
+-- / buttons for phones and tablets
 local function buildButtons()
 	local gui = Theme.ScreenGui("FlightButtons", 5)
 	local frame = Theme.new("Frame", { AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -170, 1, -150), Size = UDim2.fromOffset(70, 150), BackgroundTransparency = 1, Visible = false, Parent = gui })
 	Theme.AutoScale(frame)
 	type Info = { Text: string, Direction: number }
-	local infos: { Info } = { { Text = "⬆", Direction = 1 }, { Text = "⬇", Direction = -1 } }
+	local infos: { Info } = { { Text = "UP", Direction = 1 }, { Text = "DOWN", Direction = -1 } }
 	for i, info in infos do
 		local button = Theme.Button({ Text = info.Text, Color = Theme.Colors.Blue, Size = UDim2.fromOffset(66, 66), Position = UDim2.fromOffset(0, (i - 1) * 76), Parent = frame })
 		button.MouseButton1Down:Connect(function()

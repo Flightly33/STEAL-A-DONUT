@@ -83,10 +83,10 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 
 	-- Shop and Index are the big ones; Pets and Trails a bit smaller underneath
 	local big, small = UDim2.fromOffset(190, 64), UDim2.fromOffset(190, 50)
-	local shop = Theme.Button({ Text = "Shop", Icon = "🛒", Color = Theme.Colors.Green, Size = big, LayoutOrder = 1, Parent = left })
-	local index = Theme.Button({ Text = "Index", Icon = "📖", Color = Theme.Colors.Blue, Size = big, LayoutOrder = 2, Parent = left })
-	local pets = Theme.Button({ Text = "Pets", Icon = "🐾", Color = Theme.Colors.Pink, Size = small, LayoutOrder = 3, Parent = left })
-	local trails = Theme.Button({ Text = "Trails", Icon = "💨", Color = Theme.Colors.Blue, Size = small, LayoutOrder = 5, Parent = left })
+	local shop = Theme.Button({ Text = "Shop", Icon = "cart", Color = Theme.Colors.Green, Size = big, LayoutOrder = 1, Parent = left })
+	local index = Theme.Button({ Text = "Index", Icon = "book", Color = Theme.Colors.Blue, Size = big, LayoutOrder = 2, Parent = left })
+	local pets = Theme.Button({ Text = "Pets", Icon = "paw", Color = Theme.Colors.Pink, Size = small, LayoutOrder = 3, Parent = left })
+	local trails = Theme.Button({ Text = "Trails", Icon = "bolt", Color = Theme.Colors.Blue, Size = small, LayoutOrder = 5, Parent = left })
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
@@ -148,44 +148,42 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 				AnchorPoint = Vector2.new(0.5, 0),
 				Position = UDim2.fromScale(0.5, 0.08),
 			})
-		else
-			Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.new(1, 0, 0.62, 0), Position = UDim2.fromScale(0, 0.06), Parent = button })
 		end
 		Theme.Label({ Name = "Caption", Text = caption, Font = Theme.Title, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 2, Parent = button })
 		button.Activated:Connect(onClick)
 		return button
 	end
-	local admin = square("🛠", "ADMIN", Theme.Colors.Red, 0, callbacks.OpenAdmin)
+	local admin = square("tools", "ADMIN", Theme.Colors.Red, 0, callbacks.OpenAdmin)
 	admin.Visible = false
 	-- The base code ("ender=rich"): just the bigger-base buttons
-	local baseSize = square("🏢", "BASE", Theme.Colors.Blue, 0, callbacks.OpenBaseSize)
+	local baseSize = square("building", "BASE", Theme.Colors.Blue, 0, callbacks.OpenBaseSize)
 	State.OnAttribute("SizeAccess", function(value)
 		baseSize.Visible = value == true
 	end)
-	square("🏠", "HOME", Theme.Colors.Red, 1, function()
+	square("house", "HOME", Theme.Colors.Red, 1, function()
 		State.Action("TeleportHome")
 	end)
 	-- Teleporter pass owners: jump to any biome. Everyone else walks.
-	local teleport = square("🌀", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenTeleport)
+	local teleport = square("globe", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenTeleport)
 	local function showTeleport()
 		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
 	end
 	State.Changed:Connect(showTeleport)
 	showTeleport()
-	square("🚀", "BOOSTS", Theme.Colors.Orange, 3, function()
+	square("rocket", "BOOSTS", Theme.Colors.Orange, 3, function()
 		callbacks.OpenShop("Passes")
 	end)
-	square("🎨", "SKINS", Theme.Colors.Purple, 4, function()
+	square("palette", "SKINS", Theme.Colors.Purple, 4, function()
 		callbacks.OpenShop("Skins")
 	end)
-	square("💖", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
-	square("📰", "UPDATES", Theme.Colors.Yellow, 6, function()
+	square("heart", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
+	square("news", "UPDATES", Theme.Colors.Yellow, 6, function()
 		callbacks.OpenUpdates()
 	end)
 	-- Settings: music on/off, next song and volume live in its window
-	square("⚙️", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
+	square("gear", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
 	-- Clear the screen for screenshots (X on a keyboard does the same; see HideUI)
-	local hide = square("👁", "HIDE UI", Theme.Colors.Gray, 8, callbacks.HideUI)
+	local hide = square("eye", "HIDE UI", Theme.Colors.Gray, 8, callbacks.HideUI)
 	if UserInputService.KeyboardEnabled then
 		-- a little dark key cap on the top-right corner: "X" (it fits in the gaps beside the square)
 		local key = Theme.new("Frame", {
@@ -222,7 +220,9 @@ local function buildStats(gui: ScreenGui)
 	-- Big outlined numbers with an icon, like the reference game
 	local function row(icon: string, color: Color3, y: number): TextLabel
 		local holder = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 52), Position = UDim2.fromOffset(0, y), Parent = stats })
-		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(50, 50), Position = if Theme.IsTouch then UDim2.new(1, -50, 0, 0) else UDim2.new(), Parent = holder })
+		local drawn = Icons.Draw(icon, holder, nil, nil)
+		drawn.Size = UDim2.fromOffset(46, 46)
+		drawn.Position = if Theme.IsTouch then UDim2.new(1, -48, 0, 2) else UDim2.fromOffset(2, 2)
 		-- (a little shorter than the row, so tall glyphs like "$" don't touch the row above)
 		return Theme.Label({
 			Text = "0",
@@ -234,8 +234,8 @@ local function buildStats(gui: ScreenGui)
 			Parent = holder,
 		})
 	end
-	local speedLabel = row("👟", Theme.Colors.Speed, 0)
-	local moneyLabel = row("💵", Theme.Colors.Money, 52)
+	local speedLabel = row("bolt", Theme.Colors.Speed, 0)
+	local moneyLabel = row("cash", Theme.Colors.Money, 52)
 	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 109), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
 
 	local function updateSpeed()
@@ -243,7 +243,7 @@ local function buildStats(gui: ScreenGui)
 		local endsAt = State.Get("SpeedBoostEndsAt")
 		local left = if type(endsAt) == "number" then endsAt - workspace:GetServerTimeNow() else 0
 		local boost = if left > 0
-			then `  <font size="20" color="#ffe14a">⚡+{math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% {Format.Duration(left)}</font>`
+			then `  <font size="20" color="#ffe14a">+{math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% {Format.Duration(left)}</font>`
 			else ""
 		speedLabel.Text = `{Format.Number(State.Number("Speed"))}{boost}`
 	end
@@ -290,7 +290,7 @@ local function buildAreaInfo(gui: ScreenGui)
 	local function refresh()
 		local areaId = AreaTracker.Current
 		if areaId <= 0 then
-			nameLabel.Text = "🛡 LOBBY"
+			nameLabel.Text = "LOBBY"
 			nameLabel.TextColor3 = Color3.fromRGB(110, 200, 255)
 			detail.Text = `{Config.Guard.Name} can't get you here`
 			return
@@ -299,11 +299,11 @@ local function buildAreaInfo(gui: ScreenGui)
 		local area = Areas.List[areaId]
 		local guard = math.floor(Economy.GuardWalkSpeed(areaId))
 		local recommended = Economy.RecommendedSpeed(areaId)
-		nameLabel.Text = `📍 {areaId}. {area.Name}`
+		nameLabel.Text = `{areaId}. {area.Name}`
 		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
 		detail.Text = if recommended > 0
-			then `😴 {Config.Guard.Name}: <b>{guard}</b>   •   Escape: <font color="#ffd54a"><b>⚡{Format.Number(recommended)}</b></font>`
-			else `😴 {Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
+			then `{Config.Guard.Name}: <b>{guard}</b>   •   Escape: <font color="#ffd54a"><b>{Format.Number(recommended)}</b></font>`
+			else `{Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
 	end
 
 	-- The server event that's running (with a countdown)
@@ -327,12 +327,12 @@ local function buildAreaInfo(gui: ScreenGui)
 			return
 		end
 		if areaId == 0 then
-			Notifications.Banner("🛡 LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
+			Notifications.Banner("LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
 		else
 			-- Walked into a biome: its name and the Speed you need to get away from its Domer
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
-			local need = if recommended > 0 then `⚡ {Format.Number(recommended)} Speed to escape` else "⚡ Any speed escapes!"
+			local need = if recommended > 0 then `{Format.Number(recommended)} Speed to escape` else "Any speed escapes!"
 			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`)
 		end
 	end)
@@ -340,22 +340,18 @@ end
 
 -- Luck Event pill at the top of the screen (only while one is running).
 local function buildLuck(gui: ScreenGui)
-	local pill = Theme.new("Frame", {
+	local pill = Theme.Band({
 		Name = "LuckEvent",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 4),
-		Size = UDim2.fromOffset(430, 38),
-		BackgroundColor3 = Color3.fromRGB(30, 120, 50),
+		Size = UDim2.fromOffset(600, 38),
+		Darkness = 0.6,
 		Visible = false,
 		Parent = gui,
-	}, {
-		Theme.Corner(19),
-		Theme.Stroke(3),
-		Theme.Gradient(Color3.fromRGB(80, 220, 110), Color3.fromRGB(20, 110, 50)),
 	})
 	Theme.AutoScale(pill)
-	local label = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -140, 1, -8), Position = UDim2.fromOffset(12, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = pill })
-	local extend = Theme.Button({ Text = `+10 MIN R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Yellow, Size = UDim2.fromOffset(124, 30), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -4, 0.5, 0), Parent = pill })
+	local label = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(140, 255, 150), Size = UDim2.new(1, -250, 1, -6), Position = UDim2.fromOffset(60, 3), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2.5, Parent = pill })
+	local extend = Theme.Button({ Text = `+10 MIN R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Yellow, Size = UDim2.fromOffset(124, 30), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -60, 0.5, 0), Parent = pill })
 	extend.Activated:Connect(function()
 		State.Action("BuyLuck")
 	end)
@@ -366,7 +362,7 @@ local function buildLuck(gui: ScreenGui)
 			pill.Visible = left > 0
 			if left > 0 then
 				local by = workspace:GetAttribute("LuckBy")
-				label.Text = `🍀 LUCK EVENT {Format.Duration(left)}{if type(by) == "string" then " • by " .. by else ""}`
+				label.Text = `LUCK EVENT {Format.Duration(left)}{if type(by) == "string" then " • by " .. by else ""}`
 			end
 			task.wait(0.5)
 		end
@@ -401,7 +397,7 @@ local function buildBaseMarker()
 			LightInfluence = 0,
 			Parent = Theme.PlayerGui(),
 		})
-		Theme.Label({ Text = "⬇ YOUR BASE ⬇", TextColor3 = Theme.Colors.Yellow, Size = UDim2.fromScale(1, 1), StrokeThickness = 3, Parent = gui })
+		Theme.Label({ Text = "YOUR BASE", TextColor3 = Theme.Colors.Yellow, Size = UDim2.fromScale(1, 1), StrokeThickness = 3, Parent = gui })
 		marker = gui
 	end
 	State.OnAttribute("PlotIndex", function()

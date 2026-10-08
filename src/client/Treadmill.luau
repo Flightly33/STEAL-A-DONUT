@@ -148,7 +148,7 @@ end
 -- "+1 WALK SPEED!" every time the Speed stat crosses a whole WalkSpeed point
 local function walkSpeedBurst(points: number)
 	local label = Theme.Label({
-		Text = `+{points} WALK SPEED! 🏃`,
+		Text = `+{points} WALK SPEED!`,
 		TextColor3 = Color3.fromRGB(120, 255, 140),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.3),
@@ -278,7 +278,7 @@ local function start(belt: BasePart, character: Model, root: BasePart, humanoid:
 			track = loaded
 		end
 	end
-	rateLabel.Text = `🏃 RUNNING!  +{Format.Rate(currentRate())} ⚡/s`
+	rateLabel.Text = `RUNNING!  +{Format.Rate(currentRate())} /s`
 	hint.Visible = true
 	lastWalkPoint = math.floor(Economy.WalkSpeedFromStat(State.Number("Speed")))
 	setRunFX(true, root)
@@ -317,7 +317,7 @@ end
 local function popup()
 	local amount = currentRate()
 	local label = Theme.Label({
-		Text = "+" .. Format.Rate(amount) .. " ⚡",
+		Text = "+" .. Format.Rate(amount),
 		TextColor3 = Color3.fromRGB(200, 150, 255),
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(math.random(10, 90) / 100, math.random(18, 78) / 100),
@@ -437,7 +437,7 @@ function Treadmill.Init()
 			task.wait(1)
 			if running then
 				popup()
-				rateLabel.Text = `🏃 RUNNING!  +{Format.Rate(currentRate())} ⚡/s`
+				rateLabel.Text = `RUNNING!  +{Format.Rate(currentRate())} /s`
 			end
 		end
 	end)

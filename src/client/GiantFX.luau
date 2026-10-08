@@ -243,7 +243,7 @@ local function buildBossUi()
 	}, { Theme.Corner(14), Theme.Stroke(3, Giant.VIOLET) })
 	Theme.AutoScale(bar)
 	bossBar = bar
-	Theme.Label({ Name = "BossName", Text = "☄️ COSMIC DOMER", TextColor3 = rgb(235, 210, 255), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.62, 0, 0, 24), Position = UDim2.fromOffset(14, 4), StrokeThickness = 2.5, Parent = bar })
+	Theme.Label({ Name = "BossName", Text = "COSMIC DOMER", TextColor3 = rgb(235, 210, 255), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.62, 0, 0, 24), Position = UDim2.fromOffset(14, 4), StrokeThickness = 2.5, Parent = bar })
 	bossTimer = Theme.Label({ Name = "BossTimer", Text = "", Font = Theme.Font, TextColor3 = rgb(255, 230, 150), TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0.38, -14, 0, 20), Position = UDim2.new(0.62, 0, 0, 6), StrokeThickness = 1.8, Parent = bar })
 	local back = Theme.new("Frame", { Name = "Track", BackgroundColor3 = rgb(40, 24, 70), Size = UDim2.new(1, -24, 0, 16), Position = UDim2.fromOffset(12, 33), Parent = bar }, { Theme.Corner(8), Theme.Stroke(2) })
 	local fill = Theme.new("Frame", { Name = "Fill", BackgroundColor3 = WHITE, Size = UDim2.fromScale(1, 1), Parent = back }, { Theme.Corner(8) })
@@ -253,7 +253,7 @@ local function buildBossUi()
 	bossFill = fill
 end
 
--- "⚠ COSMIC DOMER ⚠ / RULER OF THE BLACK HOLE" slams onto the screen.
+-- "COSMIC DOMER / RULER OF THE BLACK HOLE" slams onto the screen.
 local function titleCard()
 	local gui = bossGui
 	if not gui then
@@ -261,7 +261,7 @@ local function titleCard()
 	end
 	local card = Theme.new("Frame", { Name = "TitleCard", AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.4), Size = UDim2.fromOffset(640, 150), BackgroundTransparency = 1, Parent = gui })
 	local scale = Theme.new("UIScale", { Scale = 2.2, Parent = card })
-	local title = Theme.Label({ Text = "⚠ COSMIC DOMER ⚠", TextColor3 = rgb(240, 215, 255), Size = UDim2.new(1, 0, 0, 84), StrokeThickness = 6, Parent = card })
+	local title = Theme.Label({ Text = "COSMIC DOMER", TextColor3 = rgb(240, 215, 255), Size = UDim2.new(1, 0, 0, 84), StrokeThickness = 6, Parent = card })
 	local sub = Theme.Label({ Text = "RULER OF THE BLACK HOLE", Font = Theme.Font, TextColor3 = Giant.CYAN, Size = UDim2.new(1, 0, 0, 34), Position = UDim2.fromOffset(0, 92), StrokeThickness = 3, Parent = card })
 	local gradient = Instance.new("UIGradient")
 	gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, Giant.PINK), ColorSequenceKeypoint.new(0.5, WHITE), ColorSequenceKeypoint.new(1, Giant.CYAN) })
@@ -942,9 +942,16 @@ local function updateRains(now: number)
 					star.Landed = true
 					if now < star.Land + 1 then
 						starLanded(star)
-					elseif star.Warning then
-						star.Warning:Destroy()
-						star.Warning = nil
+					else
+						-- (landed a while ago, between frames: no bang, but nothing left behind)
+						if star.Part then
+							star.Part:Destroy()
+							star.Part = nil
+						end
+						if star.Warning then
+							star.Warning:Destroy()
+							star.Warning = nil
+						end
 					end
 				elseif now >= launch and L then
 					-- out of his raised fists (one each way), arcing high over the lane, down onto its circle

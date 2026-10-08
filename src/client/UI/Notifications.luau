@@ -1,5 +1,8 @@
 --[[
-	Notifications: small toasts and big server-wide announcements. Top of the screen, from the top:
+	Notifications: small toasts and big server-wide announcements, all in the game's message style:
+	big white (or coloured) outlined letters on a dark band that fades out at its ends - never a
+	box, never an emoji (Format.Plain takes them out of anything the server sends). Top of the
+	screen, from the top:
 	  y 4    Luck Event pill (HUD) and the server event pill under it (EventBanner, y 46)
 	  y 92   big banners (area names, announcements)
 	  y 186  chase banner (Chase) - toasts slide below it while it's showing (SetToastOffset)
@@ -11,17 +14,19 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Remotes = require(Shared.Remotes)
+local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
 
 local Notifications = {}
 
+-- The text's colour for each kind of toast
 local KIND_COLORS = {
-	info = Theme.Colors.Blue,
-	success = Theme.Colors.Green,
-	error = Theme.Colors.Red,
-	rare = Theme.Colors.Yellow,
-	event = Theme.Colors.Pink,
+	info = Color3.fromRGB(255, 255, 255),
+	success = Color3.fromRGB(140, 255, 120),
+	error = Color3.fromRGB(255, 120, 110),
+	rare = Color3.fromRGB(255, 220, 90),
+	event = Color3.fromRGB(255, 150, 220),
 }
 
 local KIND_SOUNDS = {
@@ -43,20 +48,10 @@ function Notifications.SetToastOffset(extra: number)
 end
 
 function Notifications.Toast(text: string, kind: string?)
-	local color = KIND_COLORS[kind or "info"] or Theme.Colors.Blue
+	local color = KIND_COLORS[kind or "info"] or KIND_COLORS.info
 	toastCounter -= 1 -- newest first
-	local toast = Theme.new("Frame", {
-		Size = UDim2.new(1, 0, 0, 34),
-		BackgroundColor3 = Theme.Colors.Panel,
-		BackgroundTransparency = 0.1,
-		LayoutOrder = toastCounter,
-		Parent = toastHolder,
-	}, {
-		Theme.Corner(10),
-		Theme.Stroke(2.5),
-	})
-	Theme.new("Frame", { Size = UDim2.new(0, 8, 1, 0), BackgroundColor3 = color, BorderSizePixel = 0, Parent = toast }, { Theme.Corner(10) })
-	local label = Theme.Label({ Text = text, Font = Theme.Font, Size = UDim2.new(1, -24, 1, -8), Position = UDim2.fromOffset(16, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = toast })
+	local toast = Theme.Band({ Name = "Toast", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = toastCounter, Darkness = 0.62, Parent = toastHolder })
+	local label = Theme.Label({ Name = "Text", Text = Format.Plain(text), Font = Theme.Font, TextColor3 = color, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = toast })
 	-- A soft chime for each kind (skipped if another sound just played, like the steal jingle)
 	if Theme.SinceSound() > 0.35 then
 		Theme.PlaySound(KIND_SOUNDS[kind or "info"] or "Notify")
@@ -93,21 +88,23 @@ function Notifications.Banner(text: string, color: Color3, duration: number?, su
 			child:Destroy()
 		end
 	end
-	local banner = Theme.new("Frame", {
+	local banner = Theme.Band({
+		Name = "Banner",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, -120),
-		Size = UDim2.new(1, 0, 0, if subtitle then 82 else 56),
-		BackgroundTransparency = 1,
+		Size = UDim2.new(1, 0, 0, if subtitle then 88 else 62),
+		Darkness = 0.55,
 		Parent = bannerHolder,
 	})
-	local title = Theme.Label({ Text = text, TextColor3 = color, Size = UDim2.new(1, 0, 0, 52), StrokeThickness = 3.5, Parent = banner })
+	local title = Theme.Label({ Name = "Title", Text = Format.Plain(text), TextColor3 = color, Size = UDim2.new(1, -160, 0, 50), Position = UDim2.fromOffset(80, 6), StrokeThickness = 3.5, Parent = banner })
 	local sub
 	if subtitle then
-		sub = Theme.Label({ Text = subtitle, Font = Theme.Font, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 54), TextColor3 = Theme.Colors.White, StrokeThickness = 2, Parent = banner })
+		sub = Theme.Label({ Name = "Subtitle", Text = Format.Plain(subtitle), Font = Theme.Font, Size = UDim2.new(1, -160, 0, 26), Position = UDim2.fromOffset(80, 56), TextColor3 = Theme.Colors.White, StrokeThickness = 2.5, Parent = banner })
 	end
 	TweenService:Create(banner, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 0) }):Play()
 	task.delay(duration or 3, function()
 		if banner.Parent then
+			TweenService:Create(banner, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
 			TweenService:Create(title, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
 			if sub then
 				TweenService:Create(sub, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
@@ -124,7 +121,7 @@ function Notifications.Init()
 		Name = "Toasts",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, TOAST_Y),
-		Size = UDim2.fromOffset(460, 120),
+		Size = UDim2.fromOffset(620, 130),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {

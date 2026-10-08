@@ -105,7 +105,7 @@ function ProductService.ApplyTitle(player: Player)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
-	label.Text = `💖 {title.Title}`
+	label.Text = `{title.Title}`
 	label.TextColor3 = title.Color
 	label.TextStrokeTransparency = 0.2
 	label.TextStrokeColor3 = Color3.fromRGB(40, 20, 40)
@@ -134,11 +134,11 @@ local function recordDonation(player: Player, product: Config.DonationProduct, p
 	ProductService.ApplyTitle(player)
 	local title = ProductService.TitleFor(math.max(profile.Data.DonorTier, profile.Session.TestDonorTier))
 	if title and title ~= hadTitle then
-		notify(player, `💖 Thank you for the R$ {amount} tip! You're now a {title.Title}!`, "success")
+		notify(player, `Thank you for the R$ {amount} tip! You're now a {title.Title}!`, "success")
 	else
-		notify(player, `💖 Thank you for the R$ {amount} tip!`, "success")
+		notify(player, `Thank you for the R$ {amount} tip!`, "success")
 	end
-	Remotes.Event("AreaAnnouncement"):FireAllClients(`💖 {player.DisplayName} tipped R$ {Format.Commas(amount)}! Thank you!`, Color3.fromRGB(255, 110, 180))
+	Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} tipped R$ {Format.Commas(amount)}! Thank you!`, Color3.fromRGB(255, 110, 180))
 	DataService.PushState(player)
 	LeaderboardService.OnDonation(player)
 end
@@ -167,7 +167,7 @@ local function grant(player: Player, productId: number, paid: number?): boolean
 		local profile = DataService.Get(player)
 		local slot = if profile then profile.Session.PendingSkip else nil
 		if PlotService.SkipBox(player, slot) then
-			notify(player, "📦 Opening your box now!", "success")
+			notify(player, "Opening your box now!", "success")
 		end
 		return true
 	end

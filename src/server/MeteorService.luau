@@ -1,11 +1,12 @@
 --[[
-	MeteorService: the Cosmic Meteor (shared/Meteor). Halfway through the Eternal Storm (EventService
-	starts it, while Config.CosmicDonut is on) a huge meteor shatters the sky and crashes into one of
-	the first biomes (in the front half of the lane, away from Domer). Every client plays the show on
+	MeteorService: the Cosmic Meteor (shared/Meteor). 45 seconds into the Eternal Storm
+	(Config.CosmicDonut.MeteorAt: EventService starts it, while Config.CosmicDonut is on) a huge
+	meteor shatters the sky and crashes into one of biomes 2-6 (Config.CosmicDonut.Biomes; in the
+	front half of the biome, away from its Domer). Every client plays the show on
 	the same clock (client/MeteorFX: the white screen, the shaking, the sky cracking, the fall); here
 	it lands - anyone right under it is flung - and cracks open in a crater with its shards lying
-	round it (Config.CosmicDonut.Pieces). Later in the storm (Config.CosmicGiant.AppearAt)
-	Cosmic Domer climbs out of a black hole over the crater (EventService starts GiantService).
+	round it (Config.CosmicDonut.Pieces). Then Cosmic Domer climbs out of a black hole over the
+	crater (GiantService).
 
 	A shard is carried like an egg (StealService.StartCustom): one at a time, nobody chases you, and
 	it's yours once you're back over the lobby line (Data.MeteorShards). Get flung or knocked and it
@@ -29,6 +30,7 @@ local Remotes = require(Shared.Remotes)
 local DataService = require(script.Parent.DataService)
 local StealService = require(script.Parent.StealService)
 local ItemService = require(script.Parent.ItemService)
+local GiantService = require(script.Parent.GiantService)
 
 local MeteorService = {}
 
@@ -40,7 +42,6 @@ local rng = Random.new()
 local folder: Folder? = nil
 local landing = 0 -- (bumped by Clear: a meteor still on its way doesn't land)
 local active = false -- a meteor has landed this storm (its shards can lie on the ground)
-local landedAt: Vector3? = nil -- where it landed (this storm)
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -116,8 +117,8 @@ local function deposit(player: Player): boolean
 	DataService.PushState(player)
 	Remotes.Event("ChaseEnded"):FireClient(player, { Result = "Deposited", Kind = "Shard", Count = data.MeteorShards, Cost = COSMIC.ShardCost })
 	notify(player, if data.MeteorShards >= COSMIC.ShardCost
-		then `☄️ {data.MeteorShards} meteor shards! Craft THE COSMIC DONUT at the Cosmic Forge by the spawn!`
-		else `☄️ Meteor shard secured! {data.MeteorShards}/{COSMIC.ShardCost} for The Cosmic Donut`, "success")
+		then `{data.MeteorShards} meteor shards! Craft THE COSMIC DONUT at the Cosmic Forge by the spawn!`
+		else `Meteor shard secured! {data.MeteorShards}/{COSMIC.ShardCost} for The Cosmic Donut`, "success")
 	return true
 end
 
@@ -208,10 +209,11 @@ local function land(at: Vector3, seed: number, myLanding: number)
 		local distance = Meteor.CRATER * r:NextNumber(0.6, 1.1)
 		placeShard(at + Vector3.new(math.cos(angle), 0, math.sin(angle)) * distance, seed + i)
 	end
-	landedAt = at -- (Cosmic Domer climbs out over it later in the storm: EventService)
+	-- and Cosmic Domer climbs out of a black hole over it (GiantService)
+	GiantService.Start(at)
 end
 
--- Start the show (EventService, halfway through the storm). Returns where it'll land.
+-- Start the show (EventService, 45 seconds into the storm). Returns where it'll land.
 function MeteorService.Start(): Vector3?
 	if not COSMIC.Enabled then
 		return nil
@@ -221,7 +223,7 @@ function MeteorService.Start(): Vector3?
 	Remotes.Event("Meteor"):FireAllClients({ Position = at, StartAt = workspace:GetServerTimeNow() + LEAD, Seed = seed, Area = areaId })
 	-- (the announcement waits until the white screen has gone)
 	task.delay(LEAD + Meteor.SHATTER_AT, function()
-		Remotes.Event("AreaAnnouncement"):FireAllClients(`☄️ A COSMIC METEOR IS CRASHING INTO {string.upper(Areas.List[areaId].Name)}! GRAB ITS SHARDS!`, Color3.fromRGB(200, 120, 255))
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`A COSMIC METEOR IS CRASHING INTO {string.upper(Areas.List[areaId].Name)}! GRAB ITS SHARDS!`, Color3.fromRGB(200, 120, 255))
 	end)
 	task.delay(LEAD + Meteor.IMPACT_AT, land, at, seed, landing)
 	return at
@@ -231,17 +233,11 @@ end
 function MeteorService.Clear()
 	landing += 1
 	active = false
-	landedAt = nil
 	if folder then
 		for _, child in folder:GetChildren() do
 			evaporate(child)
 		end
 	end
-end
-
--- Where this storm's meteor landed (nil if it hasn't yet, or the storm's over).
-function MeteorService.Site(): Vector3?
-	return landedAt
 end
 
 -- The shards lying on the ground right now (tests, the admin panel).

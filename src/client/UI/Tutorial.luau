@@ -1,6 +1,6 @@
 --[[
-	Tutorial: a guided first game. A small line of text at the top of the screen says what to do
-	next, with a Skip Tutorial button beside it, and a red arrow floating over your head points the
+	Tutorial: a guided first game. A line of big outlined text at the top of the screen (on a dark
+	band that fades out at its ends) says what to do next, with a Skip Tutorial button beside it, and a red arrow floating over your head points the
 	way (a second red arrow bobs over the target):
 	  1. follow the arrow to the first biome
 	  2. steal a donut box (walk up to one next to Domer and press E)
@@ -33,6 +33,7 @@ local Tutorial = {}
 local player = Players.LocalPlayer :: Player
 local RED = Color3.fromRGB(235, 40, 40)
 local STEPS = { "Lane", "Steal", "RunHome", "PlaceBox", "Wait", "PlaceDonut", "Treadmill" }
+local TREADMILL_GOAL = 3 -- Speed to gain on the treadmill to finish
 local TEXT: { [string]: string } = {
 	Lane = "Follow the red arrow to the first biome",
 	Steal = `Walk up to a donut box next to {Config.Guard.Name} and press E to steal it`,
@@ -41,7 +42,7 @@ local TEXT: { [string]: string } = {
 	PlaceBox = "Go into your pen, hold the box and click to put it down",
 	Wait = "Wait for the timer over your box, then click the box to open it!",
 	PlaceDonut = "Your donut is in your inventory! Hold it and click in your pen",
-	Treadmill = "Your donut makes money! Now run on your treadmill to get faster",
+	Treadmill = "Your donut makes money! Now run on your treadmill!",
 	Done = "Tutorial complete! Claim your free egg",
 	Claimed = "Tutorial complete!",
 }
@@ -56,6 +57,11 @@ local refresh: () -> ()
 local function number(name: string): number
 	local value = player:GetAttribute(name)
 	return if type(value) == "number" then value else 0
+end
+
+-- Speed gained on the treadmill since the Treadmill step began (0 to TREADMILL_GOAL).
+local function treadmillGained(): number
+	return math.clamp(math.floor(number("Speed") - speedAtStart), 0, TREADMILL_GOAL)
 end
 
 local function go(nextStep: string?)
@@ -188,32 +194,28 @@ end
 function Tutorial.Init()
 	-- The line of text at the top, with Skip / Claim beside it
 	local gui = Theme.ScreenGui("Tutorial", 6)
-	local strip = Theme.new("Frame", {
+	local strip = Theme.Band({
 		Name = "Strip",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 48),
-		Size = UDim2.fromOffset(0, 40),
+		Size = UDim2.fromOffset(0, 54),
 		AutomaticSize = Enum.AutomaticSize.X,
-		BackgroundColor3 = Color3.fromRGB(0, 0, 0),
-		BackgroundTransparency = 0.45,
+		Darkness = 0.6,
 		Visible = false,
 		Parent = gui,
-	}, {
-		Theme.Corner(10),
-		Theme.Stroke(2),
-		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
-		Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 6) }),
 	})
+	Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = strip })
+	Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 90), PaddingRight = UDim.new(0, 90), Parent = strip })
 	Theme.AutoScale(strip)
-	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 16, TextColor3 = Color3.fromRGB(255, 120, 120), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28), StrokeThickness = 1.5, LayoutOrder = 1, Parent = strip })
-	local label = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 18, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 28), StrokeThickness = 1.5, LayoutOrder = 2, Parent = strip })
-	local skip = Theme.Button({ Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(130, 30), Parent = strip })
+	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 24, TextColor3 = Color3.fromRGB(255, 120, 120), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), StrokeThickness = 2.5, LayoutOrder = 1, Parent = strip })
+	local label = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 30, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), StrokeThickness = 3, LayoutOrder = 2, Parent = strip })
+	local skip = Theme.Button({ Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(130, 34), Parent = strip })
 	skip.Name = "Skip"
 	skip.LayoutOrder = 3
-	local claim = Theme.Button({ Text = "Claim", Color = Theme.Colors.Green, Size = UDim2.fromOffset(110, 30), Parent = strip })
+	local claim = Theme.Button({ Text = "Claim", Color = Theme.Colors.Green, Size = UDim2.fromOffset(110, 34), Parent = strip })
 	claim.Name = "Claim"
 	claim.LayoutOrder = 4
-	local close = Theme.Button({ Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(90, 30), Parent = strip })
+	local close = Theme.Button({ Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(90, 34), Parent = strip })
 	close.Name = "Close"
 	close.LayoutOrder = 5
 
@@ -236,6 +238,9 @@ function Tutorial.Init()
 		local claimed = State.Data.TutorialEggClaimed == true
 		if step == "Done" then
 			label.Text = if claimed then TEXT.Claimed else TEXT.Done
+		elseif step == "Treadmill" then
+			-- how far along you are, like "Run on your treadmill! 1/3 Speed"
+			label.Text = `{TEXT.Treadmill} {treadmillGained()}/{TREADMILL_GOAL} Speed`
 		else
 			label.Text = if step == "Steal" and caught then TEXT.Caught else TEXT[step]
 		end
@@ -300,8 +305,12 @@ function Tutorial.Init()
 			go("Wait")
 		elseif step == "PlaceDonut" and number("DonutsPlaced") > donutsAtStart then
 			go("Treadmill")
-		elseif step == "Treadmill" and number("Speed") >= speedAtStart + 3 then
-			go("Done")
+		elseif step == "Treadmill" then
+			if number("Speed") >= speedAtStart + TREADMILL_GOAL then
+				go("Done")
+			elseif not string.find(label.Text, `{treadmillGained()}/{TREADMILL_GOAL}`, 1, true) then
+				refresh() -- (the Speed count went up)
+			end
 		end
 		-- point the way
 		local character = player.Character

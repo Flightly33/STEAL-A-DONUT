@@ -188,7 +188,6 @@ local function buildEmblem(stage: Frame): (Frame, Frame)
 		local pupil = box(donut, "Pupil", 100 + side * 28 + 3, 46, 10, 10, { Color = OUTLINE, ZIndex = 11 })
 		corner().Parent = pupil
 	end
-	text(donut, "Crown", "👑", 100, -4, 60, 46, { Font = Enum.Font.GothamBold, ZIndex = 12 })
 	return wheel, donut
 end
 
@@ -274,9 +273,12 @@ function LoadingUI.Build(parent: Instance): Screen
 		rays[i] = { Ray = ray, Halo = halo, Angle = angle, Phase = i * 1.7 }
 	end
 
-	-- Sparkles around the logo (four-pointed stars)
+	-- Sparkles around the logo (four-pointed stars: two crossed beams, fading towards their tips)
 	for _, s in { { 330, 250, 150, 0.55 }, { 950, 250, 150, 0.55 }, { 420, 330, 70, 0.6 }, { 860, 330, 70, 0.6 }, { 520, 120, 46, 0.65 }, { 760, 120, 46, 0.65 } } do
-		text(stage, "Sparkle", "✦", s[1], s[2], s[3], s[3], { Color = GREY, Transparency = s[4], Font = Enum.Font.GothamBold, ZIndex = 2 })
+		for _, rotation in { 0, 90 } do
+			local beam = box(stage, "Sparkle", s[1], s[2], s[3] * 0.12, s[3] * 0.8, { Color = GREY, Transparency = s[4], Rotation = rotation, ZIndex = 2 })
+			fade({ { 0, 1 }, { 0.5, 0 }, { 1, 1 } }, 90).Parent = beam
+		end
 	end
 
 	local wheel, donut = buildEmblem(stage)
@@ -317,7 +319,7 @@ function LoadingUI.Build(parent: Instance): Screen
 	-- Skip
 	local skip = new("TextButton", {
 		Name = "Skip",
-		Text = "SKIP  ⏭",
+		Text = "SKIP ",
 		Font = TEXT_FONT,
 		TextSize = 18,
 		TextColor3 = WHITE,

@@ -235,14 +235,14 @@ function Settings.Init()
 		end
 	end)
 
-	modal = Modal.new("⚙️ SETTINGS", Theme.Colors.Gray, Vector2.new(520, 540))
+	modal = Modal.new("Settings", Theme.Colors.Gray, Vector2.new(520, 540))
 	local body = modal.Body
 
-	Theme.Label({ Text = "🎵 MUSIC", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Parent = body })
+	Theme.Label({ Text = "MUSIC", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Parent = body })
 	local nowPlaying = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 40), StrokeThickness = 1.5, Parent = body })
 
 	local toggle = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.fromOffset(150, 52), Position = UDim2.fromOffset(0, 80), Parent = body })
-	local skip = Theme.Button({ Text = "NEXT ⏭", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(150, 52), Position = UDim2.fromOffset(160, 80), Parent = body })
+	local skip = Theme.Button({ Text = "NEXT", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(150, 52), Position = UDim2.fromOffset(160, 80), Parent = body })
 
 	Theme.Label({ Text = "Volume", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 150), StrokeThickness = 1.5, Parent = body })
 	local minus = Theme.Button({ Text = "−", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(0, 182), Parent = body })
@@ -250,7 +250,7 @@ function Settings.Init()
 	local fill = Theme.new("Frame", { Size = UDim2.fromScale(volume, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
 	local plus = Theme.Button({ Text = "+", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(372, 182), Parent = body })
 	-- Run speed: a number you type (Enter or clicking away saves it)
-	Theme.Label({ Text = "🏃 RUN SPEED", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Position = UDim2.fromOffset(0, 246), Parent = body })
+	Theme.Label({ Text = "RUN SPEED", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Position = UDim2.fromOffset(0, 246), Parent = body })
 	local speedBox = Theme.new("TextBox", {
 		Name = "RunSpeed", Size = UDim2.fromOffset(150, 48), Position = UDim2.fromOffset(0, 286),
 		BackgroundColor3 = Theme.Colors.PanelLight, TextColor3 = Color3.new(1, 1, 1), PlaceholderText = "type a number",
@@ -289,12 +289,12 @@ function Settings.Init()
 	State.OnAttribute("WalkSpeed", renderSpeed)
 	renderSpeed()
 
-	local help = Theme.Button({ Text = "❓ HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 376), Parent = body })
+	local help = Theme.Button({ Text = "HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 376), Parent = body })
 	help.Activated:Connect(function()
 		modal:Close()
 		require(script.Parent.Tutorial).Open()
 	end)
-	local notes = Theme.Button({ Text = "📰 UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(230, 376), Parent = body })
+	local notes = Theme.Button({ Text = "UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(230, 376), Parent = body })
 	notes.Activated:Connect(function()
 		require(script.Parent.UpdateNotes).Open()
 	end)

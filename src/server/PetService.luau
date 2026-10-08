@@ -151,7 +151,7 @@ local function rebuildIncubator(player: Player, plot: Model?)
 	sign.Parent = signHolder
 	local count = #profile.Data.Eggs
 	local capacity = PetService.Capacity(profile)
-	local label = if count > capacity then `🥚 INCUBATOR ({count} eggs)` else `🥚 INCUBATOR {count}/{capacity}`
+	local label = if count > capacity then `INCUBATOR ({count} eggs)` else `INCUBATOR {count}/{capacity}`
 	Build.Text(sign, label, { TextColor3 = Color3.fromRGB(255, 225, 140), TextStrokeColor3 = Color3.fromRGB(60, 30, 0) })
 
 	for i, eggData in profile.Data.Eggs do
@@ -358,7 +358,7 @@ local function tryGrab(player: Player, spot: EggSpot, model: Model)
 		OnDeposit = function(carrier: Player): boolean
 			if PetService.AddEgg(carrier, eggId) then
 				clearSpot(spot)
-				notify(carrier, `🥚 {egg.Name} is in your incubator! It hatches in {Format.Duration(egg.HatchSeconds)}.`, "success")
+				notify(carrier, `{egg.Name} is in your incubator! It hatches in {Format.Duration(egg.HatchSeconds)}.`, "success")
 				Remotes.Event("ChaseEnded"):FireClient(carrier, { Result = "Deposited", Kind = "Egg", EggId = eggId })
 				return true
 			end
@@ -413,7 +413,7 @@ function spawnEgg(spot: EggSpot, eggId: string, announce: boolean)
 	gui.LightInfluence = 0
 	gui.MaxDistance = 140
 	gui.Parent = root
-	Build.Text(gui, `🥚 {egg.Name}`, { TextColor3 = egg.Accent:Lerp(Color3.new(1, 1, 1), 0.3), Font = Enum.Font.FredokaOne })
+	Build.Text(gui, `{egg.Name}`, { TextColor3 = egg.Accent:Lerp(Color3.new(1, 1, 1), 0.3), Font = Enum.Font.FredokaOne })
 	model.Parent = spot.Container
 	spot.Model = model
 	spot.EggId = eggId
@@ -421,7 +421,7 @@ function spawnEgg(spot: EggSpot, eggId: string, announce: boolean)
 	spot.Taken = false
 	if announce and egg.Tier >= 5 then
 		local area = Areas.List[spot.AreaId]
-		Remotes.Event("AreaAnnouncement"):FireAllClients(`🥚 A {string.upper(egg.Name)} appeared in {area.Name}!`, egg.Accent)
+		Remotes.Event("AreaAnnouncement"):FireAllClients(`A {string.upper(egg.Name)} appeared in {area.Name}!`, egg.Accent)
 	end
 end
 
@@ -492,11 +492,11 @@ function PetService.BuyUpgrade(player: Player, kind: any)
 		end
 		data.IncubatorSpeed = level + 1
 		player:SetAttribute("IncubatorSpeed", data.IncubatorSpeed)
-		notify(player, `⚡ Incubator speed x{Format.Multiplier(new)}! Eggs hatch faster.`, "success")
+		notify(player, `Incubator speed x{Format.Multiplier(new)}! Eggs hatch faster.`, "success")
 	else
 		data.IncubatorSize = level + 1
 		player:SetAttribute("IncubatorSize", data.IncubatorSize)
-		notify(player, `🥚 Your incubator now holds {PetService.Capacity(profile)} eggs!`, "success")
+		notify(player, `Your incubator now holds {PetService.Capacity(profile)} eggs!`, "success")
 	end
 	rebuildIncubator(player)
 	DataService.PushState(player)

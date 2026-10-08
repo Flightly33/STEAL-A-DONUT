@@ -3,7 +3,7 @@
 	  - "RUN!" banner with live distance to Domer and to the lobby, red screen edges
 	  - Domer's footsteps: heavy thuds that get louder as he closes in, and the camera shakes when
 	    he's right behind you (Config.Guard FootstepRange / ShakeRange / MaxShake)
-	  - "📦 BOX SECURED!" when you get a box back to the lobby (it goes into your inventory)
+	  - "BOX SECURED!" when you get a box back to the lobby (it goes into your inventory)
 	  - "CAUGHT!" screen (with a comedic fling): the box went back to Domer, or fell on the ground
 	  - A small "Drop" button while you carry a box
 	  - "Welcome back" popup for offline earnings
@@ -176,13 +176,13 @@ local function onChaseStarted(info: ChaseInfo)
 	local rarity = donut and Rarities.Get(donut.Rarity)
 	local size = Rarities.Size(info.Size)
 	showBanner(true)
-	bannerTitle.Text = `🏃 RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
+	bannerTitle.Text = `RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
 	Theme.PlaySound("Grab")
 	if kind == "Shard" then
 		-- (nobody chases you for a meteor shard: just get it back over the lobby line)
-		bannerTitle.Text = "☄️ Bring the meteor shard back to the lobby!"
+		bannerTitle.Text = "Bring the meteor shard back to the lobby!"
 		bannerTitle.TextColor3 = Color3.fromRGB(215, 160, 255)
 		setEdges(true, Color3.fromRGB(160, 80, 255))
 		Notifications.Toast("You grabbed a METEOR SHARD! Don't get hit - you'll drop it!", "rare")
@@ -197,7 +197,7 @@ local function onChaseStarted(info: ChaseInfo)
 		local boxSize = Boxes.Size(info.Size)
 		Notifications.Toast(`You grabbed a {Rarities.DisplayName(Boxes.DisplayName(tier.Id, boxSize.Id), info.Mutation, nil)}! Get it to the lobby!`, "rare")
 		if boxSize.CarrySpeed < 1 then
-			Notifications.Toast(`🐌 It's a {boxSize.Name} box! You're {math.floor((1 - boxSize.CarrySpeed) * 100 + 0.5)}% slower while carrying it.`, "error")
+			Notifications.Toast(`It's a {boxSize.Name} box! You're {math.floor((1 - boxSize.CarrySpeed) * 100 + 0.5)}% slower while carrying it.`, "error")
 		end
 	elseif kind == "Egg" then
 		local egg = Pets.EggById[info.DonutId]
@@ -207,7 +207,7 @@ local function onChaseStarted(info: ChaseInfo)
 	elseif donut and rarity then
 		Notifications.Toast(`You grabbed {Rarities.DisplayName(donut.Name, info.Mutation, info.Size)} ({rarity.Id})!`, "rare")
 		if size.CarrySpeed < 1 then
-			Notifications.Toast(`🐌 It's {string.lower(size.Id)}! You're {math.floor((1 - size.CarrySpeed) * 100 + 0.5)}% slower while carrying it.`, "error")
+			Notifications.Toast(`It's {string.lower(size.Id)}! You're {math.floor((1 - size.CarrySpeed) * 100 + 0.5)}% slower while carrying it.`, "error")
 		end
 	end
 
@@ -224,14 +224,14 @@ local function onChaseStarted(info: ChaseInfo)
 			return
 		end
 		local toSafe = math.max(0, root.Position.Z - Config.Map.SafeZoneZ)
-		local text = `🛡 Lobby: {math.floor(toSafe)} studs`
+		local text = `Lobby: {math.floor(toSafe)} studs`
 		local closeness = 0
 		local guard = info.Guard
 		local guardRoot = guard and guard.Parent and guard.PrimaryPart
 		if guardRoot then
 			local offset = guardRoot.Position - root.Position
 			local gap = Vector2.new(offset.X, offset.Z).Magnitude
-			text ..= `   •   😡 {Config.Guard.Name}: {math.floor(gap)} studs behind`
+			text ..= `   •   {Config.Guard.Name}: {math.floor(gap)} studs behind`
 			-- Footsteps (faster the faster he runs) and screen shake when he's close
 			local speed = Vector2.new(guardRoot.AssemblyLinearVelocity.X, guardRoot.AssemblyLinearVelocity.Z).Magnitude
 			if gap < Config.Guard.FootstepRange and speed > 2 and pulse >= nextStep then
@@ -286,21 +286,30 @@ local function flingSelf(velocity: Vector3?)
 end
 
 local function bigText(text: string, color: Color3, duration: number)
+	local band = Theme.Band({
+		Name = "BigText",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.38),
+		Size = UDim2.fromScale(0.9, 0.14),
+		Darkness = 0.5,
+		Parent = gui,
+	})
 	local label = Theme.Label({
 		Text = text,
 		TextColor3 = color,
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.38),
-		Size = UDim2.fromScale(0.7, 0.12),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromScale(0.75, 0.86),
 		StrokeThickness = 5,
-		Parent = gui,
+		Parent = band,
 	})
-	local scale = Theme.new("UIScale", { Scale = 0.3, Parent = label })
+	local scale = Theme.new("UIScale", { Scale = 0.3, Parent = band })
 	TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
 	task.delay(duration, function()
+		TweenService:Create(band, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
 		TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
 		task.wait(0.4)
-		label:Destroy()
+		band:Destroy()
 	end)
 end
 
@@ -311,9 +320,9 @@ local function onChaseEnded(result: ChaseResult)
 	if result.Result == "Safe" then
 		stopChaseLoop()
 		setEdges(true, Color3.fromRGB(0, 170, 255))
-		bannerTitle.Text = if result.Kind == "Egg" then "🛡 SAFE! Bring the egg to your base!" else "🛡 SAFE! Bring the donut to your base!"
+		bannerTitle.Text = if result.Kind == "Egg" then "SAFE! Bring the egg to your base!" else "SAFE! Bring the donut to your base!"
 		bannerTitle.TextColor3 = Color3.fromRGB(110, 210, 255)
-		bannerInfo.Text = "Follow the yellow line ⬇"
+		bannerInfo.Text = "Follow the yellow line"
 		task.delay(1.2, function()
 			if bannerTitle.Text:find("SAFE") then
 				setEdges(false)
@@ -325,12 +334,12 @@ local function onChaseEnded(result: ChaseResult)
 		clearBeam()
 		if result.Kind == "Egg" then
 			local egg = result.EggId and Pets.EggById[result.EggId]
-			bigText("🥚 EGG SECURED!", if egg then egg.Accent else Theme.Colors.Pink, 2)
+			bigText("EGG SECURED!", if egg then egg.Accent else Theme.Colors.Pink, 2)
 			Theme.PlaySound("Deposit")
 			return
 		elseif result.Kind == "Shard" then
 			local count, cost = result.Count or 0, result.Cost or Config.CosmicDonut.ShardCost
-			bigText(`☄️ METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), 2.2)
+			bigText(`METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), 2.2)
 			if count >= cost then
 				Notifications.Banner("THE COSMIC DONUT", Color3.fromRGB(170, 90, 255), 3, "You have enough shards! Craft it at the Cosmic Forge by the spawn")
 			end
@@ -340,7 +349,7 @@ local function onChaseEnded(result: ChaseResult)
 			local tier = Boxes.Tier(result.Tier)
 			local mutation = Rarities.Mutation(result.Mutation)
 			local color = if mutation.Order > 0 then mutation.Color else tier.Color
-			bigText("📦 BOX SECURED!", color, 2)
+			bigText("BOX SECURED!", color, 2)
 			Notifications.Banner(Rarities.DisplayName(Boxes.DisplayName(tier.Id, result.Size), result.Mutation, nil), color, 2.5, "In your inventory • hold it and click in your pen")
 			Theme.PlaySound("Deposit")
 			return
@@ -350,7 +359,7 @@ local function onChaseEnded(result: ChaseResult)
 			local rarity = Rarities.Get(donut.Rarity)
 			local mutation = Rarities.Mutation(result.Mutation)
 			local color = if mutation.Order > 0 then mutation.Color else rarity.Color
-			bigText(if result.IsNew then "✨ NEW DONUT! ✨" else "🍩 DONUT SECURED!", color, 2)
+			bigText(if result.IsNew then "NEW DONUT!" else "DONUT SECURED!", color, 2)
 			local income = Economy.DonutIncome(donut.Id, 1, result.Mutation, result.Size)
 			Notifications.Banner(Rarities.DisplayName(donut.Name, result.Mutation, result.Size), color, 2.5, `{rarity.Id} • {Format.Money(income)}/s`)
 		end
@@ -382,9 +391,9 @@ local function onChaseEnded(result: ChaseResult)
 end
 
 local function buildOfflinePopup()
-	local modal = Modal.new("🌙 WELCOME BACK!", Theme.Colors.Purple, Vector2.new(500, 290))
+	local modal = Modal.new("Welcome Back!", Theme.Colors.Purple, Vector2.new(500, 290))
 	local text = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, 0, 0, 120), StrokeThickness = 1.5, Parent = modal.Body })
-	local collect = Theme.Button({ Text = "COLLECT!", Icon = "💰", Color = Theme.Colors.Green, Size = UDim2.fromOffset(230, 58), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Parent = modal.Body })
+	local collect = Theme.Button({ Text = "COLLECT!", Icon = "cash", Color = Theme.Colors.Green, Size = UDim2.fromOffset(230, 58), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -6), Parent = modal.Body })
 	collect.Activated:Connect(function()
 		modal:Close()
 		Theme.PlaySound("Collect")
@@ -405,7 +414,7 @@ function Chase.Init()
 		Size = UDim2.fromOffset(112, 32), BackgroundTransparency = 1, Visible = false, Parent = gui,
 	})
 	Theme.AutoScale(dropHolder)
-	local drop = Theme.Button({ Text = "✋ Drop box", Color = Theme.Colors.Gray, Size = UDim2.fromScale(1, 1), Parent = dropHolder })
+	local drop = Theme.Button({ Text = "Drop box", Color = Theme.Colors.Gray, Size = UDim2.fromScale(1, 1), Parent = dropHolder })
 	drop.Activated:Connect(function()
 		Remotes.Event("Action"):FireServer("DropCarried")
 	end)
@@ -440,17 +449,18 @@ function Chase.Init()
 		table.insert(edges, edge)
 	end
 
-	banner = Theme.new("Frame", {
+	banner = Theme.Band({
+		Name = "ChaseBanner",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 186),
-		Size = UDim2.fromOffset(780, 78),
-		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(940, 82),
+		Darkness = 0.55,
 		Visible = false,
 		Parent = gui,
 	})
 	Theme.AutoScale(banner)
-	bannerTitle = Theme.Label({ Text = "", Size = UDim2.new(1, 0, 0, 46), StrokeThickness = 4, Parent = banner })
-	bannerInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 49), StrokeThickness = 2, Parent = banner })
+	bannerTitle = Theme.Label({ Name = "Title", Text = "", Size = UDim2.new(1, -160, 0, 46), Position = UDim2.fromOffset(80, 4), StrokeThickness = 4, Parent = banner })
+	bannerInfo = Theme.Label({ Name = "Info", Text = "", Font = Theme.Font, Size = UDim2.new(1, -160, 0, 26), Position = UDim2.fromOffset(80, 52), StrokeThickness = 2.5, Parent = banner })
 
 	Remotes.Event("ChaseStarted").OnClientEvent:Connect(onChaseStarted)
 	Remotes.Event("Flung").OnClientEvent:Connect(function(velocity: Vector3)

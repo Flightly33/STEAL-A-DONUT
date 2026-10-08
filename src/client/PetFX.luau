@@ -3,7 +3,7 @@
 	  * eggs wobble (more and more as they get close to hatching), ready ones bounce
 	  * rune rings orbit, light rays turn
 	  * rainbow eggs cycle colours
-	  * incubator eggs show a live countdown ("4m 12s" -> "READY! Open Pets 🐾")
+	  * incubator eggs show a live countdown ("4m 12s" -> "READY! Open Pets")
 	Only eggs near the camera are animated.
 ]]
 
@@ -115,10 +115,10 @@ function PetFX.Init()
 			end
 			if egg.Countdown and left then
 				if left <= 0 then
-					egg.Countdown.Text = "READY! Open Pets 🐾"
+					egg.Countdown.Text = "READY! Open Pets"
 					egg.Countdown.TextColor3 = Color3.fromRGB(120, 255, 130)
 				else
-					egg.Countdown.Text = "⏳ " .. Format.Duration(left)
+					egg.Countdown.Text = Format.Duration(left)
 					egg.Countdown.TextColor3 = Color3.fromRGB(255, 255, 255)
 				end
 			end

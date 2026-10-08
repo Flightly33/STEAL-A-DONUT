@@ -19,6 +19,7 @@ local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
+local Icons = require(script.Parent.Icons)
 
 local CrateOpen = {}
 
@@ -50,22 +51,22 @@ local function preview(parent: Instance, model: Model): ViewportFrame
 	return viewport
 end
 
--- Big text for what you got: (icon, title, detail)
+-- Big text for what you got: (icon - a UI/Icons name -, title, detail)
 local function describe(info: Info): (string, string, string)
 	if info.Kind == "Coins" then
-		return "💰", Format.Money(info.Amount or 0), "Coins!"
+		return "coin", Format.Money(info.Amount or 0), "Coins!"
 	elseif info.Kind == "SpeedBoost" then
-		return "⚡", "SPEED BOOST", `Run {math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% faster for {Format.Duration(info.Seconds or 600)}`
+		return "bolt", "SPEED BOOST", `Run {math.floor((Config.Crates.SpeedBoostMultiplier - 1) * 100 + 0.5)}% faster for {Format.Duration(info.Seconds or 600)}`
 	elseif info.Kind == "Luck" then
-		return "🍀", "LUCK EVENT", `Better donuts for the whole server for {Format.Duration(info.Seconds or 600)}`
+		return "clover", "LUCK EVENT", `Better donuts for the whole server for {Format.Duration(info.Seconds or 600)}`
 	elseif info.Kind == "Egg" and info.Egg and Pets.EggById[info.Egg] then
 		local egg = Pets.EggById[info.Egg]
-		return "🥚", string.upper(egg.Name), `In your incubator - hatches in {Format.Duration(egg.HatchSeconds)}`
+		return "egg", string.upper(egg.Name), `In your incubator - hatches in {Format.Duration(egg.HatchSeconds)}`
 	elseif info.Kind == "Pet" and info.Pet and Pets.ById[info.Pet] then
 		local pet = Pets.ById[info.Pet]
-		return "🐾", string.upper(pet.Name), `{pet.Rarity} pet! {Pets.BonusText(pet)}`
+		return "paw", string.upper(pet.Name), `{pet.Rarity} pet! {Pets.BonusText(pet)}`
 	end
-	return "🎁", "SURPRISE", ""
+	return "gift", "SURPRISE", ""
 end
 
 local function play(info: Info)
@@ -118,7 +119,11 @@ local function play(info: Info)
 	elseif info.Kind == "Pet" and info.Pet and Pets.ById[info.Pet] then
 		reveal = preview(stage, PetModel.BuildPet(Pets.ById[info.Pet], { NoEffects = true }))
 	else
-		reveal = Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromScale(0.6, 0.6), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Parent = stage })
+		local drawn = Icons.Draw(icon, stage, nil, nil)
+		drawn.Size = UDim2.fromScale(0.6, 0.6)
+		drawn.AnchorPoint = Vector2.new(0.5, 0.5)
+		drawn.Position = UDim2.fromScale(0.5, 0.5)
+		reveal = drawn
 	end
 	local pop = Theme.new("UIScale", { Scale = 0.2, Parent = reveal })
 	TweenService:Create(pop, TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()

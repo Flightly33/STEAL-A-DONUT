@@ -22,6 +22,7 @@ local CrateModel = require(Shared.CrateModel)
 local Pets = require(Shared.Pets)
 
 local Theme = require(script.Parent.Theme)
+local Icons = require(script.Parent.Icons)
 local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
@@ -66,15 +67,7 @@ local function newPage(name: string, parent: Instance, columns: number, cardHeig
 end
 
 local function card(parent: Instance, order: number, color: Color3): Frame
-	return Theme.new("Frame", {
-		BackgroundColor3 = Theme.Colors.PanelLight,
-		LayoutOrder = order,
-		Parent = parent,
-	}, {
-		Theme.Corner(14),
-		Theme.Stroke(3, Theme.Darken(color, 0.3)),
-		Theme.Gradient(Theme.Lighten(Theme.Colors.PanelLight, 0.08), Theme.Colors.Panel),
-	})
+	return Theme.Card(parent, order, color)
 end
 
 --------------------------------------------------------------------------------
@@ -83,7 +76,7 @@ end
 local function buildUpgrades(page: ScrollingFrame)
 	-- Speed multiplier
 	local multCard = card(page, 1, Theme.Colors.Purple)
-	Theme.Label({ Text = "⚡ SPEED MULTIPLIER", TextColor3 = Color3.fromRGB(200, 160, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = multCard })
+	Theme.Label({ Text = "SPEED MULTIPLIER", TextColor3 = Color3.fromRGB(200, 160, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = multCard })
 	local multInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = multCard })
 	local multButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = multCard })
 	multButton.Activated:Connect(function()
@@ -92,7 +85,7 @@ local function buildUpgrades(page: ScrollingFrame)
 
 	-- Treadmill
 	local treadCard = card(page, 2, Theme.Colors.Orange)
-	Theme.Label({ Text = "🏃 TREADMILL", TextColor3 = Color3.fromRGB(255, 200, 120), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = treadCard })
+	Theme.Label({ Text = "TREADMILL", TextColor3 = Color3.fromRGB(255, 200, 120), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = treadCard })
 	local treadInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = treadCard })
 	local treadButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = treadCard })
 	treadButton.Activated:Connect(function()
@@ -101,7 +94,7 @@ local function buildUpgrades(page: ScrollingFrame)
 
 	-- Bigger base
 	local expandCard = card(page, 3, Theme.Colors.Blue)
-	local expandTitle = Theme.Label({ Text = "🏢 BIGGER BASE", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
+	local expandTitle = Theme.Label({ Text = "BIGGER BASE", TextColor3 = Color3.fromRGB(140, 210, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = expandCard })
 	local expandInfo = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 46), StrokeThickness = 1.5, Parent = expandCard })
 	local expandButton = Theme.Button({ Text = "", Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 54), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = expandCard })
 	expandButton.Activated:Connect(function()
@@ -121,15 +114,15 @@ local function buildUpgrades(page: ScrollingFrame)
 		end)
 		return info, button
 	end
-	local hatchInfo, hatchButton = incubatorCard(4, "Speed", "⚡ INCUBATOR SPEED", Theme.Colors.Pink)
-	local sizeInfo, sizeButton = incubatorCard(5, "Size", "🥚 INCUBATOR SIZE", Theme.Colors.Orange)
+	local hatchInfo, hatchButton = incubatorCard(4, "Speed", "INCUBATOR SPEED", Theme.Colors.Pink)
+	local sizeInfo, sizeButton = incubatorCard(5, "Size", "INCUBATOR SIZE", Theme.Colors.Orange)
 
 	-- Summary
 	local summary = card(page, 6, Theme.Colors.Blue)
 	local summaryText = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = summary })
 	local tip = card(page, 7, Theme.Colors.Green)
 	Theme.Label({
-		Text = "💡 Run on your treadmill to gain Speed. Every biome shows the Speed you need to get away from its Domer - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
+		Text = "Run on your treadmill to gain Speed. Every biome shows the Speed you need to get away from its Domer - and the further biomes have better boxes with donuts that earn way more! Upgrading your donuts (E on them) is cheap early on.",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -24, 1, -20), Position = UDim2.fromOffset(12, 10), StrokeThickness = 1.5, Parent = tip,
 	})
 
@@ -167,12 +160,12 @@ local function buildUpgrades(page: ScrollingFrame)
 		local slots = Economy.SlotCount(baseLevel)
 		local sizeCost = Economy.BaseSizeCost(baseLevel)
 		if sizeCost then
-			expandTitle.Text = "🍩 BIGGER BASE"
+			expandTitle.Text = "BIGGER BASE"
 			expandInfo.Text = `Room for {slots} → {Economy.SlotCount(baseLevel + 1)} donuts\nKept forever`
 			Theme.SetButtonText(expandButton, "Buy " .. Format.Money(sizeCost))
 			Theme.SetButtonColor(expandButton, if money >= sizeCost then Theme.Colors.Green else Theme.Colors.Gray)
 		else
-			expandTitle.Text = "🍩 BASE"
+			expandTitle.Text = "BASE"
 			expandInfo.Text = `Room for {slots} donuts - as big as it gets!`
 			Theme.SetButtonText(expandButton, "MAXED")
 			Theme.SetButtonColor(expandButton, Theme.Colors.Gray)
@@ -202,10 +195,10 @@ local function buildUpgrades(page: ScrollingFrame)
 		local walk = State.Number("WalkSpeed")
 		local extras = {}
 		if indexBonus > 0 then
-			table.insert(extras, `📖 +{indexBonus}%`)
+			table.insert(extras, `+{indexBonus}%`)
 		end
 		if petBonus > 0 then
-			table.insert(extras, `🐾 +{math.floor(petBonus * 100 + 0.5)}%`)
+			table.insert(extras, `+{math.floor(petBonus * 100 + 0.5)}%`)
 		end
 		local extraText = if #extras > 0 then " (" .. table.concat(extras, " ") .. ")" else ""
 		summaryText.Text = `<b>YOUR STATS</b>\nTreadmill: <font color="#c9a0ff">+{Format.Rate(rate)} speed/s</font>{extraText}\nSpeed: <font color="#c9a0ff">{Format.Number(State.Number("Speed"))}</font> (walk speed {math.floor(walk)})\nIncome: <font color="#8dff6a">{Format.Money(State.Number("Income"))}/s</font>`
@@ -262,12 +255,14 @@ local function buildPasses(page: ScrollingFrame)
 		end
 		fetchPrice(pass.GamePassId)
 		local c = card(page, order, pass.Color)
-		local icon = if pass.Kind == "Money" then "💵" elseif pass.Kind == "Speed" then "⚡" else "🌀"
+		local icon = if pass.Kind == "Money" then "cash" elseif pass.Kind == "Speed" then "bolt" else "globe"
 		local description = if pass.Kind == "Money"
 			then `Earn {pass.Multiplier}x money from every donut, forever`
 			elseif pass.Kind == "Speed" then "Double speed from your treadmill, forever"
-			else "Teleport to any world or area you've unlocked, any time (a 🌀 TELEPORT button)"
-		Theme.Label({ Text = icon, Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = c })
+			else "Teleport to any world or area you've unlocked, any time (a TELEPORT button)"
+		local drawn = Icons.Draw(icon, c, nil, nil)
+		drawn.Size = UDim2.fromOffset(56, 56)
+		drawn.Position = UDim2.fromOffset(10, 10)
 		Theme.Label({ Text = string.upper(pass.Name), TextColor3 = pass.Color:Lerp(Color3.new(1, 1, 1), 0.3), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = c })
 		Theme.Label({
 			Text = description,
@@ -281,7 +276,7 @@ local function buildPasses(page: ScrollingFrame)
 		end)
 		table.insert(refreshers, function()
 			if ownsPass(pass) then
-				Theme.SetButtonText(button, "OWNED ✓")
+				Theme.SetButtonText(button, "OWNED")
 				Theme.SetButtonColor(button, Theme.Colors.Gray)
 			else
 				Theme.SetButtonText(button, robuxText(pass.GamePassId, pass.SuggestedPrice))
@@ -291,7 +286,9 @@ local function buildPasses(page: ScrollingFrame)
 	end
 	-- Luck Event (a developer product: can be bought again and again)
 	local luck = card(page, 90, Color3.fromRGB(60, 200, 90))
-	Theme.Label({ Text = "🍀", Font = Enum.Font.GothamBold, Size = UDim2.fromOffset(56, 56), Position = UDim2.fromOffset(10, 10), Parent = luck })
+	local clover = Icons.Draw("clover", luck, nil, nil)
+	clover.Size = UDim2.fromOffset(56, 56)
+	clover.Position = UDim2.fromOffset(10, 10)
 	Theme.Label({ Text = "LUCK EVENT (10 MIN)", TextColor3 = Color3.fromRGB(140, 255, 160), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 12), Parent = luck })
 	Theme.Label({ Text = `Rarer boxes x{Config.LuckEvent.RarityLuck}, mutations x{Config.LuckEvent.MutationLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck} for EVERYONE (boosted odds show in the Index)`, Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -86, 0, 36), Position = UDim2.fromOffset(74, 50), StrokeThickness = 1.2, Parent = luck })
 	local luckButton = Theme.Button({ Text = `R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 48), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Parent = luck })
@@ -301,14 +298,13 @@ local function buildPasses(page: ScrollingFrame)
 
 	if Config.MoneyPassStacking == "Additive" then
 		local note = card(page, 100, Theme.Colors.Blue)
-		Theme.Label({ Text = "💡 Money passes stack! Own 2x + 3x = 4x money.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
+		Theme.Label({ Text = "Money passes stack! Own 2x + 3x = 4x money.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	end
 end
 
 --------------------------------------------------------------------------------
 -- Crates
 --------------------------------------------------------------------------------
-local KIND_ICON = { Coins = "💰", SpeedBoost = "⚡", Luck = "🍀", Egg = "🥚", Pet = "🐾" }
 
 -- What an outcome gives, in words (coins are estimated for you right now).
 local function outcomeText(outcome: Crates.Outcome): string
@@ -361,10 +357,10 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 	local detailsLabel = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextScaled = false, TextSize = 20, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, AutomaticSize = Enum.AutomaticSize.Y, Size = UDim2.new(1, -12, 0, 0), StrokeThickness = 1.2, ZIndex = 21, Parent = detailsText })
 
 	local function showOdds(crate: Crates.Crate)
-		detailsTitle.Text = `🎁 {string.upper(crate.Name)} - ALL ODDS`
+		detailsTitle.Text = `{string.upper(crate.Name)} - ALL ODDS`
 		local lines = { "You get ONE of these (adds up to 100%). Luck and passes never change these odds.", "" }
 		for _, outcome in Crates.Odds(crate) do
-			table.insert(lines, `<b>{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)}: {Format.Odds(outcome.Chance)}</b>`)
+			table.insert(lines, `<b>{outcomeText(outcome)}: {Format.Odds(outcome.Chance)}</b>`)
 			local egg = if outcome.Egg then Pets.EggById[outcome.Egg] else nil
 			if egg then
 				table.insert(lines, `      it hatches (after {Format.Duration(egg.HatchSeconds)}) into:`)
@@ -384,15 +380,16 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		local product = Config.Crates.Products[crate.Id]
 		fetchPrice(product.DeveloperProductId, Enum.InfoType.Product)
 		local c = card(page, crate.Order, crate.Color)
+		local picture = Theme.Picture(c, UDim2.fromOffset(84, 84), UDim2.fromOffset(8, 10), crate.Color:Lerp(Color3.new(1, 1, 1), 0.2), Vector2.new(84, 84))
 		local viewport = Theme.new("ViewportFrame", {
-			BackgroundColor3 = Color3.fromRGB(25, 25, 40),
-			Size = UDim2.fromOffset(84, 84),
-			Position = UDim2.fromOffset(8, 8),
+			BackgroundTransparency = 1,
+			Size = UDim2.fromScale(1, 1),
 			Ambient = Color3.fromRGB(180, 180, 180),
 			LightColor = Color3.fromRGB(255, 255, 255),
 			LightDirection = Vector3.new(-0.5, -1, 0.8),
-			Parent = c,
-		}, { Theme.Corner(10) })
+			ZIndex = 2,
+			Parent = picture,
+		})
 		local model = CrateModel.Build(crate.Id, { NoEffects = true })
 		model:PivotTo(CFrame.new(0, -0.3, 0))
 		model.Parent = viewport
@@ -404,7 +401,7 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		Theme.Label({ Text = string.upper(crate.Name), TextColor3 = crate.Color:Lerp(Color3.new(1, 1, 1), 0.35), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -110, 0, 32), Position = UDim2.fromOffset(100, 10), Parent = c })
 		Theme.Label({ Text = "Opens right away: ONE of these", Font = Theme.Font, TextColor3 = Color3.fromRGB(200, 200, 210), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -110, 0, 20), Position = UDim2.fromOffset(100, 44), StrokeThickness = 1, Parent = c })
 		local odds = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Size = UDim2.new(1, -20, 0, 118), Position = UDim2.fromOffset(10, 98), StrokeThickness = 1.2, Parent = c })
-		local all = Theme.Button({ Text = "📋 All odds", Color = Theme.Colors.Blue, Size = UDim2.new(0.38, -12, 0, 46), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -10), Parent = c })
+		local all = Theme.Button({ Text = "All odds", Color = Theme.Colors.Blue, Size = UDim2.new(0.38, -12, 0, 46), AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 10, 1, -10), Parent = c })
 		all.Activated:Connect(function()
 			showOdds(crate)
 		end)
@@ -416,7 +413,7 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		table.insert(refreshers, function()
 			local lines = {}
 			for _, outcome in Crates.Odds(crate) do
-				table.insert(lines, `{KIND_ICON[outcome.Reward.Kind] or "🎁"} {outcomeText(outcome)} <b>{Format.Odds(outcome.Chance)}</b>`)
+				table.insert(lines, `{outcomeText(outcome)} <b>{Format.Odds(outcome.Chance)}</b>`)
 			end
 			odds.Text = table.concat(lines, "\n")
 			if State.Get("CratesBlocked") == true then
@@ -429,7 +426,7 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 		end)
 	end
 	local note = card(page, 10, Theme.Colors.Orange)
-	Theme.Label({ Text = "🎁 Crates also show up for free in the lane now and then - hold E to open one! Eggs go straight into your incubator.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
+	Theme.Label({ Text = "Crates also show up for free in the lane now and then - hold E to open one! Eggs go straight into your incubator.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	RunService.RenderStepped:Connect(function()
 		if not page.Visible then
 			return
@@ -447,7 +444,7 @@ end
 --------------------------------------------------------------------------------
 local function buildSkins(page: ScrollingFrame)
 	local note = card(page, 0, Theme.Colors.Purple)
-	Theme.Label({ Text = "🎨 Skins are bought with SPEED ⚡ (you'll be slower until you train it back). They're yours forever!", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
+	Theme.Label({ Text = "Skins are bought with SPEED (you'll be slower until you train it back). They're yours forever!", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	for order, skin in Config.Skins do
 		local c = card(page, order, skin.Trim)
 		-- Colour swatch preview of the skin
@@ -482,7 +479,7 @@ local function buildSkins(page: ScrollingFrame)
 				Theme.SetButtonText(button, "EQUIP")
 				Theme.SetButtonColor(button, Theme.Colors.Blue)
 			else
-				Theme.SetButtonText(button, "⚡ " .. Format.Number(skin.SpeedCost))
+				Theme.SetButtonText(button, Format.Number(skin.SpeedCost))
 				Theme.SetButtonColor(button, if State.Number("Speed") >= skin.SpeedCost then Theme.Colors.Purple else Theme.Colors.Gray)
 			end
 		end)
@@ -495,13 +492,13 @@ function Shop.Open(tab: string?)
 end
 
 function Shop.Init()
-	modal = Modal.new("🛒 SHOP", Theme.Colors.Green, Vector2.new(740, 490))
+	modal = Modal.new("Shop", Theme.Colors.Green, Vector2.new(740, 490))
 	local body = modal.Body
 	selectTab = Modal.Tabs(body, {
-		{ Name = "Upgrades", Text = "⚡ Upgrades", Color = Theme.Colors.Purple },
-		{ Name = "Passes", Text = "🚀 Boosts", Color = Theme.Colors.Orange },
-		{ Name = "Crates", Text = "🎁 Crates", Color = Theme.Colors.Yellow },
-		{ Name = "Skins", Text = "🎨 Skins", Color = Theme.Colors.Pink },
+		{ Name = "Upgrades", Text = "Upgrades", Color = Theme.Colors.Purple },
+		{ Name = "Passes", Text = "Boosts", Color = Theme.Colors.Orange },
+		{ Name = "Crates", Text = "Crates", Color = Theme.Colors.Yellow },
+		{ Name = "Skins", Text = "Skins", Color = Theme.Colors.Pink },
 	}, function(name)
 		for pageName, page in pages do
 			page.Visible = pageName == name

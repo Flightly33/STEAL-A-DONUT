@@ -300,7 +300,7 @@ Donuts.List = {
 	D("fakekar", "Fake Kar", "Icon", 34, 2.5e29, 0.0015, rgb(20, 30, 70), rgb(40, 140, 255), { rgb(255, 255, 255), rgb(120, 220, 255) }, { "Kart", "Sunglasses", "Crown", "Orbit" }),
 	---------------------------------------------------------------- Limited time
 	-- THE COSMIC DONUT: never in a box - crafted from 10 meteor shards at the Cosmic Forge while
-	-- Config.CosmicDonut is on (the meteor falls halfway through the Eternal Storm). The best donut
+	-- Config.CosmicDonut is on (the meteor falls 45 seconds into the Eternal Storm). The best donut
 	-- in the game: a black hole's horizon spins round it. (Its biome and income are set below.)
 	D("cosmicdonut", "The Cosmic Donut", "Icon", 0, 0, 0, rgb(24, 14, 52), rgb(130, 60, 255), { rgb(255, 255, 255), rgb(120, 230, 255), rgb(255, 120, 220), rgb(255, 240, 150) }, { "Legs", "Arms", "CosmicHorizon", "GalaxySwirl", "FallingStars" }),
 } :: { Donut }

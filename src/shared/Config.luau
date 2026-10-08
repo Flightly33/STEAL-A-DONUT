@@ -81,9 +81,12 @@ Config.Guard = {
 	-- he doesn't stand frozen for a moment the first time he wakes up.
 	WalkAnimation = "rbxassetid://180426354",
 	IdleAnimation = "rbxassetid://180435571",
-	-- His snore (heard near his blanket) and the angry grunt when he wakes up. "" = made from
-	-- Roblox's own sounds; paste "rbxassetid://..." from the Creator Store to use a real recording.
-	SnoreSoundId = "",
+	-- His snore and the angry grunt when he wakes up. "" = made from Roblox's own sounds; paste
+	-- "rbxassetid://..." from the Creator Store to use a real recording. A pasted snore plays only
+	-- while you're close enough to grab one of his boxes, louder the closer you are to him:
+	-- SnoreVolume right next to him, a third of it at the far side of his boxes.
+	SnoreSoundId = "rbxassetid://9115480677",
+	SnoreVolume = 0.45,
 	GruntSoundId = "",
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
 	-- A biome's Speed is the Speed you need to get away from its Domer: each Domer is just fast
@@ -339,7 +342,7 @@ Config.GlobalStats = {
 -- Server events (see Events.luau / EventService): every few minutes ONE event runs for the whole
 -- server - a luck event, Rare Donut Rain, Egg Shower or 2x Incubator Speed.
 --------------------------------------------------------------------------------
--- The Eternal Storm: a VERY rare server event (or the owner's 👑 button in the admin panel). A
+-- The Eternal Storm: a VERY rare server event (or the owner's button in the admin panel). A
 -- giant black hole fills the sky, huge chunks of rock rain down (anyone they land on is flung), and
 -- purple lightning strikes donuts in every world's lanes: every donut it hits becomes ETERNAL
 -- (x50 money, purple glow, a storm of purple lightning round it). Only lane donuts get struck.
@@ -398,8 +401,8 @@ Config.EternalStorm = {
 	MusicVolume = 1, -- x the player's music volume
 }
 
--- The Cosmic Donut (limited time). Halfway through every Eternal Storm a huge meteor shatters the
--- sky and cracks open on the lane: carry its shards back to the lobby (one at a time) and craft The
+-- The Cosmic Donut (limited time). 45 seconds into every Eternal Storm (MeteorAt) a huge meteor
+-- shatters the sky and cracks open on the lane (and Cosmic Domer climbs out over its crater): carry its shards back to the lobby (one at a time) and craft The
 -- Cosmic Donut with them at the Cosmic Forge by the spawn. Enabled = false ends it - no more
 -- meteors or crafting, and the storm goes back to being super rare (anyone who made one keeps it).
 Config.CosmicDonut = {
@@ -408,7 +411,8 @@ Config.CosmicDonut = {
 	Pieces = 8, -- shards a meteor cracks into (fewer than ShardCost: a Cosmic Donut takes more than one meteor)
 	StormWeight = 6.5, -- (only if EternalStorm.Schedule is off) the storm's weight while Enabled, instead of EternalStorm.Weight
 	ShardLife = 240, -- seconds the shards lie on the lane after the meteor lands
-	Biomes = { 2, 3 }, -- the biomes it can land in (never the first, right by the lobby: too easy; still close enough that everyone can get there in time)
+	MeteorAt = 45, -- seconds into the 3:00 storm that the meteor show starts (it lands about 8 seconds later)
+	Biomes = { 2, 6 }, -- the biomes it can land in, first to last (never the first, right by the lobby: too easy)
 	FlingPower = 140, -- anyone it lands on
 	-- (Creator Store sounds: they have to be public, or allowed in this game, to play)
 	Sounds = {
@@ -424,7 +428,6 @@ Config.CosmicDonut = {
 -- fists into the lane near the crater. Enabled = false: no giant.
 Config.CosmicGiant = {
 	Enabled = true,
-	AppearAt = 135, -- seconds into the Eternal Storm (2:15 of its 3:00) that he climbs out, over the meteor's crater (it lands at about 1:38)
 	SlamEvery = 7, -- seconds between slams (one fist at a time)
 	KnockRadius = 30, -- studs round where a fist lands: anyone inside is knocked flying and drops what they carry
 	FlingPower = 130,
@@ -432,7 +435,7 @@ Config.CosmicGiant = {
 	-- What he does, over and over (one attack every SlamEvery seconds)
 	Pattern = { "Slam", "Slam", "Stars", "Slam", "Slam", "Beam" },
 	StarRain = {
-		Count = 7, -- stars he pulls out of the black hole
+		Count = 14, -- stars (his rockets) he pulls out of the black hole and fires
 		Radius = 16, -- studs round where each lands: anyone inside is knocked flying
 		Spread = { 25, 110 }, -- how far from the crater they land (studs)
 		LaunchVolume = 0.15, -- Sounds.StarLaunch, once for every star as it leaves his fist (a loud one)
@@ -575,7 +578,7 @@ Config.Admin = {
 	AllowedUserIds = {} :: { number },
 	AllowAnyone = true,
 	OwnerOnlyCommands = {} :: { string }, -- e.g. { "Luck", "OpenCrate", "SpawnCrate", "Event" }
-	-- The BIGGER BASE buttons (the owner's 👑 ones in the admin panel, and everyone who typed the
+	-- The BIGGER BASE buttons (the owner's ones in the admin panel, and everyone who typed the
 	-- code "ender=rich") grow a base past the biggest size you can buy, up to this many donuts. It
 	-- can't be infinite: every base has to fit on its plot in the hub, and every roaming donut is
 	-- ~100 parts that every player's device has to move.
@@ -692,7 +695,7 @@ Config.Skins = {
 	-- The game owner's own skin: a royal purple-and-gold throne room with a red carpet down the
 	-- middle, golden sparkles on every stand and a giant floating crown above the base.
 	{
-		Id = "Owner", Name = "👑 Owner's Throne", SpeedCost = 0, OwnerOnly = true,
+		Id = "Owner", Name = "Owner's Throne", SpeedCost = 0, OwnerOnly = true,
 		Floor = Color3.fromRGB(58, 26, 96), FloorAlt = Color3.fromRGB(38, 16, 66), FloorMaterial = Enum.Material.Marble,
 		Fence = Color3.fromRGB(255, 205, 70), FenceMaterial = Enum.Material.Foil,
 		Trim = Color3.fromRGB(175, 95, 255), TrimMaterial = Enum.Material.Neon,
@@ -731,7 +734,6 @@ export type Item = {
 	Kind: string,
 	Cost: number,
 	Description: string,
-	Icon: string,
 	Color: Color3,
 	Range: number?,
 	Power: number?,
@@ -744,7 +746,7 @@ export type Item = {
 Config.Items = {
 	-- Everyone gets the bat for free, and it's the only item: hit someone carrying a box and they
 	-- drop it on the ground for anyone to grab.
-	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 0, Starter = true, Icon = "🏏", Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Free for everyone! Hit someone carrying a box and they drop it - then grab it yourself." },
+	{ Id = "Bat", Name = "Donut Bat", Kind = "Weapon", Cost = 0, Starter = true, Color = Color3.fromRGB(190, 120, 60), Range = 11, Power = 105, Cooldown = 2, Description = "Free for everyone! Hit someone carrying a box and they drop it - then grab it yourself." },
 } :: { Item }
 
 --------------------------------------------------------------------------------
@@ -789,6 +791,17 @@ Config.Sounds = {
 	CustomVolume = 0.4, -- volume for pasted sounds (0 to 1)
 }
 
+-- The sound of the biomes (client/BiomeAmbience): these loops all play together, on repeat, while
+-- you're out in the lane (any biome). They fade out (Fade seconds) in the lobby and during the
+-- Eternal Storm, which has its own ambience (Config.EternalStorm.Ambience). Volume: 0 to 1.
+Config.BiomeAmbience = {
+	Loops = {
+		{ Id = "rbxassetid://9116969962", Volume = 0.3 },
+		{ Id = "rbxassetid://128828483841636", Volume = 0.6 }, -- (twice as loud as the first)
+	} :: { { Id: string, Volume: number } },
+	Fade = 1.5,
+}
+
 -- Fast Guy trail (client/TrailFX): the sound every pane of glass makes when it shatters behind you
 -- (you hear your own trail only). The audio is loud, so it plays very quietly: 0 to 1.
 Config.TrailSounds = {
@@ -825,7 +838,7 @@ Config.Particles = {
 }
 
 Config.Music = {
-	DefaultVolume = 0.25, -- 0 to 1 (players change it, or turn music off, in ⚙️ Settings)
+	DefaultVolume = 0.25, -- 0 to 1 (players change it, or turn music off, in Settings)
 	Tracks = {
 		{ Name = "Morning Mood", Id = 1846088038 }, -- Grieg, Peer Gynt (Roblox's licensed music)
 	} :: { { Name: string, Id: number } },

@@ -432,21 +432,17 @@ end
 --------------------------------------------------------------------------------
 local function buildPill(): (Frame, TextLabel)
 	local gui = Theme.ScreenGui("BoxTimers", 2)
-	local pill = Theme.new("Frame", {
+	local pill = Theme.Band({
 		Name = "BoxPill",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, 46),
-		Size = UDim2.fromOffset(400, 34),
-		BackgroundColor3 = Color3.fromRGB(40, 30, 60),
-		BackgroundTransparency = 0.25,
+		Size = UDim2.fromOffset(520, 36),
+		Darkness = 0.6,
 		Visible = false,
 		Parent = gui,
-	}, {
-		Theme.Corner(17),
-		Theme.Stroke(2.5),
 	})
 	Theme.AutoScale(pill)
-	local label = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -16, 1, -6), Position = UDim2.fromOffset(8, 3), StrokeThickness = 2, Parent = pill })
+	local label = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = pill })
 	return pill, label
 end
 
@@ -457,13 +453,13 @@ local function updatePill(pill: Frame, label: TextLabel)
 	local reset = workspace:GetAttribute("BoxReset")
 	local text, color = nil, Color3.new(1, 1, 1)
 	if type(rushEnds) == "number" and rushEnds > now then
-		text = `⏩ BOX RUSH! Pen boxes open {Config.Boxes.Rush.Speed}x faster • {math.ceil(rushEnds - now)}s`
+		text = `BOX RUSH! Pen boxes open {Config.Boxes.Rush.Speed}x faster • {math.ceil(rushEnds - now)}s`
 		color = Color3.fromRGB(120, 230, 255)
 	elseif type(rushAt) == "number" and rushAt - now <= 10 and rushAt > now then
-		text = `⏩ Box Rush in {math.ceil(rushAt - now)}s!`
+		text = `Box Rush in {math.ceil(rushAt - now)}s!`
 		color = Color3.fromRGB(120, 230, 255)
 	elseif AreaTracker.Current > 0 and type(reset) == "number" and reset > now then
-		text = `📦 New boxes in {Format.Duration(math.ceil(reset - now))}`
+		text = `New boxes in {Format.Duration(math.ceil(reset - now))}`
 		color = Color3.fromRGB(255, 220, 120)
 	end
 	pill.Visible = text ~= nil
@@ -489,7 +485,7 @@ function BoxFX.Init()
 	Remotes.Event("BoxOpened").OnClientEvent:Connect(onBoxOpened)
 	Remotes.Event("BoxesReset").OnClientEvent:Connect(function()
 		if AreaTracker.Current > 0 then
-			Notifications.Banner("📦 ALL BOXES RESET!", Color3.fromRGB(255, 200, 90), 2, "Fresh boxes next to every Domer")
+			Notifications.Banner("ALL BOXES RESET!", Color3.fromRGB(255, 200, 90), 2, "Fresh boxes next to every Domer")
 		end
 	end)
 

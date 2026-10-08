@@ -115,7 +115,7 @@ local function grantPass(player: Player, pass: Config.GamePass, persist: boolean
 	end
 	ShopService.RefreshMultipliers(player)
 	if not already then
-		notify(player, `🎉 {pass.Name} unlocked! Thank you!`, "success")
+		notify(player, `{pass.Name} unlocked! Thank you!`, "success")
 	end
 end
 
@@ -183,7 +183,7 @@ function Actions.BuySpeedMultiplier(player: Player, profile: DataService.Profile
 	profile.Data.SpeedMultLevel = level + 1
 	player:SetAttribute("SpeedMultLevel", level + 1)
 	TreadmillService.Refresh(player)
-	notify(player, `⚡ Speed multiplier is now x{Format.Multiplier(Economy.SpeedMultiplier(level + 1))}!`, "success")
+	notify(player, `Speed multiplier is now x{Format.Multiplier(Economy.SpeedMultiplier(level + 1))}!`, "success")
 end
 
 function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
@@ -200,7 +200,7 @@ function Actions.BuyTreadmill(player: Player, profile: DataService.Profile)
 	profile.Data.TreadmillLevel = level + 1
 	player:SetAttribute("TreadmillLevel", level + 1)
 	TreadmillService.Build(player)
-	notify(player, `🏃 {nextTier.Name} Treadmill installed! (+{Format.Number(nextTier.PerStep)} ⚡ every step)`, "success")
+	notify(player, `{nextTier.Name} Treadmill installed! (+{Format.Number(nextTier.PerStep)} every step)`, "success")
 end
 
 function Actions.BuyBaseSize(player: Player, _profile: DataService.Profile)
@@ -248,7 +248,7 @@ function Actions.BuySkin(player: Player, profile: DataService.Profile, skinId: a
 		return
 	end
 	if skin.OwnerOnly then
-		notify(player, "👑 Only the game's owner can use that skin!", "error")
+		notify(player, "Only the game's owner can use that skin!", "error")
 		return
 	end
 	if StealService.IsCarrying(player) then
@@ -256,14 +256,14 @@ function Actions.BuySkin(player: Player, profile: DataService.Profile, skinId: a
 		return
 	end
 	if not DataService.TrySpendSpeed(player, skin.SpeedCost) then
-		notify(player, `Not enough speed! Need ⚡{Format.Number(skin.SpeedCost)}`, "error")
+		notify(player, `Not enough speed! Need {Format.Number(skin.SpeedCost)}`, "error")
 		return
 	end
 	profile.Data.OwnedSkins[skin.Id] = true
 	profile.Data.EquippedSkin = skin.Id
 	PlotService.ApplySkin(player)
 	DataService.PushState(player)
-	notify(player, `🎨 {skin.Name} base skin unlocked and equipped! (-⚡{Format.Number(skin.SpeedCost)})`, "success")
+	notify(player, `{skin.Name} base skin unlocked and equipped! (-{Format.Number(skin.SpeedCost)})`, "success")
 end
 
 function Actions.EquipSkin(player: Player, profile: DataService.Profile, skinId: any)
@@ -291,12 +291,12 @@ function Actions.ClaimIndex(player: Player, profile: DataService.Profile, arg: a
 		data.IndexClaims[donut.Id] = "Speed"
 		player:SetAttribute("IndexBonus", DataService.IndexSpeedBonus(data))
 		TreadmillService.Refresh(player)
-		notify(player, `📖 +{speed}% treadmill speed forever from {donut.Name}!`, "success")
+		notify(player, `+{speed}% treadmill speed forever from {donut.Name}!`, "success")
 	else
 		local cash = Economy.IndexCashReward(donut.Id)
 		data.IndexClaims[donut.Id] = "Cash"
 		DataService.AddMoney(player, cash)
-		notify(player, `📖 +{Format.Money(cash)} from {donut.Name}!`, "success")
+		notify(player, `+{Format.Money(cash)} from {donut.Name}!`, "success")
 	end
 	DataService.PushState(player)
 end
@@ -338,7 +338,7 @@ function Actions.BuyTrail(player: Player, profile: DataService.Profile, trailId:
 	data.OwnedTrails[trail.Id] = true
 	data.EquippedTrail = trail.Id
 	player:SetAttribute("Trail", trail.Id)
-	notify(player, `{trail.Icon} You bought the {trail.Name} trail! You're wearing it now.`, "success")
+	notify(player, `You bought the {trail.Name} trail! You're wearing it now.`, "success")
 	DataService.PushState(player)
 end
 
@@ -379,7 +379,7 @@ function Actions.ClaimIndexAll(player: Player, profile: DataService.Profile)
 	if speedTotal > 0 then
 		table.insert(gains, `+{speedTotal}% treadmill speed forever`)
 	end
-	notify(player, `📖 Claimed {count} reward{if count == 1 then "" else "s"}: {table.concat(gains, " and ")}!`, "success")
+	notify(player, `Claimed {count} reward{if count == 1 then "" else "s"}: {table.concat(gains, " and ")}!`, "success")
 	DataService.PushState(player)
 end
 

@@ -31,10 +31,10 @@ local function refreshAll()
 end
 
 function Teleport.Init()
-	modal = Modal.new("🌀 BIOMES & TELEPORT", Theme.Colors.Blue, Vector2.new(760, 540))
+	modal = Modal.new("Biomes & Teleport", Theme.Colors.Blue, Vector2.new(760, 540))
 	local body = modal.Body
 	local header = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -210, 0, 44), Parent = body })
-	local passButton = Theme.Button({ Text = "🌀 Get Teleporter", Color = Theme.Colors.Green, Size = UDim2.fromOffset(200, 44), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Parent = body })
+	local passButton = Theme.Button({ Text = "Get Teleporter", Color = Theme.Colors.Green, Size = UDim2.fromOffset(200, 44), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, 0, 0, 0), Parent = body })
 	passButton.Activated:Connect(function()
 		State.Action("BuyPass", "Teleporter")
 	end)
@@ -53,7 +53,7 @@ function Teleport.Init()
 		Theme.new("UIPadding", { PaddingRight = UDim.new(0, 12), PaddingBottom = UDim.new(0, 8) }),
 	})
 
-	local home = Theme.Button({ Text = "🏠 Home", Color = Theme.Colors.Green, Size = UDim2.new(), LayoutOrder = 0, Parent = scroll })
+	local home = Theme.Button({ Text = "Home", Color = Theme.Colors.Green, Size = UDim2.new(), LayoutOrder = 0, Parent = scroll })
 	home.Activated:Connect(function()
 		State.Action("TeleportHome")
 	end)
@@ -65,7 +65,7 @@ function Teleport.Init()
 		table.insert(refreshers, function()
 			local hasPass = State.Data.Passes.Teleporter == true
 			local escape = Economy.EscapeSpeed(area.Id)
-			local need = if escape > 0 then `⚡{Format.Number(escape)} to escape` else "start here"
+			local need = if escape > 0 then `{Format.Number(escape)} to escape` else "start here"
 			Theme.SetButtonText(button, `{area.Id}. {area.Name}\n{need}`)
 			Theme.SetButtonColor(button, if hasPass then area.Trim else Theme.Colors.Gray)
 		end)
@@ -75,7 +75,7 @@ function Teleport.Init()
 		local hasPass = State.Data.Passes.Teleporter == true
 		passButton.Visible = not hasPass
 		header.Text = if hasPass
-			then "🌀 <b>Teleporter active!</b> Jump to any biome."
+			then "<b>Teleporter active!</b> Jump to any biome."
 			else "The <b>Teleporter</b> pass lets you jump to any biome instantly."
 	end)
 

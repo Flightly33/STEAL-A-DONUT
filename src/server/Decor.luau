@@ -1192,7 +1192,7 @@ function Themes.BlackHole(folder: Instance, zs: number, ze: number, rng: Random)
 	end
 
 	-- Warning holograms, each beamed up from a projector on the floor
-	for n, text in { "⚠ GRAVITY WELL ⚠", "SPACETIME UNSTABLE", "EXPERIMENT BH-01" } do
+	for n, text in { "GRAVITY WELL", "SPACETIME UNSTABLE", "EXPERIMENT BH-01" } do
 		local side = if n % 2 == 0 then 1 else -1
 		local color = if n == 1 then rgb(255, 210, 0) else purple
 		local at = Vector3.new(side * 66, 26 + n * 5, zs + 30 + n * 55)

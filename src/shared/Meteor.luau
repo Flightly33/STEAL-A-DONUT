@@ -1,5 +1,5 @@
 --[[
-	Meteor: the Cosmic Meteor that crashes down halfway through every Eternal Storm (while
+	Meteor: the Cosmic Meteor that crashes down 45 seconds into every Eternal Storm (while
 	Config.CosmicDonut is on). The server decides where it lands and when (server/MeteorService);
 	every client plays it on that same timeline (client/MeteorFX):
 

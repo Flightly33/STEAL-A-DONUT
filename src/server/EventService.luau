@@ -9,12 +9,11 @@
 	  * Egg Shower: eggs keep dropping in every biome that can have eggs.
 	  * 2x Incubator Speed: every incubator hatches twice as fast.
 	  * The Eternal Storm (on the real clock - every 2 hours, the same moment on every server:
-	    shared/StormClock - or the owner's 👑 button): a giant black hole hangs over the lane, huge
+	    shared/StormClock - or the owner's button): a giant black hole hangs over the lane, huge
 	    rocks crash down where people are (whoever they land on is flung), and purple lightning
-	    strikes boxes all over the game - every one it hits becomes ETERNAL. Halfway through,
-	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService), and
-	    at 2:15 Cosmic Domer climbs out of a black hole over its crater (GiantService); when it
-	    ends, the meteor's crater and the shards left on the ground evaporate. The server
+	    strikes boxes all over the game - every one it hits becomes ETERNAL. 45 seconds in,
+	    while The Cosmic Donut can be crafted, the Cosmic Meteor crashes down (MeteorService) and
+	    Cosmic Domer climbs out over its crater (GiantService); when it ends, the meteor's crater and the shards left on the ground evaporate. The server
 	    picks where rocks land and which boxes get struck, and tells every client (StormBlock /
 	    StormStrike) so they all see the same thing; client/StormFX draws it.
 	Only one event runs at a time. Clients read it from workspace attributes (EventId, EventEndsAt),
@@ -196,7 +195,7 @@ local function strike()
 	for _, player in Players:GetPlayers() do
 		local best = bestArea(player)
 		if best and best >= record.AreaId then
-			Remotes.Event("Notify"):FireClient(player, `⚡ Purple lightning struck {area.Name}: an {name} is waiting by Domer!`, "rare")
+			Remotes.Event("Notify"):FireClient(player, `Purple lightning struck {area.Name}: an {name} is waiting by Domer!`, "rare")
 		end
 	end
 end
@@ -216,17 +215,11 @@ local function eternalStorm(myToken: number, length: number)
 		sky.Parent = workspace
 		stormSky = sky
 	end
-	-- Halfway through: the Cosmic Meteor (if The Cosmic Donut can be crafted)
-	task.delay(length / 2, function()
+	-- 45 seconds in (of a 3:00 storm): the Cosmic Meteor, if The Cosmic Donut can be crafted (and
+	-- Cosmic Domer climbs out over its crater when it lands)
+	task.delay(length * Config.CosmicDonut.MeteorAt / storm.Duration, function()
 		if token == myToken then
 			MeteorService.Start()
-		end
-	end)
-	-- Later (2:15 of a 3:00 storm): Cosmic Domer climbs out of a black hole over its crater
-	task.delay(length * Config.CosmicGiant.AppearAt / storm.Duration, function()
-		local crater = MeteorService.Site()
-		if token == myToken and crater then
-			GiantService.Start(crater)
 		end
 	end)
 	-- Rocks
@@ -291,7 +284,7 @@ local function rareRain(myToken: number)
 			for _, player in Players:GetPlayers() do
 				local best = bestArea(player)
 				if best and best >= areaId then
-					Remotes.Event("Notify"):FireClient(player, `☄️ A {name} crashed into {area.Name}! Grab it before anyone else!`, "rare")
+					Remotes.Event("Notify"):FireClient(player, `A {name} crashed into {area.Name}! Grab it before anyone else!`, "rare")
 				end
 			end
 		end
@@ -348,7 +341,7 @@ local function boxRush()
 	local rush = Config.Boxes.Rush
 	workspace:SetAttribute("BoxRushEndsAt", workspace:GetServerTimeNow() + rush.Duration)
 	for _, player in Players:GetPlayers() do
-		Remotes.Event("Notify"):FireClient(player, `⏩ BOX RUSH! Boxes in your pen open {rush.Speed}x faster for {rush.Duration} seconds!`, "event")
+		Remotes.Event("Notify"):FireClient(player, `BOX RUSH! Boxes in your pen open {rush.Speed}x faster for {rush.Duration} seconds!`, "event")
 	end
 	local left = rush.Duration
 	while left > 0 do

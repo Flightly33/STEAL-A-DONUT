@@ -49,7 +49,7 @@ local function sendWelcome(player: Player)
 		Remotes.Event("OfflineEarnings"):FireClient(player, pending.Amount, pending.Seconds, pending.Capped)
 	end
 	if not DataService.DataStoresEnabled() then
-		Remotes.Event("Notify"):FireClient(player, "⚠ Saving is OFF (enable Studio Access to API Services to test saving)", "error")
+		Remotes.Event("Notify"):FireClient(player, "Saving is OFF (enable Studio Access to API Services to test saving)", "error")
 	end
 end
 
@@ -102,8 +102,8 @@ local function createLeaderstats(player: Player)
 		end
 		return value
 	end
-	local money = stat("StringValue", "💰 Money", true) :: StringValue
-	local speed = stat("StringValue", "⚡ Speed") :: StringValue
+	local money = stat("StringValue", "Money", true) :: StringValue
+	local speed = stat("StringValue", "Speed") :: StringValue
 	leaderstats[player] = { Money = money, Speed = speed }
 	task.spawn(function()
 		for _, value in { money, speed } :: { ValueBase } do
@@ -241,7 +241,7 @@ function PlayerService.Init()
 						profile.Data.SpeedBoostSeconds = math.max(0, profile.Data.SpeedBoostSeconds - dt)
 						if profile.Data.SpeedBoostSeconds <= 0 then
 							DataService.SyncSpeedBoost(player)
-							Remotes.Event("Notify"):FireClient(player, "⚡ Your Speed Boost ran out.", "info")
+							Remotes.Event("Notify"):FireClient(player, "Your Speed Boost ran out.", "info")
 						end
 					end
 					player:SetAttribute("Income", income)

@@ -95,7 +95,7 @@ local function row(item: SellItem, order: number)
 		StrokeThickness = 2,
 		Parent = frame,
 	})
-	local where = if item.Slot then "🏠 In your pen" else "🎒 Inventory"
+	local where = if item.Slot then "In your pen" else "Inventory"
 	Theme.Label({
 		Text = `{rarity.Id} • {where} • {Format.Money(item.Income)}/s`,
 		Font = Theme.Font,
@@ -106,7 +106,7 @@ local function row(item: SellItem, order: number)
 		Parent = frame,
 	})
 	Theme.Label({
-		Text = `💰 {Format.Money(item.Price)}`,
+		Text = `{Format.Money(item.Price)}`,
 		TextColor3 = Theme.Colors.Yellow,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		Size = UDim2.new(0.42, -150, 1, -16),
@@ -211,7 +211,7 @@ local function addStallPrompt()
 	local prompt = Theme.new("ProximityPrompt", {
 		Name = "SellPrompt",
 		ActionText = "Sell donuts",
-		ObjectText = "💰 Sell Stall",
+		ObjectText = "Sell Stall",
 		KeyboardKeyCode = Enum.KeyCode.E,
 		GamepadKeyCode = Enum.KeyCode.ButtonX,
 		HoldDuration = 0,
@@ -223,7 +223,7 @@ local function addStallPrompt()
 end
 
 function Sell.Init()
-	modal = Modal.new("💰 SELL DONUTS", SELL_GREEN, Vector2.new(780, 560))
+	modal = Modal.new("Sell Donuts", SELL_GREEN, Vector2.new(780, 560))
 	local body = modal.Body
 	header = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 28), Parent = body })
 	quick = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 42), Position = UDim2.fromOffset(0, 32), Parent = body })

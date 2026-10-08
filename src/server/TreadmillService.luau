@@ -55,7 +55,7 @@ local function updateScreen(player: Player)
 	end
 	local tier = Economy.TreadmillTier(profile.Data.TreadmillLevel)
 	local rate = TreadmillService.GetRate(player)
-	local text = `+{Format.Number(rate / Config.Treadmill.StepsPerSecond)} ⚡ a step\n({Format.Rate(rate)} ⚡/s)`
+	local text = `+{Format.Number(rate / Config.Treadmill.StepsPerSecond)} a step\n({Format.Rate(rate)} /s)`
 	for _, label in model:GetDescendants() do
 		if label:IsA("TextLabel") then
 			if label.Name == "Rate" then
@@ -267,7 +267,7 @@ function TreadmillService.Build(player: Player)
 	label.MaxDistance = 90
 	label.LightInfluence = 0
 	label.Parent = belt
-	Build.Text(label, "🏃 STEP ON TO RUN!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
+	Build.Text(label, "STEP ON TO RUN!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
 	Build.Text(label, `Tier {level}/{Economy.MaxTreadmillLevel()} • upgrade in Shop`, { Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.55), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne })
 
 	model.PrimaryPart = belt

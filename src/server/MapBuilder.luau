@@ -82,7 +82,7 @@ local function buildEntranceGate(parent: Instance)
 	gui.PixelsPerStud = 12
 	gui.LightInfluence = 0
 	gui.Parent = beam
-	Build.Text(gui, "🍩 " .. string.upper(Config.GameName) .. " 🍩", { TextColor3 = rgb(255, 240, 80), TextStrokeColor3 = rgb(120, 30, 80) })
+	Build.Text(gui, string.upper(Config.GameName), { TextColor3 = rgb(255, 240, 80), TextStrokeColor3 = rgb(120, 30, 80) })
 	Decor.GiantDonut(gate, CFrame.new(0, 64, map.SafeZoneZ + 2), 8, 7, rgb(222, 165, 95), rgb(255, 150, 200), { rgb(255, 60, 60), rgb(255, 230, 60), rgb(60, 200, 255), rgb(255, 255, 255) })
 	gate.Parent = parent
 end
@@ -98,9 +98,9 @@ local function buildSafeZoneLine(parent: Instance)
 	gui.LightInfluence = 0
 	gui.Parent = label
 	-- Two copies (one upside down) so it reads correctly from either side.
-	local top = Build.Text(gui, "🛡 SAFE ZONE 🛡", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(90, 200, 255), TextTransparency = 0.1 })
+	local top = Build.Text(gui, "SAFE ZONE", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(90, 200, 255), TextTransparency = 0.1 })
 	top.TextStrokeColor3 = rgb(20, 40, 90)
-	local bottom = Build.Text(gui, "🛡 SAFE ZONE 🛡", { Size = UDim2.fromScale(1, 0.5), Position = UDim2.fromScale(0, 0.5), Rotation = 180, TextColor3 = rgb(90, 200, 255), TextTransparency = 0.1 })
+	local bottom = Build.Text(gui, "SAFE ZONE", { Size = UDim2.fromScale(1, 0.5), Position = UDim2.fromScale(0, 0.5), Rotation = 180, TextColor3 = rgb(90, 200, 255), TextTransparency = 0.1 })
 	bottom.TextStrokeColor3 = rgb(20, 40, 90)
 end
 
@@ -139,7 +139,7 @@ local function buildSellStall(parent: Instance)
 	sign.LightInfluence = 0
 	sign.MaxDistance = 260
 	sign.Parent = counter
-	Build.Text(sign, "💰 SELL DONUTS", { TextColor3 = rgb(120, 255, 140), TextStrokeColor3 = rgb(10, 50, 20) })
+	Build.Text(sign, "SELL DONUTS", { TextColor3 = rgb(120, 255, 140), TextStrokeColor3 = rgb(10, 50, 20) })
 	-- A donut shopkeeper on the counter, facing the customers (a donut's front is -Z, like the stall's)
 	local keeper = DonutModel.Build(Donuts.List[2], { Scale = 0.9, NoEffects = true })
 	DonutModel.PlaceOn(keeper, at(4, 4, -2))
@@ -307,7 +307,7 @@ local function buildConveyors(hub: Instance)
 		sign.LightInfluence = 0
 		sign.MaxDistance = 220
 		sign.Parent = signPart
-		Build.Text(sign, if toFront then "⬆ TO THE BIOMES ⬆" else "⬇ TO THE BASES ⬇", { TextColor3 = color, TextStrokeColor3 = color:Lerp(Color3.new(0, 0, 0), 0.75) })
+		Build.Text(sign, if toFront then "TO THE BIOMES" else "TO THE BASES", { TextColor3 = color, TextStrokeColor3 = color:Lerp(Color3.new(0, 0, 0), 0.75) })
 		model.PrimaryPart = belt
 		model.Parent = folder
 	end
@@ -348,9 +348,9 @@ end
 local function speedText(area: Areas.Area): string
 	local need = Economy.EscapeSpeed(area.Id)
 	if need <= 0 then
-		return "🌱 No speed needed - start here!"
+		return "No speed needed - start here!"
 	end
-	return "⚡ " .. Format.Number(need) .. " Speed to escape " .. Config.Guard.Name
+	return Format.Number(need) .. " Speed to escape " .. Config.Guard.Name
 end
 
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
@@ -668,7 +668,7 @@ local function buildShop(pen: Model, cf: CFrame, zb: number)
 	gui.PixelsPerStud = 14
 	gui.LightInfluence = 0
 	gui.Parent = lintel
-	Build.Text(gui, "🍩 DONUT SHOP 🍩", { TextColor3 = rgb(255, 90, 160), TextStrokeColor3 = rgb(255, 255, 255), TextStrokeTransparency = 0 })
+	Build.Text(gui, "DONUT SHOP", { TextColor3 = rgb(255, 90, 160), TextStrokeColor3 = rgb(255, 255, 255), TextStrokeTransparency = 0 })
 	-- striped awning over the window
 	for i = 0, 9 do
 		Build.Decor({ Parent = shop, Name = "Awning", Size = Vector3.new(2.3, 0.4, 6), CFrame = at(-10.35 + i * 2.3, H - 4.6, zb - 2.2) * CFrame.Angles(math.rad(18), 0, 0), Color = if i % 2 == 0 then SHOP_ICING else SHOP_TRIM, Material = Enum.Material.SmoothPlastic })

@@ -123,7 +123,7 @@ local function buildWorldBoard(screen: BasePart, boardId: string)
 		Theme.Corner(14),
 		Theme.Gradient(Theme.Lighten(cfg.Color, 0.2), Theme.Darken(cfg.Color, 0.15)),
 	})
-	Theme.Label({ Text = "🏆 " .. cfg.Title, Size = UDim2.new(1, -20, 0, 64), Position = UDim2.fromOffset(10, 6), StrokeThickness = 4, Parent = header })
+	Theme.Label({ Text = cfg.Title, Size = UDim2.new(1, -20, 0, 64), Position = UDim2.fromOffset(10, 6), StrokeThickness = 4, Parent = header })
 	Theme.Label({ Text = `{cfg.Subtitle} • TOP {Config.Leaderboards.Size}`, Font = Theme.Font, Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 70), StrokeThickness = 2, Parent = header })
 	local listHolder = Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 122), Size = UDim2.new(1, 0, 1, -178), Parent = root })
 	local footer = Theme.Label({ Text = "Loading...", Font = Theme.Font, Size = UDim2.new(1, 0, 0, 40), Position = UDim2.new(0, 0, 1, -44), TextColor3 = Theme.Colors.Yellow, StrokeThickness = 2, Parent = root })
@@ -147,7 +147,7 @@ end
 local modal: Modal.Modal
 
 local function buildModal()
-	modal = Modal.new("🏆 TOP 500", Theme.Colors.Orange, Vector2.new(640, 540))
+	modal = Modal.new("Top 500", Theme.Colors.Orange, Vector2.new(640, 540))
 	local body = modal.Body
 	local current = Config.Leaderboards.Boards[1].Id
 	local subtitle = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 50), StrokeThickness = 1.5, Parent = body })

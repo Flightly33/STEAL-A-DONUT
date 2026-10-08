@@ -58,7 +58,7 @@ function CraftService.Craft(player: Player): boolean
 	PlotService.RecordFind(player, DONUT_ID, "None", "Normal") -- (the Index, the rarest-donut board, the announcement)
 	DataService.PushState(player)
 	Remotes.Event("CosmicCrafted"):FireClient(player, { Shards = data.MeteorShards })
-	notify(player, "🌌 You crafted THE COSMIC DONUT! It's in your base.", "rare")
+	notify(player, "You crafted THE COSMIC DONUT! It's in your base.", "rare")
 	return true
 end
 
@@ -110,7 +110,7 @@ local function buildForge(): Model
 	gui.PixelsPerStud = 40
 	gui.LightInfluence = 0
 	gui.Parent = sign
-	local title = Build.Text(gui, "☄️ COSMIC FORGE", { TextColor3 = rgb(225, 200, 255), Size = UDim2.fromScale(1, 0.6) })
+	local title = Build.Text(gui, "COSMIC FORGE", { TextColor3 = rgb(225, 200, 255), Size = UDim2.fromScale(1, 0.6) })
 	title.Name = "Title"
 	local info = Build.Text(gui, `THE COSMIC DONUT • {COSMIC.ShardCost} METEOR SHARDS • LIMITED TIME`, { TextColor3 = CYAN, Size = UDim2.fromScale(1, 0.35), Position = UDim2.fromScale(0, 0.62) })
 	info.Name = "Info"

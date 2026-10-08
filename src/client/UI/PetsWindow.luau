@@ -35,7 +35,8 @@ local overlay: Frame
 local confirmRelease: string? = nil
 
 -- A 3D preview of a model in a ViewportFrame (the model's Top/Bottom attributes frame the camera).
-local function preview(parent: Instance, model: Model, size: UDim2, position: UDim2): ViewportFrame
+-- With a `color`, it sits on studs of that colour (like the Index's pictures).
+local function preview(parent: Instance, model: Model, size: UDim2, position: UDim2, color: Color3?): ViewportFrame
 	local viewport = Theme.new("ViewportFrame", {
 		BackgroundColor3 = Color3.fromRGB(25, 25, 40),
 		Size = size,
@@ -45,6 +46,14 @@ local function preview(parent: Instance, model: Model, size: UDim2, position: UD
 		LightDirection = Vector3.new(-0.5, -1, 0.8),
 		Parent = parent,
 	}, { Theme.Corner(10) })
+	if color then
+		local picture = Theme.Picture(parent, size, position, color, Vector2.new(170, 110))
+		viewport.BackgroundTransparency = 1
+		viewport.Size = UDim2.fromScale(1, 1)
+		viewport.Position = UDim2.new()
+		viewport.ZIndex = 2
+		viewport.Parent = picture
+	end
 	model:PivotTo(CFrame.new(0, 0, 0) * CFrame.Angles(0, math.rad(200), 0))
 	model.Parent = viewport
 	local top = (model:GetAttribute("Top") :: number?) or 1.5
@@ -68,10 +77,7 @@ local function clearPage(page: ScrollingFrame)
 end
 
 local function card(page: Instance, order: number, color: Color3): Frame
-	return Theme.new("Frame", { BackgroundColor3 = Theme.Colors.PanelLight, LayoutOrder = order, Parent = page }, {
-		Theme.Corner(12),
-		Theme.Stroke(3, color),
-	})
+	return Theme.Card(page, order, color)
 end
 
 --------------------------------------------------------------------------------
@@ -87,7 +93,7 @@ local function refreshEggTimers()
 			entry.Bar.Size = UDim2.fromScale(1, 1)
 			entry.Button.Visible = true
 		else
-			entry.Label.Text = "⏳ " .. Format.Duration(left)
+			entry.Label.Text = Format.Duration(left)
 			entry.Label.TextColor3 = Color3.fromRGB(255, 255, 255)
 			entry.Button.Visible = false
 		end
@@ -113,7 +119,7 @@ local function buildEggs()
 		local egg = Pets.EggById[eggData.Id]
 		if egg then
 			local c = card(page, order, egg.Accent)
-			preview(c, PetModel.BuildEgg(egg, { NoEffects = true }), UDim2.new(1, -12, 0, 92), UDim2.fromOffset(6, 6))
+			preview(c, PetModel.BuildEgg(egg, { NoEffects = true }), UDim2.new(1, -12, 0, 92), UDim2.fromOffset(6, 8), egg.Accent:Lerp(Color3.new(1, 1, 1), 0.25))
 			Theme.Label({ Text = egg.Name, TextColor3 = egg.Accent:Lerp(Color3.new(1, 1, 1), 0.4), Size = UDim2.new(1, -8, 0, 22), Position = UDim2.fromOffset(4, 100), StrokeThickness = 2, Parent = c })
 			local barBack = Theme.new("Frame", { Size = UDim2.new(1, -16, 0, 22), Position = UDim2.fromOffset(8, 126), BackgroundColor3 = Theme.Colors.Outline, Parent = c }, { Theme.Corner(6) })
 			local total = egg.HatchSeconds
@@ -168,7 +174,7 @@ local function buildPets()
 			local rarity = Pets.Rarity(pet.Rarity)
 			local isEquipped = table.find(equipped, petData.Uid) ~= nil
 			local c = card(page, order, if isEquipped then Theme.Colors.Green else rarity.Color)
-			preview(c, PetModel.BuildPet(pet, { NoEffects = true }), UDim2.new(1, -12, 0, 92), UDim2.fromOffset(6, 6))
+			preview(c, PetModel.BuildPet(pet, { NoEffects = true }), UDim2.new(1, -12, 0, 92), UDim2.fromOffset(6, 8), rarity.Color:Lerp(Color3.new(1, 1, 1), 0.2))
 			Theme.Label({ Text = rarity.Id, TextColor3 = rarity.Color, Font = Theme.Font, Size = UDim2.new(1, -8, 0, 16), Position = UDim2.fromOffset(4, 100), StrokeThickness = 1.2, Parent = c })
 			Theme.Label({ Text = pet.Name, Size = UDim2.new(1, -8, 0, 22), Position = UDim2.fromOffset(4, 116), StrokeThickness = 2, Parent = c })
 			Theme.Label({ Text = Pets.BonusText(pet), Font = Theme.Font, TextColor3 = Theme.Colors.Money, Size = UDim2.new(1, -8, 0, 18), Position = UDim2.fromOffset(4, 140), StrokeThickness = 1.2, Parent = c })
@@ -176,7 +182,7 @@ local function buildPets()
 			equip.Activated:Connect(function()
 				State.Action(if isEquipped then "UnequipPet" else "EquipPet", petData.Uid)
 			end)
-			local release = Theme.Button({ Text = "✖", Color = Theme.Colors.Red, Size = UDim2.new(0.28, -4, 0, 32), Position = UDim2.new(0.72, -2, 1, -38), Parent = c })
+			local release = Theme.Button({ Text = "X", Color = Theme.Colors.Red, Size = UDim2.new(0.28, -4, 0, 32), Position = UDim2.new(0.72, -2, 1, -38), Parent = c })
 			release.Activated:Connect(function()
 				if confirmRelease == petData.Uid then
 					confirmRelease = nil
@@ -189,7 +195,7 @@ local function buildPets()
 							confirmRelease = nil
 						end
 						if release.Parent then
-							Theme.SetButtonText(release, "✖")
+							Theme.SetButtonText(release, "X")
 						end
 					end)
 				end
@@ -213,9 +219,9 @@ local function refreshHeader()
 	if currentTab == "Eggs" then
 		local capacity = Config.Pets.MaxEggs + Config.Pets.IncubatorSize.PerLevel * State.Number("IncubatorSize")
 		local hatchSpeed = 1 + Config.Pets.IncubatorSpeed.PerLevel * State.Number("IncubatorSpeed")
-		header.Text = `🥚 Incubator {#(State.Data.Eggs or {})}/{capacity}  •  ⚡ x{Format.Multiplier(hatchSpeed)} speed  •  upgrade it in the Shop`
+		header.Text = `Incubator {#(State.Data.Eggs or {})}/{capacity}  •  x{Format.Multiplier(hatchSpeed)} speed  •  upgrade it in the Shop`
 	else
-		header.Text = `🐾 {#pets}/{Config.Pets.MaxPets} pets   •   Equipped {#equippedIds}/{Config.Pets.MaxEquipped}: +{math.floor(money * 100 + 0.5)}% money, +{math.floor(speed * 100 + 0.5)}% speed`
+		header.Text = `{#pets}/{Config.Pets.MaxPets} pets   •   Equipped {#equippedIds}/{Config.Pets.MaxEquipped}: +{math.floor(money * 100 + 0.5)}% money, +{math.floor(speed * 100 + 0.5)}% speed`
 	end
 end
 
@@ -330,7 +336,7 @@ function PetsWindow.Open()
 end
 
 function PetsWindow.Init()
-	modal = Modal.new("🐾 PETS", Theme.Colors.Pink, Vector2.new(760, 520))
+	modal = Modal.new("Pets", Theme.Colors.Pink, Vector2.new(760, 520))
 	local body = modal.Body
 	header = Theme.Label({ Text = "", Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -330, 0, 28), Position = UDim2.fromOffset(0, 50), StrokeThickness = 1.5, Parent = body })
 	local hatchAll = Theme.Button({ Text = "HATCH ALL READY", Color = Theme.Colors.Green, Size = UDim2.fromOffset(170, 34), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -150, 0, 48), Parent = body })
@@ -359,8 +365,8 @@ function PetsWindow.Init()
 		})
 	end
 	local selectTab = Modal.Tabs(body, {
-		{ Name = "Eggs", Text = "🥚 Eggs", Color = Theme.Colors.Orange },
-		{ Name = "Pets", Text = "🐾 Pets", Color = Theme.Colors.Pink },
+		{ Name = "Eggs", Text = "Eggs", Color = Theme.Colors.Orange },
+		{ Name = "Pets", Text = "Pets", Color = Theme.Colors.Pink },
 	}, function(name)
 		currentTab = name
 		for pageName, page in pages do

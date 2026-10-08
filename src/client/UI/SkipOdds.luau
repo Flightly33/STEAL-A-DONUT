@@ -38,7 +38,7 @@ function SkipOdds.Lines(area: number, tierId: string): { string }
 end
 
 function SkipOdds.Init()
-	local modal = Modal.new("📦 OPEN IT NOW?", Theme.Colors.Green, Vector2.new(560, 470))
+	local modal = Modal.new("Open It Now?", Theme.Colors.Green, Vector2.new(560, 470))
 	local body = modal.Body
 	local heading = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 50), StrokeThickness = 1.5, Parent = body })
 	local scroll = Theme.new("ScrollingFrame", {

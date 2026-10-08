@@ -142,7 +142,7 @@ function ItemCard.Describe(item: Item): Info
 			Lines = if donut.Crafted
 				then {
 					`Never comes out of a box: bring {Config.CosmicDonut.ShardCost} {paint("meteor shards", rgb(200, 130, 255))} to the {paint("Cosmic Forge", rgb(200, 130, 255))} by the spawn to craft it.`,
-					`The meteor crashes down halfway through the {paint("Eternal Storm", rgb(170, 90, 255))}. {paint("LIMITED TIME!", rgb(255, 120, 220))}`,
+					`The meteor crashes down 45 seconds into the {paint("Eternal Storm", rgb(170, 90, 255))}. {paint("LIMITED TIME!", rgb(255, 120, 220))}`,
 				}
 				elseif spawnable and box
 				then {

@@ -93,4 +93,49 @@ function Format.Commas(value: number): string
 	return (result:gsub("^,", ""))
 end
 
+-- Is this character an emoji, or part of one? (Pictographs, the symbols and arrows that have emoji
+-- forms, variation selectors, joiners, keycaps and the tag letters of flags.)
+local function isEmoji(c: number): boolean
+	return (c >= 0x1F000 and c <= 0x1FAFF)
+		or (c >= 0x2600 and c <= 0x27BF)
+		or (c >= 0x2300 and c <= 0x23FF)
+		or (c >= 0x2B00 and c <= 0x2BFF)
+		or (c >= 0xFE00 and c <= 0xFE0F)
+		or c == 0x200D
+		or c == 0x20E3
+		or (c >= 0xE0020 and c <= 0xE007F)
+end
+
+-- `text` without any emoji (the game never shows one): each goes, and so does the space it leaves.
+function Format.Plain(text: string): string
+	if not string.find(text, "[\128-\255]") then
+		return text -- (plain ASCII)
+	end
+	local out: { string } = {}
+	local dropped = false
+	local ok = pcall(function()
+		for _, c in utf8.codes(text) do
+			if isEmoji(c) then
+				dropped = true
+			elseif c == 32 and dropped and (#out == 0 or out[#out] == " ") then
+				continue -- (one space is enough)
+			else
+				if c ~= 32 then
+					dropped = false
+				end
+				table.insert(out, utf8.char(c))
+			end
+		end
+	end)
+	if not ok then
+		return text -- (not valid UTF-8: leave it alone)
+	end
+	if dropped then
+		while out[#out] == " " do
+			table.remove(out)
+		end
+	end
+	return table.concat(out)
+end
+
 return Format

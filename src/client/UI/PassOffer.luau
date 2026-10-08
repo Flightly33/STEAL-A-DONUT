@@ -10,6 +10,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 local Theme = require(script.Parent.Theme)
+local Icons = require(script.Parent.Icons)
 local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
@@ -37,9 +38,12 @@ function PassOffer.Init()
 		return
 	end
 	local offer = pass
-	local modal = Modal.new("🎁 SPECIAL OFFER", Theme.Colors.Green, Vector2.new(460, 340))
+	local modal = Modal.new("Special Offer", Theme.Colors.Green, Vector2.new(460, 340))
 	local body = modal.Body
-	Theme.Label({ Text = "💵", TextScaled = false, TextSize = 64, Size = UDim2.new(1, 0, 0, 70), Parent = body })
+	local cash = Icons.Draw("cash", body, nil, nil)
+	cash.Size = UDim2.fromOffset(66, 66)
+	cash.AnchorPoint = Vector2.new(0.5, 0)
+	cash.Position = UDim2.new(0.5, 0, 0, 2)
 	Theme.Label({ Text = `{string.upper(offer.Name)} FOREVER!`, Font = Theme.Title, TextColor3 = Color3.fromRGB(120, 255, 120), Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 72), StrokeThickness = 3, Parent = body })
 	Theme.Label({
 		Text = `Every donut on your base earns {offer.Multiplier}x money - for good!`,
