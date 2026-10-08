@@ -1,17 +1,16 @@
 --[[
 	Server event announcement (EventService / Events.luau).
 
-	When an event starts, a big announcement drops in near the top of the screen in the game's
-	message style (outlined letters on a dark band that fades out at its ends, lines of the event's
-	colour along it): "SERVER EVENT", its name in its colour, what it does and how long it lasts,
-	with a little fanfare, pulsing so nobody misses it. After a few seconds it shrinks into a
-	smaller band at the top of the screen with a countdown, which stays until the event ends.
-	Players who join mid-event just get that.
+	When an event starts, a big announcement takes over the header at the top of the screen
+	(UI/Notifications: whatever was there fades out) in the game's message style - outlined letters
+	on a dark band that fades out at its ends, lines of the event's colour along it: "SERVER
+	EVENT", its name in its colour, what it does and how long it lasts, with a little fanfare,
+	pulsing so nobody misses it. After a few seconds it fades away and a smaller band (a pill) with
+	a countdown stays at the top until the event ends. Players who join mid-event just get that.
 
 	Also the countdown to the next Eternal Storm ("ETERNAL STORM IN 1:23:45"): it comes on the real
-	clock (shared/StormClock), so this is worked out right here, the same on every server. It sits
-	in the first free row at the top (under the Luck Event, event and box pills when they're up)
-	and hides while the storm is on (the event pill counts that down).
+	clock (shared/StormClock), so this is worked out right here, the same on every server. It's a
+	pill under the others, and hides while the storm is on (the event pill counts that down).
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -24,17 +23,15 @@ local Format = require(Shared.Format)
 local StormClock = require(Shared.StormClock)
 
 local Theme = require(script.Parent.Theme)
+local Notifications = require(script.Parent.Notifications)
 
 local EventBanner = {}
 
-local gui: ScreenGui
-local holder: Frame -- screen-size scaling for the big card (the card has its own pop-in scale)
 local pill: Frame
 local pillLabel: TextLabel
 local card: Frame? = nil
 local countdown: Frame
 local countdownLabel: TextLabel
-local otherPills: { [string]: GuiObject } = {} -- (the Luck Event and box pills, once found)
 
 local STORM_TEXT = Color3.fromRGB(235, 215, 255)
 local STORM_SOON = Color3.fromRGB(255, 140, 225)
@@ -44,34 +41,6 @@ local function clockText(seconds: number): string
 	local s = math.max(0, math.floor(seconds))
 	local h, m, sec = s // 3600, (s % 3600) // 60, s % 60
 	return if h > 0 then string.format("%d:%02d:%02d", h, m, sec) else string.format("%d:%02d", m, sec)
-end
-
--- The first row at the top of the screen that nothing else is using.
-local function freeRow(): number
-	local taken: { [number]: boolean } = {}
-	if pill.Visible then
-		taken[pill.Position.Y.Offset] = true
-	end
-	local playerGui = gui.Parent
-	for _, name in { "LuckEvent", "BoxPill" } do
-		local other = otherPills[name]
-		if not other and playerGui then
-			local found = playerGui:FindFirstChild(name, true)
-			if found and found:IsA("GuiObject") then
-				otherPills[name] = found
-				other = found
-			end
-		end
-		if other and other.Visible then
-			taken[other.Position.Y.Offset] = true
-		end
-	end
-	for _, row in { 4, 46, 88, 130 } do
-		if not taken[row] then
-			return row
-		end
-	end
-	return 172
 end
 
 local function updateCountdown()
@@ -85,7 +54,6 @@ local function updateCountdown()
 	countdownLabel.Text = `ETERNAL STORM IN {clockText(left)}`
 	-- the last minute: brighter, pulsing
 	countdownLabel.TextColor3 = if left <= 60 then STORM_TEXT:Lerp(STORM_SOON, 0.5 + 0.5 * math.sin(now * 6)) else STORM_TEXT
-	countdown.Position = UDim2.new(0.5, 0, 0, freeRow())
 end
 
 local function endsIn(): number
@@ -98,16 +66,10 @@ local function fanfare()
 end
 
 local function showCard(event: Events.Event)
-	if card then
-		card:Destroy()
-	end
 	local frame = Theme.Band({
 		Name = "EventCard",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 0),
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.new(1, 0, 0, 164),
 		Darkness = 0.62,
-		Parent = holder,
 	})
 	-- a line of the event's colour along the top and the bottom, fading out like the band
 	local lines = {}
@@ -120,15 +82,17 @@ local function showCard(event: Events.Event)
 	Theme.Label({ Name = "EventName", Text = string.upper(Format.Plain(event.Name)), TextColor3 = event.Color:Lerp(Color3.new(1, 1, 1), 0.15), Size = UDim2.new(1, -160, 0, 62), Position = UDim2.fromOffset(80, 38), StrokeThickness = 4.5, Parent = frame })
 	Theme.Label({ Name = "Description", Text = Format.Plain(event.Description), Font = Theme.Font, Size = UDim2.new(1, -200, 0, 30), Position = UDim2.fromOffset(100, 102), StrokeThickness = 2.5, Parent = frame })
 	local timer = Theme.Label({ Name = "Timer", Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(255, 240, 170), Size = UDim2.new(1, -200, 0, 24), Position = UDim2.fromOffset(100, 134), StrokeThickness = 2, Parent = frame })
-	card = frame
-
-	-- Pop in, then pulse
+	-- Pop in, then pulse (it's the header for 7 seconds)
 	local scale = Theme.new("UIScale", { Scale = 0.2, Parent = frame })
 	TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	if not Notifications.ShowHeader(frame, Notifications.Priority.Announcement, 7) then
+		return
+	end
+	card = frame
 	fanfare()
 	local startedAt = os.clock()
 	task.spawn(function()
-		while frame.Parent and os.clock() - startedAt < 7 do
+		while frame.Parent and os.clock() - startedAt < 7.4 do
 			local t = os.clock() - startedAt
 			if t > 0.5 then
 				scale.Scale = 1 + math.sin(t * 6) * 0.03
@@ -139,51 +103,28 @@ local function showCard(event: Events.Event)
 			timer.Text = `{Format.Duration(endsIn())} left`
 			task.wait()
 		end
-		if frame.Parent then
-			-- Shrink into the band at the top
-			TweenService:Create(scale, TweenInfo.new(0.35), { Scale = 0.1 }):Play()
-			TweenService:Create(frame, TweenInfo.new(0.35), { Position = UDim2.new(0.5, 0, 0, -60), BackgroundTransparency = 1 }):Play()
-			task.wait(0.35)
-			frame:Destroy()
-			if card == frame then
-				card = nil
-			end
+		if card == frame then
+			card = nil
 		end
 	end)
 end
 
 function EventBanner.Init()
-	gui = Theme.ScreenGui("EventBanner", 25)
-	holder = Theme.new("Frame", {
-		Name = "CardHolder",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 60),
-		Size = UDim2.fromOffset(860, 170),
-		BackgroundTransparency = 1,
-		Parent = gui,
-	})
-	Theme.AutoScale(holder)
 	pill = Theme.Band({
 		Name = "EventPill",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 4),
 		Size = UDim2.fromOffset(560, 38),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(pill)
+	Notifications.Pill(pill, 2)
 	pillLabel = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = pill })
 	countdown = Theme.Band({
 		Name = "StormCountdown",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 4),
 		Size = UDim2.fromOffset(440, 36),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(countdown)
+	Notifications.Pill(countdown, 4)
 	countdownLabel = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextColor3 = STORM_TEXT, Size = UDim2.new(1, -110, 1, -6), Position = UDim2.fromOffset(55, 3), StrokeThickness = 2.5, Parent = countdown })
 	task.spawn(function()
 		while true do
@@ -207,14 +148,10 @@ function EventBanner.Init()
 			local id = workspace:GetAttribute("EventId")
 			local event = if type(id) == "string" then Events.ById[id] else nil
 			local left = endsIn()
-			pill.Visible = event ~= nil and left > 0 and card == nil
+			pill.Visible = event ~= nil and left > 0 and not (card and card.Parent)
 			if event and pill.Visible then
 				pillLabel.TextColor3 = event.Color:Lerp(Color3.new(1, 1, 1), 0.35)
 				pillLabel.Text = `{string.upper(Format.Plain(event.Name))}  •  {Format.Duration(left)}`
-				-- Sit under the Luck Event pill when both are running
-				local luckEndsAt = workspace:GetAttribute("LuckEndsAt")
-				local luck = type(luckEndsAt) == "number" and luckEndsAt > workspace:GetServerTimeNow()
-				pill.Position = UDim2.new(0.5, 0, 0, if luck then 46 else 4)
 			end
 			task.wait(0.5)
 		end

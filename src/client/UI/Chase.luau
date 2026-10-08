@@ -11,7 +11,6 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -76,7 +75,6 @@ end
 
 local function showBanner(visible: boolean)
 	banner.Visible = visible
-	Notifications.SetToastOffset(if visible then 84 else 0)
 end
 
 local function clearBeam()
@@ -285,32 +283,9 @@ local function flingSelf(velocity: Vector3?)
 	end)
 end
 
-local function bigText(text: string, color: Color3, duration: number)
-	local band = Theme.Band({
-		Name = "BigText",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.38),
-		Size = UDim2.fromScale(0.9, 0.14),
-		Darkness = 0.5,
-		Parent = gui,
-	})
-	local label = Theme.Label({
-		Text = text,
-		TextColor3 = color,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.75, 0.86),
-		StrokeThickness = 5,
-		Parent = band,
-	})
-	local scale = Theme.new("UIScale", { Scale = 0.3, Parent = band })
-	TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(duration, function()
-		TweenService:Create(band, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
-		task.wait(0.4)
-		band:Destroy()
-	end)
+-- A big pop-up message (it takes over the header at the top of the screen for a moment).
+local function bigText(text: string, color: Color3, duration: number, subtitle: string?)
+	Notifications.Banner(text, color, duration, subtitle, { Big = true })
 end
 
 type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string?, Tier: string?, BoxBack: boolean?, Count: number?, Cost: number? }
@@ -339,18 +314,14 @@ local function onChaseEnded(result: ChaseResult)
 			return
 		elseif result.Kind == "Shard" then
 			local count, cost = result.Count or 0, result.Cost or Config.CosmicDonut.ShardCost
-			bigText(`METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), 2.2)
-			if count >= cost then
-				Notifications.Banner("THE COSMIC DONUT", Color3.fromRGB(170, 90, 255), 3, "You have enough shards! Craft it at the Cosmic Forge by the spawn")
-			end
+			bigText(`METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), if count >= cost then 3.5 else 2.2, if count >= cost then "You have enough shards! Craft THE COSMIC DONUT at the Cosmic Forge by the spawn" else nil)
 			Theme.PlaySound("Deposit")
 			return
 		elseif result.Kind == "Box" then
 			local tier = Boxes.Tier(result.Tier)
 			local mutation = Rarities.Mutation(result.Mutation)
 			local color = if mutation.Order > 0 then mutation.Color else tier.Color
-			bigText("BOX SECURED!", color, 2)
-			Notifications.Banner(Rarities.DisplayName(Boxes.DisplayName(tier.Id, result.Size), result.Mutation, nil), color, 2.5, "In your inventory • hold it and click in your pen")
+			bigText("BOX SECURED!", color, 2.8, `{Rarities.DisplayName(Boxes.DisplayName(tier.Id, result.Size), result.Mutation, nil)} • in your inventory: hold it and click in your pen`)
 			Theme.PlaySound("Deposit")
 			return
 		end
@@ -359,9 +330,8 @@ local function onChaseEnded(result: ChaseResult)
 			local rarity = Rarities.Get(donut.Rarity)
 			local mutation = Rarities.Mutation(result.Mutation)
 			local color = if mutation.Order > 0 then mutation.Color else rarity.Color
-			bigText(if result.IsNew then "NEW DONUT!" else "DONUT SECURED!", color, 2)
 			local income = Economy.DonutIncome(donut.Id, 1, result.Mutation, result.Size)
-			Notifications.Banner(Rarities.DisplayName(donut.Name, result.Mutation, result.Size), color, 2.5, `{rarity.Id} • {Format.Money(income)}/s`)
+			bigText(if result.IsNew then "NEW DONUT!" else "DONUT SECURED!", color, 2.8, `{Rarities.DisplayName(donut.Name, result.Mutation, result.Size)} • {rarity.Id} • {Format.Money(income)}/s`)
 		end
 		Theme.PlaySound("Deposit")
 	elseif result.Result == "Caught" then
@@ -449,16 +419,14 @@ function Chase.Init()
 		table.insert(edges, edge)
 	end
 
+	-- (under the header, in the column at the top of the screen: UI/Notifications)
 	banner = Theme.Band({
 		Name = "ChaseBanner",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 186),
 		Size = UDim2.fromOffset(940, 82),
 		Darkness = 0.55,
 		Visible = false,
-		Parent = gui,
+		Parent = Notifications.ChaseSlot(),
 	})
-	Theme.AutoScale(banner)
 	bannerTitle = Theme.Label({ Name = "Title", Text = "", Size = UDim2.new(1, -160, 0, 46), Position = UDim2.fromOffset(80, 4), StrokeThickness = 4, Parent = banner })
 	bannerInfo = Theme.Label({ Name = "Info", Text = "", Font = Theme.Font, Size = UDim2.new(1, -160, 0, 26), Position = UDim2.fromOffset(80, 52), StrokeThickness = 2.5, Parent = banner })
 

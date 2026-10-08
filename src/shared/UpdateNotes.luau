@@ -65,6 +65,8 @@ UpdateNotes.List = {
 				"Every window has a new look: an orange header covered in studs, like the bricks the whole game is built from, a big red X and a dark green body",
 				"Shop items, pets and trails sit on studs too",
 				"Messages, announcements, events and the tutorial are now big outlined letters on a dark band across the screen",
+				"Only one big message at a time: a new one fades the last one out instead of landing on top of it, and everything else at the top lines up underneath",
+				"The tutorial is now the big message at the top of the screen, right in the middle",
 				"No more emojis anywhere: every icon is drawn by the game itself",
 			} },
 			{ Title = "The New Index", Tag = "NEW Look", Lines = {

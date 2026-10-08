@@ -1,6 +1,8 @@
 --[[
-	Tutorial: a guided first game. A line of big outlined text at the top of the screen (on a dark
-	band that fades out at its ends) says what to do next, with a Skip Tutorial button beside it, and a red arrow floating over your head points the
+	Tutorial: a guided first game. While it runs it's the header at the top of the screen
+	(UI/Notifications): "TUTORIAL 3/7" and then what to do next in big outlined letters on a dark
+	band that fades out at its ends, with a Skip Tutorial button under it. Biome names don't
+	interrupt it; announcements fade it out for a few seconds and it comes back. And and a red arrow floating over your head points the
 	way (a second red arrow bobs over the target):
 	  1. follow the arrow to the first biome
 	  2. steal a donut box (walk up to one next to Domer and press E)
@@ -23,6 +25,7 @@ local Config = require(Shared.Config)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.Theme)
+local Notifications = require(script.Parent.Notifications)
 local UpdateNotes = require(script.Parent.UpdateNotes)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
@@ -192,32 +195,22 @@ end
 -- Init
 --------------------------------------------------------------------------------
 function Tutorial.Init()
-	-- The line of text at the top, with Skip / Claim beside it
-	local gui = Theme.ScreenGui("Tutorial", 6)
+	-- The header: what to do, big, with Skip / Claim under it
 	local strip = Theme.Band({
 		Name = "Strip",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 48),
-		Size = UDim2.fromOffset(0, 54),
-		AutomaticSize = Enum.AutomaticSize.X,
-		Darkness = 0.6,
+		Size = UDim2.new(1, 0, 0, 124),
+		Darkness = 0.62,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = strip })
-	Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 90), PaddingRight = UDim.new(0, 90), Parent = strip })
-	Theme.AutoScale(strip)
-	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 24, TextColor3 = Color3.fromRGB(255, 120, 120), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), StrokeThickness = 2.5, LayoutOrder = 1, Parent = strip })
-	local label = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 30, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), StrokeThickness = 3, LayoutOrder = 2, Parent = strip })
-	local skip = Theme.Button({ Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(130, 34), Parent = strip })
-	skip.Name = "Skip"
-	skip.LayoutOrder = 3
-	local claim = Theme.Button({ Text = "Claim", Color = Theme.Colors.Green, Size = UDim2.fromOffset(110, 34), Parent = strip })
-	claim.Name = "Claim"
-	claim.LayoutOrder = 4
-	local close = Theme.Button({ Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(90, 34), Parent = strip })
-	close.Name = "Close"
-	close.LayoutOrder = 5
+	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextColor3 = Theme.Colors.Gold, Size = UDim2.new(1, -180, 0, 24), Position = UDim2.fromOffset(90, 6), StrokeThickness = 2.5, Parent = strip })
+	local label = Theme.Label({ Name = "Text", Text = "", Size = UDim2.new(1, -180, 0, 50), Position = UDim2.fromOffset(90, 32), StrokeThickness = 4, Parent = strip })
+	local buttons = Theme.new("Frame", { Name = "Buttons", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 88), Parent = strip }, {
+		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local skip = Theme.Button({ Name = "Skip", Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(150, 30), LayoutOrder = 1, Parent = buttons })
+	local claim = Theme.Button({ Name = "Claim", Text = "Claim your egg", Color = Theme.Colors.Green, Size = UDim2.fromOffset(170, 30), LayoutOrder = 2, Parent = buttons })
+	local close = Theme.Button({ Name = "Close", Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(110, 30), LayoutOrder = 3, Parent = buttons })
+	Notifications.SetPersistentHeader(strip, false)
 
 	local arrows = Instance.new("Folder")
 	arrows.Name = "TutorialArrows"
@@ -229,12 +222,12 @@ function Tutorial.Init()
 
 	refresh = function()
 		strip.Visible = step ~= nil
+		Notifications.SetPersistentHeader(strip, step ~= nil)
 		if not step then
 			return
 		end
 		local index = table.find(STEPS, step)
-		counter.Text = if index then `{index}/{#STEPS}` else ""
-		counter.Visible = index ~= nil
+		counter.Text = if index then `TUTORIAL {index}/{#STEPS}` else "TUTORIAL"
 		local claimed = State.Data.TutorialEggClaimed == true
 		if step == "Done" then
 			label.Text = if claimed then TEXT.Claimed else TEXT.Done

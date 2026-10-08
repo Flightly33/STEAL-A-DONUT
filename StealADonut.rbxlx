@@ -12830,6 +12830,8 @@ UpdateNotes.List = {
 				"Every window has a new look: an orange header covered in studs, like the bricks the whole game is built from, a big red X and a dark green body",
 				"Shop items, pets and trails sit on studs too",
 				"Messages, announcements, events and the tutorial are now big outlined letters on a dark band across the screen",
+				"Only one big message at a time: a new one fades the last one out instead of landing on top of it, and everything else at the top lines up underneath",
+				"The tutorial is now the big message at the top of the screen, right in the middle",
 				"No more emojis anywhere: every icon is drawn by the game itself",
 			} },
 			{ Title = "The New Index", Tag = "NEW Look", Lines = {
@@ -29263,17 +29265,13 @@ end
 -- The pill at the top: Box Rush and the next reset
 --------------------------------------------------------------------------------
 local function buildPill(): (Frame, TextLabel)
-	local gui = Theme.ScreenGui("BoxTimers", 2)
 	local pill = Theme.Band({
 		Name = "BoxPill",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 46),
 		Size = UDim2.fromOffset(520, 36),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(pill)
+	Notifications.Pill(pill, 3)
 	local label = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = pill })
 	return pill, label
 end
@@ -32903,6 +32901,7 @@ local Giant = require(Shared.Giant)
 local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.UI.Theme)
+local Notifications = require(script.Parent.UI.Notifications)
 
 local GiantFX = {}
 
@@ -33099,17 +33098,15 @@ local function buildBossUi()
 	flash = f
 	local gui = Theme.ScreenGui("GiantBoss", 7)
 	bossGui = gui
+	-- (a pill in the column at the top of the screen, under the others: UI/Notifications)
 	local bar = Theme.new("Frame", {
 		Name = "BossBar",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 50),
 		Size = UDim2.fromOffset(470, 58),
 		BackgroundColor3 = rgb(14, 8, 32),
 		BackgroundTransparency = 0.15,
 		Visible = false,
-		Parent = gui,
 	}, { Theme.Corner(14), Theme.Stroke(3, Giant.VIOLET) })
-	Theme.AutoScale(bar)
+	Notifications.Pill(bar, 5)
 	bossBar = bar
 	Theme.Label({ Name = "BossName", Text = "COSMIC DOMER", TextColor3 = rgb(235, 210, 255), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.62, 0, 0, 24), Position = UDim2.fromOffset(14, 4), StrokeThickness = 2.5, Parent = bar })
 	bossTimer = Theme.Label({ Name = "BossTimer", Text = "", Font = Theme.Font, TextColor3 = rgb(255, 230, 150), TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0.38, -14, 0, 20), Position = UDim2.new(0.62, 0, 0, 6), StrokeThickness = 1.8, Parent = bar })
@@ -38045,7 +38042,6 @@ return BaseSize
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -38110,7 +38106,6 @@ end
 
 local function showBanner(visible: boolean)
 	banner.Visible = visible
-	Notifications.SetToastOffset(if visible then 84 else 0)
 end
 
 local function clearBeam()
@@ -38319,32 +38314,9 @@ local function flingSelf(velocity: Vector3?)
 	end)
 end
 
-local function bigText(text: string, color: Color3, duration: number)
-	local band = Theme.Band({
-		Name = "BigText",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.38),
-		Size = UDim2.fromScale(0.9, 0.14),
-		Darkness = 0.5,
-		Parent = gui,
-	})
-	local label = Theme.Label({
-		Text = text,
-		TextColor3 = color,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(0.75, 0.86),
-		StrokeThickness = 5,
-		Parent = band,
-	})
-	local scale = Theme.new("UIScale", { Scale = 0.3, Parent = band })
-	TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-	task.delay(duration, function()
-		TweenService:Create(band, TweenInfo.new(0.4), { BackgroundTransparency = 1 }):Play()
-		TweenService:Create(label, TweenInfo.new(0.4), { TextTransparency = 1 }):Play()
-		task.wait(0.4)
-		band:Destroy()
-	end)
+-- A big pop-up message (it takes over the header at the top of the screen for a moment).
+local function bigText(text: string, color: Color3, duration: number, subtitle: string?)
+	Notifications.Banner(text, color, duration, subtitle, { Big = true })
 end
 
 type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string?, Tier: string?, BoxBack: boolean?, Count: number?, Cost: number? }
@@ -38373,18 +38345,14 @@ local function onChaseEnded(result: ChaseResult)
 			return
 		elseif result.Kind == "Shard" then
 			local count, cost = result.Count or 0, result.Cost or Config.CosmicDonut.ShardCost
-			bigText(`METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), 2.2)
-			if count >= cost then
-				Notifications.Banner("THE COSMIC DONUT", Color3.fromRGB(170, 90, 255), 3, "You have enough shards! Craft it at the Cosmic Forge by the spawn")
-			end
+			bigText(`METEOR SHARD! {count}/{cost}`, Color3.fromRGB(205, 140, 255), if count >= cost then 3.5 else 2.2, if count >= cost then "You have enough shards! Craft THE COSMIC DONUT at the Cosmic Forge by the spawn" else nil)
 			Theme.PlaySound("Deposit")
 			return
 		elseif result.Kind == "Box" then
 			local tier = Boxes.Tier(result.Tier)
 			local mutation = Rarities.Mutation(result.Mutation)
 			local color = if mutation.Order > 0 then mutation.Color else tier.Color
-			bigText("BOX SECURED!", color, 2)
-			Notifications.Banner(Rarities.DisplayName(Boxes.DisplayName(tier.Id, result.Size), result.Mutation, nil), color, 2.5, "In your inventory • hold it and click in your pen")
+			bigText("BOX SECURED!", color, 2.8, `{Rarities.DisplayName(Boxes.DisplayName(tier.Id, result.Size), result.Mutation, nil)} • in your inventory: hold it and click in your pen`)
 			Theme.PlaySound("Deposit")
 			return
 		end
@@ -38393,9 +38361,8 @@ local function onChaseEnded(result: ChaseResult)
 			local rarity = Rarities.Get(donut.Rarity)
 			local mutation = Rarities.Mutation(result.Mutation)
 			local color = if mutation.Order > 0 then mutation.Color else rarity.Color
-			bigText(if result.IsNew then "NEW DONUT!" else "DONUT SECURED!", color, 2)
 			local income = Economy.DonutIncome(donut.Id, 1, result.Mutation, result.Size)
-			Notifications.Banner(Rarities.DisplayName(donut.Name, result.Mutation, result.Size), color, 2.5, `{rarity.Id} • {Format.Money(income)}/s`)
+			bigText(if result.IsNew then "NEW DONUT!" else "DONUT SECURED!", color, 2.8, `{Rarities.DisplayName(donut.Name, result.Mutation, result.Size)} • {rarity.Id} • {Format.Money(income)}/s`)
 		end
 		Theme.PlaySound("Deposit")
 	elseif result.Result == "Caught" then
@@ -38483,16 +38450,14 @@ function Chase.Init()
 		table.insert(edges, edge)
 	end
 
+	-- (under the header, in the column at the top of the screen: UI/Notifications)
 	banner = Theme.Band({
 		Name = "ChaseBanner",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 186),
 		Size = UDim2.fromOffset(940, 82),
 		Darkness = 0.55,
 		Visible = false,
-		Parent = gui,
+		Parent = Notifications.ChaseSlot(),
 	})
-	Theme.AutoScale(banner)
 	bannerTitle = Theme.Label({ Name = "Title", Text = "", Size = UDim2.new(1, -160, 0, 46), Position = UDim2.fromOffset(80, 4), StrokeThickness = 4, Parent = banner })
 	bannerInfo = Theme.Label({ Name = "Info", Text = "", Font = Theme.Font, Size = UDim2.new(1, -160, 0, 26), Position = UDim2.fromOffset(80, 52), StrokeThickness = 2.5, Parent = banner })
 
@@ -39202,17 +39167,16 @@ return Donate
               <string name="Source"><![CDATA[--[[
 	Server event announcement (EventService / Events.luau).
 
-	When an event starts, a big announcement drops in near the top of the screen in the game's
-	message style (outlined letters on a dark band that fades out at its ends, lines of the event's
-	colour along it): "SERVER EVENT", its name in its colour, what it does and how long it lasts,
-	with a little fanfare, pulsing so nobody misses it. After a few seconds it shrinks into a
-	smaller band at the top of the screen with a countdown, which stays until the event ends.
-	Players who join mid-event just get that.
+	When an event starts, a big announcement takes over the header at the top of the screen
+	(UI/Notifications: whatever was there fades out) in the game's message style - outlined letters
+	on a dark band that fades out at its ends, lines of the event's colour along it: "SERVER
+	EVENT", its name in its colour, what it does and how long it lasts, with a little fanfare,
+	pulsing so nobody misses it. After a few seconds it fades away and a smaller band (a pill) with
+	a countdown stays at the top until the event ends. Players who join mid-event just get that.
 
 	Also the countdown to the next Eternal Storm ("ETERNAL STORM IN 1:23:45"): it comes on the real
-	clock (shared/StormClock), so this is worked out right here, the same on every server. It sits
-	in the first free row at the top (under the Luck Event, event and box pills when they're up)
-	and hides while the storm is on (the event pill counts that down).
+	clock (shared/StormClock), so this is worked out right here, the same on every server. It's a
+	pill under the others, and hides while the storm is on (the event pill counts that down).
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -39225,17 +39189,15 @@ local Format = require(Shared.Format)
 local StormClock = require(Shared.StormClock)
 
 local Theme = require(script.Parent.Theme)
+local Notifications = require(script.Parent.Notifications)
 
 local EventBanner = {}
 
-local gui: ScreenGui
-local holder: Frame -- screen-size scaling for the big card (the card has its own pop-in scale)
 local pill: Frame
 local pillLabel: TextLabel
 local card: Frame? = nil
 local countdown: Frame
 local countdownLabel: TextLabel
-local otherPills: { [string]: GuiObject } = {} -- (the Luck Event and box pills, once found)
 
 local STORM_TEXT = Color3.fromRGB(235, 215, 255)
 local STORM_SOON = Color3.fromRGB(255, 140, 225)
@@ -39245,34 +39207,6 @@ local function clockText(seconds: number): string
 	local s = math.max(0, math.floor(seconds))
 	local h, m, sec = s // 3600, (s % 3600) // 60, s % 60
 	return if h > 0 then string.format("%d:%02d:%02d", h, m, sec) else string.format("%d:%02d", m, sec)
-end
-
--- The first row at the top of the screen that nothing else is using.
-local function freeRow(): number
-	local taken: { [number]: boolean } = {}
-	if pill.Visible then
-		taken[pill.Position.Y.Offset] = true
-	end
-	local playerGui = gui.Parent
-	for _, name in { "LuckEvent", "BoxPill" } do
-		local other = otherPills[name]
-		if not other and playerGui then
-			local found = playerGui:FindFirstChild(name, true)
-			if found and found:IsA("GuiObject") then
-				otherPills[name] = found
-				other = found
-			end
-		end
-		if other and other.Visible then
-			taken[other.Position.Y.Offset] = true
-		end
-	end
-	for _, row in { 4, 46, 88, 130 } do
-		if not taken[row] then
-			return row
-		end
-	end
-	return 172
 end
 
 local function updateCountdown()
@@ -39286,7 +39220,6 @@ local function updateCountdown()
 	countdownLabel.Text = `ETERNAL STORM IN {clockText(left)}`
 	-- the last minute: brighter, pulsing
 	countdownLabel.TextColor3 = if left <= 60 then STORM_TEXT:Lerp(STORM_SOON, 0.5 + 0.5 * math.sin(now * 6)) else STORM_TEXT
-	countdown.Position = UDim2.new(0.5, 0, 0, freeRow())
 end
 
 local function endsIn(): number
@@ -39299,16 +39232,10 @@ local function fanfare()
 end
 
 local function showCard(event: Events.Event)
-	if card then
-		card:Destroy()
-	end
 	local frame = Theme.Band({
 		Name = "EventCard",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 0),
-		Size = UDim2.fromScale(1, 1),
+		Size = UDim2.new(1, 0, 0, 164),
 		Darkness = 0.62,
-		Parent = holder,
 	})
 	-- a line of the event's colour along the top and the bottom, fading out like the band
 	local lines = {}
@@ -39321,15 +39248,17 @@ local function showCard(event: Events.Event)
 	Theme.Label({ Name = "EventName", Text = string.upper(Format.Plain(event.Name)), TextColor3 = event.Color:Lerp(Color3.new(1, 1, 1), 0.15), Size = UDim2.new(1, -160, 0, 62), Position = UDim2.fromOffset(80, 38), StrokeThickness = 4.5, Parent = frame })
 	Theme.Label({ Name = "Description", Text = Format.Plain(event.Description), Font = Theme.Font, Size = UDim2.new(1, -200, 0, 30), Position = UDim2.fromOffset(100, 102), StrokeThickness = 2.5, Parent = frame })
 	local timer = Theme.Label({ Name = "Timer", Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(255, 240, 170), Size = UDim2.new(1, -200, 0, 24), Position = UDim2.fromOffset(100, 134), StrokeThickness = 2, Parent = frame })
-	card = frame
-
-	-- Pop in, then pulse
+	-- Pop in, then pulse (it's the header for 7 seconds)
 	local scale = Theme.new("UIScale", { Scale = 0.2, Parent = frame })
 	TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	if not Notifications.ShowHeader(frame, Notifications.Priority.Announcement, 7) then
+		return
+	end
+	card = frame
 	fanfare()
 	local startedAt = os.clock()
 	task.spawn(function()
-		while frame.Parent and os.clock() - startedAt < 7 do
+		while frame.Parent and os.clock() - startedAt < 7.4 do
 			local t = os.clock() - startedAt
 			if t > 0.5 then
 				scale.Scale = 1 + math.sin(t * 6) * 0.03
@@ -39340,51 +39269,28 @@ local function showCard(event: Events.Event)
 			timer.Text = `{Format.Duration(endsIn())} left`
 			task.wait()
 		end
-		if frame.Parent then
-			-- Shrink into the band at the top
-			TweenService:Create(scale, TweenInfo.new(0.35), { Scale = 0.1 }):Play()
-			TweenService:Create(frame, TweenInfo.new(0.35), { Position = UDim2.new(0.5, 0, 0, -60), BackgroundTransparency = 1 }):Play()
-			task.wait(0.35)
-			frame:Destroy()
-			if card == frame then
-				card = nil
-			end
+		if card == frame then
+			card = nil
 		end
 	end)
 end
 
 function EventBanner.Init()
-	gui = Theme.ScreenGui("EventBanner", 25)
-	holder = Theme.new("Frame", {
-		Name = "CardHolder",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 60),
-		Size = UDim2.fromOffset(860, 170),
-		BackgroundTransparency = 1,
-		Parent = gui,
-	})
-	Theme.AutoScale(holder)
 	pill = Theme.Band({
 		Name = "EventPill",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 4),
 		Size = UDim2.fromOffset(560, 38),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(pill)
+	Notifications.Pill(pill, 2)
 	pillLabel = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = pill })
 	countdown = Theme.Band({
 		Name = "StormCountdown",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 4),
 		Size = UDim2.fromOffset(440, 36),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(countdown)
+	Notifications.Pill(countdown, 4)
 	countdownLabel = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextColor3 = STORM_TEXT, Size = UDim2.new(1, -110, 1, -6), Position = UDim2.fromOffset(55, 3), StrokeThickness = 2.5, Parent = countdown })
 	task.spawn(function()
 		while true do
@@ -39408,14 +39314,10 @@ function EventBanner.Init()
 			local id = workspace:GetAttribute("EventId")
 			local event = if type(id) == "string" then Events.ById[id] else nil
 			local left = endsIn()
-			pill.Visible = event ~= nil and left > 0 and card == nil
+			pill.Visible = event ~= nil and left > 0 and not (card and card.Parent)
 			if event and pill.Visible then
 				pillLabel.TextColor3 = event.Color:Lerp(Color3.new(1, 1, 1), 0.35)
 				pillLabel.Text = `{string.upper(Format.Plain(event.Name))}  •  {Format.Duration(left)}`
-				-- Sit under the Luck Event pill when both are running
-				local luckEndsAt = workspace:GetAttribute("LuckEndsAt")
-				local luck = type(luckEndsAt) == "number" and luckEndsAt > workspace:GetServerTimeNow()
-				pill.Position = UDim2.new(0.5, 0, 0, if luck then 46 else 4)
 			end
 			task.wait(0.5)
 		end
@@ -39758,13 +39660,13 @@ local function buildAreaInfo(gui: ScreenGui)
 			return
 		end
 		if areaId == 0 then
-			Notifications.Banner("LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
+			Notifications.Banner("LOBBY", Color3.fromRGB(110, 200, 255), 1.5, nil, { Priority = Notifications.Priority.News })
 		else
 			-- Walked into a biome: its name and the Speed you need to get away from its Domer
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
 			local need = if recommended > 0 then `{Format.Number(recommended)} Speed to escape` else "Any speed escapes!"
-			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`)
+			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`, { Priority = Notifications.Priority.News })
 		end
 	end)
 end
@@ -39773,14 +39675,11 @@ end
 local function buildLuck(gui: ScreenGui)
 	local pill = Theme.Band({
 		Name = "LuckEvent",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 4),
 		Size = UDim2.fromOffset(600, 38),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(pill)
+	Notifications.Pill(pill, 1)
 	local label = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(140, 255, 150), Size = UDim2.new(1, -250, 1, -6), Position = UDim2.fromOffset(60, 3), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2.5, Parent = pill })
 	local extend = Theme.Button({ Text = `+10 MIN R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Yellow, Size = UDim2.fromOffset(124, 30), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -60, 0.5, 0), Parent = pill })
 	extend.Activated:Connect(function()
@@ -42690,14 +42589,19 @@ return Modal
             <Properties>
               <string name="Name">Notifications</string>
               <string name="Source"><![CDATA[--[[
-	Notifications: small toasts and big server-wide announcements, all in the game's message style:
-	big white (or coloured) outlined letters on a dark band that fades out at its ends - never a
-	box, never an emoji (Format.Plain takes them out of anything the server sends). Top of the
-	screen, from the top:
-	  y 4    Luck Event pill (HUD) and the server event pill under it (EventBanner, y 46)
-	  y 92   big banners (area names, announcements)
-	  y 186  chase banner (Chase) - toasts slide below it while it's showing (SetToastOffset)
-	  y 186+ toasts
+	Notifications: everything that tells you something at the top of the screen, in ONE column down
+	its middle, so nothing ever lands on top of anything else. From the top:
+	  * pills (Notifications.Pill): small lines that stay up a while - the Luck Event, the server
+	    event, the box timer, the countdown to the next Eternal Storm, Cosmic Domer's boss bar
+	  * the header: ONE big message at a time (Notifications.Banner, ShowHeader): a biome's name as
+	    you walk in, announcements, a server event starting, "BOX SECURED!"... A new one fades out
+	    whatever was there instead of landing on top of it. The tutorial is the header for as long
+	    as it runs (SetPersistentHeader): biome names wait their turn, and anything more important
+	    takes over for a few seconds, then the tutorial fades back in
+	  * the chase banner (Chase: ChaseSlot)
+	  * toasts (Notifications.Toast), newest first
+	All of it is big outlined letters on dark bands that fade out at their ends - never a box, never
+	an emoji (Format.Plain takes them out of anything the server sends).
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -42710,6 +42614,13 @@ local Format = require(Shared.Format)
 local Theme = require(script.Parent.Theme)
 
 local Notifications = {}
+
+-- How important a header is: a less important one never replaces a more important one.
+Notifications.Priority = {
+	News = 1, -- a biome's name as you walk in
+	Tutorial = 2,
+	Announcement = 3, -- everything else
+}
 
 -- The text's colour for each kind of toast
 local KIND_COLORS = {
@@ -42728,20 +42639,159 @@ local KIND_SOUNDS = {
 	event = "Announce",
 }
 
-local toastHolder: Frame
-local bannerHolder: Frame
-local toastCounter = 0
-local TOAST_Y = 186
+local WIDTH = 960 -- the column (before the screen's UI scale)
+local FADE = 0.3
 
--- Push the toasts down while something else (the chase banner) uses that spot.
-function Notifications.SetToastOffset(extra: number)
-	TweenService:Create(toastHolder, TweenInfo.new(0.25), { Position = UDim2.new(0.5, 0, 0, TOAST_Y + extra) }):Play()
+type Header = { Group: CanvasGroup, Priority: number, Height: number }
+
+local column: Frame
+local pills: Frame
+local headerSlot: Frame
+local chaseSlot: Frame
+local toastHolder: Frame
+local toastCounter = 0
+local current: Header? = nil -- the header showing now (not the tutorial)
+local persistent: Header? = nil -- the tutorial's
+local persistentShown = false
+local token = 0
+
+--------------------------------------------------------------------------------
+-- The header
+--------------------------------------------------------------------------------
+-- The slot is as tall as what's in it (nothing: it folds away, and everything under it moves up).
+local function resize()
+	local height = 0
+	if current then
+		height = current.Height
+	elseif persistent and persistentShown then
+		height = persistent.Height
+	end
+	headerSlot.Size = UDim2.new(1, 0, 0, height)
+	headerSlot.Visible = height > 0
+end
+
+local function fade(header: Header, visible: boolean, after: (() -> ())?)
+	local group = header.Group
+	if visible then
+		group.Visible = true
+	end
+	local tween = TweenService:Create(group, TweenInfo.new(FADE, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { GroupTransparency = if visible then 0 else 1 })
+	tween:Play()
+	if not visible or after then
+		task.delay(FADE, function()
+			if not visible and group.GroupTransparency >= 0.99 then
+				group.Visible = false
+			end
+			if after then
+				after()
+			end
+		end)
+	end
+end
+
+local function wrap(content: GuiObject, priority: number, name: string): Header
+	local height = content.Size.Y.Offset
+	local group = Theme.new("CanvasGroup", {
+		Name = name,
+		BackgroundTransparency = 1,
+		GroupTransparency = 1,
+		Size = UDim2.new(1, 0, 0, height),
+		Visible = false,
+		Parent = headerSlot,
+	})
+	content.AnchorPoint = Vector2.new(0.5, 0)
+	content.Position = UDim2.fromScale(0.5, 0)
+	content.Parent = group
+	return { Group = group, Priority = priority, Height = height }
+end
+
+-- Show `content` (a full-width frame, its height in pixels) as the header for `duration` seconds.
+-- Whatever was there fades out first (the tutorial fades back in afterwards). Something less
+-- important than what's showing is dropped (returns false).
+function Notifications.ShowHeader(content: GuiObject, priority: number, duration: number): boolean
+	local blocked = (current and current.Priority > priority) or (persistent and persistentShown and persistent.Priority > priority)
+	if blocked then
+		content:Destroy()
+		return false
+	end
+	local old = current
+	if old then
+		fade(old, false, function()
+			old.Group:Destroy()
+		end)
+	end
+	if persistent and persistentShown then
+		fade(persistent, false)
+	end
+	local header = wrap(content, priority, "Header")
+	current = header
+	resize()
+	fade(header, true)
+	token += 1
+	local myToken = token
+	task.delay(duration, function()
+		if current == header and token == myToken then
+			current = nil
+			fade(header, false, function()
+				header.Group:Destroy()
+				resize()
+			end)
+			if persistent and persistentShown then
+				fade(persistent, true)
+			end
+		end
+	end)
+	return true
+end
+
+-- The tutorial: `content` is the header whenever `shown` (under anything more important that
+-- comes and goes). Always the same content: it's kept between steps.
+function Notifications.SetPersistentHeader(content: GuiObject, shown: boolean)
+	if not persistent or persistent.Group ~= content.Parent then
+		if persistent then
+			persistent.Group:Destroy()
+		end
+		persistent = wrap(content, Notifications.Priority.Tutorial, "Persistent")
+	end
+	local header = persistent :: Header
+	if shown == persistentShown then
+		return
+	end
+	persistentShown = shown
+	if shown then
+		if not current then
+			fade(header, true)
+		end
+		resize()
+	else
+		-- (the slot folds away once it has faded out)
+		fade(header, false, resize)
+	end
+end
+
+-- Is something other than the tutorial in the header right now? (tests)
+function Notifications.HeaderBusy(): boolean
+	return current ~= nil
+end
+
+--------------------------------------------------------------------------------
+-- Pills, the chase banner and toasts
+--------------------------------------------------------------------------------
+-- Put a small pill (a frame with its own fixed size) in the stack at the top. `order`: where in it.
+function Notifications.Pill(pill: GuiObject, order: number)
+	pill.LayoutOrder = order
+	pill.Parent = pills
+end
+
+-- Where the chase banner goes (under the header).
+function Notifications.ChaseSlot(): Frame
+	return chaseSlot
 end
 
 function Notifications.Toast(text: string, kind: string?)
 	local color = KIND_COLORS[kind or "info"] or KIND_COLORS.info
 	toastCounter -= 1 -- newest first
-	local toast = Theme.Band({ Name = "Toast", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = toastCounter, Darkness = 0.62, Parent = toastHolder })
+	local toast = Theme.Band({ Name = "Toast", Size = UDim2.fromOffset(620, 36), LayoutOrder = toastCounter, Darkness = 0.62, Parent = toastHolder })
 	local label = Theme.Label({ Name = "Text", Text = Format.Plain(text), Font = Theme.Font, TextColor3 = color, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = toast })
 	-- A soft chime for each kind (skipped if another sound just played, like the steal jingle)
 	if Theme.SinceSound() > 0.35 then
@@ -42772,62 +42822,56 @@ function Notifications.Toast(text: string, kind: string?)
 	end)
 end
 
--- Big banner across the top (Secret donuts, area names...).
-function Notifications.Banner(text: string, color: Color3, duration: number?, subtitle: string?)
-	for _, child in bannerHolder:GetChildren() do
-		if child:IsA("Frame") then
-			child:Destroy()
-		end
-	end
-	local banner = Theme.Band({
-		Name = "Banner",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, -120),
-		Size = UDim2.new(1, 0, 0, if subtitle then 88 else 62),
-		Darkness = 0.55,
-		Parent = bannerHolder,
-	})
-	local title = Theme.Label({ Name = "Title", Text = Format.Plain(text), TextColor3 = color, Size = UDim2.new(1, -160, 0, 50), Position = UDim2.fromOffset(80, 6), StrokeThickness = 3.5, Parent = banner })
-	local sub
+-- A big message in the header: `text` big in `color`, `subtitle` under it. Big = even bigger
+-- letters ("BOX SECURED!"). Priority: Notifications.Priority (Announcement unless given).
+export type BannerOptions = { Priority: number?, Big: boolean? }
+function Notifications.Banner(text: string, color: Color3, duration: number?, subtitle: string?, options: BannerOptions?)
+	local o: BannerOptions = options or {}
+	local titleHeight = if o.Big then 66 else 50
+	local height = titleHeight + (if subtitle then 34 else 0) + 14
+	local banner = Theme.Band({ Name = "Banner", Size = UDim2.new(1, 0, 0, height), Darkness = 0.55 })
+	local title = Theme.Label({ Name = "Title", Text = Format.Plain(text), TextColor3 = color, Size = UDim2.new(1, -180, 0, titleHeight), Position = UDim2.fromOffset(90, 6), StrokeThickness = if o.Big then 5 else 3.5, Parent = banner })
 	if subtitle then
-		sub = Theme.Label({ Name = "Subtitle", Text = Format.Plain(subtitle), Font = Theme.Font, Size = UDim2.new(1, -160, 0, 26), Position = UDim2.fromOffset(80, 56), TextColor3 = Theme.Colors.White, StrokeThickness = 2.5, Parent = banner })
+		Theme.Label({ Name = "Subtitle", Text = Format.Plain(subtitle), Font = Theme.Font, Size = UDim2.new(1, -180, 0, 28), Position = UDim2.fromOffset(90, titleHeight + 8), TextColor3 = Theme.Colors.White, StrokeThickness = 2.5, Parent = banner })
 	end
-	TweenService:Create(banner, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 0) }):Play()
-	task.delay(duration or 3, function()
-		if banner.Parent then
-			TweenService:Create(banner, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
-			TweenService:Create(title, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-			if sub then
-				TweenService:Create(sub, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-			end
-			task.wait(0.5)
-			banner:Destroy()
-		end
-	end)
+	if o.Big then
+		-- (it pops in)
+		local scale = Theme.new("UIScale", { Scale = 0.6, Parent = title })
+		TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+	Notifications.ShowHeader(banner, o.Priority or Notifications.Priority.Announcement, duration or 3)
 end
 
 function Notifications.Init()
 	local gui = Theme.ScreenGui("Notifications", 20)
-	toastHolder = Theme.new("Frame", {
-		Name = "Toasts",
+	column = Theme.new("Frame", {
+		Name = "Column",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, TOAST_Y),
-		Size = UDim2.fromOffset(620, 130),
+		Position = UDim2.new(0.5, 0, 0, 4),
+		Size = UDim2.fromOffset(WIDTH, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
-	Theme.AutoScale(toastHolder)
-	bannerHolder = Theme.new("Frame", {
-		Name = "Banners",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 92),
-		Size = UDim2.fromOffset(860, 92),
-		BackgroundTransparency = 1,
-		Parent = gui,
-	})
-	Theme.AutoScale(bannerHolder)
+	Theme.AutoScale(column)
+	local function slot(name: string, order: number, padding: number): Frame
+		return Theme.new("Frame", {
+			Name = name,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = order,
+			Parent = column,
+		}, {
+			Theme.new("UIListLayout", { Padding = UDim.new(0, padding), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+		})
+	end
+	pills = slot("Pills", 1, 4)
+	headerSlot = Theme.new("Frame", { Name = "HeaderSlot", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), Visible = false, LayoutOrder = 2, Parent = column })
+	chaseSlot = slot("ChaseSlot", 3, 0)
+	toastHolder = slot("Toasts", 4, 6)
 
 	Remotes.Event("Notify").OnClientEvent:Connect(function(text: string, kind: string?)
 		Notifications.Toast(text, kind)
@@ -45841,8 +45885,10 @@ return Trails
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[--[[
-	Tutorial: a guided first game. A line of big outlined text at the top of the screen (on a dark
-	band that fades out at its ends) says what to do next, with a Skip Tutorial button beside it, and a red arrow floating over your head points the
+	Tutorial: a guided first game. While it runs it's the header at the top of the screen
+	(UI/Notifications): "TUTORIAL 3/7" and then what to do next in big outlined letters on a dark
+	band that fades out at its ends, with a Skip Tutorial button under it. Biome names don't
+	interrupt it; announcements fade it out for a few seconds and it comes back. And and a red arrow floating over your head points the
 	way (a second red arrow bobs over the target):
 	  1. follow the arrow to the first biome
 	  2. steal a donut box (walk up to one next to Domer and press E)
@@ -45865,6 +45911,7 @@ local Config = require(Shared.Config)
 local Layout = require(Shared.Layout)
 local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.Theme)
+local Notifications = require(script.Parent.Notifications)
 local UpdateNotes = require(script.Parent.UpdateNotes)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
@@ -46034,32 +46081,22 @@ end
 -- Init
 --------------------------------------------------------------------------------
 function Tutorial.Init()
-	-- The line of text at the top, with Skip / Claim beside it
-	local gui = Theme.ScreenGui("Tutorial", 6)
+	-- The header: what to do, big, with Skip / Claim under it
 	local strip = Theme.Band({
 		Name = "Strip",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 48),
-		Size = UDim2.fromOffset(0, 54),
-		AutomaticSize = Enum.AutomaticSize.X,
-		Darkness = 0.6,
+		Size = UDim2.new(1, 0, 0, 124),
+		Darkness = 0.62,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, VerticalAlignment = Enum.VerticalAlignment.Center, Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder, Parent = strip })
-	Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 90), PaddingRight = UDim.new(0, 90), Parent = strip })
-	Theme.AutoScale(strip)
-	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 24, TextColor3 = Color3.fromRGB(255, 120, 120), AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), StrokeThickness = 2.5, LayoutOrder = 1, Parent = strip })
-	local label = Theme.Label({ Name = "Text", Text = "", Font = Theme.Font, TextScaled = false, TextSize = 30, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromOffset(0, 40), StrokeThickness = 3, LayoutOrder = 2, Parent = strip })
-	local skip = Theme.Button({ Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(130, 34), Parent = strip })
-	skip.Name = "Skip"
-	skip.LayoutOrder = 3
-	local claim = Theme.Button({ Text = "Claim", Color = Theme.Colors.Green, Size = UDim2.fromOffset(110, 34), Parent = strip })
-	claim.Name = "Claim"
-	claim.LayoutOrder = 4
-	local close = Theme.Button({ Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(90, 34), Parent = strip })
-	close.Name = "Close"
-	close.LayoutOrder = 5
+	local counter = Theme.Label({ Name = "Counter", Text = "", Font = Theme.Font, TextColor3 = Theme.Colors.Gold, Size = UDim2.new(1, -180, 0, 24), Position = UDim2.fromOffset(90, 6), StrokeThickness = 2.5, Parent = strip })
+	local label = Theme.Label({ Name = "Text", Text = "", Size = UDim2.new(1, -180, 0, 50), Position = UDim2.fromOffset(90, 32), StrokeThickness = 4, Parent = strip })
+	local buttons = Theme.new("Frame", { Name = "Buttons", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 30), Position = UDim2.fromOffset(0, 88), Parent = strip }, {
+		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, HorizontalAlignment = Enum.HorizontalAlignment.Center, Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	})
+	local skip = Theme.Button({ Name = "Skip", Text = "Skip Tutorial", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(150, 30), LayoutOrder = 1, Parent = buttons })
+	local claim = Theme.Button({ Name = "Claim", Text = "Claim your egg", Color = Theme.Colors.Green, Size = UDim2.fromOffset(170, 30), LayoutOrder = 2, Parent = buttons })
+	local close = Theme.Button({ Name = "Close", Text = "Close", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(110, 30), LayoutOrder = 3, Parent = buttons })
+	Notifications.SetPersistentHeader(strip, false)
 
 	local arrows = Instance.new("Folder")
 	arrows.Name = "TutorialArrows"
@@ -46071,12 +46108,12 @@ function Tutorial.Init()
 
 	refresh = function()
 		strip.Visible = step ~= nil
+		Notifications.SetPersistentHeader(strip, step ~= nil)
 		if not step then
 			return
 		end
 		local index = table.find(STEPS, step)
-		counter.Text = if index then `{index}/{#STEPS}` else ""
-		counter.Visible = index ~= nil
+		counter.Text = if index then `TUTORIAL {index}/{#STEPS}` else "TUTORIAL"
 		local claimed = State.Data.TutorialEggClaimed == true
 		if step == "Done" then
 			label.Text = if claimed then TEXT.Claimed else TEXT.Done

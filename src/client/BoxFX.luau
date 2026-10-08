@@ -431,17 +431,13 @@ end
 -- The pill at the top: Box Rush and the next reset
 --------------------------------------------------------------------------------
 local function buildPill(): (Frame, TextLabel)
-	local gui = Theme.ScreenGui("BoxTimers", 2)
 	local pill = Theme.Band({
 		Name = "BoxPill",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 46),
 		Size = UDim2.fromOffset(520, 36),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(pill)
+	Notifications.Pill(pill, 3)
 	local label = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = pill })
 	return pill, label
 end

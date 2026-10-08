@@ -1,12 +1,17 @@
 --[[
-	Notifications: small toasts and big server-wide announcements, all in the game's message style:
-	big white (or coloured) outlined letters on a dark band that fades out at its ends - never a
-	box, never an emoji (Format.Plain takes them out of anything the server sends). Top of the
-	screen, from the top:
-	  y 4    Luck Event pill (HUD) and the server event pill under it (EventBanner, y 46)
-	  y 92   big banners (area names, announcements)
-	  y 186  chase banner (Chase) - toasts slide below it while it's showing (SetToastOffset)
-	  y 186+ toasts
+	Notifications: everything that tells you something at the top of the screen, in ONE column down
+	its middle, so nothing ever lands on top of anything else. From the top:
+	  * pills (Notifications.Pill): small lines that stay up a while - the Luck Event, the server
+	    event, the box timer, the countdown to the next Eternal Storm, Cosmic Domer's boss bar
+	  * the header: ONE big message at a time (Notifications.Banner, ShowHeader): a biome's name as
+	    you walk in, announcements, a server event starting, "BOX SECURED!"... A new one fades out
+	    whatever was there instead of landing on top of it. The tutorial is the header for as long
+	    as it runs (SetPersistentHeader): biome names wait their turn, and anything more important
+	    takes over for a few seconds, then the tutorial fades back in
+	  * the chase banner (Chase: ChaseSlot)
+	  * toasts (Notifications.Toast), newest first
+	All of it is big outlined letters on dark bands that fade out at their ends - never a box, never
+	an emoji (Format.Plain takes them out of anything the server sends).
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -19,6 +24,13 @@ local Format = require(Shared.Format)
 local Theme = require(script.Parent.Theme)
 
 local Notifications = {}
+
+-- How important a header is: a less important one never replaces a more important one.
+Notifications.Priority = {
+	News = 1, -- a biome's name as you walk in
+	Tutorial = 2,
+	Announcement = 3, -- everything else
+}
 
 -- The text's colour for each kind of toast
 local KIND_COLORS = {
@@ -37,20 +49,159 @@ local KIND_SOUNDS = {
 	event = "Announce",
 }
 
-local toastHolder: Frame
-local bannerHolder: Frame
-local toastCounter = 0
-local TOAST_Y = 186
+local WIDTH = 960 -- the column (before the screen's UI scale)
+local FADE = 0.3
 
--- Push the toasts down while something else (the chase banner) uses that spot.
-function Notifications.SetToastOffset(extra: number)
-	TweenService:Create(toastHolder, TweenInfo.new(0.25), { Position = UDim2.new(0.5, 0, 0, TOAST_Y + extra) }):Play()
+type Header = { Group: CanvasGroup, Priority: number, Height: number }
+
+local column: Frame
+local pills: Frame
+local headerSlot: Frame
+local chaseSlot: Frame
+local toastHolder: Frame
+local toastCounter = 0
+local current: Header? = nil -- the header showing now (not the tutorial)
+local persistent: Header? = nil -- the tutorial's
+local persistentShown = false
+local token = 0
+
+--------------------------------------------------------------------------------
+-- The header
+--------------------------------------------------------------------------------
+-- The slot is as tall as what's in it (nothing: it folds away, and everything under it moves up).
+local function resize()
+	local height = 0
+	if current then
+		height = current.Height
+	elseif persistent and persistentShown then
+		height = persistent.Height
+	end
+	headerSlot.Size = UDim2.new(1, 0, 0, height)
+	headerSlot.Visible = height > 0
+end
+
+local function fade(header: Header, visible: boolean, after: (() -> ())?)
+	local group = header.Group
+	if visible then
+		group.Visible = true
+	end
+	local tween = TweenService:Create(group, TweenInfo.new(FADE, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), { GroupTransparency = if visible then 0 else 1 })
+	tween:Play()
+	if not visible or after then
+		task.delay(FADE, function()
+			if not visible and group.GroupTransparency >= 0.99 then
+				group.Visible = false
+			end
+			if after then
+				after()
+			end
+		end)
+	end
+end
+
+local function wrap(content: GuiObject, priority: number, name: string): Header
+	local height = content.Size.Y.Offset
+	local group = Theme.new("CanvasGroup", {
+		Name = name,
+		BackgroundTransparency = 1,
+		GroupTransparency = 1,
+		Size = UDim2.new(1, 0, 0, height),
+		Visible = false,
+		Parent = headerSlot,
+	})
+	content.AnchorPoint = Vector2.new(0.5, 0)
+	content.Position = UDim2.fromScale(0.5, 0)
+	content.Parent = group
+	return { Group = group, Priority = priority, Height = height }
+end
+
+-- Show `content` (a full-width frame, its height in pixels) as the header for `duration` seconds.
+-- Whatever was there fades out first (the tutorial fades back in afterwards). Something less
+-- important than what's showing is dropped (returns false).
+function Notifications.ShowHeader(content: GuiObject, priority: number, duration: number): boolean
+	local blocked = (current and current.Priority > priority) or (persistent and persistentShown and persistent.Priority > priority)
+	if blocked then
+		content:Destroy()
+		return false
+	end
+	local old = current
+	if old then
+		fade(old, false, function()
+			old.Group:Destroy()
+		end)
+	end
+	if persistent and persistentShown then
+		fade(persistent, false)
+	end
+	local header = wrap(content, priority, "Header")
+	current = header
+	resize()
+	fade(header, true)
+	token += 1
+	local myToken = token
+	task.delay(duration, function()
+		if current == header and token == myToken then
+			current = nil
+			fade(header, false, function()
+				header.Group:Destroy()
+				resize()
+			end)
+			if persistent and persistentShown then
+				fade(persistent, true)
+			end
+		end
+	end)
+	return true
+end
+
+-- The tutorial: `content` is the header whenever `shown` (under anything more important that
+-- comes and goes). Always the same content: it's kept between steps.
+function Notifications.SetPersistentHeader(content: GuiObject, shown: boolean)
+	if not persistent or persistent.Group ~= content.Parent then
+		if persistent then
+			persistent.Group:Destroy()
+		end
+		persistent = wrap(content, Notifications.Priority.Tutorial, "Persistent")
+	end
+	local header = persistent :: Header
+	if shown == persistentShown then
+		return
+	end
+	persistentShown = shown
+	if shown then
+		if not current then
+			fade(header, true)
+		end
+		resize()
+	else
+		-- (the slot folds away once it has faded out)
+		fade(header, false, resize)
+	end
+end
+
+-- Is something other than the tutorial in the header right now? (tests)
+function Notifications.HeaderBusy(): boolean
+	return current ~= nil
+end
+
+--------------------------------------------------------------------------------
+-- Pills, the chase banner and toasts
+--------------------------------------------------------------------------------
+-- Put a small pill (a frame with its own fixed size) in the stack at the top. `order`: where in it.
+function Notifications.Pill(pill: GuiObject, order: number)
+	pill.LayoutOrder = order
+	pill.Parent = pills
+end
+
+-- Where the chase banner goes (under the header).
+function Notifications.ChaseSlot(): Frame
+	return chaseSlot
 end
 
 function Notifications.Toast(text: string, kind: string?)
 	local color = KIND_COLORS[kind or "info"] or KIND_COLORS.info
 	toastCounter -= 1 -- newest first
-	local toast = Theme.Band({ Name = "Toast", Size = UDim2.new(1, 0, 0, 36), LayoutOrder = toastCounter, Darkness = 0.62, Parent = toastHolder })
+	local toast = Theme.Band({ Name = "Toast", Size = UDim2.fromOffset(620, 36), LayoutOrder = toastCounter, Darkness = 0.62, Parent = toastHolder })
 	local label = Theme.Label({ Name = "Text", Text = Format.Plain(text), Font = Theme.Font, TextColor3 = color, Size = UDim2.new(1, -120, 1, -6), Position = UDim2.fromOffset(60, 3), StrokeThickness = 2.5, Parent = toast })
 	-- A soft chime for each kind (skipped if another sound just played, like the steal jingle)
 	if Theme.SinceSound() > 0.35 then
@@ -81,62 +232,56 @@ function Notifications.Toast(text: string, kind: string?)
 	end)
 end
 
--- Big banner across the top (Secret donuts, area names...).
-function Notifications.Banner(text: string, color: Color3, duration: number?, subtitle: string?)
-	for _, child in bannerHolder:GetChildren() do
-		if child:IsA("Frame") then
-			child:Destroy()
-		end
-	end
-	local banner = Theme.Band({
-		Name = "Banner",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, -120),
-		Size = UDim2.new(1, 0, 0, if subtitle then 88 else 62),
-		Darkness = 0.55,
-		Parent = bannerHolder,
-	})
-	local title = Theme.Label({ Name = "Title", Text = Format.Plain(text), TextColor3 = color, Size = UDim2.new(1, -160, 0, 50), Position = UDim2.fromOffset(80, 6), StrokeThickness = 3.5, Parent = banner })
-	local sub
+-- A big message in the header: `text` big in `color`, `subtitle` under it. Big = even bigger
+-- letters ("BOX SECURED!"). Priority: Notifications.Priority (Announcement unless given).
+export type BannerOptions = { Priority: number?, Big: boolean? }
+function Notifications.Banner(text: string, color: Color3, duration: number?, subtitle: string?, options: BannerOptions?)
+	local o: BannerOptions = options or {}
+	local titleHeight = if o.Big then 66 else 50
+	local height = titleHeight + (if subtitle then 34 else 0) + 14
+	local banner = Theme.Band({ Name = "Banner", Size = UDim2.new(1, 0, 0, height), Darkness = 0.55 })
+	local title = Theme.Label({ Name = "Title", Text = Format.Plain(text), TextColor3 = color, Size = UDim2.new(1, -180, 0, titleHeight), Position = UDim2.fromOffset(90, 6), StrokeThickness = if o.Big then 5 else 3.5, Parent = banner })
 	if subtitle then
-		sub = Theme.Label({ Name = "Subtitle", Text = Format.Plain(subtitle), Font = Theme.Font, Size = UDim2.new(1, -160, 0, 26), Position = UDim2.fromOffset(80, 56), TextColor3 = Theme.Colors.White, StrokeThickness = 2.5, Parent = banner })
+		Theme.Label({ Name = "Subtitle", Text = Format.Plain(subtitle), Font = Theme.Font, Size = UDim2.new(1, -180, 0, 28), Position = UDim2.fromOffset(90, titleHeight + 8), TextColor3 = Theme.Colors.White, StrokeThickness = 2.5, Parent = banner })
 	end
-	TweenService:Create(banner, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Position = UDim2.new(0.5, 0, 0, 0) }):Play()
-	task.delay(duration or 3, function()
-		if banner.Parent then
-			TweenService:Create(banner, TweenInfo.new(0.5), { BackgroundTransparency = 1 }):Play()
-			TweenService:Create(title, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-			if sub then
-				TweenService:Create(sub, TweenInfo.new(0.5), { TextTransparency = 1 }):Play()
-			end
-			task.wait(0.5)
-			banner:Destroy()
-		end
-	end)
+	if o.Big then
+		-- (it pops in)
+		local scale = Theme.new("UIScale", { Scale = 0.6, Parent = title })
+		TweenService:Create(scale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+	end
+	Notifications.ShowHeader(banner, o.Priority or Notifications.Priority.Announcement, duration or 3)
 end
 
 function Notifications.Init()
 	local gui = Theme.ScreenGui("Notifications", 20)
-	toastHolder = Theme.new("Frame", {
-		Name = "Toasts",
+	column = Theme.new("Frame", {
+		Name = "Column",
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, TOAST_Y),
-		Size = UDim2.fromOffset(620, 130),
+		Position = UDim2.new(0.5, 0, 0, 4),
+		Size = UDim2.fromOffset(WIDTH, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 6), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
-	Theme.AutoScale(toastHolder)
-	bannerHolder = Theme.new("Frame", {
-		Name = "Banners",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 92),
-		Size = UDim2.fromOffset(860, 92),
-		BackgroundTransparency = 1,
-		Parent = gui,
-	})
-	Theme.AutoScale(bannerHolder)
+	Theme.AutoScale(column)
+	local function slot(name: string, order: number, padding: number): Frame
+		return Theme.new("Frame", {
+			Name = name,
+			BackgroundTransparency = 1,
+			Size = UDim2.new(1, 0, 0, 0),
+			AutomaticSize = Enum.AutomaticSize.Y,
+			LayoutOrder = order,
+			Parent = column,
+		}, {
+			Theme.new("UIListLayout", { Padding = UDim.new(0, padding), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+		})
+	end
+	pills = slot("Pills", 1, 4)
+	headerSlot = Theme.new("Frame", { Name = "HeaderSlot", BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 0), Visible = false, LayoutOrder = 2, Parent = column })
+	chaseSlot = slot("ChaseSlot", 3, 0)
+	toastHolder = slot("Toasts", 4, 6)
 
 	Remotes.Event("Notify").OnClientEvent:Connect(function(text: string, kind: string?)
 		Notifications.Toast(text, kind)

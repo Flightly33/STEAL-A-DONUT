@@ -327,13 +327,13 @@ local function buildAreaInfo(gui: ScreenGui)
 			return
 		end
 		if areaId == 0 then
-			Notifications.Banner("LOBBY", Color3.fromRGB(110, 200, 255), 1.5)
+			Notifications.Banner("LOBBY", Color3.fromRGB(110, 200, 255), 1.5, nil, { Priority = Notifications.Priority.News })
 		else
 			-- Walked into a biome: its name and the Speed you need to get away from its Domer
 			local area = Areas.List[areaId]
 			local recommended = Economy.RecommendedSpeed(areaId)
 			local need = if recommended > 0 then `{Format.Number(recommended)} Speed to escape` else "Any speed escapes!"
-			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`)
+			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`, { Priority = Notifications.Priority.News })
 		end
 	end)
 end
@@ -342,14 +342,11 @@ end
 local function buildLuck(gui: ScreenGui)
 	local pill = Theme.Band({
 		Name = "LuckEvent",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 4),
 		Size = UDim2.fromOffset(600, 38),
 		Darkness = 0.6,
 		Visible = false,
-		Parent = gui,
 	})
-	Theme.AutoScale(pill)
+	Notifications.Pill(pill, 1)
 	local label = Theme.Label({ Text = "", Font = Theme.Font, TextColor3 = Color3.fromRGB(140, 255, 150), Size = UDim2.new(1, -250, 1, -6), Position = UDim2.fromOffset(60, 3), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2.5, Parent = pill })
 	local extend = Theme.Button({ Text = `+10 MIN R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Yellow, Size = UDim2.fromOffset(124, 30), AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -60, 0.5, 0), Parent = pill })
 	extend.Activated:Connect(function()

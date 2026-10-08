@@ -35,6 +35,7 @@ local Giant = require(Shared.Giant)
 local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.UI.Theme)
+local Notifications = require(script.Parent.UI.Notifications)
 
 local GiantFX = {}
 
@@ -231,17 +232,15 @@ local function buildBossUi()
 	flash = f
 	local gui = Theme.ScreenGui("GiantBoss", 7)
 	bossGui = gui
+	-- (a pill in the column at the top of the screen, under the others: UI/Notifications)
 	local bar = Theme.new("Frame", {
 		Name = "BossBar",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 50),
 		Size = UDim2.fromOffset(470, 58),
 		BackgroundColor3 = rgb(14, 8, 32),
 		BackgroundTransparency = 0.15,
 		Visible = false,
-		Parent = gui,
 	}, { Theme.Corner(14), Theme.Stroke(3, Giant.VIOLET) })
-	Theme.AutoScale(bar)
+	Notifications.Pill(bar, 5)
 	bossBar = bar
 	Theme.Label({ Name = "BossName", Text = "COSMIC DOMER", TextColor3 = rgb(235, 210, 255), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(0.62, 0, 0, 24), Position = UDim2.fromOffset(14, 4), StrokeThickness = 2.5, Parent = bar })
 	bossTimer = Theme.Label({ Name = "BossTimer", Text = "", Font = Theme.Font, TextColor3 = rgb(255, 230, 150), TextXAlignment = Enum.TextXAlignment.Right, Size = UDim2.new(0.38, -14, 0, 20), Position = UDim2.new(0.62, 0, 0, 6), StrokeThickness = 1.8, Parent = bar })
