@@ -71,6 +71,7 @@ UpdateNotes.List = {
 				"A yellow + right next to your money takes you straight to the money boosts",
 				"New buttons on both sides of the screen: big colourful icons with their names under them",
 				"Every icon is chunkier now, with a thick outline and a 3D edge",
+				"A new loading screen: the bandit donut in 3D, built from bricks, with little donuts in every rarity colour floating round it",
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
 				"Trails moved into the Shop, right next to Skins: press Skins and pick the Trails tab",
 			} },

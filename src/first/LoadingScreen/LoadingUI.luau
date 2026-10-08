@@ -1,8 +1,10 @@
 --[[
 	LoadingUI: the loading screen you see while the game loads in.
 
-	Dark stage with spotlights from above, the Steal a Donut logo (a masked donut in front of a
-	slowly turning wheel of sprinkles, sparkles, the title), "Loading... 42%", a row of nine donuts in
+	A purple stage with spotlights from above and, in 3D, the bandit donut: a brick donut in a mask
+	and a crown with six little donuts in the rarity colours and sprinkles floating round it (made
+	in Blender: art/loading_screen, built here from LoadingScene in a ViewportFrame; the camera
+	sways slowly from side to side). Under it the title, "Loading... 42%", a row of nine donuts in
 	the rarity colours that light up one by one as things load, and a tip at the bottom.
 	A SKIP button (bottom right) closes it straight away.
 
@@ -12,23 +14,29 @@
 	This runs from ReplicatedFirst before anything else has arrived, so it can't use the game's
 	shared modules: colours and fonts are copied in here.
 	While it's up, the local player has the attribute LoadingScreen = true (the Update Log waits).
-	To show the real logo picture instead of the built one, upload branding/logo.png to Roblox and
-	paste its id into LOGO_IMAGE.
+	Pictures instead (once they're uploaded to Roblox):
+	  KEY_ART_IMAGE - art/loading_screen/key_art.jpg: the same scene rendered in Blender (soft light,
+	                  shadows, a glowing stage). It replaces the stage, spotlights and 3D scene.
+	  LOGO_IMAGE    - branding/logo.png in place of the 3D scene.
 ]]
 
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 
+local LoadingScene = require(script.Parent:WaitForChild("LoadingScene"))
+
 local LoadingUI = {}
 
-local LOGO_IMAGE = "" -- e.g. "rbxassetid://123456789"
+local KEY_ART_IMAGE = "" -- e.g. "rbxassetid://123456789"
+local LOGO_IMAGE = ""
 local MIN_SECONDS = 2.5
 local MAX_SECONDS = 45
 local DESIGN = Vector2.new(1280, 720)
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
-local BACKGROUND = rgb(12, 11, 15)
+local BACKGROUND = rgb(24, 13, 38)
+local STAGE_GLOW = rgb(200, 90, 220)
 local GREY = rgb(150, 150, 162)
 local OUTLINE = rgb(25, 18, 20)
 local TITLE_FONT = Enum.Font.LuckiestGuy
@@ -39,7 +47,6 @@ local RARITY_COLORS = {
 	rgb(215, 215, 215), rgb(85, 225, 90), rgb(55, 150, 255), rgb(190, 70, 255), rgb(255, 190, 25),
 	rgb(255, 110, 255), rgb(255, 255, 255), rgb(255, 40, 40), rgb(40, 140, 255),
 }
-local SPRINKLES = { rgb(255, 80, 80), rgb(255, 220, 60), rgb(90, 220, 120), rgb(80, 170, 255), rgb(255, 255, 255), rgb(200, 110, 255) }
 
 LoadingUI.Tips = {
 	"Tip: Run on your treadmill to get faster than Domer!",
@@ -134,61 +141,43 @@ local function ring(parent: Instance, name: string, x: number, y: number, size: 
 	return frame, edge
 end
 
--- The emblem: a turning wheel of sprinkles with a masked donut in front (like the game's logo).
-local function buildEmblem(stage: Frame): (Frame, Frame)
-	local cx, cy = 640, 205
-	-- soft glow behind
-	for i, size in { 430, 330, 240 } do
-		local glow = box(stage, "Glow", cx, cy, size, size, { Transparency = 0.975 - i * 0.008 })
-		corner().Parent = glow
+-- The 3D scene (LoadingScene, made in Blender): every block is a part in a ViewportFrame the size
+-- of the stage, seen through the scene's own camera. Returns the camera (Step sways it).
+local function buildScene(stage: Frame): Camera
+	local view = new("ViewportFrame", {
+		Name = "Scene",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(DESIGN.X, DESIGN.Y),
+		Ambient = rgb(165, 150, 185),
+		LightColor = rgb(255, 246, 236),
+		LightDirection = Vector3.new(1, -1.3, -1), -- (from the top left, in front)
+		ZIndex = 3,
+		Parent = stage,
+	})
+	local camera = new("Camera", {
+		FieldOfView = LoadingScene.Camera.FieldOfView,
+		CFrame = CFrame.lookAt(LoadingScene.Camera.Position, LoadingScene.Camera.Target),
+		Parent = view,
+	})
+	view.CurrentCamera = camera
+	for _, group in LoadingScene.Groups do
+		for _, block in group.Blocks do
+			local part = Instance.new("Part")
+			part.Name = group.Name
+			part.Anchored = true
+			part.CanCollide = false
+			part.CastShadow = false
+			part.Shape = if block.Shape == "Cylinder" then Enum.PartType.Cylinder else Enum.PartType.Block
+			part.Size = block.Size
+			part.CFrame = group.Pivot * block.Offset
+			part.Color = block.Color
+			part.Material = block.Material
+			part.TopSurface = Enum.SurfaceType.Smooth
+			part.BottomSurface = Enum.SurfaceType.Smooth
+			part.Parent = view
+		end
 	end
-	-- the wheel (it turns: everything inside rotates with it)
-	local wheel = box(stage, "Wheel", cx, cy, 320, 320, { Transparency = 1, ZIndex = 2 })
-	for k = 0, 3 do
-		local spoke = box(wheel, "Spoke", 160, 160, 9, 318, { Color = GREY, Transparency = 0.45, Rotation = k * 45, ZIndex = 2 })
-		corner(4).Parent = spoke
-	end
-	for k = 0, 7 do
-		local angle = math.rad(k * 45)
-		local knob = box(wheel, "Handle", 160 + math.sin(angle) * 158, 160 - math.cos(angle) * 158, 30, 30, { Color = GREY, Transparency = 0.35, ZIndex = 2 })
-		corner().Parent = knob
-		-- sprinkle-coloured studs on the rim
-		local stud = box(wheel, "Sprinkle", 160 + math.sin(angle + math.rad(22.5)) * 118, 160 - math.cos(angle + math.rad(22.5)) * 118, 7, 20, { Color = SPRINKLES[k % #SPRINKLES + 1], Transparency = 0.25, Rotation = k * 45 + 22.5 + 90, ZIndex = 3 })
-		corner(3).Parent = stud
-	end
-	local _, rim = ring(wheel, "Rim", 160, 160, 262, 238, GREY, 2)
-	rim.Transparency = 0.4
-	local _, hub = ring(wheel, "Hub", 160, 160, 120, 100, GREY, 2)
-	hub.Transparency = 0.5
-
-	-- the donut
-	local donut = box(stage, "Donut", cx, cy + 6, 200, 200, { Transparency = 1, ZIndex = 4 })
-	if LOGO_IMAGE ~= "" then
-		new("ImageLabel", { Image = LOGO_IMAGE, BackgroundTransparency = 1, Size = UDim2.fromScale(1.4, 1.4), Position = UDim2.fromScale(-0.2, -0.2), ZIndex = 4, Parent = donut })
-		return wheel, donut
-	end
-	ring(donut, "Outline", 100, 100, 176, 52, OUTLINE, 4)
-	ring(donut, "Dough", 100, 100, 166, 62, rgb(222, 160, 90), 5)
-	ring(donut, "Frosting", 100, 92, 146, 70, rgb(255, 120, 190), 6)
-	local _, holeRim = ring(donut, "HoleRim", 100, 100, 70, 62, OUTLINE, 7)
-	holeRim.Transparency = 0.1
-	for k = 1, 9 do
-		local angle = math.rad(k * 40 + 10)
-		local radius = if k % 2 == 0 then 50 else 60
-		local sprinkle = box(donut, "Sprinkle", 100 + math.sin(angle) * radius, 92 - math.cos(angle) * radius * 0.92, 5, 14, { Color = SPRINKLES[k % #SPRINKLES + 1], Rotation = k * 63, ZIndex = 8 })
-		corner(3).Parent = sprinkle
-	end
-	-- bandit mask + eyes, and a little crown
-	local mask = box(donut, "Mask", 100, 44, 132, 24, { Color = OUTLINE, ZIndex = 9 })
-	corner(10).Parent = mask
-	for _, side in { -1, 1 } do
-		local eye = box(donut, "Eye", 100 + side * 28, 44, 26, 26, { ZIndex = 10 })
-		corner().Parent = eye
-		stroke(2.5, OUTLINE).Parent = eye
-		local pupil = box(donut, "Pupil", 100 + side * 28 + 3, 46, 10, 10, { Color = OUTLINE, ZIndex = 11 })
-		corner().Parent = pupil
-	end
-	return wheel, donut
+	return camera
 end
 
 -- A tiny signal (Connect / Fire).
@@ -229,6 +218,10 @@ function LoadingUI.Build(parent: Instance): Screen
 		Parent = parent,
 	})
 	local background = new("Frame", { Name = "Background", BackgroundColor3 = BACKGROUND, BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), Parent = gui })
+	if KEY_ART_IMAGE ~= "" then
+		-- the Blender picture fills the screen (cropped to fit, never stretched)
+		new("ImageLabel", { Name = "KeyArt", Image = KEY_ART_IMAGE, ScaleType = Enum.ScaleType.Crop, BackgroundTransparency = 1, Size = UDim2.fromScale(1, 1), Parent = background })
+	end
 	-- darker towards the bottom and the sides (vignette)
 	new("Frame", { Name = "ShadeBottom", BackgroundColor3 = rgb(0, 0, 0), BorderSizePixel = 0, Size = UDim2.fromScale(1, 1), Parent = background }, {
 		fade({ { 0, 1 }, { 0.55, 0.75 }, { 1, 0.15 } }, 90, rgb(0, 0, 0)) :: Instance,
@@ -257,15 +250,15 @@ function LoadingUI.Build(parent: Instance): Screen
 		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(rescale)
 	end
 
-	-- Spotlights fanning down from above the logo
+	-- Spotlights fanning down from above the donut (the key art has its own)
 	local rays = {}
-	for i, angle in { -38, -22, -9, 9, 22, 38 } do
+	for i, angle in (if KEY_ART_IMAGE ~= "" then {} else { -38, -22, -9, 9, 22, 38 }) :: { number } do
 		local length = 1150
 		local width = if math.abs(angle) < 15 then 150 else 230
 		local theta = math.rad(angle)
 		local x = 640 - math.sin(theta) * length / 2
 		local y = -90 + math.cos(theta) * length / 2
-		local ray = box(stage, "Spotlight", x, y, width, length, { Rotation = angle, Transparency = 0 })
+		local ray = box(stage, "Spotlight", x, y, width, length, { Color = rgb(255, 235, 255), Rotation = angle, Transparency = 0 })
 		fade({ { 0, 0.9 }, { 0.4, 0.96 }, { 1, 1 } }, 90).Parent = ray
 		-- softer, wider halo around each beam
 		local halo = box(stage, "SpotlightHalo", x, y, width * 2.2, length, { Rotation = angle, Transparency = 0 })
@@ -273,15 +266,30 @@ function LoadingUI.Build(parent: Instance): Screen
 		rays[i] = { Ray = ray, Halo = halo, Angle = angle, Phase = i * 1.7 }
 	end
 
-	-- Sparkles around the logo (four-pointed stars: two crossed beams, fading towards their tips)
-	for _, s in { { 330, 250, 150, 0.55 }, { 950, 250, 150, 0.55 }, { 420, 330, 70, 0.6 }, { 860, 330, 70, 0.6 }, { 520, 120, 46, 0.65 }, { 760, 120, 46, 0.65 } } do
+	-- A pink glow behind the donut, and sparkles round it (four-pointed stars: two crossed beams,
+	-- fading towards their tips), between the little donuts
+	local sparkles: { { number } } = if KEY_ART_IMAGE ~= "" then {} else { { 300, 185, 110, 0.5 }, { 980, 185, 110, 0.5 }, { 505, 62, 54, 0.55 }, { 780, 66, 46, 0.55 } }
+	if KEY_ART_IMAGE == "" then
+		for i, size in { 620, 440, 280 } do
+			local glow = box(stage, "Glow", 640, 172, size, size * 0.8, { Color = STAGE_GLOW, Transparency = 0.93 - i * 0.015 })
+			corner().Parent = glow
+		end
+	end
+	for _, s in sparkles do
 		for _, rotation in { 0, 90 } do
 			local beam = box(stage, "Sparkle", s[1], s[2], s[3] * 0.12, s[3] * 0.8, { Color = GREY, Transparency = s[4], Rotation = rotation, ZIndex = 2 })
 			fade({ { 0, 1 }, { 0.5, 0 }, { 1, 1 } }, 90).Parent = beam
 		end
 	end
 
-	local wheel, donut = buildEmblem(stage)
+	-- the 3D scene, or a picture (the key art has the scene in it already)
+	local camera: Camera? = nil
+	if LOGO_IMAGE ~= "" and KEY_ART_IMAGE == "" then
+		new("ImageLabel", { Name = "Logo", Image = LOGO_IMAGE, BackgroundTransparency = 1, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromOffset(640, 180), Size = UDim2.fromOffset(300, 300), ZIndex = 3, Parent = stage })
+	elseif KEY_ART_IMAGE == "" then
+		camera = buildScene(stage)
+	end
+	local cameraHome = if camera then camera.CFrame else CFrame.identity
 
 	-- Title
 	local titleGlow = box(stage, "TitleGlow", 640, 420, 760, 150, { Transparency = 0.975, ZIndex = 4 })
@@ -295,7 +303,7 @@ function LoadingUI.Build(parent: Instance): Screen
 		local line = box(stage, "Ornament", 640 + side * 170, 505, 300, 3, { Color = GREY, ZIndex = 4 })
 		fade(if side < 0 then { { 0, 1 }, { 1, 0.3 } } else { { 0, 0.3 }, { 1, 1 } }).Parent = line
 	end
-	text(stage, "OrnamentGem", "◆", 640, 505, 30, 22, { Color = rgb(255, 170, 210), Font = Enum.Font.GothamBold, ZIndex = 5 })
+	box(stage, "OrnamentGem", 640, 505, 13, 13, { Color = rgb(255, 170, 210), Rotation = 45, ZIndex = 5 })
 
 	-- "Loading..."
 	local status = text(stage, "Status", "Loading...", 640, 568, 600, 28, { Color = rgb(225, 225, 232), ZIndex = 6 })
@@ -310,7 +318,12 @@ function LoadingUI.Build(parent: Instance): Screen
 		local x = 640 + (i - 5) * 50
 		local glow = box(stage, "IconGlow", x, 625, 54, 54, { Color = color, Transparency = 1, ZIndex = 4 })
 		corner().Parent = glow
-		local _, edge = ring(stage, "Icon", x, 625, 36, 14, rgb(64, 64, 74), 5)
+		local frame, edge = ring(stage, "Icon", x, 625, 36, 14, rgb(64, 64, 74), 5)
+		-- (square, like the brick donuts)
+		local iconCorner = frame:FindFirstChildOfClass("UICorner") :: UICorner
+		iconCorner.CornerRadius = UDim.new(0, 3)
+		local glowCorner = glow:FindFirstChildOfClass("UICorner") :: UICorner
+		glowCorner.CornerRadius = UDim.new(0, 14)
 		icons[i] = { Ring = edge, Glow = glow, Color = color, Lit = false }
 	end
 
@@ -319,7 +332,7 @@ function LoadingUI.Build(parent: Instance): Screen
 	-- Skip
 	local skip = new("TextButton", {
 		Name = "Skip",
-		Text = "SKIP ",
+		Text = "SKIP",
 		Font = TEXT_FONT,
 		TextSize = 18,
 		TextColor3 = WHITE,
@@ -367,8 +380,12 @@ function LoadingUI.Build(parent: Instance): Screen
 
 	function screen.Step(dt: number)
 		t += dt
-		wheel.Rotation = (t * 9) % 360
-		donut.Rotation = math.sin(t * 1.6) * 4
+		if camera then
+			-- sway slowly from side to side round the donut, bobbing a little
+			local sway = math.rad(math.sin(t * 0.55) * 9)
+			local pivot = CFrame.new(0, -0.9, 0)
+			camera.CFrame = pivot * CFrame.Angles(0, sway, 0) * pivot:Inverse() * cameraHome * CFrame.new(0, math.sin(t * 1.3) * 0.35, 0)
+		end
 		for _, r in rays do
 			local sway = math.sin(t * 0.5 + r.Phase) * 2.5
 			r.Ray.Rotation = r.Angle + sway
