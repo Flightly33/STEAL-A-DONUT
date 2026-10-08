@@ -2,20 +2,22 @@
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
 	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
-	           basket), Index (a blue book), Pets (a pink paw), Trails (a bolt), Daily (a present)
-	  right  - the same big drawn icons with their names, two columns: Home / Boosts / Skins / Donate /
-	           Updates / Settings (music is in there) / Hide UI (+ Admin, + Base after the base code,
+	           basket), Index (a blue book), Pets (a pink paw), Daily (a present)
+	  right  - the same big drawn icons with their names, two columns: Home / Boosts / Skins (and
+	           Trails, a tab next to them) / Donate / Updates (+ Admin, + Base after the base code,
 	           + Teleport for Teleporter pass owners), centred on the right edge
-	  stats  - Speed; "Friend Boost: +N%" (the money your friends here add) with a green + that opens
-	           Roblox's invite-friends window; Money (a yellow + after it opens the money game passes);
-	           income per second (bottom-left; top-right on phones and tablets)
+	  corner - Settings (music, run speed, Hide UI...): a gear in Roblox's top bar, top right (the
+	           top bar's free space, so Roblox's player list below it never covers it)
+	  stats  - "Friend Boost: +N%" (the money your friends here add) with a green + that opens
+	           Roblox's invite-friends window; Speed; Money (a yellow + after it opens the money game
+	           passes); income per second (bottom-left; top-right on phones and tablets)
 	  biomes - a banner at the top whenever you walk into a biome: its name, the Speed it needs and
 	           how fast its Domer runs (server events show their time left in the pills up there too)
 
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
 ]]
 
-local UserInputService = game:GetService("UserInputService")
+local GuiService = game:GetService("GuiService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -39,14 +41,12 @@ export type Callbacks = {
 	OpenShop: (tab: string?) -> (),
 	OpenIndex: () -> (),
 	OpenSettings: () -> (),
-	OpenTrails: () -> (),
 	OpenTeleport: () -> (),
 	OpenBaseSize: () -> (),
 	OpenPets: () -> (),
 	OpenDonate: () -> (),
 	OpenUpdates: () -> (),
 	OpenAdmin: () -> (),
-	HideUI: () -> (),
 	UnclaimedIndex: () -> number,
 	TrailReady: () -> boolean,
 	ReadyEggs: () -> number,
@@ -76,7 +76,7 @@ end
 
 -- A big drawn icon with its name under it, no button box around it (like the simulator games): every
 -- button on both sides of the screen
-local ICON_BUTTON = Vector2.new(104, 86)
+local ICON_BUTTON = Vector2.new(104, 94)
 local function iconButton(parent: Instance, name: string, icon: string, caption: string, order: number): TextButton
 	local button = Theme.new("TextButton", {
 		Name = name,
@@ -88,7 +88,7 @@ local function iconButton(parent: Instance, name: string, icon: string, caption:
 		Parent = parent,
 	})
 	local drawn = Icons.Draw(icon, button, nil, {
-		Size = UDim2.fromScale(0.77, 0.77),
+		Size = UDim2.fromScale(0.82, 0.82),
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.fromScale(0.5, 0),
 	})
@@ -105,7 +105,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 8, 0.42, 0),
-		Size = UDim2.fromOffset(106, 5 * 88),
+		Size = UDim2.fromOffset(106, 4 * (ICON_BUTTON.Y + 2)),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -116,23 +116,19 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local shop = iconButton(left, "Shop", "basket", "Shop", 1)
 	local index = iconButton(left, "Index", "indexBook", "Index", 2)
 	local pets = iconButton(left, "Pets", "pawPink", "Pets", 3)
-	local trails = iconButton(left, "Trails", "bolt", "Trails", 4)
-	local daily = iconButton(left, "Daily", "gift", "Daily", 5)
+	local daily = iconButton(left, "Daily", "gift", "Daily", 4)
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
 	pets.Activated:Connect(callbacks.OpenPets)
 	index.Activated:Connect(callbacks.OpenIndex)
-	trails.Activated:Connect(callbacks.OpenTrails)
 	daily.Activated:Connect(callbacks.OpenDaily)
 
-	-- Badges: unclaimed Index rewards, eggs ready to hatch, a trail unlocked but none worn, a daily
-	-- reward waiting
+	-- Badges: unclaimed Index rewards, eggs ready to hatch, a daily reward waiting
 	local indexBadge = badge(index)
 	local petsBadge = badge(pets)
-	local trailsBadge = badge(trails)
 	local dailyBadge = badge(daily)
-	for _, bubble in { indexBadge, petsBadge, trailsBadge, dailyBadge } do
+	for _, bubble in { indexBadge, petsBadge, dailyBadge } do
 		bubble.Position = UDim2.new(0.5, 30, 0, 8) -- (the icon's top-right corner)
 	end
 	local function updateBadges()
@@ -142,13 +138,11 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		local ready = callbacks.ReadyEggs()
 		petsBadge.Visible = ready > 0
 		petsBadge.Text = tostring(ready)
-		trailsBadge.Visible = callbacks.TrailReady()
-		trailsBadge.Text = "!"
 		dailyBadge.Visible = callbacks.DailyReady()
 		dailyBadge.Text = "!"
 	end
 	State.Changed:Connect(updateBadges)
-	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do -- (and every 2 seconds below: a new day)
+	for _, name in { "Money", "Speed" } do -- (and every 2 seconds below: a new day)
 		State.OnAttribute(name, updateBadges)
 	end
 	task.spawn(function()
@@ -165,7 +159,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 		Name = "RightButtons",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -8, if Theme.IsTouch then 0.58 else 0.5, 0),
-		Size = UDim2.fromOffset(2 * ICON_BUTTON.X + 12, 5 * (ICON_BUTTON.Y + 2)),
+		Size = UDim2.fromOffset(2 * ICON_BUTTON.X + 12, 4 * (ICON_BUTTON.Y + 2)),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -204,33 +198,24 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	button("Boosts", "rocket", "Boosts", 3, function()
 		callbacks.OpenShop("Passes")
 	end)
-	button("Skins", "paletteWood", "Skins", 4, function()
-		callbacks.OpenShop("Skins")
+	-- Skins: base skins, and trails in the tab next to them. A "!" when a trail is unlocked but you
+	-- wear none (the button then opens Trails).
+	local skins = button("Skins", "paletteWood", "Skins", 4, function()
+		callbacks.OpenShop(if callbacks.TrailReady() then "Trails" else "Skins")
 	end)
+	local trailBadge = badge(skins)
+	trailBadge.Position = UDim2.new(0.5, 30, 0, 8)
+	trailBadge.Text = "!"
+	local function updateTrailBadge()
+		trailBadge.Visible = callbacks.TrailReady()
+	end
+	State.Changed:Connect(updateTrailBadge)
+	State.OnAttribute("BestSpeed", updateTrailBadge)
+	State.OnAttribute("Trail", updateTrailBadge)
 	button("Donate", "heart", "Donate", 5, callbacks.OpenDonate)
 	button("Updates", "newsYellow", "Updates", 6, function()
 		callbacks.OpenUpdates()
 	end)
-	-- Settings: music on/off, next song and volume live in its window
-	button("Settings", "gearSteel", "Settings", 7, callbacks.OpenSettings)
-	-- Clear the screen for screenshots (X on a keyboard does the same; see HideUI)
-	local hide = button("HideUI", "eye", "Hide UI", 8, callbacks.HideUI)
-	if UserInputService.KeyboardEnabled then
-		-- a little dark key cap on the icon's top-right corner: "X"
-		local key = Theme.new("Frame", {
-			Name = "Key",
-			BackgroundColor3 = Theme.Colors.Panel,
-			Size = UDim2.fromOffset(24, 24),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(0.5, 32, 0, 10),
-			ZIndex = 5,
-			Parent = hide,
-		}, {
-			Theme.Corner(6),
-			Theme.Stroke(2),
-		})
-		Theme.Label({ Text = "X", Size = UDim2.new(1, -6, 1, -6), Position = UDim2.fromOffset(3, 3), ZIndex = 6, StrokeThickness = 1.5, Parent = key })
-	end
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)
@@ -301,20 +286,20 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 		end
 		return label
 	end
-	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 0)
+	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 34)
 	-- (the +: the Boosts page, which starts with the money passes)
 	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 88, function()
 		callbacks.OpenShop("Passes")
 	end)
 	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 143), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
 
-	-- Friend Boost, between Speed and Money: always there (+0% until a friend of yours is in the
-	-- server: FriendService), with a green + that opens Roblox's invite-friends window
+	-- Friend Boost, on top (above Speed): always there (+0% until a friend of yours is in the server:
+	-- FriendService), with a green + that opens Roblox's invite-friends window
 	local friendLine = Theme.new("Frame", {
 		Name = "FriendBoost",
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, -6, 0, 32),
-		Position = UDim2.fromOffset(if Theme.IsTouch then 0 else 6, 54),
+		Position = UDim2.fromOffset(if Theme.IsTouch then 0 else 6, 0),
 		Parent = stats,
 	}, {
 		Theme.new("UIListLayout", {
@@ -375,6 +360,50 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 	State.OnAttribute("MoneyMultiplier", updateIncome)
 end
 
+
+-- Settings: a gear in the free part of Roblox's top bar, at the top right, the size of Roblox's own
+-- top-bar buttons. (Just below the bar is where Roblox's player list opens, which would cover it.)
+local function buildCorner(callbacks: Callbacks)
+	local gui = Theme.ScreenGui("TopBar", 1)
+	gui.ScreenInsets = Enum.ScreenInsets.None
+	local dark = Color3.fromRGB(18, 21, 30)
+	local button = Theme.new("TextButton", {
+		Name = "Settings",
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundColor3 = dark,
+		BackgroundTransparency = 0.08,
+		AnchorPoint = Vector2.new(1, 0.5),
+		Parent = gui,
+	}, {
+		Theme.new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+	})
+	Icons.Draw("gearSteel", button, dark, { Size = UDim2.fromScale(0.82, 0.82), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	button.Activated:Connect(callbacks.OpenSettings)
+	button.MouseButton1Down:Connect(function()
+		Theme.Bounce(button)
+	end)
+	local function place()
+		local inset = GuiService.TopbarInset
+		-- (before Roblox reports its bar: the usual 58-pixel one)
+		local height = if inset.Height > 0 then inset.Height else 58
+		local size = math.floor(height * 0.76 + 0.5)
+		local camera = workspace.CurrentCamera
+		local width = if camera then camera.ViewportSize.X else 0
+		-- the free space's right edge, at least 12 pixels in from the screen's (like Roblox's own buttons)
+		local right = if inset.Width > 0 then inset.Max.X else width
+		if width > 0 then
+			right = math.min(right, width - 12)
+		end
+		button.Size = UDim2.fromOffset(size, size)
+		button.Position = if right > 0 then UDim2.fromOffset(right, inset.Min.Y + height / 2) else UDim2.new(1, -12, 0, height / 2)
+	end
+	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(place)
+	if workspace.CurrentCamera then
+		workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(place)
+	end
+	place()
+end
 
 -- A banner at the top whenever you walk into a biome: its name and the Speed you need to get away
 -- from its Domer (or LOBBY when you're back).
@@ -464,6 +493,7 @@ function HUD.Init(callbacks: Callbacks)
 	buildLeft(gui, callbacks)
 	buildRight(gui, callbacks)
 	buildStats(gui, callbacks)
+	buildCorner(callbacks)
 	announceBiomes()
 	buildLuck(gui)
 	buildBaseMarker()

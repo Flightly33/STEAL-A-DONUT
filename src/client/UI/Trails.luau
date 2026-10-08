@@ -1,7 +1,8 @@
 --[[
-	Trails window (the Trails button on the HUD): every trail, what it looks like, and how to get
-	it. Locked trails show how much Speed they still need; unlocked ones can be put on and taken
-	off. The effects themselves are drawn by client/TrailFX. The server checks every press.
+	Trails: the Trails tab of the Shop, right next to Skins (the Skins button on the HUD opens it,
+	straight to Trails when one is unlocked but you wear none). Every trail, what it looks like,
+	and how to get it. Locked trails show how much Speed they still need; unlocked ones can be put
+	on and taken off. The effects themselves are drawn by client/TrailFX. The server checks every press.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -12,25 +13,20 @@ local Format = require(Shared.Format)
 local TrailList = require(Shared.Trails)
 
 local Theme = require(script.Parent.Theme)
-local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
 local Trails = {}
 
 type Card = { Button: TextButton, Status: TextLabel, Fill: Frame, Bar: Frame }
 
-local modal: Modal.Modal
+local page: ScrollingFrame
 local cards: { [string]: Card } = {}
 
 local function unlocked(trail: TrailList.Trail): boolean
 	return TrailList.IsUnlocked(trail, State.Data.OwnedTrails, State.Number("BestSpeed"))
 end
 
-function Trails.Open()
-	modal:Open()
-end
-
--- True when a trail is unlocked but you wear none (the HUD shows a "!" on the button).
+-- True when a trail is unlocked but you wear none (the HUD shows a "!" on the Skins button).
 function Trails.IsReady(): boolean
 	if State.Get("Trail") ~= nil then
 		return false
@@ -144,18 +140,14 @@ local function refresh()
 	end
 end
 
-function Trails.Init()
-	modal = Modal.new("Trails", Theme.Colors.Blue, Vector2.new(640, 420))
+-- Fills the Shop's Trails page (a scrolling list) and returns its refresh, which the Shop runs
+-- whenever the tab is picked.
+function Trails.Build(list: ScrollingFrame): () -> ()
+	page = list
 	Theme.Label({
+		Name = "About", LayoutOrder = 0,
 		Text = "Trails show behind you while you run fast. Everyone near you can see them!",
-		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 24), StrokeThickness = 1.4, Parent = modal.Body,
-	})
-	local list = Theme.new("ScrollingFrame", {
-		Name = "List", Size = UDim2.new(1, 0, 1, -34), Position = UDim2.fromOffset(0, 34), BackgroundTransparency = 1, BorderSizePixel = 0,
-		ScrollBarThickness = 8, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = modal.Body,
-	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
-		Theme.new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4) }),
+		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -12, 0, 26), StrokeThickness = 1.4, Parent = list,
 	})
 	for _, trail in TrailList.List do
 		buildCard(list, trail)
@@ -163,12 +155,12 @@ function Trails.Init()
 	State.Changed:Connect(refresh)
 	State.OnAttribute("Trail", refresh)
 	State.OnAttribute("BestSpeed", function()
-		if modal:IsOpen() then
+		if page.Visible then
 			refresh()
 		end
 	end)
-	modal.OnOpen = refresh
 	refresh()
+	return refresh
 end
 
 return Trails

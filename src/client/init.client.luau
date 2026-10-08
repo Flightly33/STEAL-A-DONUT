@@ -59,7 +59,6 @@ Index.Init()
 Leaderboards.Init()
 Chase.Init()
 Settings.Init()
-Trails.Init()
 Teleport.Init()
 Sell.Init()
 BaseSize.Init()
@@ -81,7 +80,6 @@ HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,
 	OpenSettings = Settings.Open,
-	OpenTrails = Trails.Open,
 	OpenTeleport = Teleport.Open,
 	OpenBaseSize = BaseSize.Open,
 	OpenPets = PetsWindow.Open,
@@ -90,7 +88,6 @@ HUD.Init({
 		UpdateNotes.Open()
 	end,
 	OpenAdmin = Admin.Open,
-	HideUI = HideUI.Toggle,
 	UnclaimedIndex = Index.UnclaimedCount,
 	TrailReady = Trails.IsReady,
 	ReadyEggs = PetsWindow.ReadyEggs,

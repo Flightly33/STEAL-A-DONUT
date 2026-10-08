@@ -1,12 +1,12 @@
 --[[
 	Trails: an effect behind you while you run, drawn by every client (client/TrailFX). Pick one in
-	the Trails window (HUD). The server keeps what you own (Data.OwnedTrails) and what you wear
+	the Shop's Trails tab (next to Skins; the HUD's Skins button opens it). The server keeps what you own (Data.OwnedTrails) and what you wear
 	(Data.EquippedTrail, shown to everyone as the player's "Trail" attribute).
 
 	UnlockBiome: the trail unlocks for good the first time your Speed is enough to get into that
-	biome (the HUD shows a "!" on the Trails button, and it's put on for you if you wear none).
+	biome (the HUD shows a "!" on the Skins button, and it's put on for you if you wear none).
 
-	Cost: a trail with a Cost is bought with in-game money (Trails window -> BUY, ShopService BuyTrail)
+	Cost: a trail with a Cost is bought with in-game money (Trails tab -> BUY, ShopService BuyTrail)
 	and is yours for good. Fast Guy costs $100M.
 
 	Fast Guy: you run so fast you leave frozen frames of yourself behind - 24 a second, glowing
@@ -23,7 +23,7 @@ export type Trail = {
 	Color: Color3, -- the afterimages / streak
 	Accent: Color3, -- outlines and glass edges
 	UnlockBiome: number?, -- unlocks for good when your Speed gets you into this biome
-	Cost: number?, -- in-game money to buy it in the Trails window (nil = not for sale)
+	Cost: number?, -- in-game money to buy it in the Trails tab (nil = not for sale)
 	Order: number,
 }
 

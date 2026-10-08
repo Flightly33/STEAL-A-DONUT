@@ -70,6 +70,9 @@ UpdateNotes.List = {
 				"No more emojis anywhere: every icon is drawn by the game itself",
 				"A yellow + right next to your money takes you straight to the money boosts",
 				"New buttons on both sides of the screen: big colourful icons with their names under them",
+				"Every icon is chunkier now, with a thick outline and a 3D edge",
+				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
+				"Trails moved into the Shop, right next to Skins: press Skins and pick the Trails tab",
 			} },
 			{ Title = "Brick Pets", Tag = "NEW Look", Lines = {
 				"Every pet has been rebuilt out of bricks with studs on top, just like Domer and the donuts",
@@ -86,7 +89,7 @@ UpdateNotes.List = {
 			{ Title = "Friend Boost", Tag = "NEW", Lines = {
 				"Play in the same server as your Roblox friends to earn more money!",
 				"Your first friend here adds +1x to your money multiplier, and every friend after that adds +0.25x more",
-				"Your Friend Boost shows right above your money, and the green + next to it invites your friends",
+				"Your Friend Boost shows at the top of your stats, above your Speed, and the green + next to it invites your friends",
 				"The old biome box in the bottom-right corner is gone: walk into a biome and its name still shows at the top",
 			} },
 			{ Title = "The New Index", Tag = "NEW Look", Lines = {
@@ -103,6 +106,7 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Domer", Tag = "CHANGED", Lines = {
 				"Grabbing one of his boxes makes a new sound",
+				"No more chase music: just the grab sounds and his angry grunt when he wakes up",
 				"A rainbow !? spins over his head while he's chasing you",
 			} },
 			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {

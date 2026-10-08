@@ -1,11 +1,12 @@
 --[[
-	Shop window with four tabs:
+	Shop window with five tabs:
 	  Upgrades  - Speed Multiplier, Treadmill tiers, a Bigger Base and Incubator upgrades (money)
 	  Boosts    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
 	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
 	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
 	              paid random items rules). Hidden purchase for players whose region blocks them.
 	  Skins     - base skins (paid with your Speed stat), equip the ones you own
+	  Trails    - trails behind you while you run (UI/Trails); the HUD's Skins button opens Skins or this
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -24,6 +25,7 @@ local Pets = require(Shared.Pets)
 local Theme = require(script.Parent.Theme)
 local Icons = require(script.Parent.Icons)
 local Modal = require(script.Parent.Modal)
+local Trails = require(script.Parent.Trails)
 local State = require(script.Parent.Parent.State)
 
 local Shop = {}
@@ -41,6 +43,8 @@ local function refreshAll()
 	end
 end
 
+-- A tab's scrolling page: a grid of `columns` cards `cardHeight` tall, or (columns = 0) a list of
+-- whatever sizes the cards are
 local function newPage(name: string, parent: Instance, columns: number, cardHeight: number): ScrollingFrame
 	local page = Theme.new("ScrollingFrame", {
 		Name = name,
@@ -55,11 +59,13 @@ local function newPage(name: string, parent: Instance, columns: number, cardHeig
 		Visible = false,
 		Parent = parent,
 	}, {
-		Theme.new("UIGridLayout", {
-			CellSize = UDim2.new(1 / columns, -10, 0, cardHeight),
-			CellPadding = UDim2.fromOffset(10, 10),
-			SortOrder = Enum.SortOrder.LayoutOrder,
-		}),
+		if columns > 0
+			then Theme.new("UIGridLayout", {
+				CellSize = UDim2.new(1 / columns, -10, 0, cardHeight),
+				CellPadding = UDim2.fromOffset(10, 10),
+				SortOrder = Enum.SortOrder.LayoutOrder,
+			})
+			else Theme.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
 		Theme.new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 12), PaddingBottom = UDim.new(0, 8) }),
 	})
 	pages[name] = page
@@ -504,6 +510,7 @@ function Shop.Init()
 		{ Name = "Passes", Text = "Boosts", Color = Theme.Colors.Orange },
 		{ Name = "Crates", Text = "Crates", Color = Theme.Colors.Yellow },
 		{ Name = "Skins", Text = "Skins", Color = Theme.Colors.Pink },
+		{ Name = "Trails", Text = "Trails", Color = Theme.Colors.Blue },
 	}, function(name)
 		for pageName, page in pages do
 			page.Visible = pageName == name
@@ -514,6 +521,7 @@ function Shop.Init()
 	buildPasses(newPage("Passes", body, 2, 160))
 	buildCrates(newPage("Crates", body, 2, 290), body)
 	buildSkins(newPage("Skins", body, 3, 180))
+	table.insert(refreshers, Trails.Build(newPage("Trails", body, 0, 0)))
 
 	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "BaseLevel", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
 		State.OnAttribute(name, function()

@@ -26,36 +26,48 @@
 	  clip = {x0, y0, x1, y1}: only the part inside that box is drawn (the cycle icon's ring)
 	  tri = heading:          see roundedTriangle(); keepTop = share: only the front of the shape
 	Everything scales with the icon, so it looks the same on a small HUD square and a big window.
+	Every body shape also has a darker edge under it (the icon's thickness, like a chunky sticker),
+	inside the same outline.
+
+	Pictures instead: an icon with an image id in Config.IconImages (the glossy Blender icons from
+	art/hud_icons, once they're uploaded) shows that picture, the same size, instead of the drawing.
 ]]
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local Icons = {}
 
 export type Layout = { Size: UDim2, Position: UDim2, AnchorPoint: Vector2? }
 
-local OUTLINE = 0.055 -- outline thickness, as a share of the icon's size
-local SHADOW = Vector2.new(0.025, 0.05) -- drop shadow offset (down and a little right)
+local OUTLINE = 0.065 -- outline thickness, as a share of the icon's size
+local EDGE = Vector2.new(0, 0.045) -- the darker edge under every body shape: how thick the icon looks
+local SHADOW = Vector2.new(0.03, 0.08) -- drop shadow offset (down and a little right, past the edge)
 local SHADOW_DARKNESS = 0.55 -- the shadow is the button's own colour, this much darker
 local BLACK = Color3.fromRGB(18, 18, 26)
 local TOP = Color3.fromRGB(255, 255, 255) -- body shading: white at the top...
 local BOTTOM = Color3.fromRGB(214, 222, 240) -- ...to a cool grey at the bottom
+local EDGE_WHITE = Color3.fromRGB(146, 156, 186) -- the edge under a white body
 local RED = Color3.fromRGB(240, 64, 64)
 local PINK = Color3.fromRGB(255, 92, 150)
 local NO_BACKGROUND = Color3.fromRGB(120, 120, 130)
 
--- Layers, back to front. Each depth of body (0 = front, 1 and 2 = behind it) has an outline, a
--- fill and its own ink, so a piece in front gets a black edge where it overlaps one behind.
+-- Layers, back to front. Each depth of body (0 = front, 1 and 2 = behind it) has an outline, an
+-- edge, a fill and its own ink, so a piece in front gets a black edge where it overlaps one behind.
 local Z = {
 	Shadow = 1,
-	SpotOutline = 11,
-	Detail = 12, -- front ink, spots, holes
-	Over = 13, -- details on details (window glass, pupils)
-	Over2 = 14,
-	Shine = 15,
+	SpotOutline = 15,
+	Detail = 16, -- front ink, spots, holes
+	Over = 17, -- details on details (window glass, pupils)
+	Over2 = 18,
+	Shine = 19,
 }
-local function depthLayers(depth: number): (number, number, number)
-	local base = 2 + (2 - depth) * 3
-	return base, base + 1, base + 2 -- outline, fill, ink
+local function depthLayers(depth: number): (number, number, number, number)
+	local base = 2 + (2 - depth) * 4
+	return base, base + 1, base + 2, base + 3 -- outline, edge, fill, ink
 end
+local _, _, _, FRONT_INK = depthLayers(0)
 
 type Shape = { [string]: any }
 
@@ -266,7 +278,7 @@ SHAPES.rocket = (function(): { Shape }
 		return box(x, y, 0.3, length, { rot = 45, r = 0.5 })
 	end)
 	add(0, 0, function(x, y)
-		return box(x, y, 0.3, length, { rot = 45, r = 0.5, fill = RED, plain = true, keepTop = nose, z = 10 })
+		return box(x, y, 0.3, length, { rot = 45, r = 0.5, fill = RED, plain = true, keepTop = nose, z = FRONT_INK })
 	end)
 	add(length / 2 - length * nose, 0, function(x, y)
 		return box(x, y, 0.3, 0.035, { rot = 45, fill = "ink" })
@@ -361,12 +373,19 @@ SHAPES.eye = {
 
 -- A lightning bolt (Speed)
 local YELLOW = Color3.fromRGB(255, 214, 60)
-SHAPES.bolt = {
-	box(0.6, 0.27, 0.2, 0.44, { rot = 24, r = 0.12, color = YELLOW }),
-	box(0.5, 0.5, 0.5, 0.15, { rot = -22, r = 0.2, color = YELLOW }),
-	box(0.4, 0.73, 0.2, 0.44, { rot = 24, r = 0.12, color = YELLOW }),
-	shine(0.57, 0.2, 0.05, 0.14, 24),
-}
+SHAPES.bolt = (function(): { Shape }
+	-- two right-angled triangles, one pointing up from the bottom tip and one down from the top tip,
+	-- overlapping in the middle: the zigzag of a lightning bolt
+	local list: { Shape } = {}
+	for _, corners in { { 0.16, 0.52, 0.62, 0.06 }, { 0.84, 0.46, 0.38, 0.94 } } do
+		for _, shape in roundedTriangle(corners[1], corners[2], corners[3], corners[4], 0.045) do
+			shape.color = YELLOW
+			table.insert(list, shape)
+		end
+	end
+	table.insert(list, shine(0.5, 0.24, 0.05, 0.16, 45))
+	return list
+end)()
 
 -- A banknote on top of another (money)
 local GREEN = Color3.fromRGB(110, 225, 90)
@@ -497,7 +516,7 @@ SHAPES.plus = {
 local FACE = Color3.fromRGB(255, 168, 52)
 local CHEEK = Color3.fromRGB(255, 120, 120)
 SHAPES.friends = (function(): { Shape }
-	local _, _, backInk = depthLayers(1)
+	local _, _, _, backInk = depthLayers(1)
 	local function face(x: number, y: number, d: number, back: boolean): { Shape }
 		local s = d / 0.54 -- (the front face is 0.54 across: everything else is in step with it)
 		local depth = if back then 1 else nil
@@ -610,11 +629,16 @@ local function verticalGradient(f: Frame, shape: Shape, top: number, bottom: num
 	gradient.Parent = f
 end
 
--- White to grey from the top of the icon to the bottom (`base` tints it for coloured body shapes).
+-- White to grey from the top of the icon to the bottom. A coloured body shape (`base`) goes from a
+-- lighter tint of its colour at the top to a deeper shade at the bottom.
+local WHITE = Color3.new(1, 1, 1)
 local function shade(f: Frame, shape: Shape, base: Color3?)
 	local function at(y: number): Color3
-		local c = TOP:Lerp(BOTTOM, math.clamp(y, 0, 1))
-		return if base then Color3.new(c.R * base.R, c.G * base.G, c.B * base.B) else c
+		local t = math.clamp(y, 0, 1)
+		if base then
+			return base:Lerp(WHITE, 0.32 * (1 - t)):Lerp(BLACK, 0.16 * t)
+		end
+		return TOP:Lerp(BOTTOM, t)
 	end
 	if shape.tri or shape.keepTop then
 		-- (these already use their gradient for the cut: one flat colour from their middle)
@@ -659,6 +683,22 @@ function Icons.Draw(name: string, parent: Instance, background: Color3?, layout:
 			placeTop = layout.Position.Y.Scale - holder.AnchorPoint.Y * layout.Size.Y.Scale
 		end
 	end
+	-- a picture instead (Config.IconImages), when there is one
+	local image = Config.IconImages[name]
+	if image ~= nil and image ~= "" then
+		local picture = Instance.new("ImageLabel")
+		picture.Name = "Picture"
+		picture.BackgroundTransparency = 1
+		picture.Image = image
+		picture.ScaleType = Enum.ScaleType.Fit
+		picture.AnchorPoint = Vector2.new(0.5, 0.5)
+		picture.Position = UDim2.fromScale(0.5, 0.52)
+		picture.Size = UDim2.fromScale(1.15, 1.15) -- (the pictures leave room round them for their outline and shadow)
+		picture.ZIndex = 2
+		picture.Parent = holder
+		holder.Parent = parent
+		return holder
+	end
 	local back = background or NO_BACKGROUND
 	local buttonGradient = parent:FindFirstChildOfClass("UIGradient")
 
@@ -693,9 +733,13 @@ function Icons.Draw(name: string, parent: Instance, background: Color3?, layout:
 			continue
 		end
 		if fill == "white" then
-			local outlineZ = depthLayers(shape.back or 0)
+			local outlineZ, edgeZ = depthLayers(shape.back or 0)
 			seeThrough(frame(holder, shape, back, OUTLINE, Z.Shadow, SHADOW), shape, OUTLINE, SHADOW, SHADOW_DARKNESS)
 			frame(holder, shape, BLACK, OUTLINE, outlineZ)
+			-- the edge under it (a darker copy, a little lower), inside the same outline
+			frame(holder, shape, BLACK, OUTLINE, outlineZ, EDGE)
+			local base = shape.color
+			frame(holder, shape, if base then base:Lerp(BLACK, 0.4) else EDGE_WHITE, 0, edgeZ, EDGE)
 		elseif fill == "hole" then
 			frame(holder, shape, BLACK, OUTLINE, Z.SpotOutline)
 		else
@@ -708,7 +752,7 @@ function Icons.Draw(name: string, parent: Instance, background: Color3?, layout:
 	-- ...then every fill on top
 	for _, shape in shapes do
 		local fill = shape.fill or "white"
-		local _, fillZ, inkZ = depthLayers(shape.back or 0)
+		local _, _, fillZ, inkZ = depthLayers(shape.back or 0)
 		local z = if typeof(shape.z) == "string" then Z[shape.z] else shape.z
 		if fill == "white" then
 			shade(frame(holder, shape, TOP, 0, z or fillZ), shape, shape.color)
@@ -716,7 +760,7 @@ function Icons.Draw(name: string, parent: Instance, background: Color3?, layout:
 			frame(holder, shape, BLACK, 0, z or (if shape.back then inkZ else Z.Detail))
 		elseif fill == "shine" then
 			local f = frame(holder, shape, TOP, 0, Z.Shine)
-			f.BackgroundTransparency = 0.2
+			f.BackgroundTransparency = 0.1
 		elseif fill == "hole" then
 			if not shape.outlineOnly then
 				seeThrough(frame(holder, shape, back, 0, z or Z.Detail), shape, 0, nil, 0)

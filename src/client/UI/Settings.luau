@@ -3,6 +3,9 @@
 	Music on/off and volume are saved per player. Tracks come from Config.Music.Tracks.
 	Run speed: type how fast you want to run (a WalkSpeed, at least Config.Speed.MinRunSpeed); MAX
 	runs as fast as you can. Saved per player, the server applies it (Actions.SetSpeedLimit).
+	Buttons along the bottom: How to Play, the Update Log, and Hide UI (clears the screen for
+	screenshots; X on a keyboard does the same, see UI/HideUI). The gear for this window is at the
+	top right of the screen (UI/HUD).
 
 	The song is for the lobby: out in the lane (any biome) it fades out and the biomes' own ambience
 	(client/BiomeAmbience) takes over, and it fades back in when you come back.
@@ -14,6 +17,7 @@
 ]]
 
 local SoundService = game:GetService("SoundService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -22,9 +26,9 @@ local Config = require(Shared.Config)
 local Signal = require(Shared.Signal)
 
 local Theme = require(script.Parent.Theme)
-local ChaseMusic = require(script.Parent.ChaseMusic)
 local StormMusic = require(script.Parent.StormMusic)
 local Modal = require(script.Parent.Modal)
+local HideUI = require(script.Parent.HideUI)
 local State = require(script.Parent.Parent.State)
 local AreaTracker = require(script.Parent.Parent.AreaTracker)
 
@@ -50,56 +54,21 @@ local retryPending = false
 local tracks = Config.Music.Tracks
 local usingFallback = false
 
--- Chase music: while Domer chases you, the normal song fades out and a scary chase loop plays
--- (ChaseMusic, made from Roblox's built-in sounds), or the track in Config.Music.Chase if it has one.
-local chaseSound: Sound? = nil
-local chasing = false
--- The Eternal Storm: its march (StormMusic) plays instead of the normal song (a chase still wins).
+-- (No chase music: grabbing a box plays its own sounds, Config.Guard.GrabSounds, and that's all.)
+-- The Eternal Storm: its march (StormMusic) plays instead of the normal song.
 local storming = false
 -- Out in the lane: the song fades out (it keeps playing silently, so it picks up again in the lobby).
 local inLane = false
 
-local function chaseReady(): boolean
-	return chaseSound ~= nil and chaseSound.IsLoaded and chaseSound.TimeLength > 0
-end
-
 local function applyVolume()
 	local TweenService = game:GetService("TweenService")
 	local fade = TweenInfo.new(0.6)
-	local useChase = chasing and chaseReady()
-	TweenService:Create(sound, fade, { Volume = if not musicOn or chasing or storming or inLane then 0 else volume }):Play()
+	TweenService:Create(sound, fade, { Volume = if not musicOn or storming or inLane then 0 else volume }):Play()
 	sound.PlaybackSpeed = 1
-	if chasing and musicOn and not useChase then
-		ChaseMusic.Start(volume)
-	else
-		ChaseMusic.Stop()
-	end
-	if storming and musicOn and not chasing then
+	if storming and musicOn then
 		StormMusic.Start(volume)
 	else
 		StormMusic.Stop()
-	end
-	if chaseSound then
-		if useChase and not chaseSound.IsPlaying then
-			chaseSound.TimePosition = 0
-			chaseSound:Play()
-		end
-		TweenService:Create(chaseSound, fade, { Volume = if useChase and musicOn then volume * 1.3 else 0 }):Play()
-		if not chasing then
-			task.delay(0.7, function()
-				if not chasing and chaseSound then
-					chaseSound:Stop()
-				end
-			end)
-		end
-	end
-end
-
--- Chase.luau calls this when a chase starts (true) and ends (false).
-function Settings.SetChasing(on: boolean)
-	if on ~= chasing then
-		chasing = on
-		applyVolume()
 	end
 end
 
@@ -209,21 +178,11 @@ function Settings.SetMusicOn(on: boolean)
 end
 
 function Settings.Init()
-	ChaseMusic.Preload()
 	StormMusic.Preload()
 	sound = Instance.new("Sound")
 	sound.Name = "Soundtrack"
 	sound.Looped = false
 	sound.Parent = SoundService
-	if Config.Music.Chase.Id > 0 then
-		local chase = Instance.new("Sound")
-		chase.Name = "ChaseMusic"
-		chase.Looped = true
-		chase.Volume = 0
-		chase.SoundId = "rbxassetid://" .. tostring(Config.Music.Chase.Id)
-		chase.Parent = SoundService
-		chaseSound = chase
-	end
 	inLane = AreaTracker.Current > 0
 	AreaTracker.Changed:Connect(function(areaId: number)
 		if (areaId > 0) ~= inLane then
@@ -302,14 +261,28 @@ function Settings.Init()
 	State.OnAttribute("WalkSpeed", renderSpeed)
 	renderSpeed()
 
-	local help = Theme.Button({ Text = "HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(0, 376), Parent = body })
+	-- (three buttons along the bottom)
+	local help = Theme.Button({ Text = "HOW TO PLAY", Color = Theme.Colors.Blue, Size = UDim2.fromOffset(158, 52), Position = UDim2.fromOffset(0, 376), Parent = body })
 	help.Activated:Connect(function()
 		modal:Close()
 		require(script.Parent.Tutorial).Open()
 	end)
-	local notes = Theme.Button({ Text = "UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(220, 52), Position = UDim2.fromOffset(230, 376), Parent = body })
+	local notes = Theme.Button({ Text = "UPDATE LOG", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(158, 52), Position = UDim2.fromOffset(167, 376), Parent = body })
 	notes.Activated:Connect(function()
 		require(script.Parent.UpdateNotes).Open()
+	end)
+	-- Clear the screen for screenshots (the SHOW UI pill, or X again, brings it back)
+	local hide = Theme.Button({
+		Name = "HideUI",
+		Text = if UserInputService.KeyboardEnabled then "HIDE UI (X)" else "HIDE UI",
+		Color = Theme.Colors.Gray,
+		Size = UDim2.fromOffset(158, 52),
+		Position = UDim2.fromOffset(334, 376),
+		Parent = body,
+	})
+	hide.Activated:Connect(function()
+		modal:Close()
+		HideUI.Set(true)
 	end)
 	local percent = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.fromOffset(60, 30), Position = UDim2.fromOffset(430, 193), StrokeThickness = 1.5, Parent = body })
 

@@ -1,5 +1,5 @@
 --[[
-	HideUI: the HIDE UI button (or X on a keyboard) clears the screen for screenshots and videos.
+	HideUI: the HIDE UI button in Settings (or X on a keyboard) clears the screen for screenshots and videos.
 
 	Hides every screen GUI of ours (HUD, windows, notifications, the base marker...) and Roblox's own
 	(chat, player list, hotbar), on this player's screen only. Steal prompts stay so you can still

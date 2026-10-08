@@ -301,7 +301,7 @@ function Actions.ClaimIndex(player: Player, profile: DataService.Profile, arg: a
 	DataService.PushState(player)
 end
 
--- Trails window: wear a trail you've unlocked ("" takes it off). Admins may try any trail.
+-- Trails tab (Shop): wear a trail you've unlocked ("" takes it off). Admins may try any trail.
 function Actions.EquipTrail(player: Player, profile: DataService.Profile, trailId: any)
 	local data = profile.Data
 	if trailId == "" then
@@ -320,7 +320,7 @@ function Actions.EquipTrail(player: Player, profile: DataService.Profile, trailI
 	DataService.PushState(player)
 end
 
--- Trails window: buy a trail with in-game money (Trail.Cost). It's yours for good, and you put it on.
+-- Trails tab (Shop): buy a trail with in-game money (Trail.Cost). It's yours for good, and you put it on.
 function Actions.BuyTrail(player: Player, profile: DataService.Profile, trailId: any)
 	local data = profile.Data
 	local trail = if type(trailId) == "string" then Trails.ById[trailId] else nil

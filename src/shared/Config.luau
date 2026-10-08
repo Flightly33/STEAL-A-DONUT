@@ -878,6 +878,29 @@ Config.Particles = {
 	MaxParticleRate = 20,
 }
 
+-- The HUD's icons as pictures: glossy 3D icons made in Blender (art/hud_icons/png, one PNG per
+-- icon, named like these keys). Empty = the game draws its own (client/UI/Icons). To use the
+-- pictures: upload the PNGs (Studio: View > Asset Manager > Bulk Import, or Creator Hub >
+-- Development Items > Images), copy each one's image id and paste it here, e.g.
+-- basket = "rbxassetid://1234567". Any icon left empty keeps the drawn one.
+Config.IconImages = {
+	basket = "", -- Shop
+	indexBook = "", -- Index
+	pawPink = "", -- Pets
+	gift = "", -- Daily
+	houseRed = "", -- Home
+	globeBlue = "", -- Teleport
+	rocket = "", -- Boosts
+	paletteWood = "", -- Skins
+	heart = "", -- Donate
+	newsYellow = "", -- Updates
+	gearSteel = "", -- Settings
+	toolsSteel = "", -- Admin
+	buildingBlue = "", -- Base
+	bolt = "", -- Speed
+	cash = "", -- Money
+} :: { [string]: string }
+
 Config.Music = {
 	DefaultVolume = 0.25, -- 0 to 1 (players change it, or turn music off, in Settings)
 	Tracks = {
@@ -887,10 +910,6 @@ Config.Music = {
 	Fallback = {
 		{ Name = "Relaxed Scene", Id = 1848354536 },
 	} :: { { Name: string, Id: number } },
-	-- Music while Domer chases you. 0 = the built-in chase loop (a heartbeat that speeds up, a low drone
-	-- and a faint creepy note, mixed soft so it's never harsh: UI/ChaseMusic.luau). To use a real track instead, paste the
-	-- id of one from the Creator Store (Toolbox > Audio > Music; public or uploaded by you).
-	Chase = { Name = "Chase", Id = 0 },
 }
 
 --------------------------------------------------------------------------------

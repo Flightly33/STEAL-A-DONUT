@@ -30,8 +30,6 @@ local Modal = require(script.Parent.Modal)
 local Notifications = require(script.Parent.Notifications)
 local Bases = require(script.Parent.Parent.Bases)
 
-local Settings = require(script.Parent.Settings)
-
 local Chase = {}
 
 local player = Players.LocalPlayer :: Player
@@ -173,7 +171,6 @@ local grabSounds: { Sound } = {}
 type ChaseInfo = { DonutId: string, AreaId: number, Kind: string?, Guard: Model?, GuardSpeed: number?, Mutation: string?, Size: string? }
 
 local function onChaseStarted(info: ChaseInfo)
-	Settings.SetChasing(true)
 	local kind = info.Kind or "Box"
 	local donut = Donuts.ById[info.DonutId]
 	local rarity = donut and Rarities.Get(donut.Rarity)
@@ -303,7 +300,6 @@ end
 type ChaseResult = { Result: string, DonutId: string?, IsNew: boolean?, Reason: string?, Mutation: string?, Size: string?, Kind: string?, EggId: string?, Tier: string?, BoxBack: boolean?, Count: number?, Cost: number? }
 
 local function onChaseEnded(result: ChaseResult)
-	Settings.SetChasing(false)
 	if result.Result == "Safe" then
 		stopChaseLoop()
 		setEdges(true, Color3.fromRGB(0, 170, 255))
