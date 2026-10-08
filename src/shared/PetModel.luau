@@ -12,9 +12,10 @@
 
 	Eggs are decorated by kind: sprinkles, an icing cap, a royal gold band and crown, or spots.
 
-	Pets are little chibi creatures built from a body plan (Shape) plus Features (see Pets.luau), with
-	big shiny eyes that blink and wings / tails / fins / tentacles that the client swings around
-	their joints (see BuildPet and client/Followers.luau).
+	Pets are little brick critters with studs, built from the blocks the Blender script
+	art/studded_pets/studded_pets.py exports (PetBlocks): a body plan (Shape) plus Features (see
+	Pets.luau). Their eyes blink, and wings / tails / fins / tentacles swing round their joints
+	(see BuildPet and client/Followers.luau).
 	Both are one rigid assembly welded to an anchored, invisible "Root" part, so moving Root moves
 	everything (cheap to animate on the client). The front is -Z.
 ]]
@@ -22,6 +23,7 @@
 local CollectionService = game:GetService("CollectionService")
 
 local Pets = require(script.Parent.Pets)
+local PetBlocks = require(script.Parent.PetBlocks)
 
 local PetModel = {}
 
@@ -45,6 +47,7 @@ type Builder = {
 	Blob: (size: Vector3, cf: CFrame, color: Color3, material: Enum.Material?) -> Part,
 	Ball: (diameter: number, position: Vector3, color: Color3, material: Enum.Material?) -> Part,
 	Rod: (from: Vector3, to: Vector3, diameter: number, color: Color3, material: Enum.Material?) -> Part,
+	Bar: (from: Vector3, to: Vector3, thickness: number, color: Color3, material: Enum.Material?) -> Part,
 }
 
 local function newBuilder(name: string, scale: number): Builder
@@ -106,7 +109,14 @@ local function newBuilder(name: string, scale: number): Builder
 		local cf = CFrame.fromMatrix((from + to) / 2, dir, side:Cross(dir))
 		return part(Vector3.new(along.Magnitude + diameter * 0.3, diameter, diameter), cf, color, material, Enum.PartType.Cylinder)
 	end
-	return { Model = model, Root = root, S = scale, Part = part, Blob = blob, Ball = ball, Rod = rod }
+	-- A square bar from one point to another (a pet's legs and arms: PetBlocks rods)
+	local function bar(from: Vector3, to: Vector3, thickness: number, color: Color3, material: Enum.Material?): Part
+		local along = to - from
+		local up = if math.abs(along.Unit.Y) > 0.95 then Vector3.xAxis else Vector3.yAxis
+		local cf = CFrame.lookAt((from + to) / 2, to, up)
+		return part(Vector3.new(thickness, thickness, along.Magnitude + thickness * 0.3), cf, color, material)
+	end
+	return { Model = model, Root = root, S = scale, Part = part, Blob = blob, Ball = ball, Rod = rod, Bar = bar }
 end
 
 local function emitter(parent: Instance, color: ColorSequence, rate: number, size: number, speed: number, lifetime: number): ParticleEmitter
@@ -176,9 +186,6 @@ local function runeRing(b: Builder, name: string, radius: number, height: number
 	end
 end
 
-local PINK = rgb(255, 135, 170)
-local CREAM = rgb(250, 240, 220)
-local ORANGE = rgb(255, 165, 40)
 local GOLD = rgb(255, 205, 50)
 
 -- The point on an ellipsoid (centre, half-sizes) in direction `dir` from its centre.
@@ -393,547 +400,146 @@ end
 -- Pets
 --------------------------------------------------------------------------------
 --[[
-	Pets are chibi critters: a big round head with shiny eyes that blink ("EyeWhite" / "Pupil", like
-	the donuts), a body plan (Shape) and Features. Wings, tails, fins and tentacles hang from real
-	joints ("Limb" = Wing / Tail / Fluke / Fin / Tentacle, swinging around "Pivot"), so the client can
-	flap and wag them (client/Followers.luau). Body-coloured parts are all named "Body" so rainbow pets
-	change colour all over.
+	Pets are little brick critters, like Domer and the brick donuts: chunky blocks with studs on top,
+	square eyes with a white glint that blink ("EyeWhite" / "Pupil"), pink cheeks. Every block comes
+	from PetBlocks, which the Blender script art/studded_pets/studded_pets.py exports (it renders them
+	all too): a body plan (Shape) plus a list of blocks for each Feature. Wings, tails, fins and
+	tentacles hang from real joints ("Limb" = Wing / Tail / Fluke / Fin / Tentacle / Spin, swinging
+	around "Pivot"), so the client can flap and wag them (client/Followers.luau). Body-coloured parts
+	are all named "Body" so rainbow pets change colour all over (their studs too).
 ]]
+
+-- What a block's colour name means for this pet (PetBlocks: Color = "Body", "Accent"...)
+local function roleColors(pet: Pets.Pet): { [string]: Color3 }
+	local body, accent = pet.Body, pet.Accent
+	return {
+		Body = body,
+		Accent = accent,
+		Pale = body:Lerp(WHITE, 0.5), -- muzzles, paws, chests, wool
+		Shade = body:Lerp(BLACK, 0.25),
+		AccentLight = accent:Lerp(WHITE, 0.35),
+		Snout = body:Lerp(accent, 0.3),
+		ShellPlate = accent:Lerp(BLACK, 0.25),
+	}
+end
+
+local MATERIALS: { [string]: Enum.Material } = {
+	Smooth = Enum.Material.SmoothPlastic,
+	Neon = Enum.Material.Neon,
+	Foil = Enum.Material.Foil,
+	Wood = Enum.Material.Wood,
+	WoodPlanks = Enum.Material.WoodPlanks,
+	Metal = Enum.Material.Metal,
+	Slate = Enum.Material.Slate,
+	Fabric = Enum.Material.Fabric,
+}
+
+-- Is `point` inside an (unturned) block? (studs under another block aren't made)
+local function inBlock(point: Vector3, block: PetBlocks.Block): boolean
+	local half = (block.Size :: Vector3) / 2 + Vector3.one * 0.02
+	local d = point - (block.Pos :: Vector3)
+	return math.abs(d.X) < half.X and math.abs(d.Y) < half.Y and math.abs(d.Z) < half.Z
+end
+
 function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 	local opts: Options = options or {}
 	local b = newBuilder(pet.Id, (opts.Scale or 1) * (pet.Scale or 1))
-	local body, accent = pet.Body, pet.Accent
-	local has = function(feature: string): boolean
-		return Pets.HasFeature(pet, feature)
+	local has: { [string]: boolean } = {}
+	for _, feature in pet.Features do
+		has[feature] = true
 	end
-	local glowMaterial = if has("Glow") then Enum.Material.Neon else Enum.Material.SmoothPlastic
-	local pale = body:Lerp(WHITE, 0.5) -- snouts, paws
-	local shape = pet.Shape
+	local colors = roleColors(pet)
 
-	local function limb(part: BasePart, kind: string, side: number, pivot: Vector3)
-		part:SetAttribute("Limb", kind)
-		part:SetAttribute("Side", side)
-		part:SetAttribute("Pivot", pivot * b.S)
-	end
-	local function skin(part: Part): Part
-		part.Name = "Body"
-		return part
-	end
-
-	-- Every body plan fills these in
-	local bodyPart: Part
-	local bodyCenter, bodySemi = Vector3.zero, Vector3.one
-	local headCenter, headSemi = Vector3.zero, Vector3.one -- the face goes on this (the head, or the body)
-	local eyeSpread, eyeLift, eyeSize = 0.42, 0.12, 1
-	local snout = false
-	local wingRoot = Vector3.new(0.6, 0.45, 0.3)
-	local tailRoot: Vector3? = nil
-	local spade = false -- devil / dragon tail instead of a curly one
-	local stalkEyes: { Vector3 }? = nil
-
-	if shape == "Quad" or shape == "Dragon" then
-		local dragon = shape == "Dragon"
-		bodyCenter = if dragon then Vector3.new(0, -0.05, 0.45) else Vector3.new(0, -0.1, 0.35)
-		bodySemi = if dragon then Vector3.new(0.88, 0.74, 1.3) else Vector3.new(0.8, 0.66, 1.02)
-		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
-		-- Stubby legs with round paws
-		local legZ: { number } = if dragon then { -0.3, 1.2 } else { -0.2, 0.9 }
-		for _, x in { -0.47, 0.47 } do
-			for _, z in legZ do
-				skin(b.Rod(Vector3.new(x, bodyCenter.Y - 0.25, z), Vector3.new(x, -0.98, z), 0.44, body))
-				b.Blob(Vector3.new(0.52, 0.28, 0.62), CFrame.new(x, -1.04, z - 0.08), pale)
+	-- The pet's blocks: its body plan, then each of its features (for that body plan)
+	local blocks: { PetBlocks.Block } = {}
+	local function take(list: { PetBlocks.Block }?)
+		local found: { PetBlocks.Block } = list or {}
+		for _, block in found do
+			if (block.Only == nil or has[block.Only]) and (block.Unless == nil or not has[block.Unless]) then
+				table.insert(blocks, block)
 			end
 		end
-		if dragon then
-			headCenter, headSemi = Vector3.new(0, 1.15, -1.2), Vector3.one * 0.74
-			skin(b.Rod(Vector3.new(0, 0.25, -0.35), Vector3.new(0, 0.95, -1.05), 0.78, body)) -- neck
-			tailRoot = Vector3.new(0, 0.05, bodyCenter.Z + bodySemi.Z * 0.85)
-			spade = true
-			wingRoot = Vector3.new(0.55, 0.5, 0.25)
+	end
+	local shape = PetBlocks.Shapes[pet.Shape] or PetBlocks.Shapes.Quad
+	take(shape.Blocks)
+	for _, feature in pet.Features do
+		local byShape = PetBlocks.Features[feature]
+		if byShape then
+			take(byShape[pet.Shape])
+		end
+	end
+
+	local function colorOf(block: PetBlocks.Block): Color3
+		local c = block.Color
+		return if typeof(c) == "Color3" then c else colors[c :: string] or pet.Body
+	end
+	local function materialOf(block: PetBlocks.Block): Enum.Material
+		local m = block.Material
+		if m == "Glow" then
+			return if has.Glow then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		end
+		return MATERIALS[m or "Smooth"] or Enum.Material.SmoothPlastic
+	end
+	-- Name, see-through, joints and blinking: the same for a block and for its studs
+	local function mark(part: BasePart, block: PetBlocks.Block)
+		part.Name = block.Name or "Part"
+		part.Transparency = block.Transparency or (if has.Ghost and block.Name == "Body" then 0.25 else 0)
+		local limb = block.Limb
+		if limb then
+			part:SetAttribute("Limb", limb.Kind)
+			part:SetAttribute("Side", limb.Side)
+			part:SetAttribute("Pivot", limb.Pivot * b.S)
+		end
+		if block.Eye then
+			part:SetAttribute("EyeWhite", true)
+		elseif block.Pupil then
+			part:SetAttribute("Pupil", true)
+		end
+	end
+
+	for _, block in blocks do
+		local part
+		if block.From and block.To and block.Thick then
+			part = b.Bar(block.From, block.To, block.Thick, colorOf(block), materialOf(block))
 		else
-			headCenter, headSemi = Vector3.new(0, 0.72, -0.72), Vector3.one * 0.86
-			tailRoot = Vector3.new(0, 0.05, bodyCenter.Z + bodySemi.Z * 0.9)
+			local rot = block.Rot
+			local turn = if rot then CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z)) else CFrame.identity
+			part = b.Part(block.Size :: Vector3, CFrame.new(block.Pos :: Vector3) * turn, colorOf(block), materialOf(block))
 		end
-		skin(b.Ball(headSemi.X * 2, headCenter, body))
-		snout = true
-		eyeSize = headSemi.X / 0.8
-	elseif shape == "Bird" then
-		bodyCenter, bodySemi = Vector3.new(0, -0.05, 0.05), Vector3.new(0.92, 0.98, 0.9)
-		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
-		headCenter, headSemi = Vector3.new(0, 1.12, -0.2), Vector3.one * 0.72
-		skin(b.Ball(1.44, headCenter, body))
-		for _, side in { -1, 1 } do
-			b.Rod(Vector3.new(side * 0.36, -0.8, -0.05), Vector3.new(side * 0.36, -1.0, -0.15), 0.13, ORANGE)
-			b.Blob(Vector3.new(0.42, 0.16, 0.62), CFrame.new(side * 0.36, -1.02, -0.3), ORANGE)
-			if not has("Wings") then
-				-- little wings folded at its sides
-				local root = Vector3.new(side * 0.82, 0.25, 0.05)
-				local wing = b.Blob(Vector3.new(0.22, 0.8, 0.95), CFrame.new(root + Vector3.new(side * 0.1, -0.3, 0.08)) * CFrame.Angles(0.25, 0, side * 0.18), accent, glowMaterial)
-				wing.Name = "Wing"
-				limb(wing, "Wing", side, root)
-			end
-		end
-		-- a fan of tail feathers
-		for i = -1, 1 do
-			local feather = b.Blob(Vector3.new(0.3, 0.14, 0.85), CFrame.new(i * 0.22, -0.25, 0.95) * CFrame.Angles(0, i * 0.35, 0) * CFrame.Angles(-0.5, 0, 0), accent, glowMaterial)
-			limb(feather, "Tail", 0, Vector3.new(0, -0.3, 0.7))
-		end
-		wingRoot = Vector3.new(0.8, 0.3, 0.05)
-		eyeSize = 0.95
-	elseif shape == "Blob" then
-		bodyCenter, bodySemi = Vector3.zero, Vector3.new(1.1, 0.98, 1.05)
-		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
-		headCenter, headSemi = bodyCenter, bodySemi
-		eyeSpread, eyeLift, eyeSize = 0.36, 0.22, 1.2
-		wingRoot = Vector3.new(0.9, 0.35, 0.35)
-		tailRoot = Vector3.new(0, -0.35, 0.9)
-		spade = true
-		if has("Ghost") then
-			-- a wavy hem instead of a round bottom
-			for i = 0, 6 do
-				local angle = i / 7 * TAU
-				skin(b.Ball(0.62, Vector3.new(math.cos(angle) * 0.74, -0.78, math.sin(angle) * 0.7), body))
-			end
-		end
-	elseif shape == "Whale" then
-		bodyCenter, bodySemi = Vector3.zero, Vector3.new(1.1, 0.9, 1.7)
-		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
-		b.Blob(Vector3.new(1.85, 1.0, 3.0), CFrame.new(0, -0.38, -0.1), accent) -- belly
-		headCenter, headSemi = bodyCenter, bodySemi
-		eyeSpread, eyeLift, eyeSize = 0.55, 0.08, 1.1
-		-- tail and flukes (flap up and down)
-		local tailBase = Vector3.new(0, 0.15, 1.35)
-		local stock = skin(b.Blob(Vector3.new(0.95, 0.75, 1.5), CFrame.new(0, 0.3, 1.9) * CFrame.Angles(-0.35, 0, 0), body))
-		limb(stock, "Fluke", 0, tailBase)
-		for _, side in { -1, 1 } do
-			local fluke = skin(b.Blob(Vector3.new(1.1, 0.16, 0.62), CFrame.new(side * 0.5, 0.58, 2.5) * CFrame.Angles(0, side * 0.45, 0), body))
-			limb(fluke, "Fluke", 0, tailBase)
-			local fin = skin(b.Blob(Vector3.new(1.0, 0.18, 0.55), CFrame.new(side * 1.2, -0.3, -0.25) * CFrame.Angles(0, 0, side * 0.5), body))
-			limb(fin, "Fin", side, Vector3.new(side * 0.85, -0.2, -0.25))
-		end
-		wingRoot = Vector3.new(0.9, 0.5, 0.2)
-	else -- Crab
-		bodyCenter, bodySemi = Vector3.zero, Vector3.new(1.2, 0.62, 0.95)
-		bodyPart = skin(b.Blob(bodySemi * 2, CFrame.new(bodyCenter), body))
-		headCenter, headSemi = bodyCenter, bodySemi
-		local stalks: { Vector3 } = {}
-		stalkEyes = stalks
-		for _, side in { -1, 1 } do
-			-- walking legs
-			for i = 0, 2 do
-				local z = -0.2 + i * 0.4
-				local hip = Vector3.new(side * 0.95, -0.1, z)
-				local knee = Vector3.new(side * 1.55, 0.2, z + 0.12 * (i - 1))
-				local foot = Vector3.new(side * 1.85, -0.62, z + 0.22 * (i - 1))
-				skin(b.Rod(hip, knee, 0.18, body))
-				skin(b.Rod(knee, foot, 0.14, body))
-			end
-			-- big claws
-			local shoulder = Vector3.new(side * 0.85, 0.05, -0.55)
-			local elbow = Vector3.new(side * 1.35, 0.3, -1.0)
-			skin(b.Rod(shoulder, elbow, 0.26, body))
-			skin(b.Blob(Vector3.new(0.7, 0.5, 0.78), CFrame.new(side * 1.48, 0.38, -1.3), body))
-			b.Blob(Vector3.new(0.26, 0.2, 0.58), CFrame.new(side * 1.34, 0.66, -1.5) * CFrame.Angles(0.45, 0, 0), accent)
-			b.Blob(Vector3.new(0.26, 0.18, 0.5), CFrame.new(side * 1.6, 0.2, -1.62), accent)
-			-- eye stalks
-			local top = Vector3.new(side * 0.4, 1.02, -0.6)
-			skin(b.Rod(Vector3.new(side * 0.32, 0.35, -0.55), top, 0.14, body))
-			table.insert(stalks, top + Vector3.new(0, 0.12, -0.06))
-		end
-		eyeSize = 1.05
-	end
-	bodyPart.Name = "Body"
-
-	-- Face -----------------------------------------------------------------
-	local function eye(position: Vector3, facing: Vector3, size: number)
-		local frame = facingFrame(position, facing)
-		local white = b.Blob(Vector3.new(0.36, 0.46, 0.24) * size, frame, WHITE)
-		white.Name = "Eye"
-		white:SetAttribute("EyeWhite", true)
-		local pupil = b.Blob(Vector3.new(0.26, 0.34, 0.14) * size, frame * CFrame.new(0, -0.02 * size, -0.07 * size), BLACK)
-		pupil.Name = "Pupil"
-		local glint = b.Ball(0.1 * size, (frame * CFrame.new(-0.05 * size, 0.07 * size, -0.15 * size)).Position, WHITE, Enum.Material.Neon)
-		glint.Name = "Glint"
-		local glint2 = b.Ball(0.05 * size, (frame * CFrame.new(0.05 * size, -0.08 * size, -0.14 * size)).Position, WHITE, Enum.Material.Neon)
-		glint2.Name = "Glint"
-		for _, p in { pupil, glint, glint2 } do
-			p:SetAttribute("Pupil", true)
-		end
-	end
-	-- A point on the face and the way it faces (x: sideways, y: up, from the middle of the face)
-	local function facePoint(x: number, y: number): (Vector3, Vector3)
-		local point = onSurface(headCenter, headSemi, Vector3.new(x, y, -1))
-		return point, normalAt(headCenter, headSemi, point)
-	end
-	local function smile(frame: CFrame, size: number)
-		for _, side in { -1, 1 } do
-			b.Blob(Vector3.new(0.17, 0.06, 0.06) * size, frame * CFrame.new(side * 0.065 * size, 0, 0) * CFrame.Angles(0, 0, side * 0.5), rgb(70, 30, 35))
-		end
+		mark(part, block)
 	end
 
-	if stalkEyes then
-		for _, position in stalkEyes do
-			eye(position, Vector3.new(0, 0, -1), 1.05)
-		end
-		local point, normal = facePoint(0, 0.05)
-		smile(facingFrame(point + normal * 0.01, normal), 1.3)
-	else
-		for _, side in { -1, 1 } do
-			local point, normal = facePoint(side * eyeSpread, eyeLift)
-			eye(point - normal * 0.04 * eyeSize, (normal + Vector3.new(0, 0, -1.5)).Unit, eyeSize)
-			local cheekPoint, cheekNormal = facePoint(side * (eyeSpread + 0.14), eyeLift - 0.32)
-			b.Blob(Vector3.new(0.28, 0.16, 0.08) * eyeSize, facingFrame(cheekPoint, cheekNormal), PINK).Transparency = 0.3
-		end
-	end
-
-	if snout then
-		local dragon = shape == "Dragon"
-		local point, normal = facePoint(0, -0.34)
-		local size = if dragon then Vector3.new(0.92, 0.6, 0.9) else Vector3.new(0.76, 0.5, 0.5) * (headSemi.X / 0.86)
-		local frame = facingFrame(point + normal * (if dragon then 0.12 else 0.02), Vector3.new(0, -0.1, -1))
-		b.Blob(size, frame, if dragon then body:Lerp(accent, 0.3) else pale)
-		if dragon then
-			for _, side in { -1, 1 } do
-				b.Ball(0.1, (frame * CFrame.new(side * 0.16, size.Y * 0.2, -size.Z * 0.46)).Position, BLACK)
-			end
-		else
-			b.Blob(Vector3.new(0.26, 0.17, 0.14), frame * CFrame.new(0, size.Y * 0.16, -size.Z * 0.45), BLACK) -- nose
-		end
-		smile(frame * CFrame.new(0, -size.Y * 0.2, -size.Z * 0.43), if dragon then 1.3 else 1)
-	elseif has("Beak") then
-		local point, normal = facePoint(0, -0.12)
-		local frame = facingFrame(point + normal * 0.08, Vector3.new(0, -0.15, -1))
-		b.Blob(Vector3.new(0.46, 0.24, 0.52), frame, ORANGE)
-		b.Blob(Vector3.new(0.36, 0.14, 0.38), frame * CFrame.new(0, -0.12, 0.02), rgb(230, 130, 30))
-	elseif not stalkEyes then
-		local point, normal = facePoint(0, eyeLift - 0.36)
-		smile(facingFrame(point + normal * 0.01, normal), eyeSize * 1.2)
-	end
-
-	-- Features ------------------------------------------------------------------
-	local headTop = onSurface(headCenter, headSemi, Vector3.yAxis)
-	local function onHead(x: number, y: number, z: number): Vector3
-		return onSurface(headCenter, headSemi, Vector3.new(x, y, z))
-	end
-
-	for _, side in { -1, 1 } do
-		if has("PointyEars") then
-			-- a square turned on its corner, half buried in the head, reads as a triangle
-			local frame = CFrame.new(onHead(side * 0.6, 0.8, 0.05)) * CFrame.Angles(0, 0, side * -0.4)
-			skin(b.Part(Vector3.new(0.62, 0.62, 0.18), frame * CFrame.Angles(0, 0, math.rad(45)), body))
-			b.Part(Vector3.new(0.34, 0.34, 0.06), frame * CFrame.new(0, 0.06, -0.08) * CFrame.Angles(0, 0, math.rad(45)), accent)
-		end
-		if has("FloppyEars") then
-			local point = onHead(side * 0.8, 0.45, 0.05)
-			b.Blob(Vector3.new(0.32, 0.95, 0.58), CFrame.new(point + Vector3.new(side * 0.1, -0.35, 0)) * CFrame.Angles(0, 0, side * 0.28), accent)
-		end
-		if has("LongEars") then
-			local point = onHead(side * 0.35, 1, 0.05)
-			local frame = CFrame.new(point + Vector3.new(side * 0.08, 0.55, 0)) * CFrame.Angles(0, 0, side * -0.12)
-			skin(b.Blob(Vector3.new(0.36, 1.3, 0.26), frame, body))
-			b.Blob(Vector3.new(0.18, 0.95, 0.08), frame * CFrame.new(0, 0, -0.1), PINK)
-		end
-		if has("RoundEars") then
-			local point = onHead(side * 0.62, 0.8, 0.05)
-			skin(b.Ball(0.56, point, body))
-			b.Ball(0.3, point + Vector3.new(0, 0, -0.16), accent)
-		end
-		if has("Horns") then
-			-- swept back a little
-			local base = onHead(side * 0.45, 0.9, 0.15)
-			local mid = base + Vector3.new(side * 0.14, 0.32, 0.14)
-			local tip = mid + Vector3.new(side * 0.14, 0.2, 0.3)
-			b.Rod(base, mid, 0.24, CREAM)
-			b.Rod(mid, tip, 0.15, CREAM)
-			b.Ball(0.14, tip, CREAM)
-		end
-		if has("Tufts") then
-			local point = onHead(side * 0.55, 0.85, 0)
-			b.Blob(Vector3.new(0.2, 0.55, 0.2), CFrame.new(point + Vector3.new(side * 0.1, 0.2, 0)) * CFrame.Angles(0, 0, side * -0.5), accent)
-		end
-		if has("Wings") then
-			-- two layers of feathers (or leather), spreading up and out from the shoulders
-			local root = Vector3.new(side * wingRoot.X, wingRoot.Y, wingRoot.Z)
-			local k = if shape == "Dragon" then 1.3 else 1
-			local frame = CFrame.new(root) * CFrame.Angles(0, side * -0.35, side * -0.6)
-			local main = b.Blob(Vector3.new(0.22, 1.35 * k, 1.1 * k), frame * CFrame.new(0, 0.62 * k, 0.15 * k), accent, glowMaterial)
-			local inner = b.Blob(Vector3.new(0.2, 0.95 * k, 0.8 * k), frame * CFrame.new(side * 0.05, 0.42 * k, 0.38 * k), accent:Lerp(WHITE, 0.35), glowMaterial)
-			for _, wing in { main, inner } do
-				wing.Name = "Wing"
-				limb(wing, "Wing", side, root)
+	-- Studs on the tops of the big blocks, every StudPitch (none where another block covers them)
+	local pitch = PetBlocks.StudPitch
+	for _, block in blocks do
+		local pos, size = block.Pos, block.Size
+		if block.Studs and pos and size and not block.Rot then
+			local nx = math.max(1, math.floor(size.X / pitch + 1e-6))
+			local nz = math.max(1, math.floor(size.Z / pitch + 1e-6))
+			for i = 0, nx - 1 do
+				for j = 0, nz - 1 do
+					local point = pos + Vector3.new(-(nx - 1) * pitch / 2 + i * pitch, size.Y / 2 + PetBlocks.StudSize.X / 2, -(nz - 1) * pitch / 2 + j * pitch)
+					local hidden = false
+					for _, other in blocks do
+						if other ~= block and other.Pos and not other.Rot and (other.Transparency or 0) < 1 and inBlock(point, other) then
+							hidden = true
+							break
+						end
+					end
+					if not hidden then
+						local stud = b.Part(PetBlocks.StudSize, CFrame.new(point) * UPRIGHT, colorOf(block), materialOf(block), Enum.PartType.Cylinder)
+						mark(stud, block)
+					end
+				end
 			end
 		end
-		if has("Antenna") then
-			local base = onHead(side * 0.3, 1, 0)
-			local tip = base + Vector3.new(side * 0.25, 0.6, 0.05)
-			b.Rod(base, tip, 0.07, rgb(70, 70, 80))
-			b.Ball(0.2, tip, accent, Enum.Material.Neon)
-		end
-	end
-	if has("Belly") then
-		local point = onSurface(bodyCenter, bodySemi, Vector3.new(0, -0.15, -1))
-		b.Blob(Vector3.new(1.2, 1.4, 0.3), facingFrame(point + Vector3.new(0, 0, 0.12), Vector3.new(0, 0, -1)), accent)
-	end
-	if has("Horn") then
-		-- a twisty unicorn horn
-		local base = onHead(0, 0.8, -0.6)
-		local up = Vector3.new(0, 0.85, -0.5).Unit
-		local a, c = base + up * 0.32, base + up * 0.62
-		b.Rod(base, a, 0.28, rgb(255, 230, 120), Enum.Material.Neon)
-		b.Rod(a, c, 0.2, rgb(255, 240, 170), Enum.Material.Neon)
-		b.Rod(c, c + up * 0.28, 0.11, rgb(255, 250, 210), Enum.Material.Neon)
-	end
-	if has("Crest") then
-		for i = 0, 2 do
-			b.Blob(Vector3.new(0.14, 0.62, 0.3), CFrame.new(headTop + Vector3.new(0, 0.22 - i * 0.05, 0.05 + i * 0.2)) * CFrame.Angles(-0.25 - i * 0.3, 0, 0), accent, glowMaterial)
-		end
-	end
-	if has("Mane") then
-		for i = 0, 4 do
-			local a = i / 4
-			local point = headTop:Lerp(bodyCenter + Vector3.new(0, bodySemi.Y, -0.2), a) + Vector3.new(0, 0.05, 0.25)
-			b.Blob(Vector3.new(0.3, 0.55, 0.42), CFrame.new(point) * CFrame.Angles(0.5, 0, 0), Color3.fromHSV(i / 5, 0.6, 1), Enum.Material.Neon)
-		end
-	end
-	if tailRoot and (has("Tail") or has("PuffTail") or has("BigTail")) then
-		local root = tailRoot
-		local parts: { BasePart } = {}
-		if has("BigTail") then
-			local tail = skin(b.Blob(Vector3.new(0.8, 0.8, 1.6), CFrame.new(root + Vector3.new(0, 0.45, 0.6)) * CFrame.Angles(-0.7, 0, 0), body))
-			local tip = b.Blob(Vector3.one * 0.66, CFrame.new(root + Vector3.new(0, 0.45, 0.6) + Vector3.new(0, 0.64, 0.76) * 0.72), accent)
-			parts = { tail, tip }
-		elseif has("PuffTail") then
-			parts = { b.Ball(0.62, root + Vector3.new(0, 0.1, 0.1), accent) }
-		elseif spade then
-			local a = root + Vector3.new(0, 0.1, 0.65)
-			local c = a + Vector3.new(0, 0.38, 0.5)
-			local tip = b.Part(Vector3.new(0.1, 0.46, 0.46), CFrame.new(c + Vector3.new(0, 0.12, 0.18)) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
-			parts = { skin(b.Rod(root, a, 0.34, body)), skin(b.Rod(a, c, 0.24, body)), tip }
-		else
-			local a = root + Vector3.new(0, 0.3, 0.5)
-			local c = a + Vector3.new(0, 0.5, 0.12)
-			parts = { skin(b.Rod(root, a, 0.28, body)), skin(b.Rod(a, c, 0.22, body)), b.Ball(0.34, c, accent, glowMaterial) }
-		end
-		for _, part in parts do
-			limb(part, "Tail", 0, root)
-		end
-	end
-	if has("Spikes") then
-		for i = 0, 3 do
-			local point = onSurface(bodyCenter, bodySemi, Vector3.new(0, 1, -0.6 + i * 0.45))
-			b.Part(Vector3.new(0.1, 0.34, 0.34), CFrame.new(point) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
-		end
-	end
-	if shape == "Dragon" then
-		-- a spiky ridge from the top of its head down its back
-		for i = 0, 1 do
-			local point = onHead(0, 0.75, 0.35 + i * 0.5)
-			b.Part(Vector3.new(0.1, 0.26, 0.26), CFrame.new(point) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
-		end
-		for i = 0, 2 do
-			local point = onSurface(bodyCenter, bodySemi, Vector3.new(0, 1, -0.3 + i * 0.55))
-			b.Part(Vector3.new(0.1, 0.34, 0.34), CFrame.new(point) * CFrame.Angles(math.rad(45), 0, 0), accent, glowMaterial)
-		end
-	end
-	if has("Tentacles") then
-		for i = 0, 5 do
-			local angle = i / 6 * TAU + 0.26
-			local out = Vector3.new(math.cos(angle), 0, math.sin(angle))
-			local root = bodyCenter + out * 0.65 + Vector3.new(0, -0.7, 0)
-			local knee = root + out * 0.15 + Vector3.new(0, -0.5, 0)
-			local tip = knee + out * 0.3 + Vector3.new(0, -0.22, 0)
-			for _, part in { b.Rod(root, knee, 0.32, accent, glowMaterial), b.Rod(knee, tip, 0.22, accent, glowMaterial), b.Ball(0.24, tip, accent, glowMaterial) } do
-				part.Name = "Tentacle"
-				limb(part, "Tentacle", if i % 2 == 0 then 1 else -1, root)
-			end
-		end
-	end
-	if has("Sprinkles") then
-		local colors = { rgb(255, 70, 70), rgb(80, 200, 255), rgb(255, 235, 70), rgb(120, 230, 90) }
-		local rng = Random.new(#pet.Id)
-		for i = 1, 9 do
-			local point = onSurface(bodyCenter, bodySemi, Vector3.new(rng:NextNumber(-0.55, 0.55), 1, rng:NextNumber(-0.7, 0.8)))
-			local normal = normalAt(bodyCenter, bodySemi, point)
-			if has("GlazeDrip") then
-				point += normal * 0.2 -- (on top of the glaze)
-			end
-			local along = normal:Cross(Vector3.new(rng:NextNumber(-1, 1), 0, rng:NextNumber(-1, 1)).Unit).Unit * 0.14
-			b.Rod(point - along, point + along, 0.09, colors[i % 4 + 1], Enum.Material.Neon)
-		end
-	end
-	if has("DonutRing") then
-		-- a donut floatie round its middle
-		flatRing(b, bodyCenter + Vector3.new(0, -0.35, 0), 1.0, 0.44, 12, rgb(222, 165, 95))
-		flatRing(b, bodyCenter + Vector3.new(0, -0.24, 0), 1.0, 0.36, 12, rgb(255, 130, 190))
-	end
-	if has("Scarf") then
-		flatRing(b, Vector3.new(0, 0.55, -0.12), 0.64, 0.26, 12, rgb(230, 50, 60), Enum.Material.Fabric)
-		b.Blob(Vector3.new(0.3, 0.75, 0.12), CFrame.new(0.32, 0.2, -0.72) * CFrame.Angles(0, 0, 0.2), rgb(230, 50, 60), Enum.Material.Fabric)
-	end
-	if has("Leaf") then
-		b.Rod(headTop - Vector3.new(0, 0.05, 0), headTop + Vector3.new(0.05, 0.3, 0), 0.08, rgb(100, 70, 40))
-		b.Blob(Vector3.new(0.95, 0.08, 0.45), CFrame.new(headTop + Vector3.new(0.35, 0.36, 0)) * CFrame.Angles(0, 0.4, 0.3), rgb(90, 200, 70))
-	end
-	if has("Fluff") then
-		-- woolly puffs all over its back and a tuft on its head
-		local wool = body:Lerp(WHITE, 0.5)
-		for i = 1, 9 do
-			local angle = i / 9 * TAU
-			b.Ball(0.72, onSurface(bodyCenter, bodySemi, Vector3.new(math.cos(angle) * 0.8, 0.75, math.sin(angle) * 0.9)), wool)
-		end
-		for i = -1, 1 do
-			b.Ball(0.4, headTop + Vector3.new(i * 0.2, 0.02, 0.05), wool)
-		end
-	end
-	if has("Bow") then
-		local point = onHead(0.45, 0.85, -0.1)
-		for _, side in { -1, 1 } do
-			b.Blob(Vector3.new(0.42, 0.32, 0.14), CFrame.new(point + Vector3.new(side * 0.2, 0.05, 0)) * CFrame.Angles(0, 0, side * 0.3), accent)
-		end
-		b.Ball(0.18, point + Vector3.new(0, 0.05, -0.02), accent)
-	end
-	if has("Spout") then
-		local spout = b.Ball(0.3, onSurface(bodyCenter, bodySemi, Vector3.new(0, 1, -0.3)), accent, Enum.Material.Neon)
-		if not opts.NoEffects then
-			local water = emitter(spout, ColorSequence.new(accent, WHITE), 8, 0.35 * b.S, 5 * b.S, 0.7)
-			water.EmissionDirection = Enum.NormalId.Top
-			water.SpreadAngle = Vector2.new(15, 15)
-			water.Acceleration = Vector3.new(0, -12, 0)
-		end
-	end
-	if has("Crown") then
-		b.Rod(headTop - Vector3.new(0, 0.08, 0), headTop + Vector3.new(0, 0.26, 0), 0.9, GOLD, Enum.Material.Foil)
-		for i = 0, 4 do
-			local angle = i / 5 * TAU + math.pi / 2
-			local point = headTop + Vector3.new(math.cos(angle) * 0.38, 0.4, math.sin(angle) * 0.38)
-			b.Part(Vector3.new(0.14, 0.26, 0.14), CFrame.new(point), GOLD, Enum.Material.Foil)
-			b.Ball(0.13, point + Vector3.new(0, 0.16, 0), GOLD, Enum.Material.Foil)
-		end
-		b.Ball(0.2, headTop + Vector3.new(0, 0.1, -0.44), rgb(255, 40, 70), Enum.Material.Neon)
-	end
-	if has("Halo") then
-		flatRing(b, headTop + Vector3.new(0, if has("Crown") then 0.95 else 0.6, 0), 0.5, 0.12, 12, rgb(255, 240, 150), Enum.Material.Neon)
-	end
-	if has("Shell") then
-		local domeCenter, domeSemi = bodyCenter + Vector3.new(0, 0.42, 0), Vector3.new(0.98, 0.55, 1.18)
-		b.Blob(domeSemi * 2, CFrame.new(domeCenter), accent, Enum.Material.Slate)
-		local plate = accent:Lerp(BLACK, 0.25)
-		for i = 0, 6 do
-			local dir = if i == 0 then Vector3.yAxis else Vector3.new(math.cos(i / 6 * TAU) * 0.8, 0.75, math.sin(i / 6 * TAU) * 0.8)
-			local point = onSurface(domeCenter, domeSemi, dir)
-			b.Blob(Vector3.new(0.55, 0.55, 0.1), facingFrame(point, normalAt(domeCenter, domeSemi, point)), plate, Enum.Material.Slate)
-		end
-	end
-	if has("Ghost") then
-		for _, part in b.Model:GetChildren() do
-			if part:IsA("BasePart") and part.Name == "Body" then
-				part.Transparency = 0.25
-			end
-		end
-	end
-
-	-- Signature details that match the pet's name ---------------------------------
-	-- A line drawn over its back, hugging the body (drizzles, stripes)
-	local function overBack(z: number, color: Color3, material: Enum.Material?)
-		local dirs = { Vector3.new(-1, 0.25, z), Vector3.new(-0.55, 0.9, z), Vector3.new(0, 1, z), Vector3.new(0.55, 0.9, z), Vector3.new(1, 0.25, z) }
-		local points = {}
-		for _, dir in dirs do
-			local point = onSurface(bodyCenter, bodySemi, dir)
-			table.insert(points, point + normalAt(bodyCenter, bodySemi, point) * 0.05)
-		end
-		for i = 1, #points - 1 do
-			b.Rod(points[i], points[i + 1], 0.09, color, material)
-		end
-	end
-	if has("GlazeDrip") then
-		-- a pink glaze cap over its back with drips running down
-		local glaze = rgb(255, 150, 200)
-		b.Blob(Vector3.new(bodySemi.X * 1.65, 0.5, bodySemi.Z * 1.55), CFrame.new(bodyCenter + Vector3.new(0, bodySemi.Y * 0.88, 0)), glaze)
-		for i = 0, 3 do
-			local angle = i / 4 * TAU + 0.4
-			local point = onSurface(bodyCenter, bodySemi, Vector3.new(math.cos(angle), 0.55, math.sin(angle)))
-			b.Blob(Vector3.new(0.24, 0.5, 0.24), CFrame.new(point + normalAt(bodyCenter, bodySemi, point) * 0.06), glaze)
-		end
-	end
-	if has("ChocoDrizzle") then
-		for i = -1, 1 do
-			overBack(i * 0.5, rgb(70, 40, 25))
-		end
-	end
-	if has("JesterHat") then
-		local colors = { rgb(200, 40, 200), rgb(255, 200, 40) }
-		for i, side in { -1, 1 } do
-			local tip = headTop + Vector3.new(side * 0.7, 0.55, 0.05)
-			b.Rod(headTop + Vector3.new(side * 0.15, 0.05, 0), tip, 0.32, colors[i])
-			b.Ball(0.2, tip + Vector3.new(side * 0.05, -0.08, 0), GOLD, Enum.Material.Foil)
-		end
-		b.Blob(Vector3.new(1.05, 0.32, 0.95), CFrame.new(headTop + Vector3.new(0, 0.02, 0)), colors[1])
-	end
-	if has("TikiMask") then
-		-- a carved wooden tiki mask on its head
-		local wood = rgb(150, 100, 60)
-		local point, normal = onHead(0, 0.55, -0.85), Vector3.new(0, 0.3, -1).Unit
-		local frame = facingFrame(point + normal * 0.05, normal)
-		b.Part(Vector3.new(0.7, 0.75, 0.14), frame, wood, Enum.Material.Wood)
-		for _, side in { -1, 1 } do
-			b.Part(Vector3.new(0.18, 0.12, 0.06), frame * CFrame.new(side * 0.17, 0.12, -0.08), rgb(255, 220, 90), Enum.Material.Neon)
-		end
-		b.Part(Vector3.new(0.4, 0.1, 0.06), frame * CFrame.new(0, -0.2, -0.08), rgb(60, 35, 20))
-		for i = -1, 1 do
-			b.Blob(Vector3.new(0.18, 0.5, 0.08), CFrame.new(headTop + Vector3.new(i * 0.22, 0.3, 0.05)) * CFrame.Angles(0, 0, -i * 0.4), rgb(90, 200, 70))
-		end
-	end
-	if has("Pixels") then
-		local colors = { rgb(255, 60, 200), rgb(60, 230, 255), rgb(255, 230, 60) }
-		local rng = Random.new(#pet.Id * 3)
-		for i = 1, 6 do
-			local point = onSurface(bodyCenter, bodySemi, Vector3.new(rng:NextNumber(-1, 1), rng:NextNumber(0, 1), rng:NextNumber(-1, 1)))
-			b.Part(Vector3.one * 0.22, CFrame.new(point), colors[i % 3 + 1], Enum.Material.Neon)
-		end
-		-- pixel shades
-		local point = onHead(0, 0.2, -1)
-		local normal = normalAt(headCenter, headSemi, point)
-		b.Part(Vector3.new(0.95, 0.2, 0.08), facingFrame(point + normal * 0.06, normal), BLACK)
-	end
-	if has("Rotors") then
-		-- two drone rotors on little arms above its head, spinning
-		for _, side in { -1, 1 } do
-			local hub = headTop + Vector3.new(side * 0.75, 0.35, 0.05)
-			b.Rod(headTop + Vector3.new(side * 0.1, -0.02, 0.05), hub, 0.1, rgb(80, 80, 90), Enum.Material.Metal)
-			local blade = b.Part(Vector3.new(1.0, 0.04, 0.16), CFrame.new(hub + Vector3.new(0, 0.1, 0)), rgb(60, 200, 255), Enum.Material.Neon)
-			limb(blade, "Spin", side, hub)
-			b.Ball(0.16, hub + Vector3.new(0, 0.08, 0), rgb(60, 60, 70), Enum.Material.Metal)
-		end
-	end
-	if has("MetalPlates") then
-		local metal = rgb(170, 175, 185)
-		for i = 0, 2 do
-			local point = onSurface(bodyCenter, bodySemi, Vector3.new(if i == 1 then 0 else (i - 1), 0.8, (i - 1) * 0.6))
-			local frame = facingFrame(point, normalAt(bodyCenter, bodySemi, point))
-			b.Part(Vector3.new(0.5, 0.45, 0.07), frame, metal, Enum.Material.Metal)
-			b.Ball(0.08, (frame * CFrame.new(0.17, 0.15, -0.04)).Position, rgb(100, 100, 110), Enum.Material.Metal)
-		end
-		local point = onHead(0, 0.2, -1)
-		local normal = normalAt(headCenter, headSemi, point)
-		b.Part(Vector3.new(0.95, 0.18, 0.08), facingFrame(point + normal * 0.06, normal), rgb(0, 255, 220), Enum.Material.Neon)
-	end
-	if has("NeonStripes") then
-		for i = -1, 1 do
-			overBack(i * 0.6, if i == 0 then rgb(255, 0, 200) else rgb(0, 255, 230), Enum.Material.Neon)
-		end
-	end
-	if has("CrateBox") then
-		-- a little treasure crate riding on its back
-		local top = onSurface(bodyCenter, bodySemi, Vector3.yAxis) + Vector3.new(0, 0.32, 0.15)
-		b.Part(Vector3.new(0.75, 0.6, 0.65), CFrame.new(top) * CFrame.Angles(0, 0.3, 0), rgb(170, 110, 55), Enum.Material.WoodPlanks)
-		b.Part(Vector3.new(0.78, 0.1, 0.68), CFrame.new(top + Vector3.new(0, 0.1, 0)) * CFrame.Angles(0, 0.3, 0), GOLD, Enum.Material.Foil)
-		b.Ball(0.18, top + Vector3.new(0, 0.38, 0), rgb(255, 230, 120), Enum.Material.Neon)
 	end
 
 	if not opts.NoEffects then
 		local root = b.Root
+		local accent = pet.Accent
 		local rarity = Pets.Rarity(pet.Rarity)
-		if has("Glow") or rarity.Order >= 5 then
+		if has.Glow or rarity.Order >= 5 then
 			light(root, accent, 8 + rarity.Order)
 		end
 		if rarity.Order >= 4 then
@@ -944,29 +550,37 @@ function PetModel.BuildPet(pet: Pets.Pet, options: Options?): Model
 		if rarity.Order >= 5 then
 			emitter(root, ColorSequence.new(accent, WHITE), 3 + rarity.Order * 2, 0.25 * b.S, 1.2 * b.S, 1.4)
 		end
-		if has("Stars") then
+		if has.Stars then
 			local stars = emitter(root, ColorSequence.new(WHITE, accent), 8, 0.3 * b.S, 0.01, 1.2)
 			stars.Shape = Enum.ParticleEmitterShape.Sphere
 			stars.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 			stars.Speed = NumberRange.new(0)
 			stars.LockedToPart = true
 		end
-		if has("Flames") then
+		if has.Flames then
 			local fire = Instance.new("Fire")
 			fire.Color = accent
-			fire.SecondaryColor = body
+			fire.SecondaryColor = pet.Body
 			fire.Size = 2 * b.S
 			fire.Heat = 4
 			fire.Parent = root
+		end
+		-- the whale's spout sprays water
+		local spout = b.Model:FindFirstChild("Spout")
+		if spout then
+			local water = emitter(spout, ColorSequence.new(accent, WHITE), 8, 0.35 * b.S, 5 * b.S, 0.7)
+			water.EmissionDirection = Enum.NormalId.Top
+			water.SpreadAngle = Vector2.new(15, 15)
+			water.Acceleration = Vector3.new(0, -12, 0)
 		end
 	end
 
 	measure(b.Model, b.Root)
 	b.Model:SetAttribute("PetId", pet.Id)
-	if has("Rainbow") then
+	if has.Rainbow then
 		b.Model:SetAttribute("Rainbow", true)
 	end
-	if has("Glitch") then
+	if has.Glitch then
 		b.Model:SetAttribute("Glitch", true)
 	end
 	return b.Model

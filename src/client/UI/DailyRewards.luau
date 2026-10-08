@@ -99,7 +99,7 @@ local function petPicture(parent: Frame, pet: Pets.Pet, big: boolean)
 	local fit = math.max(size.X, size.Y, size.Z)
 	local camera = Instance.new("Camera")
 	camera.FieldOfView = 40
-	local distance = fit * (if big then 1.2 else 1.5) -- (Day 7's pet fills its big card)
+	local distance = fit * (if big then 1.55 else 1.6) -- (Day 7's pet fills its big card)
 	camera.CFrame = CFrame.lookAt(Vector3.new(0, distance * 0.2, -distance), Vector3.zero)
 	camera.Parent = viewport
 	viewport.CurrentCamera = camera

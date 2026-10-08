@@ -4,7 +4,7 @@
 	from plain Frames so there's nothing to upload (and no emoji anywhere in the game). A
 	Theme.Button or a HUD square takes one by name: cart, book, paw, cycle, tools, house, building,
 	globe, rocket, palette, heart, news, note, gear, eye, bolt (Speed), cash, coin, clover (luck),
-	egg, gift, friends (the Friend Boost), plus, check.
+	egg, gift, friends (the Friend Boost), plus, check, basket, indexBook, pawPink.
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -414,6 +414,47 @@ SHAPES.gift = {
 	ellipse(0.6, 0.22, 0.2, 0.14, { rot = -25, fill = YELLOW }),
 	shine(0.27, 0.34, 0.1, 0.04, 0),
 }
+
+-- A copy of an icon with its white body painted `color` (spots, ink and holes stay as they are)
+local function tinted(shapes: { Shape }, color: Color3): { Shape }
+	local copy = {}
+	for i, shape in shapes do
+		local c = table.clone(shape)
+		if (c.fill == nil or c.fill == "white") and c.color == nil then
+			c.color = color
+		end
+		copy[i] = c
+	end
+	return copy
+end
+
+-- The HUD's big icons (like the simulator games): a red shopping basket (Shop), a blue book with a
+-- star on the cover (Index), a pink paw (Pets)
+local BASKET_RED = Color3.fromRGB(240, 60, 60)
+SHAPES.basket = {
+	-- the handle arching over it (behind the rim)
+	capsule(0.3, 0.45, 0.34, 0.2, 0.09, { color = BASKET_RED, back = 1 }),
+	capsule(0.34, 0.2, 0.66, 0.2, 0.09, { color = BASKET_RED, back = 1 }),
+	capsule(0.66, 0.2, 0.7, 0.45, 0.09, { color = BASKET_RED, back = 1 }),
+	box(0.5, 0.7, 0.7, 0.4, { r = 0.14, color = BASKET_RED }),
+	box(0.5, 0.48, 0.86, 0.14, { r = 0.4, color = BASKET_RED }),
+	box(0.36, 0.71, 0.07, 0.22, { r = 0.5, fill = Color3.fromRGB(150, 20, 30), plain = true }),
+	box(0.5, 0.71, 0.07, 0.22, { r = 0.5, fill = Color3.fromRGB(150, 20, 30), plain = true }),
+	box(0.64, 0.71, 0.07, 0.22, { r = 0.5, fill = Color3.fromRGB(150, 20, 30), plain = true }),
+	shine(0.3, 0.46, 0.14, 0.04, 0),
+}
+local BOOK_BLUE = Color3.fromRGB(70, 150, 255)
+SHAPES.indexBook = {
+	box(0.56, 0.55, 0.58, 0.72, { rot = -14, r = 0.1, back = 1 }), -- (the pages, behind the cover)
+	box(0.617, 0.859, 0.48, 0.03, { rot = -14, fill = "ink", back = 1 }),
+	box(0.5, 0.47, 0.58, 0.72, { rot = -14, r = 0.12, color = BOOK_BLUE }),
+	box(0.325, 0.514, 0.05, 0.72, { rot = -14, fill = "ink" }),
+	box(0.53, 0.43, 0.2, 0.2, { rot = 31, r = 0.18, fill = Color3.fromRGB(255, 255, 255) }), -- a star-ish emblem
+	box(0.53, 0.43, 0.2, 0.2, { rot = -14, r = 0.18, fill = Color3.fromRGB(255, 255, 255), z = "Over" }),
+	box(0.694, 0.834, 0.085, 0.17, { rot = -14, r = 0.15, fill = RED }),
+	shine(0.42, 0.21, 0.13, 0.04, -14),
+}
+SHAPES.pawPink = tinted(SHAPES.paw, Color3.fromRGB(255, 150, 205))
 
 -- A green tick (a Daily Reward you've claimed)
 SHAPES.check = {

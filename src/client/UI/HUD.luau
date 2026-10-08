@@ -1,15 +1,14 @@
 --[[
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
-	  left   - big Shop / Index / Pets / Trails / Daily buttons (middle of the screen; run speed is in
-	           Settings)
+	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
+	           basket), Index (a blue book), Pets (a pink paw), Trails (a bolt), Daily (a present)
 	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
 	           is in there) / Hide UI (+ Admin, + Base after the base code, + Teleport for
 	           Teleporter pass owners), centred on the right edge
-	  stats  - Speed, Money (a yellow + after it opens the money game passes), income per second
-	           (bottom-left)
-	  friend boost - a red badge while friends of yours are in the server, with the money bonus they
-	           give you (bottom-right; top-left on phones and tablets)
+	  stats  - Speed; "Friend Boost: +N%" (the money your friends here add) with a green + that opens
+	           Roblox's invite-friends window; Money (a yellow + after it opens the money game passes);
+	           income per second (bottom-left; top-right on phones and tablets)
 	  biomes - a banner at the top whenever you walk into a biome: its name, the Speed it needs and
 	           how fast its Domer runs (server events show their time left in the pills up there too)
 
@@ -17,6 +16,7 @@
 ]]
 
 local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -78,22 +78,43 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local left = Theme.new("Frame", {
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 12, 0.5, 0),
-		Size = UDim2.fromOffset(196, 321),
+		Position = UDim2.new(0, 8, 0.42, 0),
+		Size = UDim2.fromOffset(106, 5 * 88),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 9), SortOrder = Enum.SortOrder.LayoutOrder }),
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 2), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	Theme.AutoScale(left)
 
-	-- Shop and Index are the big ones; Pets and Trails a bit smaller underneath
-	local big, small = UDim2.fromOffset(190, 64), UDim2.fromOffset(190, 50)
-	local shop = Theme.Button({ Text = "Shop", Icon = "cart", Color = Theme.Colors.Green, Size = big, LayoutOrder = 1, Parent = left })
-	local index = Theme.Button({ Text = "Index", Icon = "book", Color = Theme.Colors.Blue, Size = big, LayoutOrder = 2, Parent = left })
-	local pets = Theme.Button({ Text = "Pets", Icon = "paw", Color = Theme.Colors.Pink, Size = small, LayoutOrder = 3, Parent = left })
-	local trails = Theme.Button({ Text = "Trails", Icon = "bolt", Color = Theme.Colors.Blue, Size = small, LayoutOrder = 5, Parent = left })
-	local daily = Theme.Button({ Name = "Daily", Text = "Daily", Icon = "gift", Color = Theme.Colors.Orange, Size = small, LayoutOrder = 6, Parent = left })
+	-- A big drawn icon with its name under it, no button box around it (like the simulator games)
+	local function iconButton(name: string, icon: string, caption: string, order: number): TextButton
+		local button = Theme.new("TextButton", {
+			Name = name,
+			Text = "",
+			AutoButtonColor = false,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(104, 86),
+			LayoutOrder = order,
+			Parent = left,
+		})
+		local drawn = Icons.Draw(icon, button, nil, {
+			Size = UDim2.fromScale(0.77, 0.77),
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.fromScale(0.5, 0),
+		})
+		drawn.ZIndex = 1
+		Theme.Label({ Name = "Caption", Text = caption, Size = UDim2.new(1, 0, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), StrokeThickness = 3, ZIndex = 3, Parent = button })
+		button.MouseButton1Down:Connect(function()
+			Theme.Bounce(button)
+		end)
+		return button
+	end
+	local shop = iconButton("Shop", "basket", "Shop", 1)
+	local index = iconButton("Index", "indexBook", "Index", 2)
+	local pets = iconButton("Pets", "pawPink", "Pets", 3)
+	local trails = iconButton("Trails", "bolt", "Trails", 4)
+	local daily = iconButton("Daily", "gift", "Daily", 5)
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
@@ -108,6 +129,9 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local petsBadge = badge(pets)
 	local trailsBadge = badge(trails)
 	local dailyBadge = badge(daily)
+	for _, bubble in { indexBadge, petsBadge, trailsBadge, dailyBadge } do
+		bubble.Position = UDim2.new(0.5, 30, 0, 8) -- (the icon's top-right corner)
+	end
 	local function updateBadges()
 		local unclaimed = callbacks.UnclaimedIndex()
 		indexBadge.Visible = unclaimed > 0
@@ -217,12 +241,31 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end)
 end
 
+-- The green + next to Friend Boost: Roblox's own "invite friends" window (if Roblox lets this
+-- player send invites; otherwise a hint)
+local function inviteFriends()
+	task.spawn(function()
+		local ok, sent = pcall(function(): boolean
+			local social = game:GetService("SocialService")
+			local player = Players.LocalPlayer
+			if social:CanSendGameInviteAsync(player) then
+				social:PromptGameInvite(player)
+				return true
+			end
+			return false
+		end)
+		if not ok or not sent then
+			Notifications.Toast("Play with your Roblox friends: every friend in your server boosts your money!", "info")
+		end
+	end)
+end
+
 local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 	local stats = Theme.new("Frame", {
 		Name = "Stats",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(1, 0) else Vector2.new(0, 1),
 		Position = if Theme.IsTouch then UDim2.new(1, -10, 0, 4) else UDim2.new(0, 10, 1, -10),
-		Size = UDim2.fromOffset(380, 136),
+		Size = UDim2.fromOffset(380, 170),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
@@ -265,10 +308,45 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 	end
 	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 0)
 	-- (the +: the Boosts page, which starts with the money passes)
-	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 52, function()
+	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 88, function()
 		callbacks.OpenShop("Passes")
 	end)
-	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 109), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
+	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 143), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
+
+	-- Friend Boost, between Speed and Money: always there (+0% until a friend of yours is in the
+	-- server: FriendService), with a green + that opens Roblox's invite-friends window
+	local friendLine = Theme.new("Frame", {
+		Name = "FriendBoost",
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, -6, 0, 32),
+		Position = UDim2.fromOffset(if Theme.IsTouch then 0 else 6, 54),
+		Parent = stats,
+	}, {
+		Theme.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			HorizontalAlignment = if Theme.IsTouch then Enum.HorizontalAlignment.Right else Enum.HorizontalAlignment.Left,
+			VerticalAlignment = Enum.VerticalAlignment.Center,
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	local friendText = Theme.Label({ Name = "Boost", Text = "Friend Boost: +0%", TextScaled = false, TextSize = 25, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromScale(0, 1), StrokeThickness = 3, LayoutOrder = 1, Parent = friendLine })
+	local lime = Color3.fromRGB(140, 210, 40)
+	local invite = Theme.Button({ Name = "Invite", Text = "", Color = lime, Size = UDim2.fromOffset(30, 30), LayoutOrder = 2, Parent = friendLine })
+	Icons.Draw("plus", invite, lime, { Size = UDim2.fromScale(0.74, 0.74), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+	invite.Activated:Connect(inviteFriends)
+	local pop = Theme.new("UIScale", { Parent = friendText })
+	local shownBoost = 0
+	State.OnAttribute("FriendBoost", function()
+		local bonus = State.Number("FriendBoost")
+		friendText.Text = `Friend Boost: +{math.floor(bonus * 100 + 0.5)}%`
+		if bonus > shownBoost then
+			-- (it pops when a friend joins)
+			pop.Scale = 1.25
+			TweenService:Create(pop, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end
+		shownBoost = bonus
+	end)
 
 	local function updateSpeed()
 		-- A crate Speed Boost shows its countdown next to your speed
@@ -302,64 +380,6 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 	State.OnAttribute("MoneyMultiplier", updateIncome)
 end
 
--- The Friend Boost badge (server: FriendService): a red square with two drawn smiling faces and the
--- bonus at the bottom, and what it is beside it. Only there while friends of yours are here. In the
--- bottom-right corner (top-left on touch screens, where the stats are top-right).
-local function buildFriendBoost(gui: ScreenGui)
-	local right = not Theme.IsTouch
-	local holder = Theme.new("Frame", {
-		Name = "FriendBoost",
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(300, 64),
-		AnchorPoint = if right then Vector2.new(1, 1) else Vector2.zero,
-		Position = if right then UDim2.new(1, -12, 1, -16) else UDim2.new(0, 12, 0, 6),
-		Visible = false,
-		Parent = gui,
-	})
-	Theme.AutoScale(holder)
-	local red = Color3.fromRGB(232, 56, 60)
-	-- (the badge on the screen's edge, the words on the inside)
-	local square = Theme.new("Frame", {
-		Name = "Badge",
-		Size = UDim2.fromOffset(64, 64),
-		AnchorPoint = if right then Vector2.new(1, 0) else Vector2.zero,
-		Position = if right then UDim2.fromScale(1, 0) else UDim2.new(),
-		BackgroundColor3 = Color3.new(1, 1, 1),
-		Parent = holder,
-	}, {
-		Theme.Corner(14),
-		Theme.Stroke(3.5),
-		Theme.Gradient(Color3.fromRGB(255, 96, 92), Color3.fromRGB(196, 30, 42)),
-	})
-	local pop = Theme.new("UIScale", { Parent = square })
-	Icons.Draw("friends", square, red, {
-		Size = UDim2.fromScale(0.92, 0.92),
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.4),
-	})
-	local amount = Theme.Label({ Name = "Amount", Text = "", Size = UDim2.new(1, 6, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 7), StrokeThickness = 3, ZIndex = 20, Parent = square })
-	local textX = if right then 0 else 76
-	local align = if right then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left
-	Theme.Label({ Name = "Title", Text = "FRIEND BOOST", TextColor3 = Color3.fromRGB(255, 120, 110), Size = UDim2.new(1, -76, 0, 28), Position = UDim2.fromOffset(textX, 6), TextXAlignment = align, StrokeThickness = 3, Parent = holder })
-	local here = Theme.Label({ Name = "Here", Text = "", Font = Theme.Font, Size = UDim2.new(1, -76, 0, 22), Position = UDim2.fromOffset(textX, 36), TextXAlignment = align, StrokeThickness = 2, Parent = holder })
-
-	local shown = 0
-	local function update()
-		local bonus = State.Number("FriendBoost")
-		local friends = State.Number("Friends")
-		holder.Visible = bonus > 0
-		amount.Text = `+{Format.Multiplier(bonus)}x`
-		here.Text = if friends == 1 then "1 friend here" else `{friends} friends here`
-		if bonus > shown then
-			-- (it pops in, and again with every friend that joins)
-			pop.Scale = 0.6
-			TweenService:Create(pop, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
-		end
-		shown = bonus
-	end
-	State.OnAttribute("FriendBoost", update)
-	State.OnAttribute("Friends", update)
-end
 
 -- A banner at the top whenever you walk into a biome: its name and the Speed you need to get away
 -- from its Domer (or LOBBY when you're back).
@@ -449,7 +469,6 @@ function HUD.Init(callbacks: Callbacks)
 	buildLeft(gui, callbacks)
 	buildRight(gui, callbacks)
 	buildStats(gui, callbacks)
-	buildFriendBoost(gui)
 	announceBiomes()
 	buildLuck(gui)
 	buildBaseMarker()
