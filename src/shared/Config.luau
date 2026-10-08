@@ -473,6 +473,15 @@ Config.Events = {
 --   "Highest"        -> only your best pass counts (makes cheaper passes pointless once you own a big one)
 Config.MoneyPassStacking = "Additive"
 
+-- Friend Boost: more money while your Roblox friends are in the same server. The first friend adds
+-- First to your money multiplier, every friend after that adds Each more (1 friend: +1x, 2: +1.25x,
+-- 3: +1.5x...). It adds on like a money pass (so with the 1.5x pass and one friend: 2.5x), pets
+-- multiply it like the rest, and it's left out of offline earnings (nobody was playing with you).
+Config.FriendBoost = {
+	First = 1,
+	Each = 0.25,
+}
+
 Config.GamePasses = {
 	{ Key = "Money1_5", Name = "1.5x Money", Kind = "Money", Multiplier = 1.5, GamePassId = 2001956275, SuggestedPrice = 5, Color = Color3.fromRGB(90, 200, 90) },
 	{ Key = "Money4", Name = "4x Money (INSANE)", Kind = "Money", Multiplier = 4, GamePassId = 1998003425, SuggestedPrice = 110, Color = Color3.fromRGB(20, 150, 90) },
@@ -792,12 +801,13 @@ Config.Sounds = {
 }
 
 -- The sound of the biomes (client/BiomeAmbience): these loops all play together, on repeat, while
--- you're out in the lane (any biome). They fade out (Fade seconds) in the lobby and during the
--- Eternal Storm, which has its own ambience (Config.EternalStorm.Ambience). Volume: 0 to 1.
+-- you're out in the lane (any biome), where the lobby's song (Config.Music) is faded out. They fade
+-- out (Fade seconds) in the lobby and during the Eternal Storm, which has its own ambience
+-- (Config.EternalStorm.Ambience). Volume: 0 to 10 (1 = the sound as uploaded).
 Config.BiomeAmbience = {
 	Loops = {
-		{ Id = "rbxassetid://9116969962", Volume = 0.3 },
-		{ Id = "rbxassetid://128828483841636", Volume = 0.6 }, -- (twice as loud as the first)
+		{ Id = "rbxassetid://9116969962", Volume = 0.6 },
+		{ Id = "rbxassetid://128828483841636", Volume = 1.2 }, -- (twice as loud as the first)
 	} :: { { Id: string, Volume: number } },
 	Fade = 1.5,
 }
@@ -870,6 +880,9 @@ Config.Debug = {
 	StudioFreePurchases = true,
 	StudioStartMoney = 0, -- give yourself money in Studio to test late-game content
 	StudioStartSpeed = 0,
+	-- Studio only: pretend this many of your friends are in the server, to see the Friend Boost
+	-- while testing alone (test players are never each other's friends).
+	StudioFakeFriends = 0,
 }
 
 return Config

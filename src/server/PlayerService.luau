@@ -130,7 +130,7 @@ local function grantOfflineEarnings(player: Player)
 		return
 	end
 	local seconds = math.min(away, Config.Offline.MaxHours * 3600)
-	local perSecond = PlotService.GetBaseIncome(player) * DataService.MoneyMultiplier(profile)
+	local perSecond = PlotService.GetBaseIncome(player) * DataService.MoneyMultiplier(profile, true)
 	local earned = perSecond * seconds * Config.Offline.Efficiency
 	if earned > 0 then
 		DataService.AddMoney(player, earned)

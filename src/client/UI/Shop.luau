@@ -489,6 +489,11 @@ end
 function Shop.Open(tab: string?)
 	modal:Open()
 	selectTab(tab or "Upgrades")
+	-- (from the top: Boosts starts with the money passes, which the + next to your money opens)
+	local page = pages[tab or "Upgrades"]
+	if page then
+		page.CanvasPosition = Vector2.zero
+	end
 end
 
 function Shop.Init()

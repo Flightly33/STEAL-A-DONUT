@@ -68,6 +68,12 @@ UpdateNotes.List = {
 				"Only one big message at a time: a new one fades the last one out instead of landing on top of it, and everything else at the top lines up underneath",
 				"The tutorial is now the big message at the top of the screen, right in the middle",
 				"No more emojis anywhere: every icon is drawn by the game itself",
+				"A yellow + right next to your money takes you straight to the money boosts",
+			} },
+			{ Title = "Friend Boost", Tag = "NEW", Lines = {
+				"Play in the same server as your Roblox friends to earn more money!",
+				"Your first friend here adds +1x to your money multiplier, and every friend after that adds +0.25x more",
+				"A red badge with two smiling faces shows your boost while your friends are here",
 			} },
 			{ Title = "The New Index", Tag = "NEW Look", Lines = {
 				"One biome at a time: flip through them with the arrows on the biome's banner",
@@ -77,7 +83,8 @@ UpdateNotes.List = {
 				"The title shows how many donuts you've found: Index (12/88)",
 			} },
 			{ Title = "Sounds", Tag = "NEW", Lines = {
-				"Every biome has its own background sounds",
+				"Every biome has its own background sounds, nice and loud",
+				"The lobby music fades away when you head out into the lane, and comes back when you return",
 				"Sneak up to Domer's boxes and you'll hear him snoring: the closer you get to him, the louder it gets",
 			} },
 			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {

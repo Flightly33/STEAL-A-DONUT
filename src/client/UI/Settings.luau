@@ -4,6 +4,9 @@
 	Run speed: type how fast you want to run (a WalkSpeed, at least Config.Speed.MinRunSpeed); MAX
 	runs as fast as you can. Saved per player, the server applies it (Actions.SetSpeedLimit).
 
+	The song is for the lobby: out in the lane (any biome) it fades out and the biomes' own ambience
+	(client/BiomeAmbience) takes over, and it fades back in when you come back.
+
 	The music never stops on its own: a single song loops, several songs play one after another
 	(and start over), and a watchdog restarts playback if Roblox ever drops it. Songs that fail to
 	load (a private asset, a deleted asset, or a typo in the ID) are skipped with a warning in the
@@ -23,6 +26,7 @@ local ChaseMusic = require(script.Parent.ChaseMusic)
 local StormMusic = require(script.Parent.StormMusic)
 local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
+local AreaTracker = require(script.Parent.Parent.AreaTracker)
 
 local Settings = {}
 
@@ -52,6 +56,8 @@ local chaseSound: Sound? = nil
 local chasing = false
 -- The Eternal Storm: its march (StormMusic) plays instead of the normal song (a chase still wins).
 local storming = false
+-- Out in the lane: the song fades out (it keeps playing silently, so it picks up again in the lobby).
+local inLane = false
 
 local function chaseReady(): boolean
 	return chaseSound ~= nil and chaseSound.IsLoaded and chaseSound.TimeLength > 0
@@ -61,7 +67,7 @@ local function applyVolume()
 	local TweenService = game:GetService("TweenService")
 	local fade = TweenInfo.new(0.6)
 	local useChase = chasing and chaseReady()
-	TweenService:Create(sound, fade, { Volume = if not musicOn or chasing or storming then 0 else volume }):Play()
+	TweenService:Create(sound, fade, { Volume = if not musicOn or chasing or storming or inLane then 0 else volume }):Play()
 	sound.PlaybackSpeed = 1
 	if chasing and musicOn and not useChase then
 		ChaseMusic.Start(volume)
@@ -218,6 +224,13 @@ function Settings.Init()
 		chase.Parent = SoundService
 		chaseSound = chase
 	end
+	inLane = AreaTracker.Current > 0
+	AreaTracker.Changed:Connect(function(areaId: number)
+		if (areaId > 0) ~= inLane then
+			inLane = areaId > 0
+			applyVolume()
+		end
+	end)
 	applyVolume()
 	sound.Ended:Connect(function()
 		if not sound.Looped then

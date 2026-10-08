@@ -307,10 +307,13 @@ function DataService.EquippedPetIds(data: Data): { string }
 	return ids
 end
 
--- Total money multiplier: game passes x equipped pets.
-function DataService.MoneyMultiplier(profile: Profile): number
+-- Total money multiplier: (game passes + the Friend Boost) x equipped pets. `offline`: leave the
+-- Friend Boost out (offline earnings: nobody was playing with you).
+function DataService.MoneyMultiplier(profile: Profile, offline: boolean?): number
 	local petMoney = Economy.PetBonuses(DataService.EquippedPetIds(profile.Data))
-	return Economy.MoneyMultiplier(profile.Passes) * (1 + petMoney)
+	local friends = if offline then 0 else profile.Player:GetAttribute("FriendBoost")
+	local friendBoost = if type(friends) == "number" then friends else 0
+	return (Economy.MoneyMultiplier(profile.Passes) + friendBoost) * (1 + petMoney)
 end
 
 -- Speed bonus from equipped pets (0.25 = +25% treadmill speed).

@@ -5,7 +5,10 @@
 	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
 	           is in there) / Hide UI (+ Admin, + Base after the base code, + Teleport for
 	           Teleporter pass owners), centred on the right edge
-	  stats  - Speed, Money, income per second (bottom-left)
+	  stats  - Speed, Money (a yellow + after it opens the money game passes), income per second
+	           (bottom-left)
+	  friend boost - a red badge over the stats while friends of yours are in the server (under the
+	           biome panel on phones and tablets), with the money bonus they give you
 	  area   - which biome you're in, the Speed it needs and how fast its Domer runs, and any event
 	           (bottom-right); a banner at the top whenever you walk into a biome
 
@@ -13,6 +16,7 @@
 ]]
 
 local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -205,7 +209,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end)
 end
 
-local function buildStats(gui: ScreenGui)
+local function buildStats(gui: ScreenGui, callbacks: Callbacks): Frame
 	local stats = Theme.new("Frame", {
 		Name = "Stats",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(1, 0) else Vector2.new(0, 1),
@@ -217,25 +221,45 @@ local function buildStats(gui: ScreenGui)
 	Theme.AutoScale(stats)
 	local align = if Theme.IsTouch then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left
 
-	-- Big outlined numbers with an icon, like the reference game
-	local function row(icon: string, color: Color3, y: number): TextLabel
-		local holder = Theme.new("Frame", { BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 52), Position = UDim2.fromOffset(0, y), Parent = stats })
+	-- Big outlined numbers with an icon, like the reference game. `onPlus`: a yellow + button right
+	-- after the number (the number then sizes to its text, so the button follows it).
+	local function row(name: string, icon: string, color: Color3, y: number, onPlus: (() -> ())?): TextLabel
+		local holder = Theme.new("Frame", { Name = name, BackgroundTransparency = 1, Size = UDim2.new(1, 0, 0, 52), Position = UDim2.fromOffset(0, y), Parent = stats })
 		local drawn = Icons.Draw(icon, holder, nil, nil)
 		drawn.Size = UDim2.fromOffset(46, 46)
 		drawn.Position = if Theme.IsTouch then UDim2.new(1, -48, 0, 2) else UDim2.fromOffset(2, 2)
 		-- (a little shorter than the row, so tall glyphs like "$" don't touch the row above)
-		return Theme.Label({
-			Text = "0",
-			TextColor3 = color,
-			Size = UDim2.new(1, -58, 0.86, 0),
-			Position = if Theme.IsTouch then UDim2.fromScale(0, 0.07) else UDim2.new(0, 56, 0.07, 0),
-			TextXAlignment = align,
-			StrokeThickness = 4,
-			Parent = holder,
-		})
+		local size = UDim2.new(1, -58, 0.86, 0)
+		local position = if Theme.IsTouch then UDim2.fromScale(0, 0.07) else UDim2.new(0, 56, 0.07, 0)
+		local label = Theme.Label({ Name = "Amount", Text = "0", TextColor3 = color, Size = size, Position = position, TextXAlignment = align, StrokeThickness = 4, Parent = holder })
+		if onPlus then
+			local line = Theme.new("Frame", { Name = "Line", BackgroundTransparency = 1, Size = size, Position = position, Parent = holder }, {
+				Theme.new("UIListLayout", {
+					FillDirection = Enum.FillDirection.Horizontal,
+					HorizontalAlignment = if Theme.IsTouch then Enum.HorizontalAlignment.Right else Enum.HorizontalAlignment.Left,
+					VerticalAlignment = Enum.VerticalAlignment.Center,
+					Padding = UDim.new(0, 8),
+					SortOrder = Enum.SortOrder.LayoutOrder,
+				}),
+			})
+			label.TextScaled = false
+			label.TextSize = 44
+			label.AutomaticSize = Enum.AutomaticSize.X
+			label.Size = UDim2.fromScale(0, 1)
+			label.Position = UDim2.new()
+			label.LayoutOrder = 1
+			label.Parent = line
+			local plus = Theme.Button({ Name = "Plus", Text = "", Color = Theme.Colors.Yellow, Size = UDim2.fromOffset(36, 36), LayoutOrder = 2, Parent = line })
+			Icons.Draw("plus", plus, Theme.Colors.Yellow, { Size = UDim2.fromScale(0.74, 0.74), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+			plus.Activated:Connect(onPlus)
+		end
+		return label
 	end
-	local speedLabel = row("bolt", Theme.Colors.Speed, 0)
-	local moneyLabel = row("cash", Theme.Colors.Money, 52)
+	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 0)
+	-- (the +: the Boosts page, which starts with the money passes)
+	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 52, function()
+		callbacks.OpenShop("Passes")
+	end)
 	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 109), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
 
 	local function updateSpeed()
@@ -268,9 +292,61 @@ local function buildStats(gui: ScreenGui)
 	end
 	State.OnAttribute("Income", updateIncome)
 	State.OnAttribute("MoneyMultiplier", updateIncome)
+	return stats
 end
 
-local function buildAreaInfo(gui: ScreenGui)
+-- The Friend Boost badge (server: FriendService): a red square with two drawn smiling faces and the
+-- bonus at the bottom, and what it is beside it. Only there while friends of yours are here.
+local function buildFriendBoost(parent: GuiObject, below: boolean)
+	local holder = Theme.new("Frame", {
+		Name = "FriendBoost",
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(280, 64),
+		AnchorPoint = if below then Vector2.zero else Vector2.new(0, 1),
+		Position = if below then UDim2.new(0, 0, 1, 10) else UDim2.fromOffset(2, -8),
+		Visible = false,
+		Parent = parent,
+	})
+	local red = Color3.fromRGB(232, 56, 60)
+	local square = Theme.new("Frame", {
+		Name = "Badge",
+		Size = UDim2.fromOffset(64, 64),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Parent = holder,
+	}, {
+		Theme.Corner(14),
+		Theme.Stroke(3.5),
+		Theme.Gradient(Color3.fromRGB(255, 96, 92), Color3.fromRGB(196, 30, 42)),
+	})
+	local pop = Theme.new("UIScale", { Parent = square })
+	Icons.Draw("friends", square, red, {
+		Size = UDim2.fromScale(0.92, 0.92),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+	})
+	local amount = Theme.Label({ Name = "Amount", Text = "", Size = UDim2.new(1, 6, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 7), StrokeThickness = 3, ZIndex = 20, Parent = square })
+	Theme.Label({ Name = "Title", Text = "FRIEND BOOST", TextColor3 = Color3.fromRGB(255, 120, 110), Size = UDim2.new(1, -76, 0, 28), Position = UDim2.fromOffset(76, 6), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 3, Parent = holder })
+	local here = Theme.Label({ Name = "Here", Text = "", Font = Theme.Font, Size = UDim2.new(1, -76, 0, 22), Position = UDim2.fromOffset(76, 36), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = holder })
+
+	local shown = 0
+	local function update()
+		local bonus = State.Number("FriendBoost")
+		local friends = State.Number("Friends")
+		holder.Visible = bonus > 0
+		amount.Text = `+{Format.Multiplier(bonus)}x`
+		here.Text = if friends == 1 then "1 friend here" else `{friends} friends here`
+		if bonus > shown then
+			-- (it pops in, and again with every friend that joins)
+			pop.Scale = 0.6
+			TweenService:Create(pop, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+		end
+		shown = bonus
+	end
+	State.OnAttribute("FriendBoost", update)
+	State.OnAttribute("Friends", update)
+end
+
+local function buildAreaInfo(gui: ScreenGui): Frame
 	local panel = Theme.new("Frame", {
 		Name = "AreaInfo",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(0, 0) else Vector2.new(1, 1),
@@ -336,6 +412,7 @@ local function buildAreaInfo(gui: ScreenGui)
 			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`, { Priority = Notifications.Priority.News })
 		end
 	end)
+	return panel
 end
 
 -- Luck Event pill at the top of the screen (only while one is running).
@@ -406,8 +483,10 @@ function HUD.Init(callbacks: Callbacks)
 	local gui = Theme.ScreenGui("HUD", 1)
 	buildLeft(gui, callbacks)
 	buildRight(gui, callbacks)
-	buildStats(gui)
-	buildAreaInfo(gui)
+	local stats = buildStats(gui, callbacks)
+	local areaInfo = buildAreaInfo(gui)
+	-- (over the stats; on touch screens the stats are top-right, so under the biome panel instead)
+	buildFriendBoost(if Theme.IsTouch then areaInfo else stats, Theme.IsTouch)
 	buildLuck(gui)
 	buildBaseMarker()
 end

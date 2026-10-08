@@ -4,7 +4,7 @@
 	from plain Frames so there's nothing to upload (and no emoji anywhere in the game). A
 	Theme.Button or a HUD square takes one by name: cart, book, paw, cycle, tools, house, building,
 	globe, rocket, palette, heart, news, note, gear, eye, bolt (Speed), cash, coin, clover (luck),
-	egg, gift.
+	egg, gift, friends (the Friend Boost), plus.
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -414,6 +414,46 @@ SHAPES.gift = {
 	ellipse(0.6, 0.22, 0.2, 0.14, { rot = -25, fill = YELLOW }),
 	shine(0.27, 0.34, 0.1, 0.04, 0),
 }
+
+-- A chunky plus (the "get more money" button next to your money)
+SHAPES.plus = {
+	box(0.5, 0.5, 0.24, 0.76, { r = 0.5 }),
+	box(0.5, 0.5, 0.76, 0.24, { r = 0.5 }),
+	shine(0.42, 0.24, 0.05, 0.1, 0),
+}
+
+-- Two round smiling faces, one peeking out from behind the other (the Friend Boost). The back
+-- face's eyes, mouth and cheeks sit on its own layer, so the front face covers them where it
+-- overlaps; the mouths are open half-moons (an ellipse with its top half cut off).
+local FACE = Color3.fromRGB(255, 168, 52)
+local CHEEK = Color3.fromRGB(255, 120, 120)
+SHAPES.friends = (function(): { Shape }
+	local _, _, backInk = depthLayers(1)
+	local function face(x: number, y: number, d: number, back: boolean): { Shape }
+		local s = d / 0.54 -- (the front face is 0.54 across: everything else is in step with it)
+		local depth = if back then 1 else nil
+		local detail = if back then backInk else nil
+		local mouthY = y + 0.09 * s
+		return {
+			circle(x, y, d, { color = FACE, back = depth }),
+			ellipse(x - 0.075 * s, y - 0.05 * s, 0.065 * s, 0.1 * s, { fill = "ink", back = depth }),
+			ellipse(x + 0.075 * s, y - 0.05 * s, 0.065 * s, 0.1 * s, { fill = "ink", back = depth }),
+			ellipse(x, mouthY, 0.17 * s, 0.13 * s, { fill = "ink", back = depth, clip = { x - 0.1 * s, mouthY, x + 0.1 * s, mouthY + 0.08 * s } }),
+			ellipse(x - 0.16 * s, y + 0.06 * s, 0.08 * s, 0.05 * s, { fill = CHEEK, plain = true, z = detail }),
+			ellipse(x + 0.16 * s, y + 0.06 * s, 0.08 * s, 0.05 * s, { fill = CHEEK, plain = true, z = detail }),
+		}
+	end
+	local list: { Shape } = {}
+	for _, shape in face(0.66, 0.34, 0.5, true) do
+		table.insert(list, shape)
+	end
+	for _, shape in face(0.38, 0.6, 0.54, false) do
+		table.insert(list, shape)
+	end
+	table.insert(list, shine(0.25, 0.45, 0.1, 0.05, -40))
+	table.insert(list, shine(0.55, 0.18, 0.08, 0.04, -40))
+	return list
+end)()
 
 -- The icon's name, if there's a drawn icon for it.
 function Icons.For(name: string): string?
