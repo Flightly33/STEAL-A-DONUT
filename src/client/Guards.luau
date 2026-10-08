@@ -8,7 +8,9 @@
 	  while you're close enough to grab one of his boxes (their prompts' reach), louder the closer
 	  you get to him - or, with no snore pasted there, a deep rattling breath in and a soft breath
 	  out made from Roblox's own sounds, whenever you're near him.
-	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId).
+	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId),
+	  and a rainbow "!?" pops up over his head, glowing a little and turning round (Config.Guard.Alert)
+	  for as long as he's after you (his model's "State": Waking or Chasing).
 	* When you steal a box the server spawns your chasing guard: your sleeping one disappears in a
 	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
 	  animations are preloaded at the start, so he never freezes the first time he wakes up.
@@ -355,6 +357,87 @@ end
 --------------------------------------------------------------------------------
 -- Chasing guards (server side): hide other players', swap ours with the sleeper
 --------------------------------------------------------------------------------
+-- The "!?" over a chasing Domer's head: rainbow letters on both sides of a thin, invisible board
+-- that turns round over his head. It pops in, and follows him until he gives up (then it's gone).
+local RAINBOW = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 70, 70)),
+	ColorSequenceKeypoint.new(0.2, Color3.fromRGB(255, 170, 40)),
+	ColorSequenceKeypoint.new(0.4, Color3.fromRGB(255, 240, 70)),
+	ColorSequenceKeypoint.new(0.6, Color3.fromRGB(90, 235, 110)),
+	ColorSequenceKeypoint.new(0.8, Color3.fromRGB(80, 170, 255)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(200, 100, 255)),
+})
+local function alertSign(model: Model, head: BasePart)
+	local cfg = Config.Guard.Alert
+	local size = cfg.Size
+	local board = Instance.new("Part")
+	board.Name = "GuardAlert"
+	board.Anchored = true
+	board.CanCollide = false
+	board.CanQuery = false
+	board.CanTouch = false
+	board.CastShadow = false
+	board.Transparency = 1
+	board.Size = Vector3.new(size, size, 0.05)
+	local gradients: { UIGradient } = {}
+	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+		local surface = Instance.new("SurfaceGui")
+		surface.Name = face.Name
+		surface.Face = face
+		surface.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		surface.CanvasSize = Vector2.new(200, 200)
+		surface.LightInfluence = 0
+		surface.Brightness = cfg.Glow -- (a little brighter than flat: the bloom gives it a soft glow)
+		surface.AlwaysOnTop = false
+		surface.Parent = board
+		local text = Instance.new("TextLabel")
+		text.Name = "Text"
+		text.BackgroundTransparency = 1
+		text.Size = UDim2.fromScale(1, 1)
+		text.Font = Enum.Font.LuckiestGuy
+		text.Text = cfg.Text
+		text.TextScaled = true
+		text.TextColor3 = Color3.new(1, 1, 1)
+		text.Parent = surface
+		local gradient = Instance.new("UIGradient")
+		gradient.Color = RAINBOW
+		gradient.Rotation = 90
+		gradient.Parent = text
+		table.insert(gradients, gradient)
+		local stroke = Instance.new("UIStroke")
+		stroke.Thickness = 5
+		stroke.Color = Color3.fromRGB(30, 10, 50)
+		stroke.Parent = text
+	end
+	board.Parent = folder
+	local started = os.clock()
+	local connection: RBXScriptConnection
+	local function remove()
+		connection:Disconnect()
+		board:Destroy()
+	end
+	connection = RunService.RenderStepped:Connect(function()
+		local state = model:GetAttribute("State")
+		if not model.Parent or not head.Parent or (state ~= "Waking" and state ~= "Chasing") then
+			remove()
+			return
+		end
+		local t = os.clock() - started
+		-- it pops in (a little overshoot), then turns round and bobs
+		local grow = math.min(1, t / 0.3)
+		local pop = if grow < 1 then grow * (1 + 0.35 * math.sin(grow * math.pi)) else 1
+		board.Size = Vector3.new(size * pop, size * pop, 0.05)
+		local spin = t * cfg.Spin * math.pi * 2
+		local above = head.CFrame.Position + Vector3.new(0, 2.4 * Config.Guard.Scale + size * 0.75 + math.sin(t * 3) * 0.3, 0)
+		board.CFrame = CFrame.new(above) * CFrame.Angles(0, spin, 0)
+		-- the rainbow runs slowly up through the letters
+		for _, gradient in gradients do
+			gradient.Offset = Vector2.new(0, (t * 0.4) % 1 - 0.5)
+		end
+	end)
+	return board
+end
+
 local function hideForMe(model: Instance)
 	local function hide(d: Instance)
 		if d:IsA("BasePart") then
@@ -391,11 +474,22 @@ local function onGuardAdded(instance: Instance)
 			sleeper.Snoring = false
 		end
 	end
-	-- Woken up: an angry grunt
+	-- Woken up: an angry grunt, and the "!?" over his head (again each time he's woken up while
+	-- walking back: the server sets his State)
 	task.spawn(function()
 		local head = instance:WaitForChild("Head", 3)
 		if head and head:IsA("BasePart") then
 			grunt(head)
+			local sign: BasePart? = nil
+			local function update()
+				local state = instance:GetAttribute("State")
+				local alert = state == "Waking" or state == "Chasing"
+				if alert and not (sign and sign.Parent) then
+					sign = alertSign(instance, head)
+				end
+			end
+			instance:GetAttributeChangedSignal("State"):Connect(update)
+			update()
 		end
 	end)
 	local lastPosition = instance:GetPivot().Position

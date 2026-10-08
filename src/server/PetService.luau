@@ -102,7 +102,7 @@ local function refreshPets(player: Player)
 	-- Drop equipped uids that no longer exist
 	local valid = {}
 	for _, uid in data.EquippedPets do
-		if findPet(data, uid) and #valid < cfg.MaxEquipped and not table.find(valid, uid) then
+		if findPet(data, uid) and #valid < Economy.MaxEquippedPets(data.ExtraPetSlots) and not table.find(valid, uid) then
 			table.insert(valid, uid)
 		end
 	end
@@ -228,7 +228,7 @@ function PetService.Hatch(player: Player, uid: string?, force: boolean?)
 				Remotes.Event("AreaAnnouncement"):FireAllClients(`{player.DisplayName} hatched a {string.upper(rarity.Id)} {pet.Name}! ({string.format("%.2g", Pets.Chance(egg, pet.Id) * 100)}% chance)`, rarity.Color)
 			end
 			-- Auto-equip into a free pet slot
-			if #data.EquippedPets < cfg.MaxEquipped then
+			if #data.EquippedPets < Economy.MaxEquippedPets(data.ExtraPetSlots) then
 				table.insert(data.EquippedPets, petData.Uid)
 			end
 		elseif wanted and uid then
@@ -255,8 +255,9 @@ function PetService.Equip(player: Player, uid: any)
 	if table.find(equipped, uid) then
 		return
 	end
-	if #equipped >= cfg.MaxEquipped then
-		notify(player, `You can equip {cfg.MaxEquipped} pets at once. Unequip one first.`, "error")
+	local most = Economy.MaxEquippedPets(profile.Data.ExtraPetSlots)
+	if #equipped >= most then
+		notify(player, `You can equip {most} pets at once. Unequip one first.`, "error")
 		return
 	end
 	table.insert(equipped, uid)
@@ -287,7 +288,7 @@ function PetService.EquipBest(player: Player)
 		return (if pa then pa.Money + pa.Speed else 0) > (if pb then pb.Money + pb.Speed else 0)
 	end)
 	local equipped = {}
-	for i = 1, math.min(cfg.MaxEquipped, #list) do
+	for i = 1, math.min(Economy.MaxEquippedPets(profile.Data.ExtraPetSlots), #list) do
 		table.insert(equipped, list[i].Uid)
 	end
 	profile.Data.EquippedPets = equipped
@@ -449,11 +450,32 @@ function PetService.GivePet(player: Player, petId: string): boolean
 	local data = profile.Data
 	local petData = { Uid = HttpService:GenerateGUID(false), Id = pet.Id }
 	table.insert(data.Pets, petData)
-	if #data.EquippedPets < cfg.MaxEquipped then
+	if #data.EquippedPets < Economy.MaxEquippedPets(data.ExtraPetSlots) then
 		table.insert(data.EquippedPets, petData.Uid)
 	end
 	refreshPets(player)
 	return true
+end
+
+-- One more pet you can equip at once (Daily Rewards), forever. Your best unequipped pet fills it.
+function PetService.AddEquipSlot(player: Player)
+	local profile = DataService.Get(player)
+	if not profile then
+		return
+	end
+	local data = profile.Data
+	data.ExtraPetSlots += 1
+	local best, bestScore = nil, -1
+	for _, petData in data.Pets do
+		local pet = Pets.ById[petData.Id]
+		if pet and not table.find(data.EquippedPets, petData.Uid) and pet.Money + pet.Speed > bestScore then
+			best, bestScore = petData, pet.Money + pet.Speed
+		end
+	end
+	if best and #data.EquippedPets < Economy.MaxEquippedPets(data.ExtraPetSlots) then
+		table.insert(data.EquippedPets, best.Uid)
+	end
+	refreshPets(player)
 end
 
 function PetService.RandomLanePosition(areaId: number): Vector3?

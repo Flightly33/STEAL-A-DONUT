@@ -2,7 +2,7 @@
 	Pets window:
 	  Eggs - the eggs in your incubator, each with a countdown, and a HATCH button when it's ready
 	         (plus what's inside each egg and the chances)
-	  Pets - every pet you own: equip up to Config.Pets.MaxEquipped (they follow you and give their
+	  Pets - every pet you own: equip up to Config.Pets.MaxEquipped, plus a slot from Daily Rewards (they follow you and give their
 	         money / treadmill bonus), Equip Best, or release pets you don't want.
 	Hatching plays a full-screen animation: the egg shakes harder and harder, cracks, flashes, and
 	the pet pops out.
@@ -221,7 +221,7 @@ local function refreshHeader()
 		local hatchSpeed = 1 + Config.Pets.IncubatorSpeed.PerLevel * State.Number("IncubatorSpeed")
 		header.Text = `Incubator {#(State.Data.Eggs or {})}/{capacity}  •  x{Format.Multiplier(hatchSpeed)} speed  •  upgrade it in the Shop`
 	else
-		header.Text = `{#pets}/{Config.Pets.MaxPets} pets   •   Equipped {#equippedIds}/{Config.Pets.MaxEquipped}: +{math.floor(money * 100 + 0.5)}% money, +{math.floor(speed * 100 + 0.5)}% speed`
+		header.Text = `{#pets}/{Config.Pets.MaxPets} pets   •   Equipped {#equippedIds}/{Economy.MaxEquippedPets(State.Data.ExtraPetSlots)}: +{math.floor(money * 100 + 0.5)}% money, +{math.floor(speed * 100 + 0.5)}% speed`
 	end
 end
 

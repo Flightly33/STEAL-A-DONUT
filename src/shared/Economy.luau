@@ -359,4 +359,9 @@ function Economy.SpeedPassMultiplier(ownedPasses: { [string]: boolean }): number
 	return result
 end
 
+-- How many pets you can equip at once (Daily Rewards can add slots: data.ExtraPetSlots).
+function Economy.MaxEquippedPets(extraSlots: number?): number
+	return Config.Pets.MaxEquipped + (extraSlots or 0)
+end
+
 return Economy

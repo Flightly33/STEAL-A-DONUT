@@ -1,7 +1,8 @@
 --[[
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
-	  left   - big Shop / Index / Pets / Trails buttons (middle of the screen; run speed is in Settings)
+	  left   - big Shop / Index / Pets / Trails / Daily buttons (middle of the screen; run speed is in
+	           Settings)
 	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
 	           is in there) / Hide UI (+ Admin, + Base after the base code, + Teleport for
 	           Teleporter pass owners), centred on the right edge
@@ -49,6 +50,8 @@ export type Callbacks = {
 	UnclaimedIndex: () -> number,
 	TrailReady: () -> boolean,
 	ReadyEggs: () -> number,
+	OpenDaily: () -> (),
+	DailyReady: () -> boolean,
 }
 
 -- Little red number bubble in a button's corner.
@@ -76,7 +79,7 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, 12, 0.5, 0),
-		Size = UDim2.fromOffset(196, 262),
+		Size = UDim2.fromOffset(196, 321),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -90,17 +93,21 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local index = Theme.Button({ Text = "Index", Icon = "book", Color = Theme.Colors.Blue, Size = big, LayoutOrder = 2, Parent = left })
 	local pets = Theme.Button({ Text = "Pets", Icon = "paw", Color = Theme.Colors.Pink, Size = small, LayoutOrder = 3, Parent = left })
 	local trails = Theme.Button({ Text = "Trails", Icon = "bolt", Color = Theme.Colors.Blue, Size = small, LayoutOrder = 5, Parent = left })
+	local daily = Theme.Button({ Name = "Daily", Text = "Daily", Icon = "gift", Color = Theme.Colors.Orange, Size = small, LayoutOrder = 6, Parent = left })
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
 	pets.Activated:Connect(callbacks.OpenPets)
 	index.Activated:Connect(callbacks.OpenIndex)
 	trails.Activated:Connect(callbacks.OpenTrails)
+	daily.Activated:Connect(callbacks.OpenDaily)
 
-	-- Badges: unclaimed Index rewards, eggs ready to hatch, a trail unlocked but none worn
+	-- Badges: unclaimed Index rewards, eggs ready to hatch, a trail unlocked but none worn, a daily
+	-- reward waiting
 	local indexBadge = badge(index)
 	local petsBadge = badge(pets)
 	local trailsBadge = badge(trails)
+	local dailyBadge = badge(daily)
 	local function updateBadges()
 		local unclaimed = callbacks.UnclaimedIndex()
 		indexBadge.Visible = unclaimed > 0
@@ -110,9 +117,11 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		petsBadge.Text = tostring(ready)
 		trailsBadge.Visible = callbacks.TrailReady()
 		trailsBadge.Text = "!"
+		dailyBadge.Visible = callbacks.DailyReady()
+		dailyBadge.Text = "!"
 	end
 	State.Changed:Connect(updateBadges)
-	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do
+	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do -- (and every 2 seconds below: a new day)
 		State.OnAttribute(name, updateBadges)
 	end
 	task.spawn(function()

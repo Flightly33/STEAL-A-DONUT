@@ -39,6 +39,9 @@ export type Snapshot = {
 	Admin: boolean?,
 	GodMode: boolean?,
 	MeteorShards: number?, -- for The Cosmic Donut (UI/CosmicForge)
+	DailyClaims: number?, -- Daily Rewards claimed, ever (UI/DailyRewards)
+	DailyLastDay: number?, -- the day the last one was claimed
+	ExtraPetSlots: number?, -- pets you can equip on top of Config.Pets.MaxEquipped
 }
 
 local State = {}

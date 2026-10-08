@@ -4,7 +4,7 @@
 	from plain Frames so there's nothing to upload (and no emoji anywhere in the game). A
 	Theme.Button or a HUD square takes one by name: cart, book, paw, cycle, tools, house, building,
 	globe, rocket, palette, heart, news, note, gear, eye, bolt (Speed), cash, coin, clover (luck),
-	egg, gift, friends (the Friend Boost), plus.
+	egg, gift, friends (the Friend Boost), plus, check.
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -413,6 +413,13 @@ SHAPES.gift = {
 	ellipse(0.4, 0.22, 0.2, 0.14, { rot = 25, fill = YELLOW }),
 	ellipse(0.6, 0.22, 0.2, 0.14, { rot = -25, fill = YELLOW }),
 	shine(0.27, 0.34, 0.1, 0.04, 0),
+}
+
+-- A green tick (a Daily Reward you've claimed)
+SHAPES.check = {
+	capsule(0.2, 0.52, 0.42, 0.74, 0.17, { color = Color3.fromRGB(110, 225, 90) }),
+	capsule(0.42, 0.74, 0.82, 0.28, 0.17, { color = Color3.fromRGB(110, 225, 90) }),
+	shine(0.66, 0.4, 0.04, 0.12, 40),
 }
 
 -- A chunky plus (the "get more money" button next to your money)

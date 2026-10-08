@@ -70,6 +70,13 @@ UpdateNotes.List = {
 				"No more emojis anywhere: every icon is drawn by the game itself",
 				"A yellow + right next to your money takes you straight to the money boosts",
 			} },
+			{ Title = "Daily Rewards", Tag = "NEW", Lines = {
+				"A reward every day: money, pets and a bonus pet slot, with the Galaxy Whale waiting on Day 7!",
+				"Press the new Daily button on the left (it shows a ! when a reward is waiting); it also pops up when you join",
+				"Money rewards grow with your income, so they're always worth it",
+				"Day 3 gives you +1 pet slot: equip 4 pets at once, forever",
+				"Can't play for a few days? Your streak waits for you: you just carry on from the next day",
+			} },
 			{ Title = "Friend Boost", Tag = "NEW", Lines = {
 				"Play in the same server as your Roblox friends to earn more money!",
 				"Your first friend here adds +1x to your money multiplier, and every friend after that adds +0.25x more",
@@ -86,6 +93,10 @@ UpdateNotes.List = {
 				"Every biome has its own background sounds, nice and loud",
 				"The lobby music fades away when you head out into the lane, and comes back when you return",
 				"Sneak up to Domer's boxes and you'll hear him snoring: the closer you get to him, the louder it gets",
+			} },
+			{ Title = "Domer", Tag = "CHANGED", Lines = {
+				"Grabbing one of his boxes makes a new sound",
+				"A rainbow !? spins over his head while he's chasing you",
 			} },
 			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {
 				"The meteor now crashes 45 seconds into the storm, anywhere from biome 2 to biome 6",

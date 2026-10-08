@@ -29,6 +29,7 @@ local PassOffer = require(UI.PassOffer)
 local EventBanner = require(UI.EventBanner)
 local HideUI = require(UI.HideUI)
 local CosmicForge = require(UI.CosmicForge)
+local DailyRewards = require(UI.DailyRewards)
 local Effects = require(script.Effects)
 local BlackHoleFX = require(script.BlackHoleFX)
 local Treadmill = require(script.Treadmill)
@@ -74,6 +75,8 @@ EventBanner.Init()
 ChatTags.Init()
 HideUI.Init()
 CosmicForge.Init()
+DailyRewards.Init()
+UpdateNotes.AfterJoinLog(DailyRewards.OpenIfReady) -- (a reward waiting: the window opens after the Update Log)
 HUD.Init({
 	OpenShop = Shop.Open,
 	OpenIndex = Index.Open,
@@ -91,6 +94,8 @@ HUD.Init({
 	UnclaimedIndex = Index.UnclaimedCount,
 	TrailReady = Trails.IsReady,
 	ReadyEggs = PetsWindow.ReadyEggs,
+	OpenDaily = DailyRewards.Open,
+	DailyReady = DailyRewards.Ready,
 })
 Effects.Init()
 DonutFX.Init() -- right after Effects, so it sees every donut in its resting spot

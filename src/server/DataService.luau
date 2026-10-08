@@ -82,6 +82,9 @@ export type Data = {
 	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
 	AdminRevoked: boolean, -- the game's owner took their admin panel away (the chat code won't work)
 	MeteorShards: number, -- shards from the Cosmic Meteor (MeteorService), spent at the Cosmic Forge
+	DailyClaims: number, -- Daily Rewards claimed, ever (shared/DailyRewards)
+	DailyLastDay: number, -- the day the last one was claimed (DailyRewards.DayNumber)
+	ExtraPetSlots: number, -- pets you can equip on top of Config.Pets.MaxEquipped (Daily Rewards Day 3)
 	SessionLock: { JobId: string, Time: number }?,
 }
 
@@ -146,6 +149,9 @@ local TEMPLATE: Data = {
 	TutorialEggClaimed = false,
 	AdminRevoked = false,
 	MeteorShards = 0,
+	DailyClaims = 0,
+	DailyLastDay = 0,
+	ExtraPetSlots = 0,
 }
 
 DataService.ProfileLoaded = Signal.new() -- (player, profile)
@@ -665,6 +671,9 @@ function DataService.PushState(player: Player)
 		NotesOnLogin = profile.Data.NotesOnLogin,
 		TutorialEggClaimed = profile.Data.TutorialEggClaimed,
 		MeteorShards = profile.Data.MeteorShards,
+		DailyClaims = profile.Data.DailyClaims,
+		DailyLastDay = profile.Data.DailyLastDay,
+		ExtraPetSlots = profile.Data.ExtraPetSlots,
 		Admin = profile.Session.Admin,
 		GodMode = profile.Session.GodMode,
 	})

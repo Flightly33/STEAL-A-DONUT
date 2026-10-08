@@ -68,6 +68,13 @@ export type Guard = {
 }
 
 local guards: { [Player]: Guard } = {} -- at most one chasing guard per player
+
+-- What he's doing, also on his model ("State") so the chasing player's screen can show it: the
+-- spinning "!?" over his head while he's Waking or Chasing (client/Guards).
+local function setState(guard: Guard, state: string)
+	guard.State = state
+	guard.Model:SetAttribute("State", state)
+end
 local folder: Folder
 local rng = Random.new()
 
@@ -136,7 +143,7 @@ local function returnAfter(guard: Guard, seconds: number)
 	guard.Humanoid:MoveTo(guard.Root.Position)
 	task.delay(seconds, function()
 		if guard.Token == token and guard.Model.Parent then
-			guard.State = "Returning"
+			setState(guard, "Returning")
 			guard.ReturnStarted = os.clock()
 			guard.Humanoid.WalkSpeed = guard.ChaseSpeed * Config.Guard.ReturnSpeedFactor
 			guard.LastCheckPos = guard.Root.Position
@@ -147,7 +154,7 @@ local function returnAfter(guard: Guard, seconds: number)
 end
 
 local function startChasing(guard: Guard)
-	guard.State = "Chasing"
+	setState(guard, "Chasing")
 	guard.Humanoid.WalkSpeed = guard.ChaseSpeed
 	guard.LastCheckPos = guard.Root.Position
 	guard.LastCheckTime = os.clock()
@@ -165,7 +172,7 @@ function GuardService.Alert(areaId: number, player: Player): Guard?
 	local existing = guards[player]
 	if existing and existing.AreaId == areaId and existing.Model.Parent and existing.State ~= "Chasing" and existing.State ~= "Waking" then
 		existing.Token += 1
-		existing.State = "Waking"
+		setState(existing, "Waking")
 		existing.Humanoid.WalkSpeed = 0
 		existing.Humanoid:MoveTo(existing.Root.Position)
 		existing.History = {}
@@ -185,6 +192,7 @@ function GuardService.Alert(areaId: number, player: Player): Guard?
 	local home = homeCFrame(areaId)
 	model:PivotTo(GuardModel.StandCFrame(home))
 	model:SetAttribute("OwnerUserId", player.UserId)
+	model:SetAttribute("State", "Waking") -- (before anyone sees him: the !? is there from the start)
 	CollectionService:AddTag(model, "Guard")
 	model.Parent = folder
 
@@ -232,11 +240,11 @@ function GuardService.StopChase(player: Player, reason: string?)
 	if not player.Parent then
 		vanish(guard)
 	elseif reason == "Safe" then
-		guard.State = "GivingUp"
+		setState(guard, "GivingUp")
 		shout(guard, { "NOOO! MY DONUT!", "D'OH!", "I'LL GET YOU NEXT TIME!", "WHY YOU LITTLE...!" }, Color3.fromRGB(255, 180, 60))
 		returnAfter(guard, Config.Guard.GiveUpDelay)
 	else
-		guard.State = "GivingUp"
+		setState(guard, "GivingUp")
 		guard.Status.Text = "..."
 		guard.Status.TextColor3 = Color3.fromRGB(220, 220, 220)
 		returnAfter(guard, 0.6)
@@ -351,7 +359,7 @@ local function updateGuard(guard: Guard, now: number)
 	local profile = DataService.Get(target)
 	local godMode = profile ~= nil and profile.Session.GodMode
 	if not godMode and GuardService.PerceivedDistance(guard, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
-		guard.State = "Celebrating"
+		setState(guard, "Celebrating")
 		shout(guard, Config.Guard.CatchShouts, Color3.fromRGB(120, 255, 120))
 		returnAfter(guard, 1.5)
 		GuardService.Caught:Fire(target, guard.AreaId)

@@ -4,7 +4,8 @@
 	Every window looks the same: an orange header with the stud pattern and two streaks of light,
 	its title in big white outlined letters (and a gold count after it, SetCount: "Index (12/88)"),
 	a red X, and a dark green body with faint studs. (The studs are drawn the first time the window
-	opens, so windows nobody opens cost nothing.)
+	opens, so windows nobody opens cost nothing.) A window can pick other colours (Modal.Style):
+	Daily Rewards is dark grey all over.
 ]]
 
 local TweenService = game:GetService("TweenService")
@@ -15,6 +16,7 @@ local Modal = {}
 Modal.__index = Modal
 
 export type Modal = {
+	Style: Style,
 	Frame: Frame,
 	Body: Frame,
 	Title: TextLabel,
@@ -32,6 +34,15 @@ export type Modal = {
 
 local HEADER = 58
 
+-- Other colours for a window (anything left out stays as usual).
+export type Style = {
+	HeaderTop: Color3?,
+	HeaderBottom: Color3?,
+	HeaderStuds: Color3?,
+	BodyTop: Color3?,
+	BodyBottom: Color3?,
+}
+
 local gui: ScreenGui? = nil
 local current: Modal? = nil
 
@@ -43,7 +54,9 @@ local function getGui(): ScreenGui
 end
 
 -- (`_color` is from before every window had the same orange header.)
-function Modal.new(title: string, _color: Color3, size: Vector2): Modal
+function Modal.new(title: string, _color: Color3, size: Vector2, style: Style?): Modal
+	local look: Style = style or {}
+	local headerBottom = look.HeaderBottom or Theme.Colors.HeaderBottom
 	local holder = Theme.new("Frame", {
 		Name = title,
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -55,7 +68,7 @@ function Modal.new(title: string, _color: Color3, size: Vector2): Modal
 	}, {
 		Theme.Corner(12),
 		Theme.Stroke(4),
-		Theme.Gradient(Theme.Colors.Window, Theme.Colors.WindowDark),
+		Theme.Gradient(look.BodyTop or Theme.Colors.Window, look.BodyBottom or Theme.Colors.WindowDark),
 	})
 	Theme.AutoScale(holder) -- (only one UIScale per object works, so the open "pop" tweens this one too)
 
@@ -67,10 +80,10 @@ function Modal.new(title: string, _color: Color3, size: Vector2): Modal
 		Parent = holder,
 	}, {
 		Theme.Corner(12),
-		Theme.Gradient(Theme.Colors.HeaderTop, Theme.Colors.HeaderBottom),
+		Theme.Gradient(look.HeaderTop or Theme.Colors.HeaderTop, headerBottom),
 	})
 	-- Square off the header's bottom corners, with a dark line under it
-	Theme.new("Frame", { Name = "Square", Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 1, -14), BackgroundColor3 = Theme.Colors.HeaderBottom, BorderSizePixel = 0, Parent = header })
+	Theme.new("Frame", { Name = "Square", Size = UDim2.new(1, 0, 0, 14), Position = UDim2.new(0, 0, 1, -14), BackgroundColor3 = headerBottom, BorderSizePixel = 0, Parent = header })
 	Theme.new("Frame", { Name = "Line", Size = UDim2.new(1, 0, 0, 4), Position = UDim2.fromOffset(0, HEADER - 2), BackgroundColor3 = Theme.Colors.Outline, BorderSizePixel = 0, ZIndex = 3, Parent = holder })
 	-- two streaks of light across it, behind the title
 	for i, streak in { { X = 150, W = 26 }, { X = 188, W = 12 } } do
@@ -113,7 +126,7 @@ function Modal.new(title: string, _color: Color3, size: Vector2): Modal
 		Parent = holder,
 	})
 
-	local self = setmetatable({ Frame = holder, Body = body, Title = titleLabel, Count = count, Size = size, Studded = false, OnOpen = nil, OnClose = nil }, Modal) :: any
+	local self = setmetatable({ Style = look, Frame = holder, Body = body, Title = titleLabel, Count = count, Size = size, Studded = false, OnOpen = nil, OnClose = nil }, Modal) :: any
 	close.Activated:Connect(function()
 		self:Close()
 	end)
@@ -133,7 +146,7 @@ local function addStuds(self: Modal)
 	end
 	self.Studded = true
 	local header = self.Frame:FindFirstChild("Header") :: Frame
-	local headerStuds = Theme.Studs(header, Vector2.new(self.Size.X, HEADER), { Cell = 22, Color = Color3.fromRGB(150, 70, 0), Transparency = 0.72 })
+	local headerStuds = Theme.Studs(header, Vector2.new(self.Size.X, HEADER), { Cell = 22, Color = self.Style.HeaderStuds or Color3.fromRGB(150, 70, 0), Transparency = 0.72 })
 	headerStuds.ZIndex = 1
 	local area = Theme.new("Frame", {
 		Name = "BodyStuds",

@@ -11,6 +11,8 @@
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
@@ -165,6 +167,9 @@ local function footstep(guardRoot: BasePart, volume: number)
 	sound:Play()
 end
 
+-- Grabbing a box: Config.Guard.GrabSounds, all at once (made in Chase.Init)
+local grabSounds: { Sound } = {}
+
 type ChaseInfo = { DonutId: string, AreaId: number, Kind: string?, Guard: Model?, GuardSpeed: number?, Mutation: string?, Size: string? }
 
 local function onChaseStarted(info: ChaseInfo)
@@ -177,14 +182,21 @@ local function onChaseStarted(info: ChaseInfo)
 	bannerTitle.Text = `RUN! {string.upper(Config.Guard.Name)} IS AFTER YOU!`
 	bannerTitle.TextColor3 = Color3.fromRGB(255, 80, 80)
 	setEdges(true, Color3.fromRGB(255, 0, 0))
-	Theme.PlaySound("Grab")
+	if kind == "Box" and #grabSounds > 0 then
+		for _, sound in grabSounds do
+			sound.TimePosition = 0
+			sound:Play()
+		end
+	else
+		Theme.PlaySound("Grab")
+	end
 	if kind == "Shard" then
 		-- (nobody chases you for a meteor shard: just get it back over the lobby line)
 		bannerTitle.Text = "Bring the meteor shard back to the lobby!"
 		bannerTitle.TextColor3 = Color3.fromRGB(215, 160, 255)
 		setEdges(true, Color3.fromRGB(160, 80, 255))
 		Notifications.Toast("You grabbed a METEOR SHARD! Don't get hit - you'll drop it!", "rare")
-	else
+	elseif kind ~= "Box" or #grabSounds == 0 then
 		Theme.PlaySound("Steal")
 	end
 	if kind == "Shard" then
@@ -377,6 +389,19 @@ end
 
 function Chase.Init()
 	gui = Theme.ScreenGui("Chase", 5)
+	for i, def in Config.Guard.GrabSounds do
+		local sound = Instance.new("Sound")
+		sound.Name = "Grab" .. i
+		sound.SoundId = def.Id
+		sound.Volume = def.Volume
+		sound.Parent = SoundService
+		table.insert(grabSounds, sound)
+	end
+	task.spawn(function()
+		pcall(function()
+			ContentProvider:PreloadAsync(grabSounds)
+		end)
+	end)
 
 	-- Small "Drop" button, only while you carry a box. Kept small and away from the other buttons (right side, under the middle) so it isn't hit by accident.
 	local dropHolder = Theme.new("Frame", {

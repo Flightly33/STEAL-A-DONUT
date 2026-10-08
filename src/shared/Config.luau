@@ -88,6 +88,15 @@ Config.Guard = {
 	SnoreSoundId = "rbxassetid://9115480677",
 	SnoreVolume = 0.45,
 	GruntSoundId = "",
+	-- Grabbing one of his boxes: these all play at once (Volume: 0 to 10, 1 = as uploaded). An empty
+	-- list plays the built-in swipe and "got it!" jingle instead (eggs and meteor shards always do).
+	GrabSounds = {
+		{ Id = "rbxassetid://6506461886", Volume = 0.5 },
+		{ Id = "rbxassetid://135439749484858", Volume = 0.5 },
+	} :: { { Id: string, Volume: number } },
+	-- The "!?" over his head while he's waking up and chasing you (client/Guards): rainbow letters
+	-- with a soft glow, turning round Spin times a second. Size in studs; Glow: how bright (1 = flat).
+	Alert = { Text = "!?", Spin = 0.5, Size = 6, Glow = 1.6 },
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
 	-- A biome's Speed is the Speed you need to get away from its Domer: each Domer is just fast
 	-- enough that a player with exactly that Speed, running a small box straight back, gets out of
@@ -821,6 +830,28 @@ Config.TrailSounds = {
 -- The guided tutorial on a player's first join (UI/Tutorial) ends with this free egg (Pets.luau id).
 Config.Tutorial = {
 	FreeEgg = "Sprinkle",
+}
+
+-- Daily Rewards (shared/DailyRewards, server/DailyService, UI/DailyRewards): one reward a day, Day 1
+-- to Day 7, then round again from Day 1. A new day starts at midnight on the same clock as the
+-- Eternal Storm (Config.EternalStorm.Schedule: US Pacific). Miss a few days and nothing is lost:
+-- your streak just waits, and your next claim is the next day in the list.
+--   Money:   Minutes of your income (whatever you earn per second right now), at least Min
+--   Pet:     that pet (Pets.luau), equipped straight away if you have a free slot
+--   PetSlot: +1 pet you can equip at once, forever. Only the first time round; after that the day
+--            gives Instead
+-- OP = the gold "OP!" tag on its card.
+export type DailyReward = { Kind: string, Minutes: number?, Min: number?, Pet: string?, OP: boolean?, Instead: DailyReward? }
+Config.DailyRewards = {
+	Days = {
+		{ Kind = "Money", Minutes = 10, Min = 1_000 },
+		{ Kind = "Pet", Pet = "ChocoBunny", OP = true },
+		{ Kind = "PetSlot", OP = true, Instead = { Kind = "Money", Minutes = 45, Min = 5_000 } },
+		{ Kind = "Pet", Pet = "MagmaHound", OP = true },
+		{ Kind = "Money", Minutes = 120, Min = 10_000 },
+		{ Kind = "Pet", Pet = "YetiCub", OP = true },
+		{ Kind = "Pet", Pet = "GalaxyWhale", OP = true }, -- (the big one)
+	} :: { DailyReward },
 }
 
 -- Fewer particles on every screen (client-side): every emitter runs at this share of its rate,
