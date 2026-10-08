@@ -12851,7 +12851,7 @@ UpdateNotes.List = {
 			{ Title = "Friend Boost", Tag = "NEW", Lines = {
 				"Play in the same server as your Roblox friends to earn more money!",
 				"Your first friend here adds +1x to your money multiplier, and every friend after that adds +0.25x more",
-				"A red badge with two smiling faces shows your boost while your friends are here",
+				"A red badge with two smiling faces shows your boost in the bottom-right corner while your friends are here (the old biome box there is gone: walk into a biome and its name still shows at the top)",
 			} },
 			{ Title = "The New Index", Tag = "NEW Look", Lines = {
 				"One biome at a time: flip through them with the arrows on the biome's banner",
@@ -39480,10 +39480,10 @@ return EventBanner
 	           Teleporter pass owners), centred on the right edge
 	  stats  - Speed, Money (a yellow + after it opens the money game passes), income per second
 	           (bottom-left)
-	  friend boost - a red badge over the stats while friends of yours are in the server (under the
-	           biome panel on phones and tablets), with the money bonus they give you
-	  area   - which biome you're in, the Speed it needs and how fast its Domer runs, and any event
-	           (bottom-right); a banner at the top whenever you walk into a biome
+	  friend boost - a red badge while friends of yours are in the server, with the money bonus they
+	           give you (bottom-right; top-left on phones and tablets)
+	  biomes - a banner at the top whenever you walk into a biome: its name, the Speed it needs and
+	           how fast its Domer runs (server events show their time left in the pills up there too)
 
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
 ]]
@@ -39496,7 +39496,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Economy = require(Shared.Economy)
-local Events = require(Shared.Events)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
@@ -39682,7 +39681,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end)
 end
 
-local function buildStats(gui: ScreenGui, callbacks: Callbacks): Frame
+local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 	local stats = Theme.new("Frame", {
 		Name = "Stats",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(1, 0) else Vector2.new(0, 1),
@@ -39765,25 +39764,30 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks): Frame
 	end
 	State.OnAttribute("Income", updateIncome)
 	State.OnAttribute("MoneyMultiplier", updateIncome)
-	return stats
 end
 
 -- The Friend Boost badge (server: FriendService): a red square with two drawn smiling faces and the
--- bonus at the bottom, and what it is beside it. Only there while friends of yours are here.
-local function buildFriendBoost(parent: GuiObject, below: boolean)
+-- bonus at the bottom, and what it is beside it. Only there while friends of yours are here. In the
+-- bottom-right corner (top-left on touch screens, where the stats are top-right).
+local function buildFriendBoost(gui: ScreenGui)
+	local right = not Theme.IsTouch
 	local holder = Theme.new("Frame", {
 		Name = "FriendBoost",
 		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(280, 64),
-		AnchorPoint = if below then Vector2.zero else Vector2.new(0, 1),
-		Position = if below then UDim2.new(0, 0, 1, 10) else UDim2.fromOffset(2, -8),
+		Size = UDim2.fromOffset(300, 64),
+		AnchorPoint = if right then Vector2.new(1, 1) else Vector2.zero,
+		Position = if right then UDim2.new(1, -12, 1, -16) else UDim2.new(0, 12, 0, 6),
 		Visible = false,
-		Parent = parent,
+		Parent = gui,
 	})
+	Theme.AutoScale(holder)
 	local red = Color3.fromRGB(232, 56, 60)
+	-- (the badge on the screen's edge, the words on the inside)
 	local square = Theme.new("Frame", {
 		Name = "Badge",
 		Size = UDim2.fromOffset(64, 64),
+		AnchorPoint = if right then Vector2.new(1, 0) else Vector2.zero,
+		Position = if right then UDim2.fromScale(1, 0) else UDim2.new(),
 		BackgroundColor3 = Color3.new(1, 1, 1),
 		Parent = holder,
 	}, {
@@ -39798,8 +39802,10 @@ local function buildFriendBoost(parent: GuiObject, below: boolean)
 		Position = UDim2.fromScale(0.5, 0.4),
 	})
 	local amount = Theme.Label({ Name = "Amount", Text = "", Size = UDim2.new(1, 6, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, 7), StrokeThickness = 3, ZIndex = 20, Parent = square })
-	Theme.Label({ Name = "Title", Text = "FRIEND BOOST", TextColor3 = Color3.fromRGB(255, 120, 110), Size = UDim2.new(1, -76, 0, 28), Position = UDim2.fromOffset(76, 6), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 3, Parent = holder })
-	local here = Theme.Label({ Name = "Here", Text = "", Font = Theme.Font, Size = UDim2.new(1, -76, 0, 22), Position = UDim2.fromOffset(76, 36), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2, Parent = holder })
+	local textX = if right then 0 else 76
+	local align = if right then Enum.TextXAlignment.Right else Enum.TextXAlignment.Left
+	Theme.Label({ Name = "Title", Text = "FRIEND BOOST", TextColor3 = Color3.fromRGB(255, 120, 110), Size = UDim2.new(1, -76, 0, 28), Position = UDim2.fromOffset(textX, 6), TextXAlignment = align, StrokeThickness = 3, Parent = holder })
+	local here = Theme.Label({ Name = "Here", Text = "", Font = Theme.Font, Size = UDim2.new(1, -76, 0, 22), Position = UDim2.fromOffset(textX, 36), TextXAlignment = align, StrokeThickness = 2, Parent = holder })
 
 	local shown = 0
 	local function update()
@@ -39819,59 +39825,10 @@ local function buildFriendBoost(parent: GuiObject, below: boolean)
 	State.OnAttribute("Friends", update)
 end
 
-local function buildAreaInfo(gui: ScreenGui): Frame
-	local panel = Theme.new("Frame", {
-		Name = "AreaInfo",
-		AnchorPoint = if Theme.IsTouch then Vector2.new(0, 0) else Vector2.new(1, 1),
-		Position = if Theme.IsTouch then UDim2.new(0, 10, 0, 4) else UDim2.new(1, -10, 1, -10),
-		Size = UDim2.fromOffset(290, 88),
-		BackgroundColor3 = Theme.Colors.Outline,
-		BackgroundTransparency = 0.45,
-		Parent = gui,
-	}, {
-		Theme.Corner(12),
-	})
-	Theme.AutoScale(panel)
-	local nameLabel = Theme.Label({ Text = "", Size = UDim2.new(1, -18, 0, 30), Position = UDim2.fromOffset(9, 4), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 2.5, Parent = panel })
-	local detail = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, Size = UDim2.new(1, -18, 0, 24), Position = UDim2.fromOffset(9, 36), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = panel })
-	local eventLabel = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.new(1, -18, 0, 22), Position = UDim2.fromOffset(9, 62), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 1.5, Parent = panel })
-
-	local function refresh()
-		local areaId = AreaTracker.Current
-		if areaId <= 0 then
-			nameLabel.Text = "LOBBY"
-			nameLabel.TextColor3 = Color3.fromRGB(110, 200, 255)
-			detail.Text = `{Config.Guard.Name} can't get you here`
-			return
-		end
-		-- (no walk speed here: the Speed stat on the left is the number that counts)
-		local area = Areas.List[areaId]
-		local guard = math.floor(Economy.GuardWalkSpeed(areaId))
-		local recommended = Economy.RecommendedSpeed(areaId)
-		nameLabel.Text = `{areaId}. {area.Name}`
-		nameLabel.TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.3)
-		detail.Text = if recommended > 0
-			then `{Config.Guard.Name}: <b>{guard}</b>   •   Escape: <font color="#ffd54a"><b>{Format.Number(recommended)}</b></font>`
-			else `{Config.Guard.Name}: <b>{guard}</b>   •   <font color="#7dff6a">Any speed!</font>`
-	end
-
-	-- The server event that's running (with a countdown)
-	task.spawn(function()
-		while true do
-			task.wait(0.5)
-			local eventId = workspace:GetAttribute("EventId")
-			local endsAt = workspace:GetAttribute("EventEndsAt")
-			local event = if type(eventId) == "string" then Events.ById[eventId] else nil
-			if event and type(endsAt) == "number" then
-				eventLabel.Text = `{event.Name}: {Format.Duration(endsAt - workspace:GetServerTimeNow())} left`
-				eventLabel.TextColor3 = event.Color
-			else
-				eventLabel.Text = ""
-			end
-		end
-	end)
+-- A banner at the top whenever you walk into a biome: its name and the Speed you need to get away
+-- from its Domer (or LOBBY when you're back).
+local function announceBiomes()
 	AreaTracker.Changed:Connect(function(areaId: number, old: number)
-		refresh()
 		if old == -1 then
 			return
 		end
@@ -39885,7 +39842,6 @@ local function buildAreaInfo(gui: ScreenGui): Frame
 			Notifications.Banner(`BIOME {areaId}: {string.upper(area.Name)}`, area.Trim:Lerp(Color3.new(1, 1, 1), 0.25), 2.5, `{need} • {Config.Guard.Name} runs {math.floor(Economy.GuardWalkSpeed(areaId))}`, { Priority = Notifications.Priority.News })
 		end
 	end)
-	return panel
 end
 
 -- Luck Event pill at the top of the screen (only while one is running).
@@ -39956,10 +39912,9 @@ function HUD.Init(callbacks: Callbacks)
 	local gui = Theme.ScreenGui("HUD", 1)
 	buildLeft(gui, callbacks)
 	buildRight(gui, callbacks)
-	local stats = buildStats(gui, callbacks)
-	local areaInfo = buildAreaInfo(gui)
-	-- (over the stats; on touch screens the stats are top-right, so under the biome panel instead)
-	buildFriendBoost(if Theme.IsTouch then areaInfo else stats, Theme.IsTouch)
+	buildStats(gui, callbacks)
+	buildFriendBoost(gui)
+	announceBiomes()
 	buildLuck(gui)
 	buildBaseMarker()
 end

@@ -73,7 +73,7 @@ UpdateNotes.List = {
 			{ Title = "Friend Boost", Tag = "NEW", Lines = {
 				"Play in the same server as your Roblox friends to earn more money!",
 				"Your first friend here adds +1x to your money multiplier, and every friend after that adds +0.25x more",
-				"A red badge with two smiling faces shows your boost while your friends are here",
+				"A red badge with two smiling faces shows your boost in the bottom-right corner while your friends are here (the old biome box there is gone: walk into a biome and its name still shows at the top)",
 			} },
 			{ Title = "The New Index", Tag = "NEW Look", Lines = {
 				"One biome at a time: flip through them with the arrows on the biome's banner",
