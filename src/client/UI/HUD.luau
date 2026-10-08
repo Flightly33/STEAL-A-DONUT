@@ -3,9 +3,9 @@
 	(chat top-left, player list top-right, hotbar bottom-centre):
 	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
 	           basket), Index (a blue book), Pets (a pink paw), Trails (a bolt), Daily (a present)
-	  right  - a grid of square buttons: Home / Boosts / Skins / Donate / Updates / Settings (music
-	           is in there) / Hide UI (+ Admin, + Base after the base code, + Teleport for
-	           Teleporter pass owners), centred on the right edge
+	  right  - the same big drawn icons with their names, two columns: Home / Boosts / Skins / Donate /
+	           Updates / Settings (music is in there) / Hide UI (+ Admin, + Base after the base code,
+	           + Teleport for Teleporter pass owners), centred on the right edge
 	  stats  - Speed; "Friend Boost: +N%" (the money your friends here add) with a green + that opens
 	           Roblox's invite-friends window; Money (a yellow + after it opens the money game passes);
 	           income per second (bottom-left; top-right on phones and tablets)
@@ -74,6 +74,32 @@ local function badge(button: GuiObject): TextLabel
 	return bubble
 end
 
+-- A big drawn icon with its name under it, no button box around it (like the simulator games): every
+-- button on both sides of the screen
+local ICON_BUTTON = Vector2.new(104, 86)
+local function iconButton(parent: Instance, name: string, icon: string, caption: string, order: number): TextButton
+	local button = Theme.new("TextButton", {
+		Name = name,
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(ICON_BUTTON.X, ICON_BUTTON.Y),
+		LayoutOrder = order,
+		Parent = parent,
+	})
+	local drawn = Icons.Draw(icon, button, nil, {
+		Size = UDim2.fromScale(0.77, 0.77),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromScale(0.5, 0),
+	})
+	drawn.ZIndex = 1
+	Theme.Label({ Name = "Caption", Text = caption, Size = UDim2.new(1, 0, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), StrokeThickness = 3, ZIndex = 3, Parent = button })
+	button.MouseButton1Down:Connect(function()
+		Theme.Bounce(button)
+	end)
+	return button
+end
+
 local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local left = Theme.new("Frame", {
 		Name = "LeftButtons",
@@ -87,34 +113,11 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	})
 	Theme.AutoScale(left)
 
-	-- A big drawn icon with its name under it, no button box around it (like the simulator games)
-	local function iconButton(name: string, icon: string, caption: string, order: number): TextButton
-		local button = Theme.new("TextButton", {
-			Name = name,
-			Text = "",
-			AutoButtonColor = false,
-			BackgroundTransparency = 1,
-			Size = UDim2.fromOffset(104, 86),
-			LayoutOrder = order,
-			Parent = left,
-		})
-		local drawn = Icons.Draw(icon, button, nil, {
-			Size = UDim2.fromScale(0.77, 0.77),
-			AnchorPoint = Vector2.new(0.5, 0),
-			Position = UDim2.fromScale(0.5, 0),
-		})
-		drawn.ZIndex = 1
-		Theme.Label({ Name = "Caption", Text = caption, Size = UDim2.new(1, 0, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), StrokeThickness = 3, ZIndex = 3, Parent = button })
-		button.MouseButton1Down:Connect(function()
-			Theme.Bounce(button)
-		end)
-		return button
-	end
-	local shop = iconButton("Shop", "basket", "Shop", 1)
-	local index = iconButton("Index", "indexBook", "Index", 2)
-	local pets = iconButton("Pets", "pawPink", "Pets", 3)
-	local trails = iconButton("Trails", "bolt", "Trails", 4)
-	local daily = iconButton("Daily", "gift", "Daily", 5)
+	local shop = iconButton(left, "Shop", "basket", "Shop", 1)
+	local index = iconButton(left, "Index", "indexBook", "Index", 2)
+	local pets = iconButton(left, "Pets", "pawPink", "Pets", 3)
+	local trails = iconButton(left, "Trails", "bolt", "Trails", 4)
+	local daily = iconButton(left, "Daily", "gift", "Daily", 5)
 	shop.Activated:Connect(function()
 		callbacks.OpenShop("Upgrades")
 	end)
@@ -157,17 +160,18 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 end
 
 local function buildRight(gui: ScreenGui, callbacks: Callbacks)
+	-- (on phones and tablets the stats are at the top right: the icons sit a little lower there)
 	local right = Theme.new("Frame", {
 		Name = "RightButtons",
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -12, 0.5, 0),
-		Size = UDim2.fromOffset(160, 410),
+		Position = UDim2.new(1, -8, if Theme.IsTouch then 0.58 else 0.5, 0),
+		Size = UDim2.fromOffset(2 * ICON_BUTTON.X + 12, 5 * (ICON_BUTTON.Y + 2)),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
 		Theme.new("UIGridLayout", {
-			CellSize = UDim2.fromOffset(74, 74),
-			CellPadding = UDim2.fromOffset(9, 9),
+			CellSize = UDim2.fromOffset(ICON_BUTTON.X, ICON_BUTTON.Y),
+			CellPadding = UDim2.fromOffset(12, 2),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			HorizontalAlignment = Enum.HorizontalAlignment.Right,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
@@ -175,59 +179,50 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	})
 	Theme.AutoScale(right)
 
-	local function square(icon: string, caption: string, color: Color3, order: number, onClick: () -> ()): TextButton
-		local button = Theme.Button({ Text = "", Color = color, Size = UDim2.fromOffset(74, 74), LayoutOrder = order, Parent = right })
-		local drawn = Icons.For(icon)
-		if drawn then
-			Icons.Draw(drawn, button, color, {
-				Size = UDim2.fromScale(0.56, 0.56),
-				AnchorPoint = Vector2.new(0.5, 0),
-				Position = UDim2.fromScale(0.5, 0.08),
-			})
-		end
-		Theme.Label({ Name = "Caption", Text = caption, Font = Theme.Title, Size = UDim2.new(1, -6, 0.26, 0), Position = UDim2.new(0, 3, 0.7, 0), StrokeThickness = 2, Parent = button })
-		button.Activated:Connect(onClick)
-		return button
+	local function button(name: string, icon: string, caption: string, order: number, onClick: () -> ()): TextButton
+		local b = iconButton(right, name, icon, caption, order)
+		b.Activated:Connect(onClick)
+		return b
 	end
-	local admin = square("tools", "ADMIN", Theme.Colors.Red, 0, callbacks.OpenAdmin)
+	local admin = button("Admin", "toolsSteel", "Admin", 0, callbacks.OpenAdmin)
 	admin.Visible = false
 	-- The base code ("ender=rich"): just the bigger-base buttons
-	local baseSize = square("building", "BASE", Theme.Colors.Blue, 0, callbacks.OpenBaseSize)
+	local baseSize = button("Base", "buildingBlue", "Base", 0, callbacks.OpenBaseSize)
 	State.OnAttribute("SizeAccess", function(value)
 		baseSize.Visible = value == true
 	end)
-	square("house", "HOME", Theme.Colors.Red, 1, function()
+	button("Home", "houseRed", "Home", 1, function()
 		State.Action("TeleportHome")
 	end)
 	-- Teleporter pass owners: jump to any biome. Everyone else walks.
-	local teleport = square("globe", "TELEPORT", Theme.Colors.Blue, 2, callbacks.OpenTeleport)
+	local teleport = button("Teleport", "globeBlue", "Teleport", 2, callbacks.OpenTeleport)
 	local function showTeleport()
 		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
 	end
 	State.Changed:Connect(showTeleport)
 	showTeleport()
-	square("rocket", "BOOSTS", Theme.Colors.Orange, 3, function()
+	button("Boosts", "rocket", "Boosts", 3, function()
 		callbacks.OpenShop("Passes")
 	end)
-	square("palette", "SKINS", Theme.Colors.Purple, 4, function()
+	button("Skins", "paletteWood", "Skins", 4, function()
 		callbacks.OpenShop("Skins")
 	end)
-	square("heart", "DONATE", Theme.Colors.Pink, 5, callbacks.OpenDonate)
-	square("news", "UPDATES", Theme.Colors.Yellow, 6, function()
+	button("Donate", "heart", "Donate", 5, callbacks.OpenDonate)
+	button("Updates", "newsYellow", "Updates", 6, function()
 		callbacks.OpenUpdates()
 	end)
 	-- Settings: music on/off, next song and volume live in its window
-	square("gear", "SETTINGS", Theme.Colors.Gray, 7, callbacks.OpenSettings)
+	button("Settings", "gearSteel", "Settings", 7, callbacks.OpenSettings)
 	-- Clear the screen for screenshots (X on a keyboard does the same; see HideUI)
-	local hide = square("eye", "HIDE UI", Theme.Colors.Gray, 8, callbacks.HideUI)
+	local hide = button("HideUI", "eye", "Hide UI", 8, callbacks.HideUI)
 	if UserInputService.KeyboardEnabled then
-		-- a little dark key cap on the top-right corner: "X" (it fits in the gaps beside the square)
+		-- a little dark key cap on the icon's top-right corner: "X"
 		local key = Theme.new("Frame", {
 			Name = "Key",
 			BackgroundColor3 = Theme.Colors.Panel,
 			Size = UDim2.fromOffset(24, 24),
 			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.new(1, -4, 0, 4),
+			Position = UDim2.new(0.5, 32, 0, 10),
 			ZIndex = 5,
 			Parent = hide,
 		}, {

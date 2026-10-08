@@ -69,7 +69,7 @@ UpdateNotes.List = {
 				"The tutorial is now the big message at the top of the screen, right in the middle",
 				"No more emojis anywhere: every icon is drawn by the game itself",
 				"A yellow + right next to your money takes you straight to the money boosts",
-				"New buttons on the left: big Shop, Index, Pets, Trails and Daily icons with their names under them",
+				"New buttons on both sides of the screen: big colourful icons with their names under them",
 			} },
 			{ Title = "Brick Pets", Tag = "NEW Look", Lines = {
 				"Every pet has been rebuilt out of bricks with studs on top, just like Domer and the donuts",

@@ -4,7 +4,8 @@
 	from plain Frames so there's nothing to upload (and no emoji anywhere in the game). A
 	Theme.Button or a HUD square takes one by name: cart, book, paw, cycle, tools, house, building,
 	globe, rocket, palette, heart, news, note, gear, eye, bolt (Speed), cash, coin, clover (luck),
-	egg, gift, friends (the Friend Boost), plus, check, basket, indexBook, pawPink.
+	egg, gift, friends (the Friend Boost), plus, check, and the HUD's coloured ones: basket, indexBook,
+	pawPink, houseRed, globeBlue, paletteWood, newsYellow, gearSteel, toolsSteel, buildingBlue.
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -455,6 +456,26 @@ SHAPES.indexBook = {
 	shine(0.42, 0.21, 0.13, 0.04, -14),
 }
 SHAPES.pawPink = tinted(SHAPES.paw, Color3.fromRGB(255, 150, 205))
+
+-- ...and the right-hand ones: a house with a red roof (Home), a blue globe (Teleport), a wooden
+-- palette (Skins), a yellow newspaper (Updates), a steel gear (Settings), steel tools (Admin), a blue
+-- building (Base). (The rocket, heart and eye already have their colours.)
+SHAPES.houseRed = (function(): { Shape }
+	local copy = tinted(SHAPES.house, Color3.fromRGB(255, 240, 214))
+	copy[1].color = Color3.fromRGB(190, 80, 70) -- chimney
+	copy[2].color = Color3.fromRGB(240, 82, 70) -- roof
+	return copy
+end)()
+SHAPES.globeBlue = (function(): { Shape }
+	local copy = tinted(SHAPES.globe, Color3.fromRGB(80, 165, 255))
+	copy[3].fill = Color3.fromRGB(140, 205, 255) -- (the band down its middle)
+	return copy
+end)()
+SHAPES.paletteWood = tinted(SHAPES.palette, Color3.fromRGB(240, 195, 135))
+SHAPES.newsYellow = tinted(SHAPES.news, Color3.fromRGB(255, 238, 160))
+SHAPES.gearSteel = tinted(SHAPES.gear, Color3.fromRGB(185, 195, 212))
+SHAPES.toolsSteel = tinted(SHAPES.tools, Color3.fromRGB(190, 200, 216))
+SHAPES.buildingBlue = tinted(SHAPES.building, Color3.fromRGB(120, 180, 255))
 
 -- A green tick (a Daily Reward you've claimed)
 SHAPES.check = {
