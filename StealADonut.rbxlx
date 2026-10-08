@@ -642,8 +642,10 @@ function LoadingUI.Build(parent: Instance): Screen
 	local cameraHome = if camera then camera.CFrame else CFrame.identity
 
 	-- Title
-	local titleGlow = box(stage, "TitleGlow", 640, 420, 760, 150, { Transparency = 0.975, ZIndex = 4 })
+	-- a soft pink glow behind the title, fading out to the sides
+	local titleGlow = box(stage, "TitleGlow", 640, 420, 760, 150, { Color = STAGE_GLOW, ZIndex = 4 })
 	corner().Parent = titleGlow
+	fade({ { 0, 1 }, { 0.5, 0.9 }, { 1, 1 } }).Parent = titleGlow
 	local stealA = text(stage, "TitleTop", "STEAL A", 640, 352, 600, 64, { Font = TITLE_FONT, Stroke = 5, ZIndex = 6 })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, rgb(205, 205, 215)), Parent = stealA })
 	local title = text(stage, "Title", "DONUT!", 640, 430, 760, 118, { Font = TITLE_FONT, Stroke = 7, ZIndex = 6 })
