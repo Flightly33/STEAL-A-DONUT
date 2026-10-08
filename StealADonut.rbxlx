@@ -46501,27 +46501,28 @@ function Settings.Init()
 	local bar = Theme.new("Frame", { Size = UDim2.fromOffset(300, 26), Position = UDim2.fromOffset(62, 195), BackgroundColor3 = Theme.Colors.Outline, Parent = body }, { Theme.Corner(8), Theme.Stroke(2) })
 	local fill = Theme.new("Frame", { Size = UDim2.fromScale(volume, 1), BackgroundColor3 = Theme.Colors.Green, Parent = bar }, { Theme.Corner(8) })
 	local plus = Theme.Button({ Text = "+", Color = Theme.Colors.Orange, Size = UDim2.fromOffset(52, 52), Position = UDim2.fromOffset(372, 182), Parent = body })
-	-- Run speed: a number you type (Enter or clicking away saves it)
+	-- Run speed: a number you type (Enter or clicking away saves it). The box says "Type Here" until
+	-- you've set one; the line under it says how fast you can go.
 	Theme.Label({ Text = "RUN SPEED", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Position = UDim2.fromOffset(0, 246), Parent = body })
 	local speedBox = Theme.new("TextBox", {
 		Name = "RunSpeed", Size = UDim2.fromOffset(150, 48), Position = UDim2.fromOffset(0, 286),
-		BackgroundColor3 = Theme.Colors.PanelLight, TextColor3 = Color3.new(1, 1, 1), PlaceholderText = "type a number",
+		BackgroundColor3 = Theme.Colors.PanelLight, TextColor3 = Color3.new(1, 1, 1), PlaceholderText = "Type Here",
 		PlaceholderColor3 = Color3.fromRGB(170, 170, 190), Text = "", Font = Theme.Font, TextScaled = true, ClearTextOnFocus = true, Parent = body,
 	}, { Theme.Corner(10), Theme.Stroke(2), Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6) }) })
 	local maxSpeed = Theme.Button({ Text = "MAX", Color = Theme.Colors.Green, Size = UDim2.fromOffset(100, 48), Position = UDim2.fromOffset(160, 286), Parent = body })
-	local speedInfo = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -272, 0, 48), Position = UDim2.fromOffset(272, 286), StrokeThickness = 1.5, Parent = body })
-	Theme.Label({
-		Text = `Type how fast you want to run ({Config.Speed.MinRunSpeed} or more). MAX = as fast as you can go.`,
+	local speedHint = Theme.Label({
+		Name = "RunSpeedHint",
+		Text = "",
 		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 22), Position = UDim2.fromOffset(0, 340), StrokeThickness = 1.2, Parent = body,
 	})
 	local function renderSpeed()
 		local limit = State.Number("SpeedLimit")
 		local top = math.floor(math.max(State.Number("WalkSpeed"), Config.Speed.BaseWalkSpeed))
 		if not speedBox:IsFocused() then
-			speedBox.Text = if limit > 0 then tostring(limit) else "MAX"
+			-- (empty shows "Type Here": no speed set, you run as fast as you can)
+			speedBox.Text = if limit > 0 then tostring(limit) else ""
 		end
-		local now = if limit > 0 then math.min(limit, top) else top
-		speedInfo.Text = `Running at <font color="#9dff7a"><b>{now}</b></font>\n<font size="18">Your top speed: {top}</font>`
+		speedHint.Text = `Type how fast you want to run ({Config.Speed.MinRunSpeed} to {math.max(top, Config.Speed.MinRunSpeed)}). MAX = as fast as you can go.`
 		Theme.SetButtonColor(maxSpeed, if limit > 0 then Theme.Colors.Green else Theme.Colors.Gray)
 	end
 	speedBox.FocusLost:Connect(function()
