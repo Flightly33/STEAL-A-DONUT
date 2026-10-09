@@ -39,8 +39,8 @@ end)
           <string name="Source"><![CDATA[--!strict
 --[[
 	LoadingScene: the 3D scene on the loading screen, made in Blender (art/loading_screen/loading_screen.py
-	builds it and writes this file - don't edit it by hand). The bandit donut, six little donuts in the
-	rarity colours and sprinkles, as blocks and studs; LoadingUI builds them in a ViewportFrame.
+	builds it and writes this file - don't edit it by hand). The bandit donut on his podium and six little
+	donuts in the rarity colours, as blocks and studs; LoadingUI builds them in a ViewportFrame.
 
 	Camera: where the camera sits, the point it looks at, and its vertical field of view.
 	Groups: each group's pivot (Position + Turn, degrees: CFrame.Angles) and its blocks, placed
@@ -64,192 +64,163 @@ end
 local B, C = "Block", "Cylinder"
 local P, S = Enum.Material.Plastic, Enum.Material.SmoothPlastic
 
-LoadingScene.Camera = { Position = Vector3.new(0, 9, 100), Target = Vector3.new(0, -15.383, 0), FieldOfView = 30 }
+LoadingScene.Camera = { Position = Vector3.new(0, 9, 96), Target = Vector3.new(0, -14.58, 0), FieldOfView = 30 }
 
 LoadingScene.Groups = {
-	group("Hero", 0, 0, 0, 0, -10, 0, {
-		block(B, 9, 4, 1, 0, 4.5, -0.5, 0xb06a32, P),
-		block(B, 1, 11, 1, -5, 0, -0.5, 0xb06a32, P),
-		block(B, 1, 11, 1, 5, 0, -0.5, 0xb06a32, P),
-		block(B, 1, 9, 1, -6, 0, -0.5, 0xb06a32, P),
-		block(B, 1, 9, 1, 6, 0, -0.5, 0xb06a32, P),
-		block(B, 2, 9, 1, -3.5, -2, -0.5, 0xb06a32, P),
-		block(B, 2, 9, 1, 3.5, -2, -0.5, 0xb06a32, P),
-		block(B, 5, 4, 1, 0, -4.5, -0.5, 0xb06a32, P),
-		block(B, 9, 4, 2, 0, 4.5, 1, 0xe09d58, P),
-		block(B, 1, 11, 2, -5, 0, 1, 0xe09d58, P),
-		block(B, 1, 11, 2, 5, 0, 1, 0xe09d58, P),
-		block(B, 1, 9, 2, -6, 0, 1, 0xe09d58, P),
-		block(B, 1, 9, 2, 6, 0, 1, 0xe09d58, P),
-		block(B, 2, 9, 2, -3.5, -2, 1, 0xe09d58, P),
-		block(B, 2, 9, 2, 3.5, -2, 1, 0xe09d58, P),
-		block(B, 5, 4, 2, 0, -4.5, 1, 0xe09d58, P),
-		block(B, 9, 1, 0.8, 0, 6, 2.4, 0xff6fa3, S),
-		block(B, 1, 1, 0.8, -5, 5, 2.4, 0xff6fa3, S),
-		block(B, 8, 1, 0.8, 1.5, 5, 2.4, 0xff6fa3, S),
-		block(B, 3, 1, 0.8, -4, 2, 2.4, 0xff6fa3, S),
-		block(B, 4, 6, 0.8, 4.5, -0.5, 2.4, 0xff6fa3, S),
-		block(B, 1, 5, 0.8, -6, -1, 2.4, 0xff6fa3, S),
-		block(B, 2, 5, 0.8, -3.5, -1, 2.4, 0xff6fa3, S),
-		block(B, 1, 2, 0.8, -5, -2.5, 2.4, 0xff6fa3, S),
-		block(B, 5, 1, 0.8, 0, -3, 2.4, 0xff6fa3, S),
-		block(B, 1, 2, 0.8, -4, -4.5, 2.4, 0xff6fa3, S),
-		block(B, 3, 1, 0.8, 0, -4, 2.4, 0xff6fa3, S),
-		block(B, 1, 1, 0.8, 3, -4, 2.4, 0xff6fa3, S),
-		block(B, 1, 1, 0.8, 5, -4, 2.4, 0xff6fa3, S),
-		block(B, 1, 1, 0.8, -1, -5, 2.4, 0xff6fa3, S),
-		block(B, 2, 1, 1.2, -3.5, 5, 2.6, 0xffecf6, S),
-		block(B, 1, 1, 1.2, -6, 2, 2.6, 0xffecf6, S),
-		block(B, 1, 3, 1.2, -5, 0, 2.6, 0xffecf6, S),
-		block(B, 13, 2, 4.1, 0, 3.5, 0.95, 0x1e161c, S),
-		block(B, 0.7, 2, 4.1, 6.85, 3.5, 0.95, 0x1e161c, S),
-		block(B, 0.7, 2, 4.1, -6.85, 3.5, 0.95, 0x1e161c, S),
-		block(B, 1.9, 0.8, 0.7, 8, 4.7, 0.9, 0x1e161c, S, 0, 0, 28),
-		block(B, 1.7, 0.8, 0.7, 7.8, 2.6, 0.9, 0x1e161c, S, 0, 0, -24),
-		block(B, 3, 2.4, 0.6, -3, 3.5, 3.3, 0xffffff, S),
-		block(B, 1.3, 1.3, 0.4, -2.35, 3.1, 3.8, 0x1e161c, S),
-		block(B, 0.35, 0.35, 0.12, -2.625, 3.425, 4.06, 0xffffff, S),
-		block(B, 3, 2.4, 0.6, 3, 3.5, 3.3, 0xffffff, S),
-		block(B, 1.3, 1.3, 0.4, 3.65, 3.1, 3.8, 0x1e161c, S),
-		block(B, 0.35, 0.35, 0.12, 3.375, 3.425, 4.06, 0xffffff, S),
-		block(B, 7, 1.1, 2, 0, 7.05, 1, 0xffc430, S),
-		block(B, 1, 1.2, 2, -3, 8.2, 1, 0xffc430, S),
-		block(B, 1, 1.6, 2, 0, 8.4, 1, 0xffc430, S),
-		block(B, 1, 1.2, 2, 3, 8.2, 1, 0xffc430, S),
-		block(B, 0.9, 0.7, 0.35, 0, 7.1, 2.175, 0xe62846, S),
-		block(B, 2, 3, 2, -2.5, -8, 1, 0xe09d58, P),
-		block(B, 3.5, 1, 4, -2.65, -10, 1.4, 0x38c96a, S),
-		block(B, 3.7, 0.5, 4.2, -2.65, -10.75, 1.4, 0xffffff, P),
-		block(B, 2, 3, 2, 2.5, -8, 1, 0xe09d58, P),
-		block(B, 3.5, 1, 4, 2.35, -10, 1.4, 0x38c96a, S),
-		block(B, 3.7, 0.5, 4.2, 2.35, -10.75, 1.4, 0xffffff, P),
-		block(C, 0.2, 0.62, 0.62, -6, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -6, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -6, -2, 2.9, 0xffd23f, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -6, -1, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -6, 0, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -6, 1, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -6, 2, 3.3, 0xffecf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, -3, 2.9, 0xffd23f, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, -2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, -1, 3.3, 0xffecf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, 0, 3.3, 0xffecf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, 1, 3.3, 0xffecf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, 2, 2.9, 0xffd23f, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -5, 5, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, -5, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, -4, 2.9, 0x4fb8ff, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, -2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, -1, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, 0, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, 1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, 2, 2.9, 0x4fb8ff, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, 5, 3.3, 0xffecf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -4, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -3, 2.9, 0xffd23f, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, 0, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, 1, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, 2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, 5, 3.3, 0xffecf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, 5, 2.9, 0xffd23f, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, -5, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, -4, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, 5, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, -4, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, 5, 2.9, 0x4fb8ff, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, 6, 2.9, 0x8b5cf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, -4, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, 5, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, 5, 2.9, 0x3ddc84, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, 6, 2.9, 0x8b5cf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -4, 2.9, 0x3ddc84, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -1, 2.9, 0xff8a3d, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, 0, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, 1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, 2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, 5, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, -6, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, -2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, -1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, 0, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, 1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, 2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, 5, 2.9, 0x8b5cf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 4, 6, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, -5, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, -4, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, -2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, -1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, 0, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, 1, 2.9, 0x3ddc84, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, 2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 5, 5, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, -4, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, -3, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, -2, 2.9, 0x8b5cf6, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, -1, 2.9, 0x4fb8ff, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, 0, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, 1, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 6, 2, 2.9, 0xff6fa3, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -1, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 0, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 1, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, 7.05, 2.1, 0xffc430, S, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -7, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -7, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -8, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -8, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -3, -9, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, -2, -9, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -7, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -7, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -8, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -8, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 2, -9, 2.1, 0xe09d58, P, 0, 90, 0),
-		block(C, 0.2, 0.62, 0.62, 3, -9, 2.1, 0xe09d58, P, 0, 90, 0),
+	group("Hero", 0, -6.6, 0, 0, -12, -3, {
+		block(B, 7, 4, 1, 0, 11.1, -0.5, 0xb06a32, P),
+		block(B, 1, 11, 1, -4, 6.6, -0.5, 0xb06a32, P),
+		block(B, 1, 11, 1, 4, 6.6, -0.5, 0xb06a32, P),
+		block(B, 1, 9, 1, -5, 6.6, -0.5, 0xb06a32, P),
+		block(B, 1, 9, 1, 5, 6.6, -0.5, 0xb06a32, P),
+		block(B, 1, 7, 1, -6, 6.6, -0.5, 0xb06a32, P),
+		block(B, 1, 7, 1, 6, 6.6, -0.5, 0xb06a32, P),
+		block(B, 1, 9, 1, -3, 4.6, -0.5, 0xb06a32, P),
+		block(B, 1, 9, 1, 3, 4.6, -0.5, 0xb06a32, P),
+		block(B, 5, 4, 1, 0, 2.1, -0.5, 0xb06a32, P),
+		block(B, 7, 4, 2.4, 0, 11.1, 1.2, 0xe09d58, P),
+		block(B, 1, 11, 2.4, -4, 6.6, 1.2, 0xe09d58, P),
+		block(B, 1, 11, 2.4, 4, 6.6, 1.2, 0xe09d58, P),
+		block(B, 1, 9, 2.4, -5, 6.6, 1.2, 0xe09d58, P),
+		block(B, 1, 9, 2.4, 5, 6.6, 1.2, 0xe09d58, P),
+		block(B, 1, 7, 2.4, -6, 6.6, 1.2, 0xe09d58, P),
+		block(B, 1, 7, 2.4, 6, 6.6, 1.2, 0xe09d58, P),
+		block(B, 1, 9, 2.4, -3, 4.6, 1.2, 0xe09d58, P),
+		block(B, 1, 9, 2.4, 3, 4.6, 1.2, 0xe09d58, P),
+		block(B, 5, 4, 2.4, 0, 2.1, 1.2, 0xe09d58, P),
+		block(B, 7, 1, 0.8, 0, 11.6, 2.8, 0xff6fa3, S),
+		block(B, 2, 5, 0.8, -4.5, 6.6, 2.8, 0xff6fa3, S),
+		block(B, 2, 6, 0.8, 4.5, 6.1, 2.8, 0xff6fa3, S),
+		block(B, 1, 2, 0.8, -4, 3.1, 2.8, 0xff6fa3, S),
+		block(B, 1, 1, 0.8, 0, 2.6, 2.8, 0xff6fa3, S),
+		block(B, 1, 1, 0.8, 4, 2.6, 2.8, 0xff6fa3, S),
+		block(B, 7, 1, 1.9, 0, 12.6, 2.25, 0xff6fa3, S),
+		block(B, 1, 1, 1.9, -4, 11.6, 2.25, 0xff6fa3, S),
+		block(B, 1, 1, 1.9, 4, 11.6, 2.25, 0xff6fa3, S),
+		block(B, 1, 4, 1.9, -6, 7.1, 2.25, 0xff6fa3, S),
+		block(B, 1, 6, 1.9, -3, 6.1, 2.25, 0xff6fa3, S),
+		block(B, 1, 5, 1.9, 3, 6.6, 2.25, 0xff6fa3, S),
+		block(B, 1, 4, 1.9, 6, 7.1, 2.25, 0xff6fa3, S),
+		block(B, 2, 1, 1.9, 0.5, 3.6, 2.25, 0xff6fa3, S),
+		block(B, 1, 1, 1.9, 4, 1.6, 2.25, 0xff6fa3, S),
+		block(B, 2, 1, 0.22, -2.5, 12.6, 3.31, 0xffecf6, S),
+		block(B, 1, 1, 0.22, -4, 11.6, 3.31, 0xffecf6, S),
+		block(B, 1, 2, 0.22, -5, 7.1, 3.31, 0xffecf6, S),
+		block(B, 0.95, 0.3, 0.26, -3.6, 12.1, 3.33, 0xffffff, S, 0, 0, 35),
+		block(B, 0.95, 0.3, 0.26, -1, 12, 3.33, 0xffd648, S, 0, 0, -25),
+		block(B, 0.95, 0.3, 0.26, 0.9, 12.8, 3.33, 0x6ec8ff, S, 0, 0, 70),
+		block(B, 0.95, 0.3, 0.26, 2.7, 12.1, 3.33, 0x82e6a0, S, 0, 0, 10),
+		block(B, 0.95, 0.3, 0.26, 3.9, 12.6, 3.33, 0xffffff, S, 0, 0, -55),
+		block(B, 0.95, 0.3, 0.26, -5.4, 5.4, 3.33, 0xffd648, S, 0, 0, 80),
+		block(B, 0.95, 0.3, 0.26, -3.7, 8, 3.33, 0x6ec8ff, S, 0, 0, -30),
+		block(B, 0.95, 0.3, 0.26, -3.4, 5, 3.33, 0x82e6a0, S, 0, 0, 50),
+		block(B, 0.95, 0.3, 0.26, -5.1, 8.7, 3.33, 0xffffff, S, 0, 0, 5),
+		block(B, 0.95, 0.3, 0.26, 3.7, 8.2, 3.33, 0xffd648, S, 0, 0, 20),
+		block(B, 0.95, 0.3, 0.26, 5.3, 7, 3.33, 0x6ec8ff, S, 0, 0, -70),
+		block(B, 0.95, 0.3, 0.26, 4.1, 5.3, 3.33, 0x82e6a0, S, 0, 0, 40),
+		block(B, 0.95, 0.3, 0.26, 5.5, 4.4, 3.33, 0xffffff, S, 0, 0, 95),
+		block(B, 0.95, 0.3, 0.26, -0.4, 4, 3.33, 0xffd648, S, 0, 0, 30),
+		block(C, 0.2, 0.62, 0.62, -6, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -6, 4.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -5, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -5, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -4, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -3, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -3, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -3, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -2, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -2, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -2, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -2, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -1, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -1, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -1, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -1, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 0, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 0, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 1, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 1, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 1, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 2, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 2, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 2, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 2, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 3, 0.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 3, 1.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 3, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 3, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 5, 2.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 6, 3.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 6, 4.6, 2.5, 0xe09d58, P, 0, 90, 0),
+		block(B, 11, 2, 4.5, 0, 10.1, 1.15, 0x1e161c, S),
+		block(B, 1, 1, 4.5, -6, 9.6, 1.15, 0x1e161c, S),
+		block(B, 1, 1, 4.5, 6, 9.6, 1.15, 0x1e161c, S),
+		block(B, 0.7, 2, 4.5, -6.35, 10.1, 1.15, 0x1e161c, S),
+		block(B, 0.7, 2, 4.5, 6.35, 10.1, 1.15, 0x1e161c, S),
+		block(B, 1.9, 0.75, 0.6, 7.6, 10.8, 1, 0x1e161c, S, 0, 0, 24),
+		block(B, 1.7, 0.75, 0.6, 7.4, 9.2, 1, 0x1e161c, S, 0, 0, -30),
+		block(C, 0.3, 2.35, 2.35, -2.9, 10.15, 3.55, 0xffffff, S, 0, 90, 0),
+		block(C, 0.2, 1.1, 1.1, -2.35, 9.95, 3.8, 0x1e161c, S, 0, 90, 0),
+		block(C, 0.08, 0.36, 0.36, -2.1, 10.3, 3.94, 0xffffff, S, 0, 90, 0),
+		block(B, 2.1, 0.45, 0.3, -2.9, 11.95, 3.35, 0x1e161c, S, 0, 0, -14),
+		block(C, 0.3, 2.35, 2.35, 2.9, 10.15, 3.55, 0xffffff, S, 0, 90, 0),
+		block(C, 0.2, 1.1, 1.1, 3.45, 9.95, 3.8, 0x1e161c, S, 0, 90, 0),
+		block(C, 0.08, 0.36, 0.36, 3.7, 10.3, 3.94, 0xffffff, S, 0, 90, 0),
+		block(B, 2.1, 0.45, 0.3, 2.9, 12.15, 3.35, 0x1e161c, S, 0, 0, 8),
+		block(B, 3.4, 0.9, 1.4, 1.5, 13.65, 1.2, 0xffc430, S, 0, 0, -14),
+		block(B, 0.75, 0.9, 1.4, 0.493, 14.777, 1.2, 0xffc430, S, 0, 0, -14),
+		block(B, 0.75, 1.2, 1.4, 1.742, 14.62, 1.2, 0xffc430, S, 0, 0, -14),
+		block(B, 0.75, 0.9, 1.4, 2.919, 14.172, 1.2, 0xffc430, S, 0, 0, -14),
+		block(B, 0.6, 0.5, 0.3, 1.5, 13.65, 2, 0xe62846, S, 0, 0, -14),
+		block(B, 0.85, 2.6, 0.85, -7, 5.6, 1.2, 0xe09d58, P, 0, 0, -28),
+		block(B, 0.85, 2.4, 0.85, 6.9, 5.7, 1.2, 0xe09d58, P, 0, 0, 24),
+		block(B, 1, 1, 1, -7.75, 4.35, 1.2, 0xe09d58, P),
+		block(B, 3, 2.2, 3.2, 8.1, 3.3, 1.3, 0xff96be, S),
+		block(B, 3.2, 0.5, 3.4, 8.1, 4.45, 1.3, 0xffffff, S),
+		block(B, 1, 2, 0.1, 8.1, 3.2, 2.95, 0xffffff, S),
+		block(B, 1, 1, 1, 7.4, 4.6, 3, 0xe09d58, P),
 	}),
-	group("Mini1", -38.412, 2.699, -22, 12, 30, 18, {
+	group("Legs", 0, 0, 0, 0, -12, 0, {
+		block(B, 1.8, 3.8, 1.8, -2.4, -8.1, 1.1, 0xe09d58, P),
+		block(C, 0.2, 0.62, 0.62, -2.85, -7.4, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -1.95, -7.4, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -2.85, -8.6, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, -1.95, -8.6, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(B, 3.2, 1, 3.8, -2.4, -10.4, 1.4, 0x38c96a, S, 0, 14, 0),
+		block(B, 3.3, 0.45, 3.9, -2.4, -11.1, 1.4, 0xffffff, P, 0, 14, 0),
+		block(B, 1.4, 0.3, 0.9, -2.4, -9.8, 2.95, 0xffffff, S, 0, 14, 0),
+		block(B, 1.8, 3.8, 1.8, 2.4, -8.1, 1.1, 0xe09d58, P),
+		block(C, 0.2, 0.62, 0.62, 1.95, -7.4, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 2.85, -7.4, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 1.95, -8.6, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(C, 0.2, 0.62, 0.62, 2.85, -8.6, 2.1, 0xe09d58, P, 0, 90, 0),
+		block(B, 3.2, 1, 3.8, 2.4, -10.4, 1.4, 0x38c96a, S, 0, -14, 0),
+		block(B, 3.3, 0.45, 3.9, 2.4, -11.1, 1.4, 0xffffff, P, 0, -14, 0),
+		block(B, 1.4, 0.3, 0.9, 2.4, -9.8, 2.95, 0xffffff, S, 0, -14, 0),
+	}),
+	group("Podium", 0, -12, 1, 0, 0, 90, {
+		block(C, 1.6, 15, 15, 0, 0, 0, 0x4a3670, P),
+		block(C, 0.25, 15.6, 15.6, 0.85, 0, 0, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 6.7, 0, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 6.296, 2.292, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 5.132, 4.307, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 3.35, 5.802, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 1.163, 6.598, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -1.163, 6.598, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -3.35, 5.802, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -5.132, 4.307, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -6.296, 2.292, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -6.7, 0, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -6.296, -2.292, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -5.132, -4.307, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -3.35, -5.802, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, -1.163, -6.598, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 1.163, -6.598, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 3.35, -5.802, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 5.132, -4.307, 0x7a62aa, S),
+		block(C, 0.22, 0.75, 0.75, 1.08, 6.296, -2.292, 0x7a62aa, S),
+	}),
+	group("Mini1", -37.156, 2.706, -22, 12, 30, 18, {
 		block(B, 6, 1.5, 1.425, 0, 2.25, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, -2.25, -0.75, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, 2.25, -0.75, -0.037, 0xe09d58, P),
@@ -260,7 +231,7 @@ LoadingScene.Groups = {
 		block(B, 1.5, 1.5, 0.525, -0.75, -2.25, 0.938, 0x55e15a, S),
 		block(B, 1.5, 1.5, 0.3, -2.25, 2.25, 1.35, 0xffffff, S),
 	}),
-	group("Mini2", -43.485, -8.798, -6, -10, 40, -12, {
+	group("Mini2", -41.856, -8.303, -6, -10, 40, -12, {
 		block(B, 6, 1.5, 1.425, 0, 2.25, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, -2.25, -0.75, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, 2.25, -0.75, -0.037, 0xe09d58, P),
@@ -271,7 +242,7 @@ LoadingScene.Groups = {
 		block(B, 1.5, 1.5, 0.525, -0.75, -2.25, 0.938, 0x3796ff, S),
 		block(B, 1.5, 1.5, 0.3, -2.25, 2.25, 1.35, 0xffffff, S),
 	}),
-	group("Mini3", -25.62, -11.264, -34, 20, -25, 10, {
+	group("Mini3", -24.862, -10.883, -34, 20, -25, 10, {
 		block(B, 6, 1.5, 1.425, 0, 2.25, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, -2.25, -0.75, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, 2.25, -0.75, -0.037, 0xe09d58, P),
@@ -282,7 +253,7 @@ LoadingScene.Groups = {
 		block(B, 1.5, 1.5, 0.525, -0.75, -2.25, 0.938, 0xbe46ff, S),
 		block(B, 1.5, 1.5, 0.3, -2.25, 2.25, 1.35, 0xffffff, S),
 	}),
-	group("Mini4", 38.412, 2.699, -22, 12, -30, -18, {
+	group("Mini4", 37.156, 2.706, -22, 12, -30, -18, {
 		block(B, 6, 1.5, 1.425, 0, 2.25, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, -2.25, -0.75, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, 2.25, -0.75, -0.037, 0xe09d58, P),
@@ -293,7 +264,7 @@ LoadingScene.Groups = {
 		block(B, 1.5, 1.5, 0.525, -0.75, -2.25, 0.938, 0xffbe19, S),
 		block(B, 1.5, 1.5, 0.3, -2.25, 2.25, 1.35, 0xffffff, S),
 	}),
-	group("Mini5", 43.485, -8.798, -6, -10, -40, 12, {
+	group("Mini5", 41.856, -8.303, -6, -10, -40, 12, {
 		block(B, 6, 1.5, 1.425, 0, 2.25, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, -2.25, -0.75, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, 2.25, -0.75, -0.037, 0xe09d58, P),
@@ -304,7 +275,7 @@ LoadingScene.Groups = {
 		block(B, 1.5, 1.5, 0.525, -0.75, -2.25, 0.938, 0xff6eff, S),
 		block(B, 1.5, 1.5, 0.3, -2.25, 2.25, 1.35, 0xffffff, S),
 	}),
-	group("Mini6", 25.62, -11.264, -34, 20, 25, -10, {
+	group("Mini6", 24.862, -10.883, -34, 20, 25, -10, {
 		block(B, 6, 1.5, 1.425, 0, 2.25, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, -2.25, -0.75, -0.037, 0xe09d58, P),
 		block(B, 1.5, 4.5, 1.425, 2.25, -0.75, -0.037, 0xe09d58, P),
@@ -314,30 +285,6 @@ LoadingScene.Groups = {
 		block(B, 1.5, 3, 0.525, 2.25, 0, 0.938, 0xff3c3c, S),
 		block(B, 1.5, 1.5, 0.525, -0.75, -2.25, 0.938, 0xff3c3c, S),
 		block(B, 1.5, 1.5, 0.3, -2.25, 2.25, 1.35, 0xffffff, S),
-	}),
-	group("Sprinkles", 0, 0, 0, 0, 0, 0, {
-		block(B, 0.38, 1.3, 0.38, -43.609, 5.378, -5.894, 0x8b5cf6, S, 65.547, 312.285, 140.197),
-		block(B, 0.38, 1.3, 0.38, -35.939, -12.268, -11.317, 0xffd23f, S, 75.404, 77.573, 353.672),
-		block(B, 0.38, 1.3, 0.38, -15.847, 3.147, 7.537, 0x4fb8ff, S, 336.885, 94.972, 119.468),
-		block(B, 0.38, 1.3, 0.38, -37.057, 2.771, -0.278, 0x8b5cf6, S, 173.068, 113.686, 173.239),
-		block(B, 0.38, 1.3, 0.38, 31.683, 0.688, -29.241, 0xff8a3d, S, 302.844, 163.016, 254.793),
-		block(B, 0.38, 1.3, 0.38, 39.708, 7.469, -3.804, 0x4fb8ff, S, 334.676, 339.136, 123.977),
-		block(B, 0.38, 1.3, 0.38, -17.073, 3.183, -7.104, 0x4fb8ff, S, 287.559, 225.65, 259.609),
-		block(B, 0.38, 1.3, 0.38, 26.341, 1.308, -28.663, 0x8b5cf6, S, 164.039, 151.833, 20.055),
-		block(B, 0.38, 1.3, 0.38, -36.664, 0.733, 8.475, 0x4fb8ff, S, 47.006, 263.399, 341.927),
-		block(B, 0.38, 1.3, 0.38, 25.085, 7.727, -3.523, 0x3ddc84, S, 134.279, 21.157, 151.432),
-		block(B, 0.38, 1.3, 0.38, -15.627, 4.382, -1.069, 0x3ddc84, S, 145.364, 52.742, 135.72),
-		block(B, 0.38, 1.3, 0.38, 29.2, -10.986, -18.563, 0x8b5cf6, S, 22.719, 286.255, 128.052),
-		block(B, 0.38, 1.3, 0.38, -41.665, 3.515, -5.326, 0xff8a3d, S, 253.609, 101.107, 174.847),
-		block(B, 0.38, 1.3, 0.38, 15.828, 4.147, 2.329, 0x8b5cf6, S, 233.889, 209.038, 4.169),
-		block(B, 0.38, 1.3, 0.38, 30.243, -4.508, -10.557, 0x8b5cf6, S, 125.238, 231.863, 265.618),
-		block(B, 0.38, 1.3, 0.38, 36.291, -13.579, -23.021, 0x3ddc84, S, 101.829, 28.381, 241.509),
-		block(B, 0.38, 1.3, 0.38, 40.148, 3.426, -8.309, 0xff8a3d, S, 278.894, 229.272, 259.349),
-		block(B, 0.38, 1.3, 0.38, -24.971, -4.374, -2.695, 0xffffff, S, 258.646, 355.129, 352.714),
-		block(B, 0.38, 1.3, 0.38, -32.54, -8.39, -26.977, 0x8b5cf6, S, 0.238, 145.935, 100.27),
-		block(B, 0.38, 1.3, 0.38, -37.843, -9.146, -12.778, 0x8b5cf6, S, 347.173, 197.976, 108.498),
-		block(B, 0.38, 1.3, 0.38, -27.868, 7.073, -9.965, 0xffd23f, S, 126.402, 321.648, 0.341),
-		block(B, 0.38, 1.3, 0.38, 47.431, 1.102, -17.757, 0x4fb8ff, S, 214.492, 93.537, 353.153),
 	}),
 }
 
@@ -352,9 +299,9 @@ return LoadingScene
 	LoadingUI: the loading screen you see while the game loads in.
 
 	A purple stage with spotlights from above and, in 3D, the bandit donut: a brick donut in a mask
-	and a crown with six little donuts in the rarity colours and sprinkles floating round it (made
-	in Blender: art/loading_screen, built here from LoadingScene in a ViewportFrame; the camera
-	sways slowly from side to side). Under it the title, "Loading... 42%", a row of nine donuts in
+	and a crown, sneaking off with a box of donuts under his arm, on a little brick podium, with six
+	little donuts in the rarity colours floating round him (made in Blender: art/loading_screen,
+	built here from LoadingScene in a ViewportFrame; the camera sways slowly from side to side). Under it the title, "Loading... 42%", a row of nine donuts in
 	the rarity colours that light up one by one as things load, and a tip at the bottom.
 	A SKIP button (bottom right) closes it straight away.
 
@@ -643,34 +590,34 @@ function LoadingUI.Build(parent: Instance): Screen
 
 	-- Title
 	-- a soft pink glow behind the title, fading out to the sides
-	local titleGlow = box(stage, "TitleGlow", 640, 420, 760, 150, { Color = STAGE_GLOW, ZIndex = 4 })
+	local titleGlow = box(stage, "TitleGlow", 640, 432, 760, 150, { Color = STAGE_GLOW, ZIndex = 4 })
 	corner().Parent = titleGlow
 	fade({ { 0, 1 }, { 0.5, 0.9 }, { 1, 1 } }).Parent = titleGlow
-	local stealA = text(stage, "TitleTop", "STEAL A", 640, 352, 600, 64, { Font = TITLE_FONT, Stroke = 5, ZIndex = 6 })
+	local stealA = text(stage, "TitleTop", "STEAL A", 640, 364, 600, 64, { Font = TITLE_FONT, Stroke = 5, ZIndex = 6 })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, rgb(205, 205, 215)), Parent = stealA })
-	local title = text(stage, "Title", "DONUT!", 640, 430, 760, 118, { Font = TITLE_FONT, Stroke = 7, ZIndex = 6 })
+	local title = text(stage, "Title", "DONUT!", 640, 442, 760, 118, { Font = TITLE_FONT, Stroke = 7, ZIndex = 6 })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(rgb(255, 250, 225), rgb(255, 200, 70)), Parent = title })
 	-- ornament under the title: fading lines and a diamond
 	for _, side in { -1, 1 } do
-		local line = box(stage, "Ornament", 640 + side * 170, 505, 300, 3, { Color = GREY, ZIndex = 4 })
+		local line = box(stage, "Ornament", 640 + side * 170, 514, 300, 3, { Color = GREY, ZIndex = 4 })
 		fade(if side < 0 then { { 0, 1 }, { 1, 0.3 } } else { { 0, 0.3 }, { 1, 1 } }).Parent = line
 	end
-	box(stage, "OrnamentGem", 640, 505, 13, 13, { Color = rgb(255, 170, 210), Rotation = 45, ZIndex = 5 })
+	box(stage, "OrnamentGem", 640, 514, 13, 13, { Color = rgb(255, 170, 210), Rotation = 45, ZIndex = 5 })
 
 	-- "Loading..."
-	local status = text(stage, "Status", "Loading...", 640, 568, 600, 28, { Color = rgb(225, 225, 232), ZIndex = 6 })
+	local status = text(stage, "Status", "Loading...", 640, 574, 600, 28, { Color = rgb(225, 225, 232), ZIndex = 6 })
 
 	-- Progress: nine rarity donuts between two glowing lines
 	for _, side in { -1, 1 } do
-		local line = box(stage, "ProgressLine", 640 + side * 420, 625, 380, 2, { Color = GREY, ZIndex = 4 })
+		local line = box(stage, "ProgressLine", 640 + side * 420, 630, 380, 2, { Color = GREY, ZIndex = 4 })
 		fade(if side < 0 then { { 0, 1 }, { 1, 0.35 } } else { { 0, 0.35 }, { 1, 1 } }).Parent = line
 	end
 	local icons = {}
 	for i, color in RARITY_COLORS do
 		local x = 640 + (i - 5) * 50
-		local glow = box(stage, "IconGlow", x, 625, 54, 54, { Color = color, Transparency = 1, ZIndex = 4 })
+		local glow = box(stage, "IconGlow", x, 630, 54, 54, { Color = color, Transparency = 1, ZIndex = 4 })
 		corner().Parent = glow
-		local frame, edge = ring(stage, "Icon", x, 625, 36, 14, rgb(64, 64, 74), 5)
+		local frame, edge = ring(stage, "Icon", x, 630, 36, 14, rgb(64, 64, 74), 5)
 		-- (square, like the brick donuts)
 		local iconCorner = frame:FindFirstChildOfClass("UICorner") :: UICorner
 		iconCorner.CornerRadius = UDim.new(0, 3)
@@ -679,7 +626,7 @@ function LoadingUI.Build(parent: Instance): Screen
 		icons[i] = { Ring = edge, Glow = glow, Color = color, Lit = false }
 	end
 
-	local tip = text(stage, "Tip", "", 640, 690, 1000, 22, { Color = rgb(140, 140, 152), ZIndex = 6 })
+	local tip = text(stage, "Tip", "", 640, 694, 1000, 22, { Color = rgb(140, 140, 152), ZIndex = 6 })
 
 	-- Skip
 	local skip = new("TextButton", {

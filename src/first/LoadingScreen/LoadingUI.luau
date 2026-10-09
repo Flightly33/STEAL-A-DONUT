@@ -2,9 +2,9 @@
 	LoadingUI: the loading screen you see while the game loads in.
 
 	A purple stage with spotlights from above and, in 3D, the bandit donut: a brick donut in a mask
-	and a crown with six little donuts in the rarity colours and sprinkles floating round it (made
-	in Blender: art/loading_screen, built here from LoadingScene in a ViewportFrame; the camera
-	sways slowly from side to side). Under it the title, "Loading... 42%", a row of nine donuts in
+	and a crown, sneaking off with a box of donuts under his arm, on a little brick podium, with six
+	little donuts in the rarity colours floating round him (made in Blender: art/loading_screen,
+	built here from LoadingScene in a ViewportFrame; the camera sways slowly from side to side). Under it the title, "Loading... 42%", a row of nine donuts in
 	the rarity colours that light up one by one as things load, and a tip at the bottom.
 	A SKIP button (bottom right) closes it straight away.
 
@@ -293,34 +293,34 @@ function LoadingUI.Build(parent: Instance): Screen
 
 	-- Title
 	-- a soft pink glow behind the title, fading out to the sides
-	local titleGlow = box(stage, "TitleGlow", 640, 420, 760, 150, { Color = STAGE_GLOW, ZIndex = 4 })
+	local titleGlow = box(stage, "TitleGlow", 640, 432, 760, 150, { Color = STAGE_GLOW, ZIndex = 4 })
 	corner().Parent = titleGlow
 	fade({ { 0, 1 }, { 0.5, 0.9 }, { 1, 1 } }).Parent = titleGlow
-	local stealA = text(stage, "TitleTop", "STEAL A", 640, 352, 600, 64, { Font = TITLE_FONT, Stroke = 5, ZIndex = 6 })
+	local stealA = text(stage, "TitleTop", "STEAL A", 640, 364, 600, 64, { Font = TITLE_FONT, Stroke = 5, ZIndex = 6 })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(WHITE, rgb(205, 205, 215)), Parent = stealA })
-	local title = text(stage, "Title", "DONUT!", 640, 430, 760, 118, { Font = TITLE_FONT, Stroke = 7, ZIndex = 6 })
+	local title = text(stage, "Title", "DONUT!", 640, 442, 760, 118, { Font = TITLE_FONT, Stroke = 7, ZIndex = 6 })
 	new("UIGradient", { Rotation = 90, Color = ColorSequence.new(rgb(255, 250, 225), rgb(255, 200, 70)), Parent = title })
 	-- ornament under the title: fading lines and a diamond
 	for _, side in { -1, 1 } do
-		local line = box(stage, "Ornament", 640 + side * 170, 505, 300, 3, { Color = GREY, ZIndex = 4 })
+		local line = box(stage, "Ornament", 640 + side * 170, 514, 300, 3, { Color = GREY, ZIndex = 4 })
 		fade(if side < 0 then { { 0, 1 }, { 1, 0.3 } } else { { 0, 0.3 }, { 1, 1 } }).Parent = line
 	end
-	box(stage, "OrnamentGem", 640, 505, 13, 13, { Color = rgb(255, 170, 210), Rotation = 45, ZIndex = 5 })
+	box(stage, "OrnamentGem", 640, 514, 13, 13, { Color = rgb(255, 170, 210), Rotation = 45, ZIndex = 5 })
 
 	-- "Loading..."
-	local status = text(stage, "Status", "Loading...", 640, 568, 600, 28, { Color = rgb(225, 225, 232), ZIndex = 6 })
+	local status = text(stage, "Status", "Loading...", 640, 574, 600, 28, { Color = rgb(225, 225, 232), ZIndex = 6 })
 
 	-- Progress: nine rarity donuts between two glowing lines
 	for _, side in { -1, 1 } do
-		local line = box(stage, "ProgressLine", 640 + side * 420, 625, 380, 2, { Color = GREY, ZIndex = 4 })
+		local line = box(stage, "ProgressLine", 640 + side * 420, 630, 380, 2, { Color = GREY, ZIndex = 4 })
 		fade(if side < 0 then { { 0, 1 }, { 1, 0.35 } } else { { 0, 0.35 }, { 1, 1 } }).Parent = line
 	end
 	local icons = {}
 	for i, color in RARITY_COLORS do
 		local x = 640 + (i - 5) * 50
-		local glow = box(stage, "IconGlow", x, 625, 54, 54, { Color = color, Transparency = 1, ZIndex = 4 })
+		local glow = box(stage, "IconGlow", x, 630, 54, 54, { Color = color, Transparency = 1, ZIndex = 4 })
 		corner().Parent = glow
-		local frame, edge = ring(stage, "Icon", x, 625, 36, 14, rgb(64, 64, 74), 5)
+		local frame, edge = ring(stage, "Icon", x, 630, 36, 14, rgb(64, 64, 74), 5)
 		-- (square, like the brick donuts)
 		local iconCorner = frame:FindFirstChildOfClass("UICorner") :: UICorner
 		iconCorner.CornerRadius = UDim.new(0, 3)
@@ -329,7 +329,7 @@ function LoadingUI.Build(parent: Instance): Screen
 		icons[i] = { Ring = edge, Glow = glow, Color = color, Lit = false }
 	end
 
-	local tip = text(stage, "Tip", "", 640, 690, 1000, 22, { Color = rgb(140, 140, 152), ZIndex = 6 })
+	local tip = text(stage, "Tip", "", 640, 694, 1000, 22, { Color = rgb(140, 140, 152), ZIndex = 6 })
 
 	-- Skip
 	local skip = new("TextButton", {
