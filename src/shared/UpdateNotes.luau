@@ -70,6 +70,12 @@ UpdateNotes.List = {
 				"Every base's donut shop has a baker in the window now: he looks round at you when you walk past",
 				"Smooth, lifelike moves all the way through: Domer leans, skids, wobbles and banks round corners, the baker jumps back in surprise, and the camera glides from shot to shot",
 			} },
+			{ Title = "Chained Hell Donuts", Tag = "NEW", Lines = {
+				"The hell donuts are too dangerous to roam free: in your base they're held down by glowing chains on four iron stakes",
+				"A sealing circle glows on the ground under them, with cracks, embers, hellfire and floating marks rising off it",
+				"Every few seconds they tug at their chains - and they lunge when you walk up to them!",
+				"Infernolo Donutolo, Tralalero Infernalero, Infernolino Spirino, Inferna Maxima Donutta, Imp Glaze Impolo and Hadesnut Supremo",
+			} },
 			{ Title = "A New Look", Tag = "NEW Look", Lines = {
 				"Every window has a new look: an orange header covered in studs, like the bricks the whole game is built from, a big red X and a dark green body",
 				"Shop items, pets and trails sit on studs too",
@@ -91,6 +97,7 @@ UpdateNotes.List = {
 				"Domer powers up when he wakes: an impact flash, speed lines across your screen, and an aura that follows him while he chases you",
 				"The later the biome, the wilder his aura: his biome's own effects, and from Haunted Donuttery on, a flash under his feet with every stomp",
 				"Cosmic Domer roars out of the black hole in a storm of energy, his eyes glint, and every slam hits with a giant impact flash",
+				"New: Domers wake up in a burst of power-up spikes, the Molten Bakery Domer chases you wrapped in hellfire and embers, and the Haunted Donuttery Domer in ghostly flames and smoke",
 			} },
 			{ Title = "Sleepy Domers", Tag = "NEW", Lines = {
 				"Every Domer from Glacier Glaze on has his own way of sleeping, made for his biome",
