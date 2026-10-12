@@ -2,7 +2,9 @@
 	Bakers: a baker (shared/BakerModel) behind the counter of every base's donut shop, on this client
 	only. He breathes, looks round at you when you come near, and moves along when a base gets
 	bigger (its shop moves back). The opening cinematic (client/Intro) borrows your base's baker:
-	Bakers.Take stops his idling and hands him over, Bakers.Release gives him back.
+	Bakers.Take stops his idling and hands him over, Bakers.Release gives him back. Everything he
+	does goes through his Animator (Puppet.Animate), so going back to idling is a smooth fade, not
+	a snap.
 ]]
 
 local Players = game:GetService("Players")
@@ -19,7 +21,7 @@ local SCALE = 1.5
 local NEAR = 170 -- studs from the camera: closer than this, he moves
 local LOOK = 45 -- ...and closer than this to you, he looks at you
 
-export type Baker = { Puppet: Puppet.Puppet, Counter: BasePart, Home: CFrame, Taken: boolean, Phase: number }
+export type Baker = { Puppet: Puppet.Puppet, Anim: Puppet.Animator, Counter: BasePart, Home: CFrame, Taken: boolean, Phase: number }
 
 local bakers: { [number]: Baker } = {}
 local folder: Folder? = nil
@@ -75,7 +77,7 @@ local function refresh()
 					model.Parent = folder
 					local home = Bakers.HomeFor(counter)
 					Puppet.Pose(puppet, home)
-					bakers[index] = { Puppet = puppet, Counter = counter, Home = home, Taken = false, Phase = math.random() * 6 }
+					bakers[index] = { Puppet = puppet, Anim = Puppet.Animator(puppet), Counter = counter, Home = home, Taken = false, Phase = math.random() * 6 }
 				end
 			end
 		end
@@ -103,7 +105,11 @@ function Bakers.Release(plotIndex: number)
 				part.Transparency = 0
 			end
 		end
-		Puppet.Pose(baker.Puppet, baker.Home)
+		-- (he fades back into idling where you can see him; out of sight, straight home)
+		local camera = workspace.CurrentCamera
+		if not camera or (baker.Home.Position - camera.CFrame.Position).Magnitude > NEAR then
+			Puppet.Pose(baker.Puppet, baker.Home)
+		end
 	end
 end
 
@@ -147,7 +153,7 @@ function Bakers.Init()
 				end
 			end
 			joints.Head = CFrame.Angles(0, turn, 0)
-			Puppet.Pose(baker.Puppet, baker.Home * CFrame.new(0, breathe, 0) * CFrame.Angles(0, 0, math.sin(t * 0.8) * 0.02), joints)
+			Puppet.Animate(baker.Anim, dt, baker.Home * CFrame.new(0, breathe, 0) * CFrame.Angles(0, 0, math.sin(t * 0.8) * 0.02), joints, "Idle", 0.7)
 		end
 	end)
 end

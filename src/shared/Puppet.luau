@@ -119,15 +119,96 @@ function Puppet.Find(puppet: Puppet, name: string, limb: string?): number?
 	return nil
 end
 
--- A running/walking swing: arms and legs (and a little bob for the body), `phase` in radians.
-function Puppet.Stride(phase: number, swing: number): { [string]: CFrame }
-	local a = math.sin(phase) * swing
+-- A lifelike run: each leg reaches further forward than it kicks back, the arms
+-- swing a little out from the body (so they don't pass through it) and lag the legs slightly.
+-- Also returns how high the body is in its bounce (0 feet down .. 1 in the air) and which way
+-- the shoulders twist (-1..1), for the caller to put on the root.
+function Puppet.Gait(phase: number, swing: number): ({ [string]: CFrame }, number, number)
+	local s = math.sin(phase)
+	local function leg(x: number): CFrame
+		-- (forward is negative: a longer reach forward than kick back)
+		return CFrame.Angles(if x < 0 then x * 1.15 else x * 0.8, 0, 0)
+	end
+	local lag = math.sin(phase - 0.25) * swing * 0.85
 	return {
-		["Left Leg"] = CFrame.Angles(a, 0, 0),
-		["Right Leg"] = CFrame.Angles(-a, 0, 0),
-		["Left Arm"] = CFrame.Angles(-a * 0.9, 0, 0),
-		["Right Arm"] = CFrame.Angles(a * 0.9, 0, 0),
-	}
+		["Left Leg"] = leg(s * swing),
+		["Right Leg"] = leg(-s * swing),
+		["Left Arm"] = CFrame.Angles(-lag, 0, math.rad(-7)),
+		["Right Arm"] = CFrame.Angles(lag, 0, math.rad(7)),
+	}, s * s, math.cos(phase)
+end
+
+local IDENTITY = CFrame.identity
+local JOINT_NAMES = { "Head", "Left Arm", "Right Arm", "Left Leg", "Right Leg" }
+
+-- An Animator plays poses on a puppet and blends from one to the next instead of snapping: each
+-- time the `state` you pass to Puppet.Animate changes, it fades from wherever the puppet was over
+-- `fade` seconds (the root's lean and turn too, not where it is).
+export type Animator = {
+	Puppet: Puppet,
+	State: string?,
+	From: { [string]: CFrame },
+	FromTurn: CFrame?,
+	Last: { [string]: CFrame },
+	LastTurn: CFrame?,
+	Fade: number,
+	FadeTime: number,
+}
+
+function Puppet.Animator(puppet: Puppet): Animator
+	return { Puppet = puppet, State = nil, From = {}, FromTurn = nil, Last = {}, LastTurn = nil, Fade = 1, FadeTime = 1 }
+end
+
+local function smooth(a: number): number
+	a = math.clamp(a, 0, 1)
+	return a * a * a * (a * (a * 6 - 15) + 10)
+end
+
+-- `ground` (optional): the height of the floor - the pose is moved up or down so his feet are on it.
+function Puppet.Animate(anim: Animator, dt: number, cf: CFrame, joints: { [string]: CFrame }?, state: string, fade: number?, ground: number?)
+	if state ~= anim.State then
+		if anim.State ~= nil then
+			anim.From = table.clone(anim.Last)
+			anim.FromTurn = anim.LastTurn
+			anim.Fade = 0
+			anim.FadeTime = fade or 0.25
+		end
+		anim.State = state
+	end
+	anim.Fade += dt
+	local a = smooth(anim.Fade / math.max(anim.FadeTime, 1e-3))
+	local out: { [string]: CFrame } = {}
+	for _, name in JOINT_NAMES do
+		local goal = (joints and joints[name]) or IDENTITY
+		out[name] = if a >= 1 then goal else (anim.From[name] or IDENTITY):Lerp(goal, a)
+	end
+	local pose = cf
+	if a < 1 and anim.FromTurn then
+		pose = CFrame.new(cf.Position) * anim.FromTurn:Lerp(cf.Rotation, a)
+	end
+	if ground then
+		pose += Vector3.new(0, ground - Puppet.Lowest(anim.Puppet, pose, out), 0)
+	end
+	anim.Last = out
+	anim.LastTurn = pose.Rotation
+	Puppet.Pose(anim.Puppet, pose, out)
+end
+
+-- How low the feet would reach (world Y of the lowest corner of anything on the legs) for a pose,
+-- without moving anything: put the root `floor - Lowest(...)` higher to stand on the floor.
+function Puppet.Lowest(puppet: Puppet, cf: CFrame, joints: { [string]: CFrame }?): number
+	local lowest = math.huge
+	for i, part in puppet.Parts do
+		local limb = puppet.Limb[i]
+		if limb == "Left Leg" or limb == "Right Leg" then
+			local where = Puppet.Where(puppet, cf, joints, i)
+			local half = part.Size / 2
+			-- (the lowest corner of a turned box: its centre minus the reach of each half-axis down)
+			local down = math.abs(where.RightVector.Y) * half.X + math.abs(where.UpVector.Y) * half.Y + math.abs(where.LookVector.Y) * half.Z
+			lowest = math.min(lowest, where.Position.Y - down)
+		end
+	end
+	return if lowest == math.huge then cf.Position.Y else lowest
 end
 
 return Puppet
