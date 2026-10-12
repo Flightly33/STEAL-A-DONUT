@@ -25,7 +25,9 @@ FILL = 0.8  # how much of the picture the icon fills (the rest is room for the o
 OUTLINE = 20  # outline thickness, pixels at SIZE
 OUTLINE_COLOR = (24, 20, 36)
 SHADOW = (0, 14, 10, 0.4)  # x, y offset (pixels), blur, opacity
-SAMPLES = int(os.environ.get("ICON_SAMPLES", "24"))
+SAMPLES = int(os.environ.get("ICON_SAMPLES", "64"))
+# ICON_TOON=1: flat cartoon (cel) shading instead of soft gloss (see toon())
+TOON = os.environ.get("ICON_TOON") == "1"
 
 # colours (sRGB 0-255)
 RED = (236, 52, 58)
@@ -163,7 +165,21 @@ class Kit:
             return self.mats[key]
         m = self.bpy.data.materials.new("M%d" % len(self.mats))
         m.use_nodes = True
-        toon(m, rgb, shiny=rough < 0.5 or metal > 0.5)
+        if TOON:
+            toon(m, rgb, shiny=rough < 0.5 or metal > 0.5)
+            self.mats[key] = m
+            return m
+        b = m.node_tree.nodes["Principled BSDF"]
+        color = (lin(rgb[0]), lin(rgb[1]), lin(rgb[2]), 1)
+        b.inputs["Base Color"].default_value = color
+        b.inputs["Roughness"].default_value = rough
+        b.inputs["Metallic"].default_value = metal
+        b.inputs["Coat Weight"].default_value = coat
+        b.inputs["Coat Roughness"].default_value = 0.06
+        b.inputs["Specular IOR Level"].default_value = 0.6
+        if emit:
+            b.inputs["Emission Color"].default_value = color
+            b.inputs["Emission Strength"].default_value = emit
         self.mats[key] = m
         return m
 
@@ -612,6 +628,83 @@ def blur(a, radius):
     return a
 
 
+# -----------------------------------------------------------------------------------------------
+# Anime accents, drawn on the finished picture: kira sparkles (four-point glints) and motion
+# streaks, both white with the same dark sticker outline. Positions are shares of the picture
+# (0..1, from the top left); size is a share of it too.
+# -----------------------------------------------------------------------------------------------
+SPARKLE = [(0.84, 0.16, 0.11), (0.93, 0.32, 0.05)]  # the usual pair, top right
+ACCENTS = {
+    "basket": {"sparkles": SPARKLE},
+    "indexBook": {"sparkles": SPARKLE},
+    "pawPink": {"sparkles": [(0.86, 0.2, 0.1), (0.14, 0.24, 0.05)]},
+    "gift": {"sparkles": [(0.13, 0.17, 0.1), (0.9, 0.42, 0.05)]},
+    "houseRed": {"sparkles": [(0.14, 0.2, 0.09)]},
+    "globeBlue": {"sparkles": SPARKLE},
+    "rocket": {"sparkles": [(0.86, 0.14, 0.09)], "streaks": [(0.06, 0.62, 0.3, 0.58, 0.03), (0.1, 0.78, 0.36, 0.72, 0.03), (0.18, 0.92, 0.42, 0.86, 0.025)]},
+    "paletteWood": {"sparkles": [(0.88, 0.14, 0.09)]},
+    "heart": {"sparkles": [(0.85, 0.14, 0.11), (0.95, 0.3, 0.05), (0.08, 0.72, 0.05)]},
+    "newsYellow": {"sparkles": [(0.1, 0.16, 0.08)]},
+    "gearSteel": {"sparkles": [(0.86, 0.14, 0.09)]},
+    "toolsSteel": {"sparkles": [(0.5, 0.08, 0.08)]},
+    "buildingBlue": {"sparkles": [(0.86, 0.16, 0.09), (0.16, 0.3, 0.05)]},
+    "bolt": {"sparkles": [(0.82, 0.12, 0.1), (0.2, 0.86, 0.06)], "streaks": [(0.04, 0.3, 0.3, 0.3, 0.03), (0.06, 0.46, 0.26, 0.46, 0.03), (0.02, 0.62, 0.22, 0.62, 0.025)]},
+    "cash": {"sparkles": [(0.88, 0.16, 0.1), (0.1, 0.2, 0.05)]},
+}
+SPARKLE_COLOR = (1.0, 0.99, 0.9)
+
+
+def _sparkle(n, cx, cy, size):
+    """Coverage of a four-point star (an astroid, pinched in the middle)."""
+    y, x = np.mgrid[0:n, 0:n] / n
+    u, v = np.abs(x - cx) / size, np.abs(y - cy) / size
+    d = np.sqrt(u) + np.sqrt(v)
+    return np.clip((1 - d) * size * n * 0.6 + 0.5, 0, 1)
+
+
+def _streak(n, x0, y0, x1, y1, w):
+    """Coverage of a rounded line from (x0, y0) to (x1, y1), w thick (half-width)."""
+    y, x = np.mgrid[0:n, 0:n] / n
+    dx, dy = x1 - x0, y1 - y0
+    t = np.clip(((x - x0) * dx + (y - y0) * dy) / (dx * dx + dy * dy), 0, 1)
+    dist = np.hypot(x - (x0 + t * dx), y - (y0 + t * dy))
+    # tapering to a point at the start (it trails off behind)
+    width = w * (0.35 + 0.65 * t)
+    return np.clip((width - dist) * n + 0.5, 0, 1)
+
+
+def _over(top_rgb, top_a, rgba):
+    a = rgba[..., 3]
+    out = np.zeros_like(rgba)
+    oa = top_a + a * (1 - top_a)
+    c = top_rgb * top_a[..., None] + rgba[..., :3] * (a * (1 - top_a))[..., None]
+    out[..., :3] = np.clip(c / np.maximum(oa, 1e-6)[..., None], 0, 1)
+    out[..., 3] = oa
+    return out
+
+
+def accents(name, rgba):
+    n = rgba.shape[0]
+    spec = ACCENTS.get(name, {})
+    ink = np.array([c / 255 for c in OUTLINE_COLOR])
+    ring_px = max(2, OUTLINE // 2)
+    under = np.zeros(rgba.shape[:2])
+    for st in spec.get("streaks", []):
+        under = np.maximum(under, _streak(n, *st))
+    if under.any():
+        # behind the icon: put the icon over the streaks
+        ring = grow(under, ring_px)
+        back = np.zeros_like(rgba)
+        back = _over(np.broadcast_to(ink, rgba.shape[:2] + (3,)), ring, back)
+        back = _over(np.broadcast_to(np.array(SPARKLE_COLOR), rgba.shape[:2] + (3,)), under, back)
+        rgba = _over(rgba[..., :3], rgba[..., 3], back)
+    for sp in spec.get("sparkles", []):
+        star = _sparkle(n, *sp)
+        rgba = _over(np.broadcast_to(ink, rgba.shape[:2] + (3,)), grow(star, ring_px), rgba)
+        rgba = _over(np.broadcast_to(np.array(SPARKLE_COLOR), rgba.shape[:2] + (3,)), star, rgba)
+    return rgba
+
+
 def finish(rgba):
     """rgba: float array (rows top to bottom), straight alpha. Returns it with the outline and the
     shadow under it."""
@@ -650,7 +743,7 @@ def setup_scene(bpy):
     scene.render.resolution_y = SIZE
     scene.render.film_transparent = True
     scene.view_settings.view_transform = "Standard"
-    scene.view_settings.look = "None"
+    scene.view_settings.look = "None" if TOON else "Medium High Contrast"
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
     world = bpy.data.worlds.new("World")
@@ -720,7 +813,7 @@ def render_icon(bpy, bmesh, scene, cam, name, out_dir):
     px = np.array(img.pixels[:], dtype=np.float64).reshape(SIZE, SIZE, 4)[::-1]  # rows top to bottom
     bpy.data.images.remove(img)
     os.remove(raw)
-    done = finish(px)
+    done = accents(name, finish(px))
     save_png(bpy, done, os.path.join(out_dir, name + ".png"))
     print("icon", name)
     return done
