@@ -30,6 +30,13 @@
 	  Pulse     -> how its light pulses: "Glow" | "Shimmer" | "Heartbeat" | "Hue" | "Throb"
 	  Outline   -> a glowing outline (only the closest few, Roblox limits how many can show)
 	  Tint      -> the donut itself changes colour: "Heartbeat" (throbs red) | "Galaxy" | "Rainbow"
+	The anime ones (AnimeFX: textures drawn in Blender):
+	  Ki        -> a power-up aura: energy flames rising round it, specks shooting up (Size, Rate)
+	  ToonFire  -> cartoon flames (colours, bottom to top)
+	  Slashes   -> crescent sword slashes flashing round it (Rate a second)
+	  Kira      -> four-point twinkles popping on it (Rate a second)
+	  Zaps      -> little lightning bolts flickering round it (Rate a second)
+	  Impact    -> an impact frame (ring, star flash, speed lines, smoke puffs) every Min..Max seconds
 	Rainbow themes cycle through every colour instead of using Colors.
 	The particle textures are Roblox's own (always there); Config.DonutFX.Textures can swap in
 	any Creator Store particle texture instead.
@@ -61,6 +68,13 @@ export type Theme = {
 	Mist: Color3?,
 	Crystals: boolean?,
 	DriftColors: { Color3 }?,
+	Ki: { Size: number, Rate: number }?,
+	ToonFire: { Color3 }?,
+	Slashes: { Rate: number }?,
+	Kira: { Rate: number }?,
+	Zaps: { Rate: number }?,
+	Impact: { Min: number, Max: number }?,
+	Lite: boolean?, -- (a Common, Uncommon or Rare donut's small aura: client/DonutFX gives these their own budget)
 	Elements: { string }?, -- (a signature aura: the elements it came from)
 }
 

@@ -12,8 +12,11 @@
 	  * crystal shards tumbling round the donut, flying out and back (Celestial and up)
 	  * electric bursts: stars of sparks crackling off it (the server made the emitters; this sets
 	    them off)
+	  * anime impact frames (AnimeFX): a ring, a star flash, speed lines and smoke puffs every few
+	    seconds (the server made the emitters; this sets them off)
 	Everything here exists only on this client (nothing is replicated) and is removed again when you
-	walk away. Only the closest donuts get the full show.
+	walk away. Only the closest donuts get the full show; the small auras of Common to Rare donuts
+	(FXLite) have a budget of their own, so a pen full of them never takes the rare donuts' places.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -25,12 +28,14 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local FXThemes = require(Shared.FXThemes)
 local Donuts = require(Shared.Donuts)
 local DonutAuras = require(Shared.DonutAuras)
+local AnimeFX = require(Shared.AnimeFX)
 
 local DonutFX = {}
 
 local player = Players.LocalPlayer :: Player
 local RANGE = 170 -- studs from the camera
 local MAX_ACTIVE = 14 -- closest donuts that get lightning, circles and comets
+local MAX_LITE = 10 -- closest Common to Rare donuts whose small auras are on
 local MAX_OUTLINES = 6 -- Roblox can only draw a limited number of outlines at once
 local MAX_BOLTS = 40
 local MAX_SHARDS = 110 -- crystal shards on screen at once (the closest donuts get them first)
@@ -39,7 +44,7 @@ local FLAT = CFrame.Angles(math.rad(90), 0, 0) -- lays a cylinder adornment flat
 
 type Theme = FXThemes.Theme
 
-type ThemeState = { Theme: Theme, Index: number, NextBolt: number, NextWave: number }
+type ThemeState = { Theme: Theme, Index: number, NextBolt: number, NextWave: number, NextImpact: number }
 
 type Spinner = { Adornment: GuiBase3d, Base: CFrame, Speed: number, Theme: Theme, Hue: number, Pulse: boolean? }
 
@@ -88,6 +93,8 @@ type FX = {
 	Crackles: { ParticleEmitter }, -- electric burst points (FXThemes Electric)
 	CrackleRate: number,
 	NextCrackle: number,
+	Impacts: { ParticleEmitter }, -- the anime impact frame (FXThemes Impact)
+	Lite: boolean, -- a Common to Rare donut's small aura (MAX_LITE)
 }
 
 type Bolt = { Parts: { BasePart }, Light: PointLight, Born: number }
@@ -709,6 +716,11 @@ local function updateFull(fx: FX)
 			state.NextWave = clock + rng:NextNumber(shock.Min, shock.Max)
 			spawnWave(fx, state)
 		end
+		local impact = theme.Impact
+		if impact and clock >= state.NextImpact and #fx.Impacts > 0 then
+			state.NextImpact = clock + rng:NextNumber(impact.Min, impact.Max)
+			AnimeFX.Fire(fx.Impacts)
+		end
 	end
 	-- The donut's own colours
 	local tint = fx.Tint
@@ -781,7 +793,7 @@ local function register(instance: Instance)
 	local states: { ThemeState } = {}
 	local tint, pulse, outlineTheme = nil, nil, nil
 	for i, theme in themes do
-		table.insert(states, { Theme = theme, Index = i, NextBolt = clock + rng:NextNumber(0.2, 1.5), NextWave = clock + rng:NextNumber(0.5, 3) })
+		table.insert(states, { Theme = theme, Index = i, NextBolt = clock + rng:NextNumber(0.2, 1.5), NextWave = clock + rng:NextNumber(0.5, 3), NextImpact = clock + rng:NextNumber(0.5, 3) })
 		tint = theme.Tint or tint
 		pulse = theme.Pulse or pulse
 		if theme.Outline then
@@ -816,7 +828,13 @@ local function register(instance: Instance)
 	end
 	local crackles: { ParticleEmitter } = {}
 	local crackleRate = 0
+	local impacts: { ParticleEmitter } = {}
 	for _, holder in model:GetChildren() do
+		if holder.Name == "ImpactFX" then
+			for _, emitter in AnimeFX.Find(holder) do
+				table.insert(impacts, emitter)
+			end
+		end
 		if holder.Name == "ElectricFX" then
 			crackleRate += (holder:GetAttribute("ElectricRate") :: number?) or 0
 			for _, emitter in holder:GetDescendants() do
@@ -852,6 +870,8 @@ local function register(instance: Instance)
 		Crackles = crackles,
 		CrackleRate = crackleRate,
 		NextCrackle = clock + rng:NextNumber(0, 1),
+		Impacts = impacts,
+		Lite = model:GetAttribute("FXLite") == true,
 	}
 end
 
@@ -907,10 +927,18 @@ function DonutFX.Init()
 		table.sort(near, function(a, b)
 			return a.Distance < b.Distance
 		end)
-		local outlines = 0
-		for rank, fx in near do
+		local outlines, active, lite = 0, 0, 0
+		for _, fx in near do
 			updateCheap(fx)
-			if rank <= MAX_ACTIVE then
+			local on
+			if fx.Lite then
+				lite += 1
+				on = lite <= MAX_LITE
+			else
+				active += 1
+				on = active <= MAX_ACTIVE
+			end
+			if on then
 				ensureVisuals(fx)
 				setBoost(fx, true)
 				local wantsOutline = fx.OutlineTheme ~= nil and outlines < MAX_OUTLINES

@@ -10,9 +10,10 @@
 	halos, rainbow frosting, a shimmering aura for Secrets). Mutations recolour the donut and add
 	their own effects (Gold shines, Diamond is glassy, Mythic grows horns, Divine gets wings and a
 	halo, Rainbow cycles colours). Sizes scale the whole donut.
-	On top of that, Legendary+ donuts and mutated ones get a mystical theme (FXThemes.luau): sun rays,
-	particle vortexes, hellfire, god rays... plus lightning, magic circles and comets animated by
-	each client (client/DonutFX.luau).
+	On top of that, every donut has its own aura (DonutAuras.luau: a small one for Common to Rare,
+	bigger and bigger after that) built from FXThemes blocks: sun rays, particle vortexes, hellfire,
+	god rays, the anime effects (AnimeFX.luau: power-up auras, toon fire, slashes, impact frames)...
+	plus lightning, magic circles and comets animated by each client (client/DonutFX.luau).
 
 	The model is a single rigid assembly: the invisible "Root" part is anchored and every other part is
 	welded to it, so moving Root moves the whole donut (cheap to animate on the client).
@@ -37,6 +38,7 @@ local DonutExtras = require(script.Parent.DonutExtras)
 local DonutLooks = require(script.Parent.DonutLooks)
 local DonutLayers = require(script.Parent.DonutLayers)
 local DonutAuras = require(script.Parent.DonutAuras)
+local AnimeFX = require(script.Parent.AnimeFX)
 
 type Donut = Donuts.Donut
 
@@ -180,7 +182,10 @@ local TEXTURES: { [string]: string } = {
 }
 local function texture(name: string): string
 	local custom = Config.DonutFX.Textures[name]
-	return if type(custom) == "string" and custom ~= "" then custom else TEXTURES[name]
+	if type(custom) == "string" and custom ~= "" then
+		return custom
+	end
+	return TEXTURES[name] or AnimeFX.Texture(name) -- (Petal...: the anime textures)
 end
 DonutModel.Texture = texture
 
@@ -1626,6 +1631,41 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		end
 	end
 
+	-- The anime effects (AnimeFX): a power-up aura, toon fire, slashes, kira twinkles, lightning
+	-- zaps, and an impact frame the client sets off every few seconds (client/DonutFX).
+	local function animeEffects(theme: FXThemes.Theme)
+		local colors = theme.Colors
+		local ki = theme.Ki
+		if ki then
+			local base = holder("KiFX", Vector3.new(3.4, 0.4, 2.4) * s, CFrame.new(0, bottom * 0.8, 0))
+			AnimeFX.Ki(base, colors, ki.Size * s, ki.Rate)
+		end
+		local toon = theme.ToonFire
+		if toon then
+			local base = holder("ToonFireFX", Vector3.new(3.6, 0.6, 2.4) * s, CFrame.new(0, bottom * 0.6, 0))
+			AnimeFX.ToonFire(base, toon, 2.6 * s, 22)
+		end
+		local slashes = theme.Slashes
+		if slashes then
+			local sphere = holder("SlashFX", Vector3.one * 5.2 * s, CFrame.identity)
+			AnimeFX.Slashes(sphere, colors[1], 3.2 * s, slashes.Rate)
+		end
+		local kira = theme.Kira
+		if kira then
+			local sphere = holder("KiraFX", Vector3.one * 4.4 * s, CFrame.identity)
+			AnimeFX.Kira(sphere, colors[1], 1.1 * s, kira.Rate)
+		end
+		local zaps = theme.Zaps
+		if zaps then
+			local sphere = holder("ZapFX", Vector3.one * 4.6 * s, CFrame.identity)
+			AnimeFX.Zaps(sphere, colors, 1.8 * s, zaps.Rate)
+		end
+		if theme.Impact then
+			local center = holder("ImpactFX", Vector3.one * 0.2, at(0, 0, -0.6))
+			AnimeFX.Impact(center, colors, s)
+		end
+	end
+
 	-- The big effects of the mid-to-late game themes (FXThemes): fire, spirals, smoke and the
 	-- points the electric sparks burst from (the client sets those off, and adds the shards).
 	-- FXBoost: these run near full strength (client/ParticleBudget), but only on the donuts closest
@@ -1783,8 +1823,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 			add(pillar, pillarCf, glowColor, Enum.Material.Neon)
 			pillar.Transparency = 0.8
 		end
-		-- a glowing outline in its aura's colour when you're close (client/DonutGlow)
-		if signature or mutation.Order >= 1 then
+		-- a glowing outline in its aura's colour when you're close (client/DonutGlow); not for the
+		-- small auras of Common to Rare donuts
+		if (signature and not signature.Lite) or mutation.Order >= 1 then
 			CollectionService:AddTag(model, "DonutOutline")
 			model:SetAttribute("OutlineColor", glowColor)
 		end
@@ -1798,6 +1839,9 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 		if #themes > 0 then
 			CollectionService:AddTag(model, "DonutFX")
 			model:SetAttribute("FXScale", s)
+			if signature and signature.Lite and #themes == 1 then
+				model:SetAttribute("FXLite", true) -- (client/DonutFX: a small aura, its own budget)
+			end
 			for _, theme in themes do
 				if theme.Outline then
 					model:SetAttribute("FXOutline", true) -- (DonutFX draws its outline, not DonutGlow)
@@ -1808,6 +1852,7 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				end
 				themeEffects(theme)
 				auraEffects(theme)
+				animeEffects(theme)
 			end
 		end
 	end

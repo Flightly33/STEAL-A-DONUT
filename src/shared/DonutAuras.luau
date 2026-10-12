@@ -13,6 +13,12 @@
 	  * Rarer donuts get more of them: Epic 2, Legendary 3, Celestial 4, Secret and Admin 5, Icon 6.
 	    Which of its element's effects it gets, how fast and which way they turn depend on the donut
 	    itself, and no two donuts get the same set (each is checked against all the donuts before it).
+	  * The anime effects (AnimeFX: power-up auras, toon fire, slashes, kira twinkles, lightning
+	    zaps, impact frames, cherry petals) come first in most elements' lists, so every rare donut
+	    leads with one.
+	  * Common, Uncommon and Rare donuts get a small aura too (1, 2 and 2 light effects: twinkles,
+	    petals, snow, bubbles...), still different for every donut, kept soft so a pen full of them
+	    doesn't lag or glare.
 	  * The colours are the element's, tinted with the donut's own glaze.
 
 	A mutation's effects (FXThemes) are added on top: they show what was rolled. DonutLooks can turn
@@ -130,6 +136,28 @@ local Moves: { [string]: Move } = {
 	galaxy = function(t)
 		t.Tint = "Galaxy"
 	end,
+	-- the anime ones (AnimeFX)
+	kiaura = function(t, i, _r, _c)
+		t.Ki = { Size = 2.4 + 0.7 * i, Rate = 10 + 8 * i }
+	end,
+	toonfire = function(t, _i, _r, c)
+		t.ToonFire = { c[2]:Lerp(WHITE, 0.4), c[1], c[3] }
+	end,
+	slashes = function(t, i, _r, _c)
+		t.Slashes = { Rate = 1.4 * i }
+	end,
+	kira = function(t, i, _r, _c)
+		t.Kira = { Rate = 3 * i }
+	end,
+	zaps = function(t, i, _r, _c)
+		t.Zaps = { Rate = 4 * i }
+	end,
+	impact = function(t, i, r, _c)
+		t.Impact = { Min = r:NextNumber(2.5, 3.5) / i, Max = r:NextNumber(5, 7) / i }
+	end,
+	sakura = function(t, i, _r, _c)
+		t.Drift = { Mode = "Fall", Rate = 6 * i, Size = 0.38, Texture = "Petal" }
+	end,
 	rainbow = function(t)
 		t.Tint = "Rainbow"
 	end,
@@ -148,7 +176,8 @@ local function field(move: string): string
 	local fields = {
 		flames = "Flames", aura = "Flames", embers = "Drift", snow = "Drift", petals = "Drift", feathers = "Drift",
 		bubbles = "Drift", steam = "Drift", confetti = "Drift", streaks = "Drift", arcs = "Lightning",
-		strike = "Lightning", rise = "Lightning", galaxy = "Tint", rainbow = "Tint",
+		strike = "Lightning", rise = "Lightning", galaxy = "Tint", rainbow = "Tint", kiaura = "Ki",
+		toonfire = "Flames", sakura = "Drift",
 	}
 	return fields[move] or move
 end
@@ -166,26 +195,26 @@ export type Element = {
 
 -- In order: the first one a name matches is its main element.
 DonutAuras.Elements = {
-	{ Id = "Power", Keys = { "maximus", "maxima", "supremus", "titan", "odin", "hades", "prime", "banhammer", "glazilla", "crullazilla", "zilla", "mighty" }, Parts = { "Banhammer" }, Biomes = {}, Colors = { rgb(255, 80, 60), rgb(255, 230, 120), rgb(120, 10, 20) }, Pulse = "Heartbeat", Moves = { "aura", "shockwave", "rise", "electric", "swirl", "shards" } },
-	{ Id = "Void", Keys = { "void", "singular", "wormhol", "gravit", "horizon", "accretion", "supermassiv", "quantum", "null", "missingdonut" }, Parts = { "AccretionDisk", "Wormhole", "VoidRing", "GravityRings", "AtomOrbits", "Spaghetti" }, Biomes = { "BlackHole" }, Colors = { rgb(170, 90, 255), rgb(80, 220, 255), rgb(25, 5, 45) }, Pulse = "Throb", Moves = { "vortex", "smoke", "shards", "arcs", "runes", "galaxy" } },
-	{ Id = "Phantom", Keys = { "ghost", "boo", "spook", "soul", "wisp", "vampir", "skeleton", "witch", "haunt", "bone", "phantom", "zombie" }, Parts = { "GhostTail", "Bats", "Ribcage", "WitchHat", "SoulWisps", "VampireCollar" }, Biomes = { "Haunted" }, Colors = { rgb(120, 255, 150), rgb(180, 100, 255), rgb(40, 10, 50) }, Pulse = "Throb", Moves = { "smoke", "wisps", "vortex", "arcs", "shards", "runes" } },
-	{ Id = "Dizzy", Keys = { "dizzy", "spin", "hypno" }, Parts = {}, Biomes = {}, Colors = { rgb(255, 230, 90), rgb(255, 150, 220), rgb(140, 200, 255) }, Pulse = "Shimmer", Moves = { "orbitStar", "swirl", "stars", "wisps", "shockwave" } },
-	{ Id = "Divine", Keys = { "angel", "heaven", "seraph", "harp", "archangel", "divine", "laurel", "holy" }, Parts = { "Halo", "SeraphWings", "Harp", "Laurel", "CloudPuffs" }, Biomes = { "Heaven", "Clouds" }, Colors = { rgb(255, 225, 130), WHITE, rgb(255, 185, 80) }, Pulse = "Shimmer", Moves = { "godrays", "feathers", "wisps", "rays", "runes", "glitter" }, Drift = { WHITE, rgb(255, 245, 220) } },
-	{ Id = "Storm", Keys = { "zeus", "bolt", "thunder", "storm", "overclock", "volt", "spark", "electr", "laser", "wifi", "signal", "quasar", "lightning" }, Parts = { "LightningBolt", "WifiArcs", "QuasarJets" }, Biomes = {}, Colors = { rgb(255, 235, 90), WHITE, rgb(90, 170, 255) }, Pulse = "Shimmer", Moves = { "electric", "arcs", "orbitBolt", "strike", "swirl", "shockwave" } },
-	{ Id = "Inferno", Keys = { "flame", "blaze", "infern", "magma", "lava", "ember", "scorch", "volcan", "erupt", "hell", "cinda", "molten", "phoenix", "burn", "crullfire", "fire", "dragon", "imp$", "impolo", "devil", "brimst" }, Parts = { "Flames", "FlameHair", "FireBeard", "LavaDrips", "Volcano", "MagmaCore", "LavaWave", "PhoenixTail", "DragonTail", "DevilTail" }, Biomes = { "Lava" }, Colors = { rgb(255, 120, 30), rgb(255, 225, 90), rgb(190, 20, 10) }, Pulse = "Glow", Moves = { "flames", "embers", "rise", "shards", "shockwave", "smoke" }, Drift = { rgb(255, 220, 90), rgb(255, 90, 20) } },
-	{ Id = "Frost", Keys = { "ice", "frost", "glacier", "snow", "yeti", "frigo", "icicl", "palazzo", "pinguino", "brr", "aurora", "borealis", "frozen" }, Parts = { "IceSpikes", "Icicles", "IceCrown", "Snowflakes", "AuroraRibbon" }, Biomes = { "Ice" }, Colors = { rgb(150, 225, 255), WHITE, rgb(60, 140, 255) }, Pulse = "Shimmer", Moves = { "snow", "orbitSnowflake", "mist", "shards", "runes", "wisps" }, Drift = { WHITE, rgb(200, 240, 255) } },
-	{ Id = "Digital", Keys = { "robo", "mecha", "cyber", "glitch", "byte", "data", "packet", "binary", "server", "processore", "pixel", "error", "bluescreen", "holo", "firewall", "trojan", "antivirus", "sentinel", "mainfram", "donutronic", "neon", "billboard", "arcade", "joystick", "escalator", "vendomatic", "conveyor", "weld", "boltino", "404", "coreino", "root", "sudo", "admin", "terminal" }, Parts = { "Visor", "Antenna", "RoboPlates", "CPUChip", "ServerRack", "BinaryRing", "Terminal", "ErrorSign", "BlueScreen", "GlitchSlices", "PixelBlocks", "HoloRing", "NeonTube", "Billboard" }, Biomes = { "CyberStreets", "RobotFactory", "Glitch" }, Colors = { rgb(60, 230, 255), rgb(80, 255, 140), rgb(255, 60, 200) }, Pulse = "Shimmer", Moves = { "orbitCube", "runes", "electric", "shockwave", "glitter", "arcs" } },
-	{ Id = "Clockwork", Keys = { "tick", "tock", "chrono", "clock", "cog", "gear", "steam", "hourglass", "windup" }, Parts = { "Gears", "AlarmClock", "Hourglass", "WindUpKey", "JackCrank" }, Biomes = { "Clockwork" }, Colors = { rgb(255, 190, 90), rgb(255, 240, 200), rgb(170, 110, 50) }, Pulse = "Glow", Moves = { "runes", "orbitGear", "steam", "glitter", "shockwave", "wisps" }, Drift = { rgb(240, 240, 245), rgb(200, 200, 210) } },
-	{ Id = "Ocean", Keys = { "shark", "wave", "surf", "tsunami", "octo", "jelly", "bubbl", "puffer", "laguna", "trident", "crab", "tralalero", "pirat", "captain", "poseid" }, Parts = { "Tentacles", "SharkFin", "SharkTail", "Trident", "JellyDome", "Surfboard", "LavaBubbles" }, Biomes = { "Lake" }, Colors = { rgb(80, 200, 255), WHITE, rgb(30, 110, 220) }, Pulse = "Glow", Moves = { "bubbles", "orbitBubble", "swirl", "shockwave", "mist", "wisps" }, Drift = { rgb(200, 240, 255), WHITE } },
-	{ Id = "Love", Keys = { "heart", "love", "amor", "teddy", "cupid", "sweetheart", "valentin" }, Parts = { "Bow" }, Biomes = {}, Colors = { rgb(255, 90, 150), rgb(255, 185, 215), WHITE }, Pulse = "Heartbeat", Moves = { "orbitHeart", "glitter", "wisps", "mist", "stars" } },
-	{ Id = "Music", Keys = { "music", "song", "melod", "dj", "headphone", "jazz", "drum", "tune" }, Parts = { "Headphones", "ToyDrum", "Harp" }, Biomes = {}, Colors = { rgb(140, 200, 255), rgb(255, 150, 230), WHITE }, Pulse = "Shimmer", Moves = { "orbitNote", "wisps", "glitter", "shockwave" } },
-	{ Id = "Crystal", Keys = { "crystal", "amethyst", "prism", "diamond", "gem", "obsidian", "quartz", "jewel", "lucent" }, Parts = { "CrystalCluster", "ObsidianShards", "Gems", "Prism" }, Biomes = {}, Colors = { rgb(200, 130, 255), rgb(140, 230, 255), WHITE }, Pulse = "Shimmer", Moves = { "crystals", "shards", "glitter", "rays", "runes", "stars" } },
-	{ Id = "Bloom", Keys = { "flower", "petal", "bloom", "lily", "floretta", "leaf", "jungle", "fairy", "garden", "pumpkin" }, Parts = { "Flower", "Leaf", "LeafCrown", "FairyWand" }, Biomes = { "Jungle", "Park" }, Colors = { rgb(255, 150, 200), rgb(140, 230, 110), rgb(255, 235, 120) }, Pulse = "Glow", Moves = { "petals", "orbitLeaf", "glitter", "wisps", "runes", "mist" }, Drift = { rgb(255, 160, 205), rgb(255, 215, 235) } },
-	{ Id = "Cosmos", Keys = { "star", "nova", "nebul", "galax", "cosmo", "comet", "moon", "astro", "celestial", "stardust", "infinit", "eternal" }, Parts = { "Orbit", "Moon", "FallingStars", "NebulaCloud", "GalaxySwirl", "NovaBurst", "StarWand", "InfinityRing" }, Biomes = {}, Colors = { rgb(255, 150, 240), rgb(140, 210, 255), WHITE }, Pulse = "Shimmer", Moves = { "stars", "wisps", "swirl", "orbitStar", "rays", "runes" } },
-	{ Id = "Sugar", Keys = { "candy", "lollipop", "gum", "peppermint", "caramel", "rainbow", "arcobal", "sugar", "sweet", "toy", "yo-yo", "glazoyo", "jack" }, Parts = { "CandyCane", "Lollipop", "Gumdrops", "RainbowArc", "PeppermintSwirl", "YoYo" }, Biomes = { "Candy", "Toys" }, Colors = { rgb(255, 120, 190), rgb(120, 220, 255), rgb(255, 230, 100) }, Pulse = "Glow", Moves = { "confetti", "swirl", "orbitStar", "shockwave", "wisps" }, Drift = { rgb(255, 90, 150), rgb(90, 200, 255), rgb(255, 230, 80), rgb(120, 230, 120) } },
-	{ Id = "Treasure", Keys = { "king", "queen", "crown", "gold", "treasure", "idol", "pharaoh", "glazamun", "grande", "imperatrix", "supremo", "supremito", "majest", "final", "omnidonut", "coin" }, Parts = { "Crown", "TreasureCoins", "Gems", "Pharaoh", "Scepter", "Tiara" }, Biomes = { "Desert" }, Colors = { rgb(255, 210, 70), rgb(255, 250, 215), rgb(255, 150, 30) }, Pulse = "Glow", Moves = { "rays", "orbitCoin", "glitter", "runes", "wisps", "godrays" } },
-	{ Id = "Earth", Keys = { "forg", "charcoal", "basalt", "cavern", "miner", "rock", "stone", "coal", "choco", "cocoa", "fudge" }, Parts = { "ForgeHammer", "MinerHelmet", "CharcoalChunks", "BasaltPlates" }, Biomes = { "Chocolate" }, Colors = { rgb(255, 150, 60), rgb(255, 220, 140), rgb(90, 60, 45) }, Pulse = "Glow", Moves = { "embers", "shards", "smoke", "shockwave", "runes" }, Drift = { rgb(255, 200, 90), rgb(255, 120, 40) } },
-	{ Id = "Speed", Keys = { "kar", "kart", "skate", "rocket", "jet", "turbo", "racer", "speed", "zoom" }, Parts = { "Kart", "Skateboard" }, Biomes = {}, Colors = { rgb(80, 170, 255), WHITE, rgb(255, 120, 40) }, Pulse = "Shimmer", Moves = { "streaks", "flames", "wisps", "shockwave", "electric" } },
+	{ Id = "Power", Keys = { "maximus", "maxima", "supremus", "titan", "odin", "hades", "prime", "banhammer", "glazilla", "crullazilla", "zilla", "mighty" }, Parts = { "Banhammer" }, Biomes = {}, Colors = { rgb(255, 80, 60), rgb(255, 230, 120), rgb(120, 10, 20) }, Pulse = "Heartbeat", Moves = { "kiaura", "impact", "aura", "shockwave", "rise", "electric", "slashes", "swirl", "shards" } },
+	{ Id = "Void", Keys = { "void", "singular", "wormhol", "gravit", "horizon", "accretion", "supermassiv", "quantum", "null", "missingdonut" }, Parts = { "AccretionDisk", "Wormhole", "VoidRing", "GravityRings", "AtomOrbits", "Spaghetti" }, Biomes = { "BlackHole" }, Colors = { rgb(170, 90, 255), rgb(80, 220, 255), rgb(25, 5, 45) }, Pulse = "Throb", Moves = { "vortex", "zaps", "impact", "smoke", "shards", "arcs", "runes", "galaxy" } },
+	{ Id = "Phantom", Keys = { "ghost", "boo", "spook", "soul", "wisp", "vampir", "skeleton", "witch", "haunt", "bone", "phantom", "zombie" }, Parts = { "GhostTail", "Bats", "Ribcage", "WitchHat", "SoulWisps", "VampireCollar" }, Biomes = { "Haunted" }, Colors = { rgb(120, 255, 150), rgb(180, 100, 255), rgb(40, 10, 50) }, Pulse = "Throb", Moves = { "toonfire", "smoke", "wisps", "kira", "vortex", "arcs", "shards", "runes" } },
+	{ Id = "Dizzy", Keys = { "dizzy", "spin", "hypno" }, Parts = {}, Biomes = {}, Colors = { rgb(255, 230, 90), rgb(255, 150, 220), rgb(140, 200, 255) }, Pulse = "Shimmer", Moves = { "kira", "orbitStar", "swirl", "stars", "wisps", "impact", "shockwave" } },
+	{ Id = "Divine", Keys = { "angel", "heaven", "seraph", "harp", "archangel", "divine", "laurel", "holy" }, Parts = { "Halo", "SeraphWings", "Harp", "Laurel", "CloudPuffs" }, Biomes = { "Heaven", "Clouds" }, Colors = { rgb(255, 225, 130), WHITE, rgb(255, 185, 80) }, Pulse = "Shimmer", Moves = { "kira", "godrays", "kiaura", "feathers", "wisps", "rays", "runes", "glitter" }, Drift = { WHITE, rgb(255, 245, 220) } },
+	{ Id = "Storm", Keys = { "zeus", "bolt", "thunder", "storm", "overclock", "volt", "spark", "electr", "laser", "wifi", "signal", "quasar", "lightning" }, Parts = { "LightningBolt", "WifiArcs", "QuasarJets" }, Biomes = {}, Colors = { rgb(255, 235, 90), WHITE, rgb(90, 170, 255) }, Pulse = "Shimmer", Moves = { "zaps", "electric", "impact", "arcs", "orbitBolt", "strike", "kiaura", "swirl", "shockwave" } },
+	{ Id = "Inferno", Keys = { "flame", "blaze", "infern", "magma", "lava", "ember", "scorch", "volcan", "erupt", "hell", "cinda", "molten", "phoenix", "burn", "crullfire", "fire", "dragon", "imp$", "impolo", "devil", "brimst" }, Parts = { "Flames", "FlameHair", "FireBeard", "LavaDrips", "Volcano", "MagmaCore", "LavaWave", "PhoenixTail", "DragonTail", "DevilTail" }, Biomes = { "Lava" }, Colors = { rgb(255, 120, 30), rgb(255, 225, 90), rgb(190, 20, 10) }, Pulse = "Glow", Moves = { "toonfire", "impact", "embers", "flames", "rise", "shards", "shockwave", "smoke" }, Drift = { rgb(255, 220, 90), rgb(255, 90, 20) } },
+	{ Id = "Frost", Keys = { "ice", "frost", "glacier", "snow", "yeti", "frigo", "icicl", "palazzo", "pinguino", "brr", "aurora", "borealis", "frozen" }, Parts = { "IceSpikes", "Icicles", "IceCrown", "Snowflakes", "AuroraRibbon" }, Biomes = { "Ice" }, Colors = { rgb(150, 225, 255), WHITE, rgb(60, 140, 255) }, Pulse = "Shimmer", Moves = { "snow", "slashes", "kira", "orbitSnowflake", "mist", "shards", "runes", "wisps" }, Drift = { WHITE, rgb(200, 240, 255) } },
+	{ Id = "Digital", Keys = { "robo", "mecha", "cyber", "glitch", "byte", "data", "packet", "binary", "server", "processore", "pixel", "error", "bluescreen", "holo", "firewall", "trojan", "antivirus", "sentinel", "mainfram", "donutronic", "neon", "billboard", "arcade", "joystick", "escalator", "vendomatic", "conveyor", "weld", "boltino", "404", "coreino", "root", "sudo", "admin", "terminal" }, Parts = { "Visor", "Antenna", "RoboPlates", "CPUChip", "ServerRack", "BinaryRing", "Terminal", "ErrorSign", "BlueScreen", "GlitchSlices", "PixelBlocks", "HoloRing", "NeonTube", "Billboard" }, Biomes = { "CyberStreets", "RobotFactory", "Glitch" }, Colors = { rgb(60, 230, 255), rgb(80, 255, 140), rgb(255, 60, 200) }, Pulse = "Shimmer", Moves = { "zaps", "orbitCube", "slashes", "runes", "electric", "shockwave", "glitter", "arcs" } },
+	{ Id = "Clockwork", Keys = { "tick", "tock", "chrono", "clock", "cog", "gear", "steam", "hourglass", "windup" }, Parts = { "Gears", "AlarmClock", "Hourglass", "WindUpKey", "JackCrank" }, Biomes = { "Clockwork" }, Colors = { rgb(255, 190, 90), rgb(255, 240, 200), rgb(170, 110, 50) }, Pulse = "Glow", Moves = { "runes", "impact", "orbitGear", "steam", "kira", "glitter", "shockwave", "wisps" }, Drift = { rgb(240, 240, 245), rgb(200, 200, 210) } },
+	{ Id = "Ocean", Keys = { "shark", "wave", "surf", "tsunami", "octo", "jelly", "bubbl", "puffer", "laguna", "trident", "crab", "tralalero", "pirat", "captain", "poseid" }, Parts = { "Tentacles", "SharkFin", "SharkTail", "Trident", "JellyDome", "Surfboard", "LavaBubbles" }, Biomes = { "Lake" }, Colors = { rgb(80, 200, 255), WHITE, rgb(30, 110, 220) }, Pulse = "Glow", Moves = { "bubbles", "slashes", "orbitBubble", "impact", "swirl", "shockwave", "mist", "wisps" }, Drift = { rgb(200, 240, 255), WHITE } },
+	{ Id = "Love", Keys = { "heart", "love", "amor", "teddy", "cupid", "sweetheart", "valentin" }, Parts = { "Bow" }, Biomes = {}, Colors = { rgb(255, 90, 150), rgb(255, 185, 215), WHITE }, Pulse = "Heartbeat", Moves = { "orbitHeart", "sakura", "kira", "glitter", "wisps", "mist", "stars" } },
+	{ Id = "Music", Keys = { "music", "song", "melod", "dj", "headphone", "jazz", "drum", "tune" }, Parts = { "Headphones", "ToyDrum", "Harp" }, Biomes = {}, Colors = { rgb(140, 200, 255), rgb(255, 150, 230), WHITE }, Pulse = "Shimmer", Moves = { "orbitNote", "impact", "kira", "wisps", "glitter", "shockwave" } },
+	{ Id = "Crystal", Keys = { "crystal", "amethyst", "prism", "diamond", "gem", "obsidian", "quartz", "jewel", "lucent" }, Parts = { "CrystalCluster", "ObsidianShards", "Gems", "Prism" }, Biomes = {}, Colors = { rgb(200, 130, 255), rgb(140, 230, 255), WHITE }, Pulse = "Shimmer", Moves = { "kira", "crystals", "slashes", "shards", "glitter", "rays", "runes", "stars" } },
+	{ Id = "Bloom", Keys = { "flower", "petal", "bloom", "lily", "floretta", "leaf", "jungle", "fairy", "garden", "pumpkin" }, Parts = { "Flower", "Leaf", "LeafCrown", "FairyWand" }, Biomes = { "Jungle", "Park" }, Colors = { rgb(255, 150, 200), rgb(140, 230, 110), rgb(255, 235, 120) }, Pulse = "Glow", Moves = { "sakura", "kira", "orbitLeaf", "petals", "glitter", "wisps", "runes", "mist" }, Drift = { rgb(255, 160, 205), rgb(255, 215, 235) } },
+	{ Id = "Cosmos", Keys = { "star", "nova", "nebul", "galax", "cosmo", "comet", "moon", "astro", "celestial", "stardust", "infinit", "eternal" }, Parts = { "Orbit", "Moon", "FallingStars", "NebulaCloud", "GalaxySwirl", "NovaBurst", "StarWand", "InfinityRing" }, Biomes = {}, Colors = { rgb(255, 150, 240), rgb(140, 210, 255), WHITE }, Pulse = "Shimmer", Moves = { "kira", "stars", "kiaura", "wisps", "swirl", "orbitStar", "rays", "runes" } },
+	{ Id = "Sugar", Keys = { "candy", "lollipop", "gum", "peppermint", "caramel", "rainbow", "arcobal", "sugar", "sweet", "toy", "yo-yo", "glazoyo", "jack" }, Parts = { "CandyCane", "Lollipop", "Gumdrops", "RainbowArc", "PeppermintSwirl", "YoYo" }, Biomes = { "Candy", "Toys" }, Colors = { rgb(255, 120, 190), rgb(120, 220, 255), rgb(255, 230, 100) }, Pulse = "Glow", Moves = { "confetti", "kira", "impact", "swirl", "orbitStar", "shockwave", "wisps" }, Drift = { rgb(255, 90, 150), rgb(90, 200, 255), rgb(255, 230, 80), rgb(120, 230, 120) } },
+	{ Id = "Treasure", Keys = { "king", "queen", "crown", "gold", "treasure", "idol", "pharaoh", "glazamun", "grande", "imperatrix", "supremo", "supremito", "majest", "final", "omnidonut", "coin" }, Parts = { "Crown", "TreasureCoins", "Gems", "Pharaoh", "Scepter", "Tiara" }, Biomes = { "Desert" }, Colors = { rgb(255, 210, 70), rgb(255, 250, 215), rgb(255, 150, 30) }, Pulse = "Glow", Moves = { "rays", "kira", "orbitCoin", "impact", "glitter", "runes", "wisps", "godrays" } },
+	{ Id = "Earth", Keys = { "forg", "charcoal", "basalt", "cavern", "miner", "rock", "stone", "coal", "choco", "cocoa", "fudge" }, Parts = { "ForgeHammer", "MinerHelmet", "CharcoalChunks", "BasaltPlates" }, Biomes = { "Chocolate" }, Colors = { rgb(255, 150, 60), rgb(255, 220, 140), rgb(90, 60, 45) }, Pulse = "Glow", Moves = { "impact", "embers", "toonfire", "shards", "smoke", "shockwave", "runes" }, Drift = { rgb(255, 200, 90), rgb(255, 120, 40) } },
+	{ Id = "Speed", Keys = { "kar", "kart", "skate", "rocket", "jet", "turbo", "racer", "speed", "zoom" }, Parts = { "Kart", "Skateboard" }, Biomes = {}, Colors = { rgb(80, 170, 255), WHITE, rgb(255, 120, 40) }, Pulse = "Shimmer", Moves = { "streaks", "slashes", "kiaura", "flames", "wisps", "shockwave", "electric" } },
 } :: { Element }
 
 DonutAuras.ById = {} :: { [string]: Element }
@@ -201,8 +230,12 @@ DonutAuras.Overrides = {
 	cosmicdonut = { Primary = "Cosmos", Secondary = "Void" }, -- stars and galaxies, with the black hole's pull
 } :: { [string]: { Primary: string?, Secondary: string? } }
 
--- How many effects, and how strong, by rarity order (Epic = 4 ...).
-local TIERS: { [number]: { Count: number, Intensity: number } } = {
+-- How many effects, and how strong, by rarity order (Common = 1, Epic = 4 ...). Lite: only light
+-- effects (LIGHT), kept soft.
+local TIERS: { [number]: { Count: number, Intensity: number, Lite: boolean? } } = {
+	[1] = { Count = 1, Intensity = 0.35, Lite = true },
+	[2] = { Count = 2, Intensity = 0.4, Lite = true },
+	[3] = { Count = 2, Intensity = 0.5, Lite = true },
 	[4] = { Count = 2, Intensity = 0.6 },
 	[5] = { Count = 3, Intensity = 0.85 },
 	[6] = { Count = 4, Intensity = 1 },
@@ -212,7 +245,12 @@ local TIERS: { [number]: { Count: number, Intensity: number } } = {
 }
 
 -- Effects any element can borrow when its own are used up (keeps every donut's set different).
-local WILD = { "stars", "glitter", "wisps", "mist", "shockwave", "runes", "swirl", "rays", "vortex" }
+local WILD = { "stars", "glitter", "wisps", "mist", "shockwave", "runes", "swirl", "rays", "vortex", "kira", "slashes", "impact" }
+
+-- The light effects a Common, Uncommon or Rare donut can have (just a few particles, nothing the
+-- client has to move), and the ones any of them can borrow.
+local LIGHT = { kira = true, sakura = true, snow = true, petals = true, feathers = true, bubbles = true, steam = true, confetti = true, embers = true, stars = true, glitter = true, mist = true, streaks = true, slashes = true, zaps = true }
+local LIGHT_WILD = { "kira", "stars", "glitter", "sakura", "mist", "snow", "bubbles", "embers", "confetti", "slashes", "zaps" }
 
 local function hashString(text: string): number
 	local hash = 23
@@ -304,7 +342,6 @@ function DonutAuras.ElementsOf(donut: Donut): (Element, Element?)
 	return primary, secondary
 end
 
--- The donut's own aura (nil below Epic, or when its look turns effects off).
 -- Builds a donut's aura. `used` holds the effect sets earlier donuts already have: it keeps
 -- trying other picks (its element's second or third best effect first, other effects from its
 -- second element, then borrowed ones) until it finds a set no other donut has.
@@ -330,6 +367,32 @@ local function build(donut: Donut, used: { [string]: boolean }?): Theme?
 
 	local chosen: { { Move: string, From: Element } } = {}
 	local r = Random.new(hashString(donut.Id))
+	-- a small donut's light effects: its element's, its second element's, then borrowed ones
+	local pool: { { Move: string, From: Element } } = {}
+	if tier.Lite then
+		local function offer(move: string, from: Element)
+			if not LIGHT[move] then
+				return
+			end
+			for _, other in pool do
+				if other.Move == move then
+					return
+				end
+			end
+			table.insert(pool, { Move = move, From = from })
+		end
+		for _, move in primary.Moves do
+			offer(move, primary)
+		end
+		if secondary then
+			for _, move in secondary.Moves do
+				offer(move, secondary)
+			end
+		end
+		for _, move in LIGHT_WILD do
+			offer(move, primary)
+		end
+	end
 	for attempt = 0, 60 do
 		r = Random.new(hashString(donut.Id) + attempt * 7919)
 		chosen = {}
@@ -344,21 +407,34 @@ local function build(donut: Donut, used: { [string]: boolean }?): Theme?
 			end
 			table.insert(chosen, { Move = move, From = from })
 		end
-		-- its main effect: its element's best (then second, third best on later tries)
-		take(primary.Moves[1 + (attempt // 4) % math.min(3, #primary.Moves)], primary)
-		-- one from its second element
-		if secondary then
-			take(secondary.Moves[1 + attempt % math.min(3, #secondary.Moves)], secondary)
-		end
-		-- the rest from its own element, borrowing a few more on later tries
-		local rest = table.clone(primary.Moves)
-		if attempt >= 8 then
-			for _, move in WILD do
-				table.insert(rest, move)
+		if tier.Lite then
+			-- its first light effect (the next one on each try), then random ones
+			local first = pool[1 + attempt % #pool]
+			take(first.Move, first.From)
+			for _ = 1, 20 do
+				if #chosen >= tier.Count then
+					break
+				end
+				local pick = pool[r:NextInteger(1, #pool)]
+				take(pick.Move, pick.From)
 			end
-		end
-		while #chosen < tier.Count and #rest > 0 do
-			take(table.remove(rest, r:NextInteger(1, #rest)) :: string, primary)
+		else
+			-- its main effect: its element's best (then second, third best on later tries)
+			take(primary.Moves[1 + (attempt // 4) % math.min(3, #primary.Moves)], primary)
+			-- one from its second element
+			if secondary then
+				take(secondary.Moves[1 + attempt % math.min(3, #secondary.Moves)], secondary)
+			end
+			-- the rest from its own element, borrowing a few more on later tries
+			local rest = table.clone(primary.Moves)
+			if attempt >= 8 then
+				for _, move in WILD do
+					table.insert(rest, move)
+				end
+			end
+			while #chosen < tier.Count and #rest > 0 do
+				take(table.remove(rest, r:NextInteger(1, #rest)) :: string, primary)
+			end
 		end
 		if not used then
 			break
@@ -380,6 +456,7 @@ local function build(donut: Donut, used: { [string]: boolean }?): Theme?
 		Colors = colors,
 		Pulse = primary.Pulse,
 		Outline = if rarity.Order >= 7 then true else nil,
+		Lite = tier.Lite,
 	}
 	local elements = { primary.Id }
 	for _, pick in chosen do
@@ -413,7 +490,7 @@ local function all(): { [string]: Theme | false }
 	return built
 end
 
--- The donut's own aura (nil below Epic, or when its look turns effects off).
+-- The donut's own aura (nil when its look turns effects off).
 function DonutAuras.For(donut: Donut): Theme?
 	if Donuts.ById[donut.Id] == donut then
 		return all()[donut.Id] or nil

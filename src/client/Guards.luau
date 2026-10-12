@@ -3,7 +3,9 @@
 	====================
 	* Builds YOUR sleeping Domer in every biome's back corner (only you can see him; everyone has
 	  their own): in the first biomes he's asleep on his back on his couch (GuardModel.Sleep), later
-	  on he sleeps standing up with his head down (GuardModel.Doze). Eyes shut; every breath out puffs
+	  on each biome has its own bed and pose (GuardNaps: a sleeping bag, a hot tub of caramel, a
+	  hammock between candy canes, a gaming desk, floating in zero gravity...; his bed stays when
+	  he gets up). The Glitch Zone's one jitters, the Black Hole's one drifts and turns. Eyes shut; every breath out puffs
 	  a few Z's out of his open mouth, and up close you hear him snore: Config.Guard.SnoreSoundId
 	  while you're close enough to grab one of his boxes (their prompts' reach), louder the closer
 	  you get to him - or, with no snore pasted there, a deep rattling breath in and a soft breath
@@ -15,6 +17,8 @@
 	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
 	  animations are preloaded at the start, so he never freezes the first time he wakes up.
 	* Other players' chasing guards are hidden, so you never see anyone else's Domers.
+	* His anime effects (DomerFX): an impact frame and speed lines when he wakes, a power-up aura
+	  while he chases you (crazier in the later biomes), twinkles round the last biomes' sleepers.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -28,7 +32,10 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Areas = require(Shared.Areas)
 local Config = require(Shared.Config)
 local GuardModel = require(Shared.GuardModel)
+local GuardNaps = require(Shared.GuardNaps)
 local Layout = require(Shared.Layout)
+
+local DomerFX = require(script.Parent.DomerFX)
 
 local player = Players.LocalPlayer :: Player
 
@@ -44,6 +51,9 @@ type Sleeper = {
 	Phase: number,
 	BreathingOut: boolean,
 	Snoring: boolean,
+	Motion: string?, -- GuardNaps' NapMotion: "Jitter" (Glitch Zone) or "Drift" (The Black Hole)
+	Rest: CFrame, -- where he lies (his pivot), for the motions
+	NextJitter: number,
 }
 
 local SNORE_RANGE = 85 -- studs: how far away you can hear him (the built-in snore)
@@ -324,10 +334,27 @@ local function buildSleeper(areaId: number)
 		return
 	end
 	local model, status = GuardModel.Build(areaId)
-	-- On his couch: asleep on his back, eyes shut, mouth open. Later biomes: asleep on his feet,
-	-- head down. (Both anchor every part.)
+	-- On his couch: asleep on his back, eyes shut, mouth open. Later biomes: his biome's own bed
+	-- and pose (GuardNaps), else asleep on his feet, head down. (All anchor every part.)
 	local onCouch = marker:GetAttribute("Couch") == true
-	local mouth = if onCouch then GuardModel.Sleep(model) else GuardModel.Doze(model)
+	local facing = marker.CFrame.LookVector * Vector3.new(1, 0, 1)
+	local floor = marker.CFrame.Position * Vector3.new(1, 0, 1)
+	local home = CFrame.lookAt(floor, floor + (if facing.Magnitude > 0.01 then facing.Unit else Vector3.new(0, 0, -1)))
+	local mouth: BasePart? = nil
+	if onCouch then
+		mouth = GuardModel.Sleep(model)
+		model:PivotTo(GuardModel.CouchCFrame(home))
+	elseif GuardNaps.Has(areaId) then
+		local props
+		mouth, props = GuardNaps.Pose(model, areaId, home)
+		if props then
+			props.Name = "Bed" .. areaId
+			props.Parent = folder
+		end
+	else
+		mouth = GuardModel.Doze(model)
+		model:PivotTo(GuardModel.StandCFrame(home))
+	end
 	for _, part in model:GetDescendants() do
 		if part:IsA("BasePart") then
 			part.CanCollide = false
@@ -336,11 +363,9 @@ local function buildSleeper(areaId: number)
 		end
 	end
 	status.Text = "" -- (the Z's come out of his mouth)
-	local facing = marker.CFrame.LookVector * Vector3.new(1, 0, 1)
-	local floor = marker.CFrame.Position * Vector3.new(1, 0, 1)
-	local home = CFrame.lookAt(floor, floor + (if facing.Magnitude > 0.01 then facing.Unit else Vector3.new(0, 0, -1)))
-	model:PivotTo(if onCouch then GuardModel.CouchCFrame(home) else GuardModel.StandCFrame(home))
+	DomerFX.Sleeper(model, areaId)
 	model.Parent = folder
+	local motion = model:GetAttribute("NapMotion")
 	sleepers[areaId] = {
 		Model = model,
 		Status = status,
@@ -351,7 +376,32 @@ local function buildSleeper(areaId: number)
 		Phase = math.random() * BREATH,
 		BreathingOut = false,
 		Snoring = false,
+		Motion = if type(motion) == "string" then motion else nil,
+		Rest = model:GetPivot(),
+		NextJitter = 0,
 	}
+end
+
+-- The Glitch Zone's Domer glitches about (little jumps, now and then a big one, snapping back);
+-- the Black Hole's one drifts up and down, slowly turning round.
+local glitchRng = Random.new()
+local function moveSleeper(sleeper: Sleeper, now: number)
+	local motion = sleeper.Motion
+	if motion == "Drift" then
+		local rest = sleeper.Rest
+		local bob = Vector3.new(0, math.sin(now * 0.7) * 0.35 * Config.Guard.Scale, 0)
+		sleeper.Model:PivotTo(CFrame.new(rest.Position + bob) * CFrame.Angles(0, now * 0.18, math.sin(now * 0.5) * 0.08) * rest.Rotation)
+	elseif motion == "Jitter" and now >= sleeper.NextJitter then
+		local big = glitchRng:NextNumber() < 0.12
+		local reach = (if big then 0.6 else 0.12) * Config.Guard.Scale
+		local twist = if big then 0.25 else 0.05
+		local offset = if glitchRng:NextNumber() < 0.45
+			then CFrame.identity -- (snapped back)
+			else CFrame.new(glitchRng:NextNumber(-reach, reach), glitchRng:NextNumber(-reach, reach) * 0.5, glitchRng:NextNumber(-reach, reach))
+				* CFrame.Angles(glitchRng:NextNumber(-twist, twist), glitchRng:NextNumber(-twist, twist), glitchRng:NextNumber(-twist, twist))
+		sleeper.Model:PivotTo(sleeper.Rest * offset)
+		sleeper.NextJitter = now + (if big then 0.08 else glitchRng:NextNumber(0.12, 0.5))
+	end
 end
 
 --------------------------------------------------------------------------------
@@ -481,11 +531,20 @@ local function onGuardAdded(instance: Instance)
 		if head and head:IsA("BasePart") then
 			grunt(head)
 			local sign: BasePart? = nil
+			local powered = false
 			local function update()
 				local state = instance:GetAttribute("State")
 				local alert = state == "Waking" or state == "Chasing"
 				if alert and not (sign and sign.Parent) then
 					sign = alertSign(instance, head)
+				end
+				-- his anime effects: the impact frame as he wakes, his aura while he's after you
+				if alert and not powered and type(areaId) == "number" then
+					powered = true
+					DomerFX.Wake(instance, areaId)
+					DomerFX.Chase(instance, areaId)
+				elseif not alert then
+					powered = false
 				end
 			end
 			instance:GetAttributeChangedSignal("State"):Connect(update)
@@ -564,6 +623,9 @@ function Guards.Init()
 			end
 			for areaId, sleeper in sleepers do
 				local distance = if sleeper.Hidden then math.huge else (sleeper.Home.Position - eye).Magnitude
+				if sleeper.Motion and distance < Z_RANGE then
+					moveSleeper(sleeper, now)
+				end
 				if CUSTOM_SNORE then
 					local fromYou = if at and not sleeper.Hidden then (sleeper.Home.Position - at).Magnitude else math.huge
 					breathe(sleeper, now, distance < Z_RANGE, reach[areaId] == true and not sleeper.Hidden, snoreVolume(fromYou))

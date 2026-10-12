@@ -873,6 +873,27 @@ Config.DonutFX = {
 	Textures = { Spark = "", Fire = "", Smoke = "", Swirl = "" } :: { [string]: string },
 }
 
+-- The anime effects (AnimeFX: power-up auras, toon fire, impact frames, slashes, kira glints,
+-- lightning zaps, cherry petals, speed lines) on the donuts and the Domers. Their textures are made
+-- in Blender (art/anime_vfx/png, one PNG per name below; the animated ones are 4x4 or 2x2
+-- flipbook sheets). Empty = Roblox's own built-in particles stand in. To use them: upload the PNGs
+-- (Creator Hub > Development Items > Images, or Studio's Asset Manager), then paste each image id
+-- here, e.g. Aura = "rbxassetid://1234567".
+Config.AnimeFX = {
+	Textures = {
+		Aura = "", -- power-up aura flames (4x4, loops)
+		ToonFire = "", -- cartoon flames (4x4, loops)
+		ShockRing = "", -- impact ring breaking apart (4x4, plays once)
+		Impact = "", -- impact star burst (4x4, plays once)
+		ToonSmoke = "", -- cartoon smoke puff (4x4, plays once)
+		Lightning = "", -- four lightning bolts (2x2, random)
+		Slash = "", -- a crescent sword slash
+		SpeedLines = "", -- manga speed lines (the screen flash when a Domer wakes up)
+		Kira = "", -- a four-point twinkle
+		Petal = "", -- a cherry blossom petal
+	} :: { [string]: string },
+}
+
 Config.Particles = {
 	ParticleScale = 0.4,
 	MaxParticleRate = 20,

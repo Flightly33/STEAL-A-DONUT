@@ -20,6 +20,9 @@
 	    circles round the crater
 	  * EYE BEAM: his eyes blaze, a line glows on the lane, and two beams burn along it
 	  * when the storm ends he sinks back into the hole and it closes
+	  * anime effects (AnimeFX): a power-up aura of pink and cyan energy flames roaring off him,
+	    twinkles glinting in his eyes, an impact frame (ring, star flash, speed lines, smoke) on
+	    every slam, and speed lines over your screen when he climbs out or slams close to you
 ]]
 
 local Lighting = game:GetService("Lighting")
@@ -33,9 +36,11 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Giant = require(Shared.Giant)
 local Remotes = require(Shared.Remotes)
+local AnimeFX = require(Shared.AnimeFX)
 
 local Theme = require(script.Parent.UI.Theme)
 local Notifications = require(script.Parent.UI.Notifications)
+local SpeedLines = require(script.Parent.SpeedLines)
 
 local GiantFX = {}
 
@@ -383,7 +388,19 @@ local function dressUp(giant: Giant.Built)
 		light.Range = 30
 		light.Brightness = 3
 		light.Parent = iris
+		-- an anime glint in each eye now and then
+		local glint = AnimeFX.Kira(iris, WHITE, S * 0.22, 1.2)
+		glint.LockedToPart = true
+		glint.Enabled = true
 	end
+	-- his power-up aura: energy flames roaring up off him (from round his reactor)
+	local aura, specks = AnimeFX.Ki(giant.Core, { Giant.PINK, Giant.CYAN, Giant.VIOLET }, S * 1.4, 16)
+	for _, e in { aura, specks } do
+		e.Shape = Enum.ParticleEmitterShape.Sphere
+		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
+		e.Enabled = true
+	end
+	specks.Speed = NumberRange.new(S * 2, S * 3.5)
 	local hole = giant.Model:FindFirstChild("HoleHaze")
 	if hole and hole:IsA("BasePart") then
 		local inflow = Instance.new("ParticleEmitter")
@@ -770,6 +787,17 @@ local function impact(slam: Slam)
 		dome:Destroy()
 	end)
 	crystalSpikes(at, GIANT.KnockRadius, 9)
+	-- the anime impact frame, and speed lines over the screen if it's close to you
+	local frame = part("ImpactFrame", Vector3.one * 0.2, CFrame.new(at + Vector3.new(0, GIANT.KnockRadius * 0.4, 0)), WHITE, Enum.Material.SmoothPlastic)
+	frame.Transparency = 1
+	AnimeFX.Fire(AnimeFX.Impact(frame, { Giant.PINK, Giant.CYAN }, GIANT.KnockRadius * 0.45), 1.6)
+	task.delay(1.5, function()
+		frame:Destroy()
+	end)
+	local near = closeness(at, 260)
+	if near > 0 then
+		SpeedLines.Flash(0.4 + near * 0.5, 0.9)
+	end
 	-- a scorch mark that glows, then fades
 	local scorch = disc("Scorch", GIANT.KnockRadius * 1.05, at + Vector3.new(0, 0.12, 0), rgb(30, 18, 40), Enum.Material.Slate, 0.15)
 	local glow = disc("ScorchGlow", GIANT.KnockRadius * 0.55, at + Vector3.new(0, 0.18, 0), Giant.PINK, Enum.Material.Neon, 0.3)
@@ -1212,6 +1240,7 @@ local function update(dt: number)
 			play("Emerge", 1)
 			oneShot(THUD, 1.5, 0.25)
 			shake(2.6)
+			SpeedLines.Flash(0.8, 1.4, rgb(255, 230, 255))
 			screenFlash(0.35, Giant.VIOLET)
 			ring(L.Portal.Position - Vector3.new(0, L.Portal.Position.Y - 1, 0), 500, Giant.VIOLET, 1.6, 1)
 			for _ = 1, 6 do
