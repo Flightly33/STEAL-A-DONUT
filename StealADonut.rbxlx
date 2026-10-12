@@ -2517,21 +2517,21 @@ Config.Particles = {
 -- Development Items > Images), copy each one's image id and paste it here, e.g.
 -- basket = "rbxassetid://1234567". Any icon left empty keeps the drawn one.
 Config.IconImages = {
-	basket = "", -- Shop
-	indexBook = "", -- Index
-	pawPink = "", -- Pets
-	gift = "", -- Daily
-	houseRed = "", -- Home
-	globeBlue = "", -- Teleport
-	rocket = "", -- Boosts
-	paletteWood = "", -- Skins
-	heart = "", -- Donate
-	newsYellow = "", -- Updates
-	gearSteel = "", -- Settings
-	toolsSteel = "", -- Admin
-	buildingBlue = "", -- Base
-	bolt = "", -- Speed
-	cash = "", -- Money
+	basket = "rbxassetid://132362357133019", -- Shop
+	indexBook = "rbxassetid://138870067533686", -- Index
+	pawPink = "rbxassetid://121678580823455", -- Pets
+	gift = "rbxassetid://71624427464984", -- Daily
+	houseRed = "rbxassetid://118907455361555", -- Home
+	globeBlue = "rbxassetid://129128216135915", -- Teleport
+	rocket = "rbxassetid://94010699227145", -- Boosts
+	paletteWood = "rbxassetid://104980775998061", -- Skins
+	heart = "rbxassetid://137145327483118", -- Donate
+	newsYellow = "rbxassetid://89515507928300", -- Updates
+	gearSteel = "rbxassetid://110388595144046", -- Settings
+	toolsSteel = "rbxassetid://72729742187809", -- Admin
+	buildingBlue = "rbxassetid://126923405507256", -- Base
+	bolt = "rbxassetid://77350040474200", -- Speed
+	cash = "rbxassetid://132677338228300", -- Money
 } :: { [string]: string }
 
 Config.Music = {
