@@ -5,7 +5,7 @@
 	    star flash, speed lines, smoke puffs) and, if you're close, speed lines rush over your
 	    screen (SpeedLines).
 	  * While he's after you he powers up: an aura of energy flames rises off him in his biome's
-	    colours. The later the biome, the crazier: from biome 5 he gets his biome's own extra
+	    colours, surging every couple of seconds. The later the biome, the crazier: from biome 5 he gets his biome's own extra
 	    (ice twinkles, toon fire, lightning zaps, sword slashes...), from biome 10 a bigger aura
 	    and an impact frame under his feet every couple of seconds as he stomps after you, and from
 	    biome 14 a second extra on top.
@@ -123,9 +123,9 @@ function DomerFX.Chase(model: Model, areaId: number): Chase
 	local feet = holder("DomerAura", Vector3.new(2.6, 0.5, 1.8) * SCALE, root.CFrame * CFrame.new(0, -feetDrop, 0))
 	local body = holder("DomerBody", Vector3.one * 4.2 * SCALE, root.CFrame)
 	local emitters: { ParticleEmitter } = {}
-	local ki, specks = AnimeFX.Ki(feet, colors, SCALE * (2.2 + level * 0.7), 10 + level * 6)
-	table.insert(emitters, ki)
-	table.insert(emitters, specks)
+	for _, e in AnimeFX.Ki(feet, colors, SCALE * (2.2 + level * 0.7), 10 + level * 6) do
+		table.insert(emitters, e)
+	end
 	local extras: { string } = if level >= 4 then style.Extras elseif level >= 2 then { style.Extras[1] } else {}
 	for _, extra in extras do
 		local e: ParticleEmitter? = nil
@@ -146,6 +146,7 @@ function DomerFX.Chase(model: Model, areaId: number): Chase
 		e.Enabled = true -- (FXBoost: always on here, it's just the one)
 	end
 	local nextStomp = os.clock() + 1
+	local nextSurge = os.clock() + 0.6
 	local connection: RBXScriptConnection
 	local function stop()
 		handle.Active = false
@@ -167,6 +168,17 @@ function DomerFX.Chase(model: Model, areaId: number): Chase
 		local cf = root.CFrame
 		feet.CFrame = cf * CFrame.new(0, -feetDrop, 0)
 		body.CFrame = cf
+		-- his aura surges every couple of seconds: a flare of flames, energy shooting up
+		if os.clock() >= nextSurge then
+			nextSurge = os.clock() + 2 + math.random() * 1.2
+			for _, e in emitters do
+				if e.Name == "KiAura" or e.Name == "KiCore" then
+					e:Emit(4 + level * 2)
+				elseif e.Name == "KiSpecks" then
+					e:Emit(8 + level * 3)
+				end
+			end
+		end
 		-- the later Domers' stomps: an impact frame under his feet every couple of seconds
 		if level >= 3 and state == "Chasing" and os.clock() >= nextStomp then
 			nextStomp = os.clock() + (if level >= 4 then 1.4 else 2.1) + math.random() * 0.6

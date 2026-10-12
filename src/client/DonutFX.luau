@@ -12,8 +12,9 @@
 	  * crystal shards tumbling round the donut, flying out and back (Celestial and up)
 	  * electric bursts: stars of sparks crackling off it (the server made the emitters; this sets
 	    them off)
-	  * anime impact frames (AnimeFX): a ring, a star flash, speed lines and smoke puffs every few
-	    seconds (the server made the emitters; this sets them off)
+	  * anime impact frames (AnimeFX): a ring, a star flash, burst lines and smoke puffs every few
+	    seconds, and power-up auras that surge every few seconds (the server made the emitters;
+	    this sets them off)
 	Everything here exists only on this client (nothing is replicated) and is removed again when you
 	walk away. Only the closest donuts get the full show; the small auras of Common to Rare donuts
 	(FXLite) have a budget of their own, so a pen full of them never takes the rare donuts' places.
@@ -94,6 +95,8 @@ type FX = {
 	CrackleRate: number,
 	NextCrackle: number,
 	Impacts: { ParticleEmitter }, -- the anime impact frame (FXThemes Impact)
+	Ki: { ParticleEmitter }, -- the power-up aura (FXThemes Ki): it surges every few seconds
+	NextSurge: number,
 	Lite: boolean, -- a Common to Rare donut's small aura (MAX_LITE)
 }
 
@@ -716,6 +719,15 @@ local function updateFull(fx: FX)
 			state.NextWave = clock + rng:NextNumber(shock.Min, shock.Max)
 			spawnWave(fx, state)
 		end
+		-- the power-up aura surges: a flare of flames and a burst of energy shooting up
+		if theme.Ki and #fx.Ki > 0 and clock >= fx.NextSurge then
+			fx.NextSurge = clock + rng:NextNumber(2.8, 4.5)
+			for _, emitter in fx.Ki do
+				if emitter.Parent then
+					emitter:Emit(if emitter.Name == "KiSpecks" then 10 else 5)
+				end
+			end
+		end
 		local impact = theme.Impact
 		if impact and clock >= state.NextImpact and #fx.Impacts > 0 then
 			state.NextImpact = clock + rng:NextNumber(impact.Min, impact.Max)
@@ -829,7 +841,15 @@ local function register(instance: Instance)
 	local crackles: { ParticleEmitter } = {}
 	local crackleRate = 0
 	local impacts: { ParticleEmitter } = {}
+	local ki: { ParticleEmitter } = {}
 	for _, holder in model:GetChildren() do
+		if holder.Name == "KiFX" then
+			for _, emitter in holder:GetChildren() do
+				if emitter:IsA("ParticleEmitter") then
+					table.insert(ki, emitter)
+				end
+			end
+		end
 		if holder.Name == "ImpactFX" then
 			for _, emitter in AnimeFX.Find(holder) do
 				table.insert(impacts, emitter)
@@ -871,6 +891,8 @@ local function register(instance: Instance)
 		CrackleRate = crackleRate,
 		NextCrackle = clock + rng:NextNumber(0, 1),
 		Impacts = impacts,
+		Ki = ki,
+		NextSurge = clock + rng:NextNumber(1, 3),
 		Lite = model:GetAttribute("FXLite") == true,
 	}
 end

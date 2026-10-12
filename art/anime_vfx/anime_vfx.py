@@ -4,16 +4,18 @@ and Domers' anime effects (power-up auras, sword slashes, impact frames, speed l
 
     PYTHONPATH=<folder with bpy> python3 anime_vfx.py [out_dir] [sheet.png] [only,these]
 
-Cel-shaded like an anime: hard edges, a white core inside a grey band, a faint glow round it. They
-are white and grey on purpose: Roblox multiplies a particle's texture by its colour, so one texture
-works for every colour (a pink donut's aura is pink, a fire donut's orange).
+Cel-shaded like an anime: solid shapes in three tones (a dark band, a mid tone, a white core) with
+a bold dark ink outline - no soft glow, so they stay crisp and don't turn into a white blur under
+the game's bloom. They are white, grey and black on purpose: Roblox multiplies a particle's texture
+by its colour, so one texture works for every colour (a pink donut's aura is pink, a fire donut's
+orange) and the outline stays dark.
 
 Flipbooks are 4 x 4 grids of 16 frames (Roblox ParticleEmitter FlipbookLayout Grid4x4), the
 others single images. Upload them (Studio: View > Asset Manager > Bulk Import) and paste each
 image id into Config.AnimeFX.Textures; until then the effects use Roblox's own particle textures.
 
 Each shape is drawn as flat 2D curves (filled) with an emission material, seen from above by an
-orthographic camera, rendered in Cycles; the glow is added afterwards (numpy).
+orthographic camera, rendered in Cycles; the ink outline is added afterwards (numpy).
 """
 
 import math
@@ -25,7 +27,9 @@ import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TILE = 256  # pixels per flipbook frame (4 x 4 -> 1024 x 1024)
-GREY = 0.62  # the outer band's brightness (the core is white)
+GREY = 0.62  # the mid tone's brightness (the core is white)
+DARK = 0.36  # the dark band round the edge
+INK = 0.05  # the outline
 
 
 # -----------------------------------------------------------------------------------------------
@@ -48,22 +52,38 @@ def flame_outline(width, top, phase, wobble, steps=48, lean=0.0):
     return left + list(reversed(right))
 
 
+def tongues(spec, p, wobble, scale=1.0, lift=0.0):
+    """Several flame tongues side by side: spec = [(x, height, width, phase offset)]."""
+    out = []
+    for dx, h, w, k in spec:
+        poly = flame_outline(w * scale, (h + 0.07 * math.sin(p * 2 + k)) * scale - 0.82 * (1 - scale) + lift, p + k, wobble, lean=0.12 * math.sin(p + k) * dx)
+        out.append([(x * scale + dx * scale, y) for x, y in poly])
+    return out
+
+
 def aura(t):
+    """A spiky power-up aura: a fan of sharp energy tongues round a tall middle one."""
     p = t * 2 * math.pi
+    outer = [(-0.5, 0.42, 0.22, 0.0), (-0.27, 0.72, 0.25, 1.3), (0.0, 0.95, 0.3, 2.6), (0.27, 0.68, 0.25, 3.9), (0.5, 0.38, 0.22, 5.2)]
+    mid = [(-0.24, 0.5, 0.2, 0.7), (0.0, 0.72, 0.24, 1.9), (0.24, 0.46, 0.2, 3.1)]
+    core = [(0.0, 0.42, 0.17, 2.3)]
     return [
-        (GREY, 0.85, [flame_outline(0.46, 0.96 + 0.04 * math.sin(p * 2), p, 0.12)]),
-        (1.0, 1.0, [flame_outline(0.22, 0.55 + 0.05 * math.sin(p * 2 + 1), p + 0.6, 0.08)]),
+        (DARK, 1.0, tongues(outer, p, 0.1)),
+        (GREY, 1.0, tongues(mid, p, 0.08, 0.92, -0.04)),
+        (1.0, 1.0, tongues(core, p, 0.06, 0.85, -0.1)),
     ]
 
 
 def toon_fire(t):
+    """Cartoon flames: three fat round-bottomed tongues, a lighter middle and a white heart."""
     p = t * 2 * math.pi
     outer = []
     for k, (dx, h, w) in enumerate(((-0.32, 0.45, 0.3), (0.0, 0.92, 0.42), (0.32, 0.55, 0.3))):
         poly = flame_outline(w, h + 0.06 * math.sin(p * 2 + k), p + k * 1.7, 0.14, lean=0.1 * math.sin(p + k))
         outer.append([(x + dx, y) for x, y in poly])
-    core = [[(x * 0.55, y * 0.7 - 0.22) for x, y in flame_outline(0.42, 0.5, p + 0.5, 0.1)]]
-    return [(GREY, 0.9, outer), (1.0, 1.0, core)]
+    mid = [[(x * 0.75, y * 0.82 - 0.12) for x, y in flame_outline(0.42, 0.7, p + 0.3, 0.12)]]
+    core = [[(x * 0.5, y * 0.62 - 0.28) for x, y in flame_outline(0.42, 0.45, p + 0.5, 0.1)]]
+    return [(DARK, 1.0, outer), (GREY, 1.0, mid), (1.0, 1.0, core)]
 
 
 def circle(cx, cy, r, n=40):
@@ -104,13 +124,21 @@ def shock_ring(t):
                 k += 1
             a0 = 2 * math.pi * first / pieces
             runs.append((a0, a0 + 2 * math.pi * length / pieces - 0.03))
-    outer = [arc(r - th, r + th, a0, a1) for a0, a1 in runs]
-    core = [arc(r - th * 0.35, r + th * 0.35, a0, a1) for a0, a1 in runs]
     if not any(gone):
-        # a full ring: two halves (a polygon can't have a hole in it)
-        outer = [arc(r - th, r + th, 0, math.pi + 0.01), arc(r - th, r + th, math.pi, 2 * math.pi + 0.01)]
-        core = [arc(r - th * 0.35, r + th * 0.35, 0, math.pi + 0.01), arc(r - th * 0.35, r + th * 0.35, math.pi, 2 * math.pi + 0.01)]
-    return [(GREY, 0.85 * (1 - t * 0.5), outer), (1.0, 1.0, core)]
+        runs = [(0, math.pi + 0.01), (math.pi, 2 * math.pi + 0.01)]  # (a polygon can't have a hole in it)
+    outer = [arc(r - th, r + th, a0, a1) for a0, a1 in runs]
+    mid = [arc(r - th * 0.6, r + th * 0.6, a0, a1) for a0, a1 in runs]
+    core = [arc(r - th * 0.25, r + th * 0.25, a0, a1) for a0, a1 in runs]
+    # chunks of debris thrown out ahead of it
+    debris = []
+    for i in range(10):
+        a = 2 * math.pi * (i + rng.random() * 0.6) / 10
+        d = r + th + 0.05 + 0.18 * e * (0.6 + rng.random())
+        size = 0.05 * (1 - t) + 0.012
+        if d < 0.95 and size > 0.015:
+            ca, sa = math.cos(a), math.sin(a)
+            debris.append([(ca * d - sa * size, sa * d + ca * size), (ca * (d + size * 2.2), sa * (d + size * 2.2)), (ca * d + sa * size, sa * d - ca * size)])
+    return [(DARK, 1.0, outer + debris), (GREY, 1.0, mid), (1.0, 1.0, core)]
 
 
 def star(n, inner, lengths, rot=0.0):
@@ -126,16 +154,17 @@ def star(n, inner, lengths, rot=0.0):
 def impact(t):
     """An anime hit spark: a spiky burst that flashes out, then its spikes thin and break off."""
     rng = random.Random(9)
-    lens = [rng.uniform(0.6, 1.0) for _ in range(12)]
+    lens = [rng.uniform(0.55, 1.0) if i % 2 == 0 else rng.uniform(0.35, 0.6) for i in range(14)]
     grow = min(1, t * 5)
     fade = max(0, (t - 0.25) / 0.75)
-    scale = 0.35 + 0.6 * grow + 0.05 * t
-    inner = (0.32 - 0.25 * fade) * scale
-    body = star(12, inner, [l * scale for l in lens], 0.1)
-    core = star(12, inner * 0.55, [l * scale * (0.7 - 0.5 * fade) for l in lens], 0.1)
-    layers = [(GREY, 0.9 * (1 - fade * 0.6), [body]), (1.0, 1.0 - fade * 0.4, [core])]
+    scale = (0.35 + 0.55 * grow + 0.05 * t) * 0.92
+    inner = (0.24 - 0.18 * fade) * scale
+    body = star(14, inner, [l * scale for l in lens], 0.1)
+    mid = star(14, inner * 0.75, [l * scale * (0.72 - 0.35 * fade) for l in lens], 0.1)
+    core = star(14, inner * 0.5, [l * scale * (0.45 - 0.3 * fade) for l in lens], 0.1)
+    layers = [(DARK, 1.0, [body]), (GREY, 1.0, [mid]), (1.0, 1.0, [core])]
     if t < 0.2:
-        layers.append((1.0, 1.0, [circle(0, 0, 0.3 * scale)]))  # the white flash at the start
+        layers.append((1.0, 1.0, [circle(0, 0, 0.26 * scale)]))  # the flash at the start
     return layers
 
 
@@ -146,13 +175,14 @@ def toon_smoke(t):
     grow = 0.55 + 0.5 * (1 - (1 - t) ** 2)
     shrink = 1 - max(0, (t - 0.45) / 0.55) ** 1.4
     up = 0.25 * t
-    body, shine = [], []
+    body, mid, shine = [], [], []
     for (x, y, r) in blobs:
         rr = r * grow * shrink
         if rr > 0.02:
             body.append(circle(x * grow, y * grow + up, rr))
-            shine.append(circle(x * grow - rr * 0.25, y * grow + up + rr * 0.25, rr * 0.5))
-    return [(GREY, 0.8, body), (1.0, 0.95, shine)]
+            mid.append(circle(x * grow - rr * 0.12, y * grow + up + rr * 0.12, rr * 0.78))
+            shine.append(circle(x * grow - rr * 0.3, y * grow + up + rr * 0.3, rr * 0.35))
+    return [(DARK, 1.0, body), (GREY, 1.0, mid), (1.0, 1.0, shine)]
 
 
 def slash(_t):
@@ -173,7 +203,7 @@ def slash(_t):
     streaks = []
     for (r, a0, a1, w) in ((0.62, -1.3, 1.1, 0.018), (0.52, -0.9, 0.7, 0.012)):
         streaks.append([(r * math.cos(a0 + (a1 - a0) * i / 30), r * math.sin(a0 + (a1 - a0) * i / 30)) for i in range(31)] + [((r - w) * math.cos(a1 - (a1 - a0) * i / 30), (r - w) * math.sin(a1 - (a1 - a0) * i / 30)) for i in range(31)])
-    return [(GREY, 0.85, [body]), (1.0, 1.0, [core]), (1.0, 0.7, streaks)]
+    return [(DARK, 1.0, [body]), (GREY, 1.0, [[(x + 0.015, y * 0.985) for x, y in crescent(0.9, 0.22, 0.96)]]), (1.0, 1.0, [core]), (1.0, 0.8, streaks)]
 
 
 def speed_lines(_t):
@@ -196,7 +226,7 @@ def kira(_t):
     core = star(4, 0.06, [0.55, 0.35, 0.55, 0.35], math.pi / 2)
     small = [(x * 0.3 + 0.55, y * 0.3 + 0.55) for x, y in star(4, 0.15, [1, 1, 1, 1], math.pi / 4)]
     cross = [[(-1, -0.012), (1, -0.012), (1, 0.012), (-1, 0.012)], [(-0.012, -1), (0.012, -1), (0.012, 1), (-0.012, 1)]]
-    return [(GREY, 0.6, cross), (GREY, 0.9, [big, small]), (1.0, 1.0, [core])]
+    return [(GREY, 0.8, cross), (GREY, 1.0, [big, small]), (1.0, 1.0, [core])]
 
 
 def bolt_path(rng):
@@ -230,7 +260,7 @@ def lightning(t):
     branch = [main[k]]
     for _ in range(3):
         branch.append((branch[-1][0] + rng.uniform(0.15, 0.3) * rng.choice((-1, 1)), branch[-1][1] - rng.uniform(0.15, 0.25)))
-    return [(GREY, 0.9, [thick(main, 0.075), thick(branch, 0.05)]), (1.0, 1.0, [thick(main, 0.028), thick(branch, 0.018)])]
+    return [(DARK, 1.0, [thick(main, 0.085), thick(branch, 0.055)]), (GREY, 1.0, [thick(main, 0.05), thick(branch, 0.032)]), (1.0, 1.0, [thick(main, 0.02), thick(branch, 0.013)])]
 
 
 def petal(_t):
@@ -244,21 +274,22 @@ def petal(_t):
             y = 0.55 + (abs(x) / 0.12) * 0.15
         pts.append((x, y))
     core = [(x * 0.45, y * 0.55 - 0.15) for x, y in pts]
-    return [(GREY + 0.15, 0.95, [pts]), (1.0, 1.0, [core])]
+    return [(GREY + 0.1, 1.0, [pts]), (1.0, 1.0, [core])]
 
 
 TEXTURES = {
-    # name: (draw, frames (16 = a 4 x 4 flipbook, 4 = a 2 x 2 set, 1 = one image), pixels per frame)
-    "Aura": (aura, 16, TILE),
-    "ToonFire": (toon_fire, 16, TILE),
-    "ShockRing": (shock_ring, 16, TILE),
-    "Impact": (impact, 16, TILE),
-    "ToonSmoke": (toon_smoke, 16, TILE),
-    "Lightning": (lightning, 4, 256),
-    "Slash": (slash, 1, 512),
-    "SpeedLines": (speed_lines, 1, 1024),
-    "Kira": (kira, 1, 256),
-    "Petal": (petal, 1, 256),
+    # name: (draw, frames (16 = a 4 x 4 flipbook, 4 = a 2 x 2 set, 1 = one image), pixels per frame,
+    #        ink outline width in pixels (0 = none))
+    "Aura": (aura, 16, TILE, 5),
+    "ToonFire": (toon_fire, 16, TILE, 5),
+    "ShockRing": (shock_ring, 16, TILE, 4),
+    "Impact": (impact, 16, TILE, 5),
+    "ToonSmoke": (toon_smoke, 16, TILE, 5),
+    "Lightning": (lightning, 4, 256, 4),
+    "Slash": (slash, 1, 512, 8),
+    "SpeedLines": (speed_lines, 1, 1024, 0),
+    "Kira": (kira, 1, 256, 3),
+    "Petal": (petal, 1, 256, 4),
 }
 
 
@@ -357,12 +388,22 @@ def blur(a, radius):
     return a
 
 
-def glow(px):
-    """A faint glow round the shape, under it (white, so it takes the particle's colour too)."""
+def ink(px, width):
+    """A bold dark outline round the shape, under it (the shape grown by `width` pixels)."""
+    if width <= 0:
+        return px
     a = px[..., 3]
-    halo = np.clip(blur(a, max(2, px.shape[0] // 40)) * 0.45, 0, 1)
-    out_a = a + halo * (1 - a)
-    rgb = (px[..., :3] * a[..., None] + np.ones(3) * 0.85 * (halo * (1 - a))[..., None]) / np.maximum(out_a, 1e-6)[..., None]
+    grown = a.copy()
+    h, w = a.shape
+    for dy in range(-width, width + 1):
+        for dx in range(-width, width + 1):
+            if dx * dx + dy * dy <= width * width:
+                shifted = np.zeros_like(a)
+                shifted[max(0, dy):h + min(0, dy), max(0, dx):w + min(0, dx)] = a[max(0, -dy):h - max(0, dy), max(0, -dx):w - max(0, dx)]
+                grown = np.maximum(grown, shifted)
+    grown = np.clip(blur(grown, 1), 0, 1)  # (a softer, anti-aliased edge)
+    out_a = a + grown * (1 - a)
+    rgb = (px[..., :3] * a[..., None] + INK * (grown * (1 - a))[..., None]) / np.maximum(out_a, 1e-6)[..., None]
     out = np.zeros_like(px)
     out[..., :3] = np.clip(rgb, 0, 1)
     out[..., 3] = np.clip(out_a, 0, 1)
@@ -380,17 +421,17 @@ def save(bpy, rgba, path):
 
 
 def make(bpy, name, out_dir):
-    fn, frames, size = TEXTURES[name]
+    fn, frames, size, outline = TEXTURES[name]
     scene = setup(bpy, size)
     tmp = os.path.join(out_dir, "_frame.png")
     if frames == 1:
-        sheet = glow(render_frame(bpy, scene, fn(0.0), tmp))
+        sheet = ink(render_frame(bpy, scene, fn(0.0), tmp), outline)
     else:
         side = int(math.sqrt(frames))
         sheet = np.zeros((size * side, size * side, 4))
         for i in range(frames):
             t = i / frames if name in ("Aura", "ToonFire") else i / (frames - 1)
-            tile = glow(render_frame(bpy, scene, fn(t), tmp))
+            tile = ink(render_frame(bpy, scene, fn(t), tmp), outline)
             r, c = divmod(i, side)
             sheet[r * size:(r + 1) * size, c * size:(c + 1) * size] = tile
     save(bpy, sheet, os.path.join(out_dir, name + ".png"))
@@ -405,7 +446,7 @@ def contact_sheet(bpy, made, path):
     cols = 5
     rows = (len(made) + cols - 1) // cols
     out = np.zeros((rows * cell, cols * cell, 4))
-    out[..., :3] = np.array([0.1, 0.07, 0.16])
+    out[..., :3] = np.array([0.55, 0.72, 0.88])  # (a daytime sky, like the game)
     out[..., 3] = 1
     for i, (name, tex) in enumerate(made):
         h, w = tex.shape[:2]

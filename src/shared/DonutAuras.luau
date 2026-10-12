@@ -138,10 +138,10 @@ local Moves: { [string]: Move } = {
 	end,
 	-- the anime ones (AnimeFX)
 	kiaura = function(t, i, _r, _c)
-		t.Ki = { Size = 2.4 + 0.7 * i, Rate = 10 + 8 * i }
+		t.Ki = { Size = 3 + 1.1 * i, Rate = 12 + 10 * i }
 	end,
 	toonfire = function(t, _i, _r, c)
-		t.ToonFire = { c[2]:Lerp(WHITE, 0.4), c[1], c[3] }
+		t.ToonFire = { c[1]:Lerp(WHITE, 0.35), c[1], c[3] }
 	end,
 	slashes = function(t, i, _r, _c)
 		t.Slashes = { Rate = 2.2 * i }

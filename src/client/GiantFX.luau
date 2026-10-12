@@ -394,13 +394,14 @@ local function dressUp(giant: Giant.Built)
 		glint.Enabled = true
 	end
 	-- his power-up aura: energy flames roaring up off him (from round his reactor)
-	local aura, specks = AnimeFX.Ki(giant.Core, { Giant.PINK, Giant.CYAN, Giant.VIOLET }, S * 1.4, 16)
-	for _, e in { aura, specks } do
+	for _, e in AnimeFX.Ki(giant.Core, { Giant.PINK, Giant.VIOLET, Giant.CYAN }, S * 1.4, 16) do
 		e.Shape = Enum.ParticleEmitterShape.Sphere
 		e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
 		e.Enabled = true
+		if e.Name == "KiSpecks" then
+			e.Speed = NumberRange.new(S * 2, S * 3.5)
+		end
 	end
-	specks.Speed = NumberRange.new(S * 2, S * 3.5)
 	local hole = giant.Model:FindFirstChild("HoleHaze")
 	if hole and hole:IsA("BasePart") then
 		local inflow = Instance.new("ParticleEmitter")

@@ -15,6 +15,10 @@
 	The textures are drawn in Blender (art/anime_vfx); most are flipbooks (several frames in one
 	image that Roblox plays in turn). Until their ids are pasted into Config.AnimeFX.Textures, every
 	effect uses one of Roblox's own built-in particles instead (still looks right, just less anime).
+
+	Style: solid, deep colours and dark ink outlines (cel-shaded), not glow. Every effect stays
+	under the game's bloom threshold (Config.Graphics.BloomThreshold), so it reads as a crisp shape
+	in daylight instead of a white blur; they look big and layered rather than bright.
 ]]
 
 local Config = require(script.Parent.Config)
@@ -23,6 +27,7 @@ local AnimeFX = {}
 
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
+local BLACK = rgb(15, 10, 25)
 
 -- Roblox's own particles, standing in until the Blender textures are uploaded.
 local FALLBACK: { [string]: string } = {
@@ -107,51 +112,73 @@ local function base(parent: Instance, name: string, texture: string): (ParticleE
 end
 
 -- A power-up aura rising off a flat box under it (`parent`: a part as wide as the aura, at its
--- feet). `size` = how tall the flames are, `rate` = flames a second. Returns the two emitters.
-function AnimeFX.Ki(parent: BasePart, colors: { Color3 }, size: number, rate: number): (ParticleEmitter, ParticleEmitter)
-	local e, custom = base(parent, "KiAura", "Aura")
-	e.Color = colorsOf({ colors[1]:Lerp(WHITE, 0.55), colors[1], colors[#colors] })
-	e.LightEmission = if custom then 0.9 else 0.75
-	e.Brightness = if custom then 2.4 else 3
-	e.Rate = rate
-	e.Shape = Enum.ParticleEmitterShape.Box
-	e.EmissionDirection = Enum.NormalId.Top
-	e.SpreadAngle = Vector2.new(6, 6)
-	e.Speed = NumberRange.new(size * 0.6, size * 1.1)
-	e.Acceleration = Vector3.new(0, size * 0.8, 0)
-	e.Drag = 1.5
-	e.Lifetime = NumberRange.new(0.55, 0.85)
-	e.Rotation = if custom then NumberRange.new(-6, 6) else NumberRange.new(-15, 15)
-	e.Size = if custom then seq({ 0, size * 0.55, 0.4, size, 1, size * 0.8 }) else seq({ 0, size * 0.35, 0.4, size * 0.7, 1, size * 0.15 })
-	e.Transparency = seq({ 0, 1, 0.15, 0.05, 0.75, 0.35, 1, 1 })
-	e.Squash = NumberSequence.new(if custom then 0 else 0.6) -- (taller, thinner flames)
-	e:SetAttribute("FXBoost", true)
-	-- bright specks shooting up through it
+-- feet). `size` = how tall the flames are, `rate` = flames a second. Two layers - big flames in the
+-- aura's deep colours and a brighter, narrower core in front - and specks of energy shooting up.
+-- Returns its emitters.
+function AnimeFX.Ki(parent: BasePart, colors: { Color3 }, size: number, rate: number): { ParticleEmitter }
+	local main, deep = colors[1], colors[#colors]
+	local outer, custom = base(parent, "KiAura", "Aura")
+	outer.Color = colorsOf({ main, main:Lerp(deep, 0.5), deep })
+	outer.LightEmission = 0.25
+	outer.Brightness = 1.3
+	outer.Rate = rate
+	outer.Shape = Enum.ParticleEmitterShape.Box
+	outer.EmissionDirection = Enum.NormalId.Top
+	outer.SpreadAngle = Vector2.new(6, 6)
+	outer.Speed = NumberRange.new(size * 0.6, size * 1.1)
+	outer.Acceleration = Vector3.new(0, size * 0.9, 0)
+	outer.Drag = 1.5
+	outer.Lifetime = NumberRange.new(0.55, 0.85)
+	outer.Rotation = if custom then NumberRange.new(-6, 6) else NumberRange.new(-12, 12)
+	outer.Size = if custom then seq({ 0, size * 0.7, 0.4, size * 1.25, 1, size }) else seq({ 0, size * 0.45, 0.4, size * 0.9, 1, size * 0.2 })
+	outer.Transparency = seq({ 0, 1, 0.15, 0.05, 0.75, 0.3, 1, 1 })
+	outer.Squash = NumberSequence.new(if custom then 0 else 0.6) -- (taller, thinner flames)
+	outer:SetAttribute("FXBoost", true)
+
+	local core = base(parent, "KiCore", "Aura")
+	core.Color = colorsOf({ main:Lerp(WHITE, 0.35), main })
+	core.LightEmission = 0.45
+	core.Brightness = 1.5
+	core.Rate = rate * 0.7
+	core.Shape = Enum.ParticleEmitterShape.Box
+	core.EmissionDirection = Enum.NormalId.Top
+	core.SpreadAngle = Vector2.new(4, 4)
+	core.Speed = NumberRange.new(size * 0.5, size * 0.9)
+	core.Acceleration = Vector3.new(0, size * 0.7, 0)
+	core.Drag = 1.5
+	core.Lifetime = NumberRange.new(0.45, 0.7)
+	core.Rotation = outer.Rotation
+	core.Size = if custom then seq({ 0, size * 0.4, 0.4, size * 0.7, 1, size * 0.55 }) else seq({ 0, size * 0.25, 0.4, size * 0.5, 1, size * 0.1 })
+	core.Transparency = seq({ 0, 1, 0.15, 0, 0.75, 0.25, 1, 1 })
+	core.Squash = outer.Squash
+	core.ZOffset = 0.8 -- (in front of the outer flames)
+	core:SetAttribute("FXBoost", true)
+
+	-- specks of energy shooting up through it
 	local specks = base(parent, "KiSpecks", "Spark")
-	specks.Color = ColorSequence.new(WHITE, colors[1]:Lerp(WHITE, 0.3))
-	specks.LightEmission = 1
-	specks.Brightness = 5
-	specks.Rate = rate * 0.6
+	specks.Color = ColorSequence.new(main:Lerp(WHITE, 0.4), main)
+	specks.LightEmission = 0.5
+	specks.Brightness = 1.6
+	specks.Rate = rate * 0.8
 	specks.Shape = Enum.ParticleEmitterShape.Box
 	specks.EmissionDirection = Enum.NormalId.Top
 	specks.SpreadAngle = Vector2.new(4, 4)
 	specks.Speed = NumberRange.new(size * 3, size * 5)
 	specks.Lifetime = NumberRange.new(0.25, 0.45)
 	specks.Orientation = Enum.ParticleOrientation.VelocityParallel
-	specks.Squash = NumberSequence.new(3.5)
-	specks.Size = seq({ 0, size * 0.14, 1, 0 })
-	specks.Transparency = seq({ 0, 0, 1, 0.6 })
+	specks.Squash = NumberSequence.new(5)
+	specks.Size = seq({ 0, size * 0.16, 1, 0 })
+	specks.Transparency = seq({ 0, 0, 1, 0.5 })
 	specks:SetAttribute("FXBoost", true)
-	return e, specks
+	return { outer, core, specks }
 end
 
--- Cartoon flames licking up from a flat box under it.
+-- Cartoon flames licking up from a flat box under it (solid, with a dark outline: not a glow).
 function AnimeFX.ToonFire(parent: BasePart, colors: { Color3 }, size: number, rate: number): ParticleEmitter
 	local e, custom = base(parent, "ToonFire", "ToonFire")
 	e.Color = colorsOf(colors)
-	-- (mostly solid, so it reads as a drawn flame and not a glow)
-	e.LightEmission = if custom then 0.25 else 0.35
-	e.Brightness = if custom then 1.6 else 2.4
+	e.LightEmission = if custom then 0.1 else 0.2
+	e.Brightness = if custom then 1.25 else 1.5
 	e.Rate = rate
 	e.Shape = Enum.ParticleEmitterShape.Box
 	e.EmissionDirection = Enum.NormalId.Top
@@ -160,7 +187,7 @@ function AnimeFX.ToonFire(parent: BasePart, colors: { Color3 }, size: number, ra
 	e.Acceleration = Vector3.new(0, size, 0)
 	e.Lifetime = NumberRange.new(0.5, 0.8)
 	e.Rotation = NumberRange.new(-8, 8)
-	e.Size = seq({ 0, size * 0.5, 0.35, size * 0.85, 1, size * 0.3 })
+	e.Size = seq({ 0, size * 0.6, 0.35, size, 1, size * 0.35 })
 	e.Transparency = seq({ 0, 1, 0.1, 0, 0.8, 0.1, 1, 1 })
 	e:SetAttribute("FXBoost", true)
 	return e
@@ -169,30 +196,32 @@ end
 -- Crescent slashes flashing on a sphere round it (`parent`: a part the size of that sphere).
 function AnimeFX.Slashes(parent: BasePart, color: Color3, size: number, rate: number): ParticleEmitter
 	local e, custom = base(parent, "Slashes", "Slash")
-	e.Color = ColorSequence.new(WHITE, color)
-	e.LightEmission = 1
-	e.Brightness = 4
+	e.Color = ColorSequence.new(color:Lerp(WHITE, 0.3), color)
 	e.Rate = rate
 	e.Shape = Enum.ParticleEmitterShape.Sphere
 	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
 	e.LockedToPart = true
 	if custom then
+		e.LightEmission = 0.35
+		e.Brightness = 1.6
 		e.Speed = NumberRange.new(0)
-		e.Lifetime = NumberRange.new(0.2, 0.3)
+		e.Lifetime = NumberRange.new(0.22, 0.32)
 		e.Rotation = NumberRange.new(0, 360)
 		e.RotSpeed = NumberRange.new(-260, 260)
-		e.Size = seq({ 0, size * 0.4, 0.25, size, 1, size * 1.15 })
-		e.Transparency = seq({ 0, 0, 0.5, 0.1, 1, 1 })
+		e.Size = seq({ 0, size * 0.5, 0.25, size * 1.25, 1, size * 1.4 })
+		e.Transparency = seq({ 0, 0, 0.55, 0, 1, 1 })
 	else
 		-- (no slash picture yet: long thin cuts flicking across it)
+		e.LightEmission = 0.5
+		e.Brightness = 1.8
 		e.Speed = NumberRange.new(size * 6, size * 9)
 		e.SpreadAngle = Vector2.new(180, 180)
 		e.Drag = 10
 		e.Lifetime = NumberRange.new(0.14, 0.22)
 		e.Orientation = Enum.ParticleOrientation.VelocityParallel
 		e.Squash = NumberSequence.new(5)
-		e.Size = seq({ 0, size * 0.35, 1, size * 0.1 })
-		e.Transparency = seq({ 0, 0, 1, 0.8 })
+		e.Size = seq({ 0, size * 0.4, 1, size * 0.12 })
+		e.Transparency = seq({ 0, 0, 1, 0.7 })
 	end
 	e:SetAttribute("FXBoost", true)
 	return e
@@ -201,9 +230,9 @@ end
 -- Four-point twinkles popping all over a sphere round it.
 function AnimeFX.Kira(parent: BasePart, color: Color3, size: number, rate: number): ParticleEmitter
 	local e, custom = base(parent, "Kira", "Kira")
-	e.Color = ColorSequence.new(WHITE, color:Lerp(WHITE, 0.25))
-	e.LightEmission = 1
-	e.Brightness = 4
+	e.Color = ColorSequence.new(color:Lerp(WHITE, 0.45), color)
+	e.LightEmission = 0.6
+	e.Brightness = 1.6
 	e.Rate = rate
 	e.Shape = Enum.ParticleEmitterShape.Sphere
 	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Volume
@@ -221,9 +250,9 @@ end
 -- Little lightning bolts flickering round it.
 function AnimeFX.Zaps(parent: BasePart, colors: { Color3 }, size: number, rate: number): ParticleEmitter
 	local e, custom = base(parent, "Zaps", "Lightning")
-	e.Color = colorsOf({ WHITE, colors[1] })
-	e.LightEmission = 1
-	e.Brightness = 6
+	e.Color = colorsOf({ colors[1]:Lerp(WHITE, 0.35), colors[1] })
+	e.LightEmission = 0.55
+	e.Brightness = 1.8
 	e.Rate = rate
 	e.Shape = Enum.ParticleEmitterShape.Sphere
 	e.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
@@ -232,7 +261,7 @@ function AnimeFX.Zaps(parent: BasePart, colors: { Color3 }, size: number, rate: 
 		e.Speed = NumberRange.new(0)
 		e.Lifetime = NumberRange.new(0.08, 0.16)
 		e.Rotation = NumberRange.new(0, 360)
-		e.Size = seq({ 0, size, 1, size * 1.1 })
+		e.Size = seq({ 0, size * 1.1, 1, size * 1.25 })
 		e.Transparency = seq({ 0, 0, 1, 0.3 })
 	else
 		-- (no bolt picture yet: short, thin jagged-looking flickers)
@@ -241,77 +270,78 @@ function AnimeFX.Zaps(parent: BasePart, colors: { Color3 }, size: number, rate: 
 		e.Lifetime = NumberRange.new(0.06, 0.12)
 		e.Orientation = Enum.ParticleOrientation.VelocityParallel
 		e.Squash = NumberSequence.new(6)
-		e.Size = NumberSequence.new(size * 0.45)
+		e.Size = NumberSequence.new(size * 0.5)
 		e.Transparency = NumberSequence.new(0)
 	end
 	e:SetAttribute("FXBoost", true)
 	return e
 end
 
--- An impact frame (ring, star flash, speed lines, smoke puffs), built ready to fire: put it at the
--- centre of the hit (`parent`: an Attachment or a part). `size` = how big the hit is.
+-- An impact frame (ring, star flash, dark manga burst lines, smoke puffs), built ready to fire:
+-- put it at the centre of the hit (`parent`: an Attachment or a part). `size` = how big the hit is.
 function AnimeFX.Impact(parent: Instance, colors: { Color3 }, size: number): { ParticleEmitter }
 	local list = {}
 	local main = colors[1]
 	local ring, ringCustom = base(parent, "ImpactRing", "ShockRing")
-	ring.Color = ColorSequence.new(WHITE, main:Lerp(WHITE, 0.3))
-	ring.LightEmission = 1
-	ring.Brightness = 4
+	ring.Color = ColorSequence.new(main:Lerp(WHITE, 0.3), main)
+	ring.LightEmission = 0.3
+	ring.Brightness = 1.5
 	ring.Rate = 0
 	ring.Speed = NumberRange.new(0)
-	ring.Lifetime = NumberRange.new(0.4)
+	ring.Lifetime = NumberRange.new(0.45)
 	ring.Rotation = NumberRange.new(0, 360)
-	ring.Size = if ringCustom then seq({ 0, size * 2.5, 1, size * 6 }) else seq({ 0, size * 0.5, 0.3, size * 4, 1, size * 6 })
+	ring.Size = if ringCustom then seq({ 0, size * 3, 1, size * 7.5 }) else seq({ 0, size * 0.6, 0.3, size * 5, 1, size * 7.5 })
 	ring.Transparency = if ringCustom then NumberSequence.new(0) else seq({ 0, 0, 0.6, 0.2, 1, 1 })
 	ring.ZOffset = 1
 	ring:SetAttribute("Burst", 1)
 	table.insert(list, ring)
 
 	local star = base(parent, "ImpactStar", "Impact")
-	star.Color = ColorSequence.new(WHITE, main)
-	star.LightEmission = 1
-	star.Brightness = 6
+	star.Color = ColorSequence.new(main:Lerp(WHITE, 0.5), main)
+	star.LightEmission = 0.45
+	star.Brightness = 1.9
 	star.Rate = 0
 	star.Speed = NumberRange.new(0)
-	star.Lifetime = NumberRange.new(0.25)
+	star.Lifetime = NumberRange.new(0.28)
 	star.Rotation = NumberRange.new(0, 360)
-	star.Size = seq({ 0, size * 3.2, 1, size * 4.2 })
-	star.Transparency = seq({ 0, 0, 0.6, 0.1, 1, 1 })
+	star.Size = seq({ 0, size * 3.8, 1, size * 5 })
+	star.Transparency = seq({ 0, 0, 0.6, 0.05, 1, 1 })
 	star.ZOffset = 1.5
 	star:SetAttribute("Burst", 1)
 	table.insert(list, star)
 
+	-- (dark, like the burst lines in a manga panel)
 	local lines = base(parent, "ImpactLines", "Spark")
-	lines.Color = ColorSequence.new(WHITE, main:Lerp(WHITE, 0.5))
-	lines.LightEmission = 1
-	lines.Brightness = 5
+	lines.Color = ColorSequence.new(main:Lerp(BLACK, 0.55), main:Lerp(BLACK, 0.35))
+	lines.LightEmission = 0
+	lines.Brightness = 1
 	lines.Rate = 0
 	lines.SpreadAngle = Vector2.new(180, 180)
-	lines.Speed = NumberRange.new(size * 14, size * 22)
+	lines.Speed = NumberRange.new(size * 16, size * 26)
 	lines.Drag = 6
-	lines.Lifetime = NumberRange.new(0.18, 0.3)
+	lines.Lifetime = NumberRange.new(0.2, 0.32)
 	lines.Orientation = Enum.ParticleOrientation.VelocityParallel
-	lines.Squash = NumberSequence.new(4)
-	lines.Size = seq({ 0, size * 0.5, 1, size * 0.1 })
-	lines.Transparency = seq({ 0, 0, 1, 0.7 })
-	lines:SetAttribute("Burst", 10)
+	lines.Squash = NumberSequence.new(6)
+	lines.Size = seq({ 0, size * 0.6, 1, size * 0.15 })
+	lines.Transparency = seq({ 0, 0, 1, 0.6 })
+	lines:SetAttribute("Burst", 14)
 	table.insert(list, lines)
 
 	local smoke = base(parent, "ImpactSmoke", "ToonSmoke")
-	smoke.Color = ColorSequence.new(rgb(235, 235, 245), main:Lerp(rgb(140, 140, 160), 0.6))
-	smoke.LightEmission = 0.1
-	smoke.Brightness = 1.2
+	smoke.Color = ColorSequence.new(rgb(235, 232, 240), main:Lerp(rgb(120, 115, 135), 0.65))
+	smoke.LightEmission = 0.05
+	smoke.Brightness = 1
 	smoke.Rate = 0
 	smoke.SpreadAngle = Vector2.new(180, 20)
 	smoke.EmissionDirection = Enum.NormalId.Front
 	smoke.Speed = NumberRange.new(size * 4, size * 7)
 	smoke.Drag = 4
-	smoke.Lifetime = NumberRange.new(0.5, 0.75)
+	smoke.Lifetime = NumberRange.new(0.55, 0.8)
 	smoke.Rotation = NumberRange.new(0, 360)
 	smoke.RotSpeed = NumberRange.new(-60, 60)
-	smoke.Size = seq({ 0, size * 0.9, 1, size * 1.8 })
-	smoke.Transparency = seq({ 0, 0.1, 0.7, 0.3, 1, 1 })
-	smoke:SetAttribute("Burst", 5)
+	smoke.Size = seq({ 0, size * 1.1, 1, size * 2.1 })
+	smoke.Transparency = seq({ 0, 0.05, 0.7, 0.25, 1, 1 })
+	smoke:SetAttribute("Burst", 6)
 	table.insert(list, smoke)
 	return list
 end

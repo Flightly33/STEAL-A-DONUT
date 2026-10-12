@@ -1010,7 +1010,8 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 	end
 
 	function accessories.Halo()
-		local color = if mutation.Id == "Rainbow" then rgb(255, 140, 255) else rgb(255, 240, 150)
+		-- (a deep gold, not a pale one: pale neon turns into a white blur under the bloom)
+		local color = if mutation.Id == "Rainbow" then rgb(240, 110, 240) else rgb(255, 205, 70)
 		for i = 0, 11 do
 			local angle = i / 12 * math.pi * 2
 			ball(0.32, color, at(math.cos(angle) * 0.95, TOP + 1.0, math.sin(angle) * 0.95), Enum.Material.Neon, "Halo")
@@ -1019,8 +1020,12 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 
 	function accessories.Wings()
 		local glowing = rarity.Order >= 6 or mutation.Wings
-		local material = if glowing then Enum.Material.Neon else Enum.Material.SmoothPlastic
-		local color = if mutation.Wings then rgb(255, 250, 225) elseif glowing then rarity.Color:Lerp(WHITE, 0.6) else WHITE
+		-- (a white rarity's wings are solid white, not neon: white neon only blooms into a blur)
+		local tint = rarity.Color
+		local colourful = math.max(tint.R, tint.G, tint.B) - math.min(tint.R, tint.G, tint.B) > 0.2
+		local material = if glowing and (colourful or mutation.Wings) then Enum.Material.Neon else Enum.Material.SmoothPlastic
+		-- (glowing wings keep their rarity's colour: near-white neon just blooms into a blur)
+		local color = if mutation.Wings then rgb(255, 238, 180) elseif glowing then rarity.Color:Lerp(WHITE, 0.25) else WHITE
 		for _, side in { -1, 1 } do
 			for f = 0, 2 do
 				local wing = ellipsoid(
@@ -1854,6 +1859,15 @@ function DonutModel.Build(donut: Donut, options: BuildOptions?): Model
 				auraEffects(theme)
 				animeEffects(theme)
 			end
+		end
+	end
+
+	-- Nothing too bright: the game's bloom (Config.Graphics.BloomThreshold) turns anything over it into
+	-- a white blur, so the particles stay just under it - their shapes and colours read instead.
+	-- (Only the quick electric sparks may flash past it.)
+	for _, effect in model:GetDescendants() do
+		if effect:IsA("ParticleEmitter") then
+			effect.Brightness = math.min(effect.Brightness, if effect.Name == "Crackle" then 3.5 else 2.1)
 		end
 	end
 
