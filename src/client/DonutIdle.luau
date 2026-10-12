@@ -33,8 +33,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local Roam = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Roam"))
+local Signal = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Signal"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
 
 local DonutIdle = {}
+-- A chained hell donut (shared/HellChains) has just lunged against its chains: (model)
+DonutIdle.Tugged = Signal.new()
 
 local player = Players.LocalPlayer :: Player
 local RANGE = 110 -- studs from the camera; further donuts stand still
@@ -53,8 +57,9 @@ local ACTION_LENGTH: { [string]: number } = {
 	Cheer = 1.3,
 	LookAround = 2.2,
 	Doze = 2.8,
+	Tug = 1.6,
 }
-local OPEN_MOUTH: { [string]: boolean } = { Twirl = true, Jump = true, Flip = true, Cheer = true, Wave = true }
+local OPEN_MOUTH: { [string]: boolean } = { Twirl = true, Jump = true, Flip = true, Cheer = true, Wave = true, Tug = true }
 local LOOK_TARGETS = { -0.55, 0, 0.55, 0, -0.3, 0.3 }
 local CLOSED_EYE = Color3.fromRGB(70, 35, 40)
 local GAZE = 0.075 -- how far pupils slide (studs, before the donut's scale)
@@ -119,6 +124,8 @@ type Idle = {
 	Flop: number,
 	Active: boolean,
 	Accum: number,
+	Strain: number, -- 0..1: how hard a chained donut is pulling at its chains right now
+	TugFired: boolean,
 }
 
 local idles: { [Model]: Idle } = {}
@@ -337,7 +344,8 @@ local function register(instance: Instance)
 		Base = root.CFrame,
 		Bottom = if type(bottom) == "number" then bottom else 1.5,
 		Scale = root.Size.Y / 3,
-		Style = if CollectionService:HasTag(model, "DonutFloat") then "Float" else STYLES[rng:NextInteger(1, #STYLES)],
+		-- (chained hell donuts: mostly still, glaring, tugging at their chains now and then)
+		Style = if model:GetAttribute("Chained") then "Chained" elseif CollectionService:HasTag(model, "DonutFloat") then "Float" else STYLES[rng:NextInteger(1, #STYLES)],
 		Rng = rng,
 		Phase = rng:NextNumber(0, 10),
 		Limbs = limbs,
@@ -370,6 +378,8 @@ local function register(instance: Instance)
 		Flop = 0,
 		Active = false,
 		Accum = 0,
+		Strain = 0,
+		TugFired = false,
 	}
 end
 
@@ -427,7 +437,8 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 	end
 	if idle.GreetAt and now >= idle.GreetAt and not idle.Action then
 		idle.GreetAt = nil
-		startAction(idle, if idle.HasArms then "Wave" else "Jump", now)
+		-- (a chained donut lunges at you instead)
+		startAction(idle, if idle.Style == "Chained" then "Tug" elseif idle.HasArms then "Wave" else "Jump", now)
 	end
 
 	-- Turn a little towards you while you're around (not all the way round if you're behind it)
@@ -481,6 +492,22 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		armR = 0.2 + 0.7 * math.max(0, -math.sin(t * w / 2))
 		wing = 0.25 * beat
 		floppy = false
+	elseif style == "Chained" then
+		-- held down: heavy breathing, hunched, glaring about (it can't turn far)
+		y = 0.05 * k * math.sin(t * 1.4)
+		if now >= idle.NextLook then
+			idle.LookTarget = LOOK_TARGETS[idle.Rng:NextInteger(1, #LOOK_TARGETS)] * 0.5
+			idle.NextLook = now + idle.Rng:NextNumber(1.5, 3.5)
+		end
+		local lookAt = if watching and math.abs(faceYaw) < 2 then math.clamp(faceYaw, -0.35, 0.35) else idle.LookTarget
+		idle.Yaw = approach(idle.Yaw, lookAt, 3, dt)
+		yaw = idle.Yaw
+		pitch = -0.05 + 0.03 * math.sin(t * 1.4)
+		legL = 0.08 * math.sin(t * 0.7)
+		legR = -legL
+		armL = 0.1 + 0.05 * math.sin(t * 1.4)
+		armR = armL
+		wing = 0.05 * math.sin(t * 1.4)
 	else -- Look: breathe, and turn to look at things now and then (at you, if you're close)
 		y = 0.04 * k * math.sin(t * 1.8)
 		if now >= idle.NextLook then
@@ -497,7 +524,7 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		armR = armL
 		wing = 0.08 * math.sin(t * 1.8)
 	end
-	if style ~= "Float" and style ~= "Look" then
+	if style ~= "Float" and style ~= "Look" and style ~= "Chained" then
 		yaw += idle.Turn
 	end
 	if moving and style ~= "Float" then
@@ -522,7 +549,9 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 	end
 	if not idle.Action and not moving and now >= idle.NextAction then
 		local options = { "Twirl", "Jump", "Jump", "Wiggle", "LookAround", "Flip", "Doze" }
-		if idle.HasArms then
+		if style == "Chained" then
+			options = { "Tug", "Tug", "Tug", "LookAround" }
+		elseif idle.HasArms then
 			table.insert(options, "Wave")
 			table.insert(options, "Cheer")
 			table.insert(options, "Cheer")
@@ -530,12 +559,47 @@ local function animate(idle: Idle, now: number, dt: number, target: Vector3?)
 		startAction(idle, options[idle.Rng:NextInteger(1, #options)], now)
 	end
 	local action = idle.Action
+	idle.Strain = 0
 	if action then
 		local a = (now - idle.ActionStart) / ACTION_LENGTH[action]
 		if a >= 1 then
 			idle.Action = nil
-			idle.NextAction = now + idle.Rng:NextNumber(6, 14)
+			idle.TugFired = false
+			local every = if style == "Chained" then Config.HellChains.TugEvery else { 6, 14 }
+			idle.NextAction = now + idle.Rng:NextNumber(every[1], every[2])
 			action = nil
+		elseif action == "Tug" then
+			-- strains against its chains: a crouch, a lunge up, trembling... and yanked back down
+			if a < 0.18 then
+				local c = smooth(a / 0.18)
+				y -= 0.18 * k * c
+				pitch += 0.12 * c
+				legL, legR = 0.3 * c, 0.3 * c
+				armL, armR = 0, 0
+			elseif a < 0.72 then
+				if not idle.TugFired then
+					idle.TugFired = true
+					DonutIdle.Tugged:Fire(idle.Model)
+				end
+				local up = smooth((a - 0.18) / 0.12)
+				local tremble = math.sin(a * TAU * 14) * up
+				y += 0.65 * k * up + 0.04 * k * tremble
+				pitch -= 0.22 * up
+				roll += 0.07 * tremble
+				legL, legR = 0.55 * up + 0.2 * tremble, 0.55 * up - 0.2 * tremble
+				armL, armR = 0.2 + 0.7 * up, 0.2 + 0.7 * up
+				wing = 0.5 * up * math.sin(a * TAU * 6)
+				idle.Strain = up
+			else
+				-- the chains win: back down with a bump
+				local b = (a - 0.72) / 0.28
+				local fall = 1 - smooth(b / 0.45)
+				y += 0.65 * k * fall - 0.12 * k * math.sin(math.clamp((b - 0.4) / 0.6, 0, 1) * math.pi)
+				pitch -= 0.22 * fall
+				armL, armR = 0.2 + 0.7 * fall, 0.2 + 0.7 * fall
+				idle.Strain = fall
+			end
+			floppy = false
 		elseif action == "Twirl" then
 			yaw += TAU * smooth(a)
 			y += 0.35 * k * math.sin(a * math.pi)
@@ -719,6 +783,12 @@ local function watchedPosition(): Vector3?
 		return root.Position + Vector3.new(0, 1.5, 0)
 	end
 	return nil
+end
+
+-- How hard a chained donut is pulling at its chains right now (0..1), for client/HellChainsFX.
+function DonutIdle.Strain(model: Model): number
+	local idle = idles[model]
+	return if idle then idle.Strain else 0
 end
 
 function DonutIdle.Init()

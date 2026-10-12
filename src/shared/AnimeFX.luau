@@ -42,8 +42,16 @@ local FALLBACK: { [string]: string } = {
 	Kira = "rbxasset://textures/particles/sparkles_main.dds",
 	Petal = "rbxasset://textures/particles/smoke_main.dds",
 	Spark = "rbxasset://textures/particles/sparkles_main.dds",
+	Chain = "",
+	Seal = "",
+	Runes = "rbxasset://textures/particles/sparkles_main.dds",
+	Crack = "",
+	DarkFlame = "rbxasset://textures/particles/fire_main.dds",
+	Ember = "rbxasset://textures/particles/sparkles_main.dds",
+	Wisp = "rbxasset://textures/particles/smoke_main.dds",
+	Burst = "rbxasset://textures/particles/explosion01_shockwave_main.dds",
 }
-AnimeFX.Names = { "Aura", "ToonFire", "ShockRing", "Impact", "ToonSmoke", "Lightning", "Slash", "SpeedLines", "Kira", "Petal" }
+AnimeFX.Names = { "Aura", "ToonFire", "ShockRing", "Impact", "ToonSmoke", "Lightning", "Slash", "SpeedLines", "Kira", "Petal", "Chain", "Seal", "Runes", "Crack", "DarkFlame", "Ember", "Wisp", "Burst" }
 
 -- How each flipbook plays (only used with the uploaded texture: the built-in ones are single images).
 local FLIPBOOKS: { [string]: { Layout: Enum.ParticleFlipbookLayout, Mode: Enum.ParticleFlipbookMode, Rate: number? } } = {
@@ -53,6 +61,10 @@ local FLIPBOOKS: { [string]: { Layout: Enum.ParticleFlipbookLayout, Mode: Enum.P
 	Impact = { Layout = Enum.ParticleFlipbookLayout.Grid4x4, Mode = Enum.ParticleFlipbookMode.OneShot },
 	ToonSmoke = { Layout = Enum.ParticleFlipbookLayout.Grid4x4, Mode = Enum.ParticleFlipbookMode.OneShot },
 	Lightning = { Layout = Enum.ParticleFlipbookLayout.Grid2x2, Mode = Enum.ParticleFlipbookMode.Random },
+	Runes = { Layout = Enum.ParticleFlipbookLayout.Grid2x2, Mode = Enum.ParticleFlipbookMode.Random },
+	DarkFlame = { Layout = Enum.ParticleFlipbookLayout.Grid4x4, Mode = Enum.ParticleFlipbookMode.Loop, Rate = 18 },
+	Wisp = { Layout = Enum.ParticleFlipbookLayout.Grid4x4, Mode = Enum.ParticleFlipbookMode.OneShot },
+	Burst = { Layout = Enum.ParticleFlipbookLayout.Grid4x4, Mode = Enum.ParticleFlipbookMode.OneShot },
 }
 
 -- The uploaded texture's id, or nil while it's still empty.
@@ -344,6 +356,101 @@ function AnimeFX.Impact(parent: Instance, colors: { Color3 }, size: number): { P
 	smoke:SetAttribute("Burst", 6)
 	table.insert(list, smoke)
 	return list
+end
+
+-- The hellfire set (the hell donuts' chains: shared/HellChains) ---------------------------------
+
+-- Embers drifting up off `parent` (a part: they start anywhere over it).
+function AnimeFX.Embers(parent: BasePart, colors: { Color3 }, size: number, rate: number): ParticleEmitter
+	local e, custom = base(parent, "Embers", "Ember")
+	e.Color = colorsOf(colors)
+	e.LightEmission = 0.7
+	e.Brightness = 1.6
+	e.Rate = rate
+	e.EmissionDirection = Enum.NormalId.Top
+	e.SpreadAngle = Vector2.new(18, 18)
+	e.Speed = NumberRange.new(size * 6, size * 11)
+	e.Acceleration = Vector3.new(0, size * 4, 0)
+	e.Drag = 1.2
+	e.Lifetime = NumberRange.new(0.9, 1.7)
+	e.Orientation = if custom then Enum.ParticleOrientation.VelocityParallel else Enum.ParticleOrientation.FacingCamera
+	e.Size = seq({ 0, size, 0.7, size * 0.8, 1, 0 })
+	e.Transparency = seq({ 0, 0, 0.75, 0.1, 1, 1 })
+	e.Rotation = NumberRange.new(0, 360)
+	e:SetAttribute("FXBoost", true)
+	return e
+end
+
+-- Hellfire licking up off `parent`: a bright edge round a dark heart (the built-in stand-in is a
+-- deep red flame).
+function AnimeFX.DarkFlame(parent: BasePart, colors: { Color3 }, size: number, rate: number): ParticleEmitter
+	local e, custom = base(parent, "DarkFlame", "DarkFlame")
+	e.Color = if custom then colorsOf(colors) else ColorSequence.new(colors[1]:Lerp(BLACK, 0.35), colors[#colors]:Lerp(BLACK, 0.6))
+	e.LightEmission = if custom then 0.35 else 0.2
+	e.Brightness = 1.4
+	e.Rate = rate
+	e.EmissionDirection = Enum.NormalId.Top
+	e.SpreadAngle = Vector2.new(8, 8)
+	e.Speed = NumberRange.new(size * 0.8, size * 1.6)
+	e.Lifetime = NumberRange.new(0.45, 0.8)
+	e.Size = seq({ 0, size * 0.6, 0.3, size, 1, size * 0.4 })
+	e.Transparency = seq({ 0, 0.05, 0.75, 0.2, 1, 1 })
+	e.Rotation = if custom then NumberRange.new(-8, 8) else NumberRange.new(0, 360)
+	e:SetAttribute("FXBoost", true)
+	return e
+end
+
+-- Curls of dark smoke rising off `parent`.
+function AnimeFX.Wisps(parent: BasePart, color: Color3, size: number, rate: number): ParticleEmitter
+	local e, custom = base(parent, "Wisps", "Wisp")
+	e.Color = ColorSequence.new(color:Lerp(WHITE, 0.15), color)
+	e.LightEmission = 0.05
+	e.Rate = rate
+	e.EmissionDirection = Enum.NormalId.Top
+	e.SpreadAngle = Vector2.new(15, 15)
+	e.Speed = NumberRange.new(size * 0.4, size * 0.9)
+	e.Lifetime = NumberRange.new(1.4, 2.2)
+	e.Rotation = if custom then NumberRange.new(-15, 15) else NumberRange.new(0, 360)
+	e.RotSpeed = if custom then NumberRange.new(0) else NumberRange.new(-30, 30)
+	e.Size = seq({ 0, size * 0.6, 1, size * 1.2 })
+	e.Transparency = seq({ 0, 0.25, 0.7, 0.45, 1, 1 })
+	e:SetAttribute("FXBoost", true)
+	return e
+end
+
+-- Glowing marks floating slowly up off `parent` (the seal under a chained donut).
+function AnimeFX.Runes(parent: BasePart, color: Color3, size: number, rate: number): ParticleEmitter
+	local e = base(parent, "Runes", "Runes")
+	e.Color = ColorSequence.new(color:Lerp(WHITE, 0.4), color)
+	e.LightEmission = 0.6
+	e.Brightness = 1.6
+	e.Rate = rate
+	e.EmissionDirection = Enum.NormalId.Top
+	e.Speed = NumberRange.new(size * 0.8, size * 1.6)
+	e.Drag = 0.6
+	e.Lifetime = NumberRange.new(1.6, 2.6)
+	e.Rotation = NumberRange.new(-10, 10)
+	e.Size = seq({ 0, 0, 0.2, size, 0.8, size, 1, 0 })
+	e.Transparency = seq({ 0, 0.1, 0.7, 0.2, 1, 1 })
+	e:SetAttribute("FXBoost", true)
+	return e
+end
+
+-- A power-up burst of spikes round `parent`, built ready to go: AnimeFX.Fire sets it off.
+function AnimeFX.Burst(parent: Instance, colors: { Color3 }, size: number): ParticleEmitter
+	local e, custom = base(parent, "BurstSpikes", "Burst")
+	e.Color = colorsOf(colors)
+	e.LightEmission = 0.45
+	e.Brightness = 1.8
+	e.Rate = 0
+	e.Speed = NumberRange.new(0)
+	e.Lifetime = NumberRange.new(0.4)
+	e.Rotation = NumberRange.new(0, 360)
+	e.Size = if custom then seq({ 0, size * 2.2, 1, size * 4 }) else seq({ 0, size * 0.5, 0.3, size * 3.2, 1, size * 4 })
+	e.Transparency = if custom then NumberSequence.new(0) else seq({ 0, 0, 0.6, 0.3, 1, 1 })
+	e.ZOffset = 1
+	e:SetAttribute("Burst", 1)
+	return e
 end
 
 -- Sets off an impact frame (from AnimeFX.Impact, or everything named Impact* under `holder`).

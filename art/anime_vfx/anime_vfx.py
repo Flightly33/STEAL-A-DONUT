@@ -277,6 +277,240 @@ def petal(_t):
     return [(GREY + 0.1, 1.0, [pts]), (1.0, 1.0, [core])]
 
 
+# -----------------------------------------------------------------------------------------------
+# The hellfire set: glowing chains that hold down the hell donuts, the seal under them, and more
+# -----------------------------------------------------------------------------------------------
+def stroke(path, w):
+    """A line of even width `w` along `path` (a list of points)."""
+    left, right = [], []
+    for i, (x, y) in enumerate(path):
+        a = path[max(0, i - 1)]
+        b = path[min(len(path) - 1, i + 1)]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        n = math.hypot(dx, dy) or 1
+        nx, ny = -dy / n, dx / n
+        left.append((x + nx * w, y + ny * w))
+        right.append((x - nx * w, y - ny * w))
+    return left + list(reversed(right))
+
+
+def ring(r, w, steps=96):
+    """A thin ring (two halves: a polygon can't have a hole in it)."""
+    return [arc(r - w, r + w, 0, math.pi + 0.02, steps), arc(r - w, r + w, math.pi, 2 * math.pi + 0.02, steps)]
+
+
+def lineart(pieces, w):
+    """Glowing line art in three tones: a dark band, a grey glow and a white-hot core.
+    pieces = [("path", points) | ("ring", r)], all drawn `w` thick."""
+    out = []
+    for tone, k in ((DARK, 2.2), (GREY, 1.4), (1.0, 0.6)):
+        polys = []
+        for kind, data in pieces:
+            if kind == "ring":
+                polys += ring(data, w * k)
+            else:
+                polys.append(stroke(data, w * k))
+        out.append((tone, 1.0, polys))
+    return out
+
+
+def superellipse(cx, cy, a, b, theta, n=4.0):
+    c, s = math.cos(theta), math.sin(theta)
+    return (cx + a * math.copysign(abs(c) ** (2 / n), c), cy + b * math.copysign(abs(s) ** (2 / n), s))
+
+
+def chain(_t):
+    """Chain links for a Beam (a 4 x 1 strip that tiles end to end): links seen face on - a
+    rounded ring - with links seen edge on threaded through them. Tinted hot orange in game."""
+    def link_ring(cx, a, b, a2, b2, t0=0.0, t1=2 * math.pi, steps=64):
+        polys = []
+        for i in range(steps):
+            th0 = t0 + (t1 - t0) * i / steps
+            th1 = t0 + (t1 - t0) * (i + 1) / steps
+            polys.append([superellipse(cx, 0, a, b, th0), superellipse(cx, 0, a, b, th1), superellipse(cx, 0, a2, b2, th1), superellipse(cx, 0, a2, b2, th0)])
+        return polys
+    face, side = [], []
+    for cx in (-0.5, 0.5):
+        face.append((DARK, 1.0, link_ring(cx, 0.37, 0.2, 0.22, 0.075)))
+        face.append((GREY, 1.0, link_ring(cx, 0.335, 0.175, 0.245, 0.095)))
+        face.append((1.0, 1.0, link_ring(cx, 0.31, 0.16, 0.27, 0.115, math.pi * 0.15, math.pi * 0.85, 24)))
+    for cx in (-1.0, 0.0, 1.0):
+        bar = [superellipse(cx, 0, 0.33, 0.058, 2 * math.pi * i / 64, 6) for i in range(64)]
+        mid = [superellipse(cx, 0.004, 0.31, 0.038, 2 * math.pi * i / 64, 6) for i in range(64)]
+        hot = [(cx - 0.24, 0.022), (cx + 0.24, 0.022), (cx + 0.24, 0.032), (cx - 0.24, 0.032)]
+        side += [(DARK, 1.0, [bar]), (GREY, 1.0, [mid]), (1.0, 1.0, [hot])]
+    layers = []
+    for tone in (DARK, GREY, 1.0):
+        for layer in face:
+            if layer[0] == tone:
+                layers.append(layer)
+    for tone in (DARK, GREY, 1.0):
+        for layer in side:
+            if layer[0] == tone:
+                layers.append(layer)
+    return layers
+
+
+# Made-up decorative marks for the seal (a crescent and a dot, a curl, a diamond with a bar, a
+# double wave), in a -1..1 box. Deliberately not letters, runes or any real symbol.
+def _arc_path(cx, cy, r, a0, a1, n=16):
+    return [(cx + r * math.cos(a0 + (a1 - a0) * i / n), cy + r * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+
+
+RUNE_SHAPES = [
+    [_arc_path(0, 0, 0.65, math.pi * 0.35, math.pi * 1.65), _arc_path(0.15, 0, 0.12, 0, math.pi * 1.0), _arc_path(0.15, 0, 0.12, math.pi, math.pi * 2.0)],
+    [[(0.6 * (1 - i / 40) * math.cos(i / 40 * math.pi * 3.2), 0.6 * (1 - i / 40) * math.sin(i / 40 * math.pi * 3.2)) for i in range(41)]],
+    [[(-0.6, 0.0), (0.0, 0.7), (0.6, 0.0)], [(0.6, 0.0), (0.0, -0.7), (-0.6, 0.0)], [(-0.22, 0.0), (0.22, 0.0)]],
+    [[(-0.7 + 1.4 * i / 30, 0.25 + 0.18 * math.sin(i / 30 * math.pi * 2)) for i in range(31)], [(-0.7 + 1.4 * i / 30, -0.25 + 0.18 * math.sin(i / 30 * math.pi * 2)) for i in range(31)]],
+]
+
+
+def seal(_t):
+    """A glowing sealing circle for the ground under a chained donut: rings, a band of made-up
+    marks, a donut in the middle, and little rings round it."""
+    pieces = [("ring", 0.94), ("ring", 0.85), ("ring", 0.64), ("ring", 0.3)]
+    rng = random.Random(13)
+    for i in range(18):
+        a = 2 * math.pi * i / 18
+        shape = RUNE_SHAPES[rng.randrange(len(RUNE_SHAPES))]
+        r0 = 0.745
+        ca, sa = math.cos(a), math.sin(a)
+        for path in shape:
+            pts = []
+            for (u, v) in path:
+                # (u along the circle, v towards the middle)
+                x = ca * (r0 + v * 0.065) - sa * u * 0.065
+                y = sa * (r0 + v * 0.065) + ca * u * 0.065
+                pts.append((x, y))
+            pieces.append(("path", pts))
+    # a donut in the middle: its hole, and sprinkles round it
+    pieces.append(("ring", 0.16))
+    for i in range(9):
+        a = 2 * math.pi * (i + 0.3) / 9
+        r = 0.23
+        d = (math.cos(a + 1.1), math.sin(a + 1.1))
+        c = (math.cos(a) * r, math.sin(a) * r)
+        pieces.append(("path", [(c[0] - d[0] * 0.035, c[1] - d[1] * 0.035), (c[0] + d[0] * 0.035, c[1] + d[1] * 0.035)]))
+    out = lineart(pieces, 0.011)
+    # little rings at the triangle's corners, and dots round the outer band
+    extra = []
+    for k in range(3):
+        a = math.pi / 2 + 2 * math.pi * k / 3
+        extra += [[(x + 0.64 * math.cos(a), y + 0.64 * math.sin(a)) for x, y in poly] for poly in ring(0.08, 0.012)]
+    dots = [circle(0.895 * math.cos(2 * math.pi * (i + 0.5) / 12), 0.895 * math.sin(2 * math.pi * (i + 0.5) / 12), 0.022, 16) for i in range(12)]
+    out.append((GREY, 1.0, extra))
+    out.append((1.0, 1.0, dots))
+    return out
+
+
+def runes(t):
+    """Four glowing rune marks (a 2 x 2 set) that drift up from the seal."""
+    shape = RUNE_SHAPES[min(3, int(round(t * 3)))]
+    return lineart([("path", [(x * 0.75, y * 0.75) for x, y in path]) for path in shape], 0.06)
+
+
+def crack(_t):
+    """Glowing cracks in the ground, branching out from a bright spot in the middle."""
+    rng = random.Random(21)
+    pieces = []
+    for i in range(7):
+        a = 2 * math.pi * i / 7 + rng.uniform(-0.25, 0.25)
+        pts = [(0.0, 0.0)]
+        r = 0.0
+        while r < 0.92:
+            r += rng.uniform(0.08, 0.16)
+            a += rng.uniform(-0.35, 0.35)
+            pts.append((math.cos(a) * min(r, 0.95), math.sin(a) * min(r, 0.95)))
+        pieces.append(pts)
+        for _ in range(rng.randint(1, 2)):
+            k = rng.randrange(2, len(pts) - 1)
+            b = a + rng.choice((-1, 1)) * rng.uniform(0.6, 1.0)
+            sub = [pts[k]]
+            for _ in range(rng.randint(2, 4)):
+                b += rng.uniform(-0.3, 0.3)
+                x, y = sub[-1]
+                sub.append((x + math.cos(b) * 0.1, y + math.sin(b) * 0.1))
+            pieces.append(sub)
+    layers = []
+    for tone, w in ((DARK, 0.045), (GREY, 0.026), (1.0, 0.01)):
+        layers.append((tone, 1.0, [thick(p, w) for p in pieces]))
+    layers.append((1.0, 1.0, [star(9, 0.06, [rng.uniform(0.1, 0.17) for _ in range(9)])]))
+    return layers
+
+
+def dark_flame(t):
+    """Hellfire: flame tongues with a white-hot rim round a dark heart (tinted red in game, it's a
+    bright red edge round a nearly black flame)."""
+    p = t * 2 * math.pi
+    outer = [(-0.4, 0.55, 0.24, 0.0), (-0.15, 0.92, 0.27, 1.6), (0.15, 0.78, 0.26, 3.1), (0.42, 0.5, 0.22, 4.4)]
+    return [
+        (1.0, 1.0, tongues(outer, p, 0.13)),
+        (0.22, 1.0, tongues(outer, p, 0.13, 0.86, -0.06)),
+        (0.1, 1.0, tongues([(0.0, 0.62, 0.3, 2.2)], p, 0.09, 0.7, -0.18)),
+    ]
+
+
+def ember(_t):
+    """A rising ember: a bright head and a tapering streak behind it."""
+    head = circle(0, 0.45, 0.2, 40)
+    tail = [(-0.17, 0.42), (0.0, -0.85), (0.17, 0.42)]
+    return [(DARK, 1.0, [head, tail]), (GREY, 1.0, [circle(0, 0.47, 0.14, 32), [(-0.1, 0.45), (0.0, -0.45), (0.1, 0.45)]]), (1.0, 1.0, [circle(0.02, 0.5, 0.075, 24)])]
+
+
+def wisp(t):
+    """A curling tendril of smoke that rises, curls over at the top and thins away."""
+    grow = 0.25 + 0.75 * min(1.0, t * 1.6)
+    thin = 1 - max(0.0, (t - 0.55) / 0.45)
+    n = 40
+    path = []
+    for i in range(n + 1):
+        s = i / n * grow
+        x = 0.28 * math.sin(3.4 * s + 0.6) * s + 0.1 * s
+        y = -0.85 + 1.5 * s
+        if s > 0.75:
+            k = (s - 0.75) / 0.25
+            x += 0.25 * math.sin(k * 2.2)
+            y -= 0.18 * k * k
+        path.append((x, y))
+    w = 0.2 * thin + 0.03
+    def tapered(path, w):
+        left, right = [], []
+        for i, (x, y) in enumerate(path):
+            a = path[max(0, i - 1)]
+            b = path[min(len(path) - 1, i + 1)]
+            dx, dy = b[0] - a[0], b[1] - a[1]
+            m = math.hypot(dx, dy) or 1
+            nx, ny = -dy / m, dx / m
+            ww = w * math.sin(math.pi * min(1, (i + 1) / (len(path)))) ** 0.6
+            left.append((x + nx * ww, y + ny * ww))
+            right.append((x - nx * ww, y - ny * ww))
+        return left + list(reversed(right))
+    return [(DARK, 1.0, [tapered(path, w)]), (GREY, 1.0, [tapered(path, w * 0.62)]), (1.0, 1.0, [tapered([(x - w * 0.15, y) for x, y in path], w * 0.22)])]
+
+
+def burst(t):
+    """An anime power-up burst: a crown of spikes shooting out round an empty middle, then
+    thinning away."""
+    rng = random.Random(31)
+    e = 1 - (1 - t) ** 2
+    inner = 0.18 + 0.42 * e
+    fade = max(0.0, (t - 0.35) / 0.65)
+    layers = []
+    for tone, k in ((DARK, 1.0), (GREY, 0.66), (1.0, 0.33)):
+        spikes = []
+        for i in range(18):
+            a = 2 * math.pi * i / 18 + rng.uniform(-0.05, 0.05)
+            length = (0.18 + 0.32 * rng.random()) * (1 - fade) * (0.5 + 0.5 * e)
+            half = 0.11 * k * (1 - 0.7 * fade)
+            ca, sa = math.cos(a), math.sin(a)
+            tip = inner + length * (1.0 if tone == DARK else 0.85)
+            spikes.append([(math.cos(a - half) * inner, math.sin(a - half) * inner), (ca * min(tip, 0.97), sa * min(tip, 0.97)), (math.cos(a + half) * inner, math.sin(a + half) * inner)])
+        layers.append((tone, 1.0, spikes))
+        rng = random.Random(31)
+    layers.append((1.0, 1.0, ring(inner, 0.02 * (1 - fade) + 0.004)))
+    return layers
+
+
 TEXTURES = {
     # name: (draw, frames (16 = a 4 x 4 flipbook, 4 = a 2 x 2 set, 1 = one image), pixels per frame,
     #        ink outline width in pixels (0 = none))
@@ -290,20 +524,32 @@ TEXTURES = {
     "SpeedLines": (speed_lines, 1, 1024, 0),
     "Kira": (kira, 1, 256, 3),
     "Petal": (petal, 1, 256, 4),
+    # the hellfire set
+    "Chain": (chain, 1, (1024, 256), 5),
+    "Seal": (seal, 1, 1024, 6),
+    "Runes": (runes, 4, 256, 4),
+    "Crack": (crack, 1, 1024, 6),
+    "DarkFlame": (dark_flame, 16, TILE, 5),
+    "Ember": (ember, 1, 256, 3),
+    "Wisp": (wisp, 16, TILE, 4),
+    "Burst": (burst, 16, TILE, 4),
 }
+LOOPING = ("Aura", "ToonFire", "DarkFlame")
 
 
 # -----------------------------------------------------------------------------------------------
 # Blender
 # -----------------------------------------------------------------------------------------------
 def setup(bpy, size):
+    """`size`: pixels (square) or (width, height); the drawing space is -1..1 across the longer side."""
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     scene.render.engine = "CYCLES"
     scene.cycles.samples = 24
     scene.cycles.use_denoising = False
     scene.cycles.device = "CPU"
-    scene.render.resolution_x = scene.render.resolution_y = size
+    w, h = size if isinstance(size, tuple) else (size, size)
+    scene.render.resolution_x, scene.render.resolution_y = w, h
     scene.render.film_transparent = True
     scene.view_settings.view_transform = "Standard"
     scene.render.image_settings.file_format = "PNG"
@@ -430,7 +676,7 @@ def make(bpy, name, out_dir):
         side = int(math.sqrt(frames))
         sheet = np.zeros((size * side, size * side, 4))
         for i in range(frames):
-            t = i / frames if name in ("Aura", "ToonFire") else i / (frames - 1)
+            t = i / frames if name in LOOPING else i / (frames - 1)
             tile = ink(render_frame(bpy, scene, fn(t), tmp), outline)
             r, c = divmod(i, side)
             sheet[r * size:(r + 1) * size, c * size:(c + 1) * size] = tile

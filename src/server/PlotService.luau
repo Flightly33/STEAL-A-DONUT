@@ -33,6 +33,7 @@ local DonutModel = require(Shared.DonutModel)
 local Remotes = require(Shared.Remotes)
 local Signal = require(Shared.Signal)
 local Roam = require(Shared.Roam)
+local HellChains = require(Shared.HellChains)
 local Boxes = require(Shared.Boxes)
 local BoxModel = require(Shared.BoxModel)
 
@@ -431,7 +432,7 @@ end
 --------------------------------------------------------------------------------
 -- How donut `slotIndex` of this player roams their pen (see Roam.luau). The same numbers go on
 -- the model as attributes, so every client can move it along the same path.
-local function roamParams(player: Player, slotIndex: number, sizeId: string?): (Roam.Params, CFrame)
+local function roamParams(player: Player, slotIndex: number, sizeId: string?, donutId: string?): (Roam.Params, CFrame)
 	local slots = PlotService.GetSlotCount(player)
 	local origin = Layout.PlotCFrame(playerPlots[player] or 1, PlotService.GetBaseWorld(player))
 	local center, size = Layout.PenBounds(slots)
@@ -441,7 +442,8 @@ local function roamParams(player: Player, slotIndex: number, sizeId: string?): (
 	return {
 		Seed = (player.UserId % 99991) * 37 + slotIndex * 7919,
 		Home = Layout.SlotHome(slotIndex, slots),
-		Radius = Config.Plots.CellSize * Config.Plots.RoamRadius,
+		-- (hell donuts are chained down: they stay put - HellChains)
+		Radius = if HellChains.Is(donutId) then 0 else Config.Plots.CellSize * Config.Plots.RoamRadius,
 		Speed = Config.Plots.RoamSpeed * math.sqrt(Rarities.Size(sizeId).Scale),
 		Min = Vector2.new(center.X - half.X, center.Z - half.Y),
 		Max = Vector2.new(center.X + half.X, center.Z + half.Y),
@@ -456,7 +458,7 @@ function PlotService.GetDonutPosition(player: Player, slotIndex: number): Vector
 	if not slot or not playerPlots[player] then
 		return nil
 	end
-	local params, origin = roamParams(player, slotIndex, slot.Size)
+	local params, origin = roamParams(player, slotIndex, slot.Size, slot.Id)
 	local state = Roam.At(params, workspace:GetServerTimeNow())
 	return origin * (state.Position + Vector3.new(0, Layout.PlotFloorHeight + 2, 0))
 end
@@ -523,8 +525,11 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 
 	-- It starts in the middle of its patch of the pen; every client walks it around from there.
 	local model = DonutModel.Build(donut, { Scale = Config.Plots.DonutScale, Mutation = slot.Mutation, Size = slot.Size, Calm = true })
-	local params, origin = roamParams(player, slotIndex, slot.Size)
+	local params, origin = roamParams(player, slotIndex, slot.Size, slot.Id)
 	DonutModel.PlaceOn(model, origin * CFrame.new(params.Home + Vector3.new(0, Layout.PlotFloorHeight, 0)))
+	if HellChains.Is(slot.Id) then
+		HellChains.Build(model)
+	end
 	model:SetAttribute("RoamOrigin", origin)
 	model:SetAttribute("RoamHome", params.Home)
 	model:SetAttribute("RoamSeed", params.Seed)

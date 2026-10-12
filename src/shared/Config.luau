@@ -904,7 +904,28 @@ Config.AnimeFX = {
 		SpeedLines = "", -- manga speed lines (the screen flash when a Domer wakes up)
 		Kira = "", -- a four-point twinkle
 		Petal = "", -- a cherry blossom petal
+		-- the hellfire set (the hell donuts' chains, art/anime_vfx/sheet_hellfire.png)
+		Chain = "", -- glowing chain links: a strip that tiles along a Beam
+		Seal = "", -- the sealing circle glowing on the ground under a chained donut
+		Runes = "", -- four glowing marks drifting up from the seal (2x2, random)
+		Crack = "", -- glowing cracks in the ground
+		DarkFlame = "", -- hellfire: a bright edge round a dark flame (4x4, loops)
+		Ember = "", -- a rising ember
+		Wisp = "", -- a curl of smoke (4x4, plays once)
+		Burst = "", -- a power-up burst of spikes (4x4, plays once)
 	} :: { [string]: string },
+}
+
+-- Hell donuts in a pen are held down by glowing chains: four iron stakes round them with chains
+-- to the donut, a sealing circle glowing on the ground, embers and hellfire - and every few
+-- seconds the donut tugs at its chains (it stays on its own patch instead of wandering about).
+-- Any donut's id can go in the list. The chains look like real chain links once the Chain texture
+-- is uploaded (Config.AnimeFX.Textures); until then they're glowing beaded tethers.
+Config.HellChains = {
+	Donuts = { "infernolo", "tralalerobeach", "mangolino", "lagunamax", "tikiglaze", "poseidonut" } :: { string },
+	ChainColor = Color3.fromRGB(255, 132, 40), -- hot iron
+	GlowColor = Color3.fromRGB(255, 64, 24), -- the seal, the shackles, the embers
+	TugEvery = { 5, 10 }, -- seconds between tugs (picked at random in between)
 }
 
 Config.Particles = {
