@@ -894,25 +894,25 @@ Config.DonutFX = {
 -- here, e.g. Aura = "rbxassetid://1234567".
 Config.AnimeFX = {
 	Textures = {
-		Aura = "", -- power-up aura flames (4x4, loops)
-		ToonFire = "", -- cartoon flames (4x4, loops)
-		ShockRing = "", -- impact ring breaking apart (4x4, plays once)
-		Impact = "", -- impact star burst (4x4, plays once)
-		ToonSmoke = "", -- cartoon smoke puff (4x4, plays once)
-		Lightning = "", -- four lightning bolts (2x2, random)
-		Slash = "", -- a crescent sword slash
-		SpeedLines = "", -- manga speed lines (the screen flash when a Domer wakes up)
-		Kira = "", -- a four-point twinkle
-		Petal = "", -- a cherry blossom petal
+		Aura = "rbxassetid://110174697106952", -- power-up aura flames (4x4, loops)
+		ToonFire = "rbxassetid://135782949677244", -- cartoon flames (4x4, loops)
+		ShockRing = "rbxassetid://86184565685955", -- impact ring breaking apart (4x4, plays once)
+		Impact = "rbxassetid://115627718620298", -- impact star burst (4x4, plays once)
+		ToonSmoke = "rbxassetid://90562500479578", -- cartoon smoke puff (4x4, plays once)
+		Lightning = "rbxassetid://119254802921984", -- four lightning bolts (2x2, random)
+		Slash = "rbxassetid://91668912568538", -- a crescent sword slash
+		SpeedLines = "rbxassetid://80600515016974", -- manga speed lines (the screen flash when a Domer wakes up)
+		Kira = "rbxassetid://84808094824631", -- a four-point twinkle
+		Petal = "rbxassetid://118781050577590", -- a cherry blossom petal
 		-- the hellfire set (the hell donuts' chains, art/anime_vfx/sheet_hellfire.png)
-		Chain = "", -- glowing chain links: a strip that tiles along a Beam
-		Seal = "", -- the sealing circle glowing on the ground under a chained donut
-		Runes = "", -- four glowing marks drifting up from the seal (2x2, random)
-		Crack = "", -- glowing cracks in the ground
-		DarkFlame = "", -- hellfire: a bright edge round a dark flame (4x4, loops)
-		Ember = "", -- a rising ember
-		Wisp = "", -- a curl of smoke (4x4, plays once)
-		Burst = "", -- a power-up burst of spikes (4x4, plays once)
+		Chain = "rbxassetid://90794650707666", -- glowing chain links: a strip that tiles along a Beam
+		Seal = "rbxassetid://78376848126661", -- the sealing circle glowing on the ground under a chained donut
+		Runes = "rbxassetid://78564802050906", -- four glowing marks drifting up from the seal (2x2, random)
+		Crack = "rbxassetid://126525628878375", -- glowing cracks in the ground
+		DarkFlame = "rbxassetid://124249233716644", -- hellfire: a bright edge round a dark flame (4x4, loops)
+		Ember = "rbxassetid://83003388268928", -- a rising ember
+		Wisp = "rbxassetid://100836451313228", -- a curl of smoke (4x4, plays once)
+		Burst = "rbxassetid://75041424225508", -- a power-up burst of spikes (4x4, plays once)
 	} :: { [string]: string },
 }
 
