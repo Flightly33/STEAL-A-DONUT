@@ -1,5 +1,5 @@
 """
-HUD icons for Steal a Donut, made in Blender: chunky, glossy 3D icons with a thick dark sticker
+HUD icons for Steal a Donut, made in Blender: chunky 3D icons, cel shaded like a cartoon, with a thick dark sticker
 outline, like the big simulator games. One transparent PNG per icon goes into png/, named like the
 game's own drawn icons (client/UI/Icons), plus a contact sheet of all of them.
 
@@ -9,7 +9,7 @@ In the game: upload the PNGs (Studio: Asset Manager > Bulk Import, or Creator Hu
 paste each image's id into Config.IconImages. Until then the game draws its own icons from Frames.
 
 Everything is built from simple shapes (rounded boxes, cylinders, spheres, tori and extruded
-outlines), lit by three soft lights and rendered with Cycles. The outline and the soft shadow under
+outlines), cartoon (cel) shaded in their materials (toon()) and rendered with Cycles. The outline and the soft shadow under
 it are added afterwards (numpy): the icon's silhouette, grown by OUTLINE pixels.
 """
 
@@ -25,7 +25,7 @@ FILL = 0.8  # how much of the picture the icon fills (the rest is room for the o
 OUTLINE = 20  # outline thickness, pixels at SIZE
 OUTLINE_COLOR = (24, 20, 36)
 SHADOW = (0, 14, 10, 0.4)  # x, y offset (pixels), blur, opacity
-SAMPLES = int(os.environ.get("ICON_SAMPLES", "64"))
+SAMPLES = int(os.environ.get("ICON_SAMPLES", "24"))
 
 # colours (sRGB 0-255)
 RED = (236, 52, 58)
@@ -58,6 +58,93 @@ def lin(c):
     return ((c + 0.055) / 1.055) ** 2.4 if c > 0.04045 else c / 12.92
 
 
+# -----------------------------------------------------------------------------------------------
+# Cartoon (cel) shading, worked out in the material so Cycles can render it: flat colour bands from
+# one light, a crisp white shine streak, and a dark ink line where a part curves away from the
+# camera (so every piece gets its own outline, like a cartoon drawing). Emission only: no real
+# lighting, so the colours come out exactly as picked.
+# -----------------------------------------------------------------------------------------------
+LIGHT_DIR = (-0.45, -0.6, 0.66)  # towards the light: top left, in front
+VIEW_DIR = (0.155, -0.968, 0.252)  # towards the camera
+SHADE = 0.66  # the shadow band: this share of the colour...
+SHADE_HUE = (0.86, 0.88, 1.08)  # ...pushed a little towards blue/purple (cartoon shadows)
+LIGHT_BAND = 1.12  # the lit band facing the light
+INK_EDGE = 0.2  # how far round a curve the ink line starts (0 = only the very edge)
+SHINE_AT = 0.9  # how tight the white shine streak is
+
+
+def _norm(v):
+    n = math.sqrt(sum(c * c for c in v))
+    return tuple(c / n for c in v)
+
+
+def toon(m, rgb, shiny=True):
+    nodes, links = m.node_tree.nodes, m.node_tree.links
+    nodes.clear()
+    out = nodes.new("ShaderNodeOutputMaterial")
+    geo = nodes.new("ShaderNodeNewGeometry")
+
+    def dot(v):
+        d = nodes.new("ShaderNodeVectorMath")
+        d.operation = "DOT_PRODUCT"
+        links.new(geo.outputs["Normal"], d.inputs[0])
+        d.inputs[1].default_value = v
+        return d.outputs["Value"]
+
+    def rgba(c):
+        return (c[0], c[1], c[2], 1)
+
+    base = [lin(c) for c in rgb]
+    lit = [min(1.0, c * LIGHT_BAND) for c in base]
+    dark = [min(1.0, base[i] * SHADE * SHADE_HUE[i]) for i in range(3)]
+    ink = [lin(c) for c in OUTLINE_COLOR]
+    L = _norm(LIGHT_DIR)
+    V = _norm(VIEW_DIR)
+    H = _norm(tuple(L[i] + V[i] for i in range(3)))
+    # bands from the light
+    ramp = nodes.new("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = "CONSTANT"
+    e = ramp.color_ramp.elements
+    e[0].position, e[0].color = 0.0, rgba(dark)
+    e[1].position, e[1].color = 0.5, rgba(base)
+    extra = e.new(0.8)
+    extra.color = rgba(lit)
+    # (dot -1..1 -> 0..1)
+    remap = nodes.new("ShaderNodeMath")
+    remap.operation = "MULTIPLY_ADD"
+    links.new(dot(L), remap.inputs[0])
+    remap.inputs[1].default_value = 0.5
+    remap.inputs[2].default_value = 0.5
+    links.new(remap.outputs[0], ramp.inputs["Fac"])
+    color = ramp.outputs["Color"]
+    # the shine streak
+    if shiny:
+        spec = nodes.new("ShaderNodeMath")
+        spec.operation = "GREATER_THAN"
+        links.new(dot(H), spec.inputs[0])
+        spec.inputs[1].default_value = SHINE_AT
+        mix = nodes.new("ShaderNodeMix")
+        mix.data_type = "RGBA"
+        links.new(spec.outputs[0], mix.inputs["Factor"])
+        links.new(color, mix.inputs[6])
+        mix.inputs[7].default_value = (1, 1, 1, 1)
+        color = mix.outputs[2]
+    # the ink line where it curves away
+    edge = nodes.new("ShaderNodeMath")
+    edge.operation = "LESS_THAN"
+    links.new(dot(V), edge.inputs[0])
+    edge.inputs[1].default_value = INK_EDGE
+    inked = nodes.new("ShaderNodeMix")
+    inked.data_type = "RGBA"
+    links.new(edge.outputs[0], inked.inputs["Factor"])
+    links.new(color, inked.inputs[6])
+    inked.inputs[7].default_value = rgba(ink)
+    em = nodes.new("ShaderNodeEmission")
+    links.new(inked.outputs[2], em.inputs["Color"])
+    em.inputs["Strength"].default_value = 1.0
+    links.new(em.outputs[0], out.inputs["Surface"])
+
+
 class Kit:
     """Builds the shapes of one icon into a collection, under one empty (to tilt the whole icon)."""
 
@@ -76,17 +163,7 @@ class Kit:
             return self.mats[key]
         m = self.bpy.data.materials.new("M%d" % len(self.mats))
         m.use_nodes = True
-        b = m.node_tree.nodes["Principled BSDF"]
-        color = (lin(rgb[0]), lin(rgb[1]), lin(rgb[2]), 1)
-        b.inputs["Base Color"].default_value = color
-        b.inputs["Roughness"].default_value = rough
-        b.inputs["Metallic"].default_value = metal
-        b.inputs["Coat Weight"].default_value = coat
-        b.inputs["Coat Roughness"].default_value = 0.06
-        b.inputs["Specular IOR Level"].default_value = 0.6
-        if emit:
-            b.inputs["Emission Color"].default_value = color
-            b.inputs["Emission Strength"].default_value = emit
+        toon(m, rgb, shiny=rough < 0.5 or metal > 0.5)
         self.mats[key] = m
         return m
 
@@ -573,7 +650,7 @@ def setup_scene(bpy):
     scene.render.resolution_y = SIZE
     scene.render.film_transparent = True
     scene.view_settings.view_transform = "Standard"
-    scene.view_settings.look = "Medium High Contrast"
+    scene.view_settings.look = "None"
     scene.render.image_settings.file_format = "PNG"
     scene.render.image_settings.color_mode = "RGBA"
     world = bpy.data.worlds.new("World")
