@@ -62,11 +62,13 @@ UpdateNotes.List = {
 		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
 		Sections = {
 			{ Title = "The Opening Scene", Tag = "NEW", Lines = {
-				"New players get a little movie when they first join: fly over the map, then walk up to your own donut shop and ask for a box",
+				"New players get a little movie when they first join: the game's name pops up as a donut - STEAL A dripping with pink frosting and sprinkles, DONUT baked golden with a real donut for the O",
+				"Then fly over the map, walk up to your own donut shop and ask for a box",
 				"Just as the baker hands it over, Domer zips in out of nowhere, grabs it, grins at you... and runs off to the first biome with it!",
 				"Then the camera swoops down behind you and the tutorial starts: go and get some donut boxes back",
 				"Want to see it again? Press WATCH INTRO in Settings (from the lobby). SKIP ends it any time",
 				"Every base's donut shop has a baker in the window now: he looks round at you when you walk past",
+				"Smooth, lifelike moves all the way through: Domer leans, skids, wobbles and banks round corners, the baker jumps back in surprise, and the camera glides from shot to shot",
 			} },
 			{ Title = "A New Look", Tag = "NEW Look", Lines = {
 				"Every window has a new look: an orange header covered in studs, like the bricks the whole game is built from, a big red X and a dark green body",

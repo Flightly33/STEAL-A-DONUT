@@ -50,6 +50,7 @@ local State = require(script.Parent.State)
 local Bases = require(script.Parent.Bases)
 local Bakers = require(script.Parent.Bakers)
 local SpeedLines = require(script.Parent.SpeedLines)
+local DonutTitle = require(script.Parent.UI.DonutTitle)
 
 local Intro = {}
 
@@ -227,8 +228,8 @@ local function stepBubble(b: Bubble, now: number): boolean
 	return true
 end
 
--- The title card, black bars and SKIP button.
-type Screen = { Gui: ScreenGui, Title: TextLabel, TitleScale: UIScale, TitleStroke: UIStroke, Top: Frame, Bottom: Frame, Skip: GuiButton }
+-- The title card (a donut: client/UI/DonutTitle), black bars and SKIP button.
+type Screen = { Gui: ScreenGui, Title: DonutTitle.Title, Top: Frame, Bottom: Frame, Skip: GuiButton }
 local function buildScreen(): Screen
 	local gui = Theme.ScreenGui("Intro", 60)
 	gui.IgnoreGuiInset = true
@@ -244,35 +245,7 @@ local function buildScreen(): Screen
 		return f
 	end
 	local top, bottom = bar("TopBar", 0), bar("BottomBar", 1)
-	local title = Instance.new("TextLabel")
-	title.Name = "Title"
-	title.BackgroundTransparency = 1
-	title.AnchorPoint = Vector2.new(0.5, 0.5)
-	title.Position = UDim2.fromScale(0.5, 0.4)
-	title.Size = UDim2.fromScale(0.82, 0.24)
-	title.Font = Enum.Font.LuckiestGuy
-	title.Text = "STEAL A DONUT"
-	title.TextScaled = true
-	title.TextColor3 = WHITE
-	title.TextTransparency = 1
-	title.Rotation = -4
-	title.Parent = gui
-	local gradient = Instance.new("UIGradient")
-	gradient.Rotation = 90
-	gradient.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, rgb(255, 245, 170)),
-		ColorSequenceKeypoint.new(0.5, rgb(255, 170, 60)),
-		ColorSequenceKeypoint.new(1, rgb(255, 90, 160)),
-	})
-	gradient.Parent = title
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 7
-	stroke.Color = rgb(60, 20, 55)
-	stroke.Transparency = 1
-	stroke.Parent = title
-	local scale = Instance.new("UIScale")
-	scale.Scale = 0.3
-	scale.Parent = title
+	local title = DonutTitle.new(gui)
 	local skip = Theme.Button({
 		Name = "Skip",
 		Text = "SKIP",
@@ -283,7 +256,7 @@ local function buildScreen(): Screen
 		Parent = gui,
 	})
 	skip.ZIndex = 5
-	return { Gui = gui, Title = title, TitleScale = scale, TitleStroke = stroke, Top = top, Bottom = bottom, Skip = skip }
+	return { Gui = gui, Title = title, Top = top, Bottom = bottom, Skip = skip }
 end
 
 -- Domer for the scene: the first biome's, with a grin and a wink he can switch to.
@@ -720,7 +693,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		TweenService:Create(screen.Top, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Size = UDim2.fromScale(1, 0) }):Play()
 		TweenService:Create(screen.Bottom, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Size = UDim2.fromScale(1, 0) }):Play()
 		screen.Skip.Visible = false
-		screen.Title.Visible = false
+		screen.Title.Frame.Visible = false
 		task.delay(0.45, function()
 			screen.Gui:Destroy()
 			if not domerConnection then
@@ -1138,13 +1111,10 @@ function Intro.Play(opts: { Speed: number? }?)
 		local bars = 0.1 * smooth(t / 0.6)
 		screen.Top.Size = UDim2.fromScale(1, bars)
 		screen.Bottom.Size = UDim2.fromScale(1, bars)
-		local inA = (t - T.TitleIn) / 0.5
-		local outA = (t - T.TitleOut) / 0.45
-		local alpha = if t < T.TitleIn then 0 elseif t < T.TitleOut then smooth(inA * 2) else 1 - smooth(outA)
-		screen.Title.TextTransparency = 1 - alpha
-		screen.TitleStroke.Transparency = 1 - alpha
-		screen.TitleScale.Scale = if t < T.TitleOut then 0.3 + 0.7 * backOut(inA) + math.sin(t * 2.2) * 0.01 else 1 + 0.25 * smooth(outA)
-		screen.Title.Rotation = -4 + math.sin(t * 1.7) * 1.2
+		-- the title: its letters pop in, the frosting drips, then it swells and fades away
+		local outA = smooth((t - T.TitleOut) / 0.45)
+		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		DonutTitle.Step(screen.Title, t, T.TitleIn, 1 - outA, viewport, 1 + 0.15 * outA)
 		if once("TitleIn", t, T.TitleIn) then
 			sound("rbxasset://sounds/swordlunge.wav", 0.8, 0.5)
 		end
