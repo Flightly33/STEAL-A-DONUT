@@ -832,6 +832,19 @@ Config.Tutorial = {
 	FreeEgg = "Sprinkle",
 }
 
+-- The opening cinematic (client/Intro): the STEAL A DONUT title over the map, then the camera flies
+-- to your base, you ask the baker for a donut box and Domer snatches it and runs off to the first
+-- biome - then the game starts as normal (the Update Log, then the tutorial).
+--   Enabled:   false = never plays
+--   EveryJoin: false = only for brand-new players (anyone can watch it again: Settings > WATCH INTRO);
+--              true = every time anyone joins
+--   Bubble:    what you say to the baker
+Config.Intro = {
+	Enabled = true,
+	EveryJoin = false,
+	Bubble = "One Donut Box Please",
+}
+
 -- Daily Rewards (shared/DailyRewards, server/DailyService, UI/DailyRewards): one reward a day, Day 1
 -- to Day 7, then round again from Day 1. A new day starts at midnight on the same clock as the
 -- Eternal Storm (Config.EternalStorm.Schedule: US Pacific). Miss a few days and nothing is lost:

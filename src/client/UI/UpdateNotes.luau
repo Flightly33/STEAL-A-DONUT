@@ -458,6 +458,12 @@ function UpdateNotes.Init()
 				loading += 0.25
 			end
 			task.wait(1.5)
+			-- ...and the opening cinematic (client/Intro), for new players
+			local intro = 0
+			while player:GetAttribute("Intro") and intro < 120 do
+				task.wait(0.25)
+				intro += 0.25
+			end
 			local waited = 0
 			while Modal.AnyOpen() and waited < 600 do
 				task.wait(0.5)

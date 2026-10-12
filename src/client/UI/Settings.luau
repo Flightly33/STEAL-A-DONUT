@@ -207,7 +207,7 @@ function Settings.Init()
 		end
 	end)
 
-	modal = Modal.new("Settings", Theme.Colors.Gray, Vector2.new(520, 540))
+	modal = Modal.new("Settings", Theme.Colors.Gray, Vector2.new(520, 600))
 	local body = modal.Body
 
 	Theme.Label({ Text = "MUSIC", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 36), Parent = body })
@@ -284,6 +284,16 @@ function Settings.Init()
 	hide.Activated:Connect(function()
 		modal:Close()
 		HideUI.Set(true)
+	end)
+	-- Watch the opening cinematic again (client/Intro)
+	local intro = Theme.Button({ Name = "WatchIntro", Text = "WATCH INTRO", Color = Theme.Colors.Purple, Size = UDim2.fromOffset(158, 52), Position = UDim2.fromOffset(0, 436), Parent = body })
+	intro.Activated:Connect(function()
+		local ok, why = require(script.Parent.Parent.Intro).Watch()
+		if ok then
+			modal:Close()
+		elseif why then
+			require(script.Parent.Notifications).Toast(why, "error")
+		end
 	end)
 	local percent = Theme.Label({ Text = "", Font = Theme.Font, Size = UDim2.fromOffset(60, 30), Position = UDim2.fromOffset(430, 193), StrokeThickness = 1.5, Parent = body })
 

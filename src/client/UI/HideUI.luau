@@ -17,8 +17,9 @@ local HideUI = {}
 local KEY = Enum.KeyCode.X
 -- Roblox's own GUI that goes away too (the emote wheel and health bar aren't used by the game)
 local CORE_GUI = { Enum.CoreGuiType.Chat, Enum.CoreGuiType.PlayerList, Enum.CoreGuiType.Backpack }
--- Never hidden: our own pill, the steal prompts (you still need to see "Steal") and the loading screen
-local KEEP = { ShowUI = true, ProximityPrompts = true, LoadingScreen = true }
+-- Never hidden: our own pill, the steal prompts (you still need to see "Steal"), the loading screen
+-- and the opening cinematic (client/Intro)
+local KEEP = { ShowUI = true, ProximityPrompts = true, LoadingScreen = true, Intro = true }
 local FADE_AFTER = 3 -- seconds before the pill fades out on a keyboard
 
 local hidden = false
@@ -99,7 +100,8 @@ function HideUI.IsHidden(): boolean
 	return hidden
 end
 
-function HideUI.Set(hide: boolean)
+-- `quiet`: no SHOW UI pill (the opening cinematic clears the screen and brings it back itself).
+function HideUI.Set(hide: boolean, quiet: boolean?)
 	if hide == hidden then
 		return
 	end
@@ -125,9 +127,9 @@ function HideUI.Set(hide: boolean)
 		setCore(true)
 	end
 	if pillGui then
-		pillGui.Enabled = hide
+		pillGui.Enabled = hide and not quiet
 	end
-	showPill(hide)
+	showPill(hide and not quiet)
 end
 
 function HideUI.Toggle()
