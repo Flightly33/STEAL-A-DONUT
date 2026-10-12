@@ -218,6 +218,20 @@ local function build()
 		end
 	end)
 
+	-- The opening cutscene, for testing: play it now, wherever you are (normal speed or slowed down
+	-- to look at it closely). SKIP still ends it.
+	local cutscene = section("Opening cutscene (test)", 170)
+	for _, entry in { { Text = "PLAY CUTSCENE", Speed = 1 }, { Text = "PLAY AT HALF SPEED", Speed = 0.5 } } do
+		button(cutscene, entry.Text, Theme.Colors.Purple, function()
+			local ok, why = require(script.Parent.Parent.Intro).Watch(true, entry.Speed)
+			if ok then
+				modal:Close()
+			elseif why then
+				require(script.Parent.Notifications).Toast(why, "error")
+			end
+		end)
+	end
+
 	-- Donuts: pick one, a mutation and a size
 	local donutSection = section("Donuts (pick one, then give or spawn it)", 150)
 	local mutations = { "None" }

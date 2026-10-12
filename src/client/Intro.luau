@@ -1171,9 +1171,15 @@ end
 
 -- Settings > WATCH INTRO: again, from the lobby (not while you're carrying something or out in
 -- the lane). Returns false (with why) if you can't right now.
-function Intro.Watch(): (boolean, string?)
+-- The admin panel's buttons pass `anywhere` (no lobby or carrying check: for testing) and a
+-- `speed` (0.5 = half speed, to look at it closely).
+function Intro.Watch(anywhere: boolean?, speed: number?): (boolean, string?)
 	if playing then
 		return false, "It's already playing!"
+	end
+	if anywhere then
+		task.spawn(Intro.Play, { Speed = speed or 1 })
+		return true, nil
 	end
 	if player:GetAttribute("CarryKind") then
 		return false, "Put down what you're carrying first!"

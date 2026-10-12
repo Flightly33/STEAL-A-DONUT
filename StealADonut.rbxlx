@@ -41276,9 +41276,15 @@ end
 
 -- Settings > WATCH INTRO: again, from the lobby (not while you're carrying something or out in
 -- the lane). Returns false (with why) if you can't right now.
-function Intro.Watch(): (boolean, string?)
+-- The admin panel's buttons pass `anywhere` (no lobby or carrying check: for testing) and a
+-- `speed` (0.5 = half speed, to look at it closely).
+function Intro.Watch(anywhere: boolean?, speed: number?): (boolean, string?)
 	if playing then
 		return false, "It's already playing!"
+	end
+	if anywhere then
+		task.spawn(Intro.Play, { Speed = speed or 1 })
+		return true, nil
 	end
 	if player:GetAttribute("CarryKind") then
 		return false, "Put down what you're carrying first!"
@@ -44458,6 +44464,20 @@ local function build()
 			b.Visible = value == true
 		end
 	end)
+
+	-- The opening cutscene, for testing: play it now, wherever you are (normal speed or slowed down
+	-- to look at it closely). SKIP still ends it.
+	local cutscene = section("Opening cutscene (test)", 170)
+	for _, entry in { { Text = "PLAY CUTSCENE", Speed = 1 }, { Text = "PLAY AT HALF SPEED", Speed = 0.5 } } do
+		button(cutscene, entry.Text, Theme.Colors.Purple, function()
+			local ok, why = require(script.Parent.Parent.Intro).Watch(true, entry.Speed)
+			if ok then
+				modal:Close()
+			elseif why then
+				require(script.Parent.Notifications).Toast(why, "error")
+			end
+		end)
+	end
 
 	-- Donuts: pick one, a mutation and a size
 	local donutSection = section("Donuts (pick one, then give or spawn it)", 150)
