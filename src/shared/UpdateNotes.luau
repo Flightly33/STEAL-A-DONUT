@@ -75,6 +75,21 @@ UpdateNotes.List = {
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
 				"Trails moved into the Shop, right next to Skins: press Skins and pick the Trails tab",
 			} },
+			{ Title = "Anime Effects", Tag = "NEW", Lines = {
+				"Every single donut has its own effects now, and no two donuts look the same",
+				"Rare donuts and up get anime effects: power-up auras, cartoon fire, sword slashes, twinkles, lightning zaps and big impact flashes",
+				"Common, Uncommon and Rare donuts get a little something too: twinkles, cherry petals, snow, bubbles and more, kept soft so your base stays smooth",
+				"Domer powers up when he wakes: an impact flash, speed lines across your screen, and an aura that follows him while he chases you",
+				"The later the biome, the wilder his aura: his biome's own effects, and from Haunted Donuttery on, a flash under his feet with every stomp",
+				"Cosmic Domer roars out of the black hole in a storm of energy, his eyes glint, and every slam hits with a giant impact flash",
+			} },
+			{ Title = "Sleepy Domers", Tag = "NEW", Lines = {
+				"Every Domer from Glacier Glaze on has his own way of sleeping, made for his biome",
+				"Zipped into a sleeping bag with hot cocoa, soaking in a hot tub of caramel, face down on a giant chocolate bar, swinging in a candy cane hammock...",
+				"...slumped in a beanbag with a controller, tucked into a comfy coffin, napping on a cloud, asleep at his gaming desk, feet up in a recliner...",
+				"...flopped over a giant gear, floating on a donut pool float, stuck in a glitchy T-pose, and curled up floating in space with a sleep mask",
+				"His bed stays where it is when he gets up to chase you",
+			} },
 			{ Title = "Brick Pets", Tag = "NEW Look", Lines = {
 				"Every pet has been rebuilt out of bricks with studs on top, just like Domer and the donuts",
 				"Square shiny eyes that blink, rosy cheeks, and every ear, wing, tail, crown and halo made of bricks too",

@@ -144,13 +144,13 @@ local Moves: { [string]: Move } = {
 		t.ToonFire = { c[2]:Lerp(WHITE, 0.4), c[1], c[3] }
 	end,
 	slashes = function(t, i, _r, _c)
-		t.Slashes = { Rate = 1.4 * i }
+		t.Slashes = { Rate = 2.2 * i }
 	end,
 	kira = function(t, i, _r, _c)
-		t.Kira = { Rate = 3 * i }
+		t.Kira = { Rate = 5 * i }
 	end,
 	zaps = function(t, i, _r, _c)
-		t.Zaps = { Rate = 4 * i }
+		t.Zaps = { Rate = 7 * i }
 	end,
 	impact = function(t, i, r, _c)
 		t.Impact = { Min = r:NextNumber(2.5, 3.5) / i, Max = r:NextNumber(5, 7) / i }

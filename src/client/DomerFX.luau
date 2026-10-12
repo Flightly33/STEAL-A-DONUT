@@ -105,12 +105,16 @@ function DomerFX.Wake(model: Model, areaId: number)
 	end
 end
 
+export type Chase = { Active: boolean }
+
 -- His power-up while he's after you (State "Waking" or "Chasing"); stops by itself when he gives
--- up or is gone.
-function DomerFX.Chase(model: Model, areaId: number)
+-- up or is gone (then Active turns false).
+function DomerFX.Chase(model: Model, areaId: number): Chase
+	local handle: Chase = { Active = true }
 	local root = model:FindFirstChild("HumanoidRootPart") :: BasePart?
 	if not root then
-		return
+		handle.Active = false
+		return handle
 	end
 	local style = DomerFX.Style(areaId)
 	local level = DomerFX.Level(areaId)
@@ -144,6 +148,7 @@ function DomerFX.Chase(model: Model, areaId: number)
 	local nextStomp = os.clock() + 1
 	local connection: RBXScriptConnection
 	local function stop()
+		handle.Active = false
 		connection:Disconnect()
 		for _, e in emitters do
 			e.Enabled = false
@@ -154,8 +159,8 @@ function DomerFX.Chase(model: Model, areaId: number)
 		end)
 	end
 	connection = RunService.RenderStepped:Connect(function()
-		local state = model:GetAttribute("State")
-		if not model.Parent or not root.Parent or (state ~= "Waking" and state ~= "Chasing") then
+		local ok, state = pcall(model.GetAttribute, model, "State") -- (he may be gone)
+		if not ok or not model.Parent or not root.Parent or (state ~= "Waking" and state ~= "Chasing") then
 			stop()
 			return
 		end
@@ -168,6 +173,7 @@ function DomerFX.Chase(model: Model, areaId: number)
 			DomerFX.Impact(feet.Position, colors, SCALE * 0.8, 0.6)
 		end
 	end)
+	return handle
 end
 
 -- Asleep: the last biomes' Domers sparkle a little (a part of his model, so it moves with him).

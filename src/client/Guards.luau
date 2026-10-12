@@ -467,8 +467,8 @@ local function alertSign(model: Model, head: BasePart)
 		board:Destroy()
 	end
 	connection = RunService.RenderStepped:Connect(function()
-		local state = model:GetAttribute("State")
-		if not model.Parent or not head.Parent or (state ~= "Waking" and state ~= "Chasing") then
+		local ok, state = pcall(model.GetAttribute, model, "State") -- (he may be gone)
+		if not ok or not model.Parent or not head.Parent or (state ~= "Waking" and state ~= "Chasing") then
 			remove()
 			return
 		end
@@ -531,7 +531,7 @@ local function onGuardAdded(instance: Instance)
 		if head and head:IsA("BasePart") then
 			grunt(head)
 			local sign: BasePart? = nil
-			local powered = false
+			local chase: DomerFX.Chase? = nil
 			local function update()
 				local state = instance:GetAttribute("State")
 				local alert = state == "Waking" or state == "Chasing"
@@ -539,12 +539,9 @@ local function onGuardAdded(instance: Instance)
 					sign = alertSign(instance, head)
 				end
 				-- his anime effects: the impact frame as he wakes, his aura while he's after you
-				if alert and not powered and type(areaId) == "number" then
-					powered = true
+				if alert and not (chase and chase.Active) and type(areaId) == "number" then
 					DomerFX.Wake(instance, areaId)
-					DomerFX.Chase(instance, areaId)
-				elseif not alert then
-					powered = false
+					chase = DomerFX.Chase(instance, areaId)
 				end
 			end
 			instance:GetAttributeChangedSignal("State"):Connect(update)

@@ -39,6 +39,7 @@ local function build(color: Color3): (ScreenGui, { GuiObject })
 		image.SizeConstraint = Enum.SizeConstraint.RelativeXX
 		image.Image = custom
 		image.ImageColor3 = color
+		image.ImageTransparency = 1 -- (RenderStepped fades it in)
 		image.Parent = screen
 		table.insert(items, image)
 	else
@@ -65,7 +66,7 @@ local function build(color: Color3): (ScreenGui, { GuiObject })
 			line.Position = UDim2.fromScale(0.5 + math.cos(angle) * middle, 0.5 + math.sin(angle) * middle)
 			line.Size = UDim2.new(length, 0, 0, rng:NextInteger(2, 7))
 			line.Rotation = math.deg(angle)
-			line:SetAttribute("Base", line.BackgroundTransparency)
+			line.BackgroundTransparency = 1 -- (RenderStepped fades it in)
 			line.Parent = square
 			table.insert(items, line)
 		end
