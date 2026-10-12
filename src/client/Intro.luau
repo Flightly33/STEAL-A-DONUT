@@ -33,6 +33,7 @@ local GuardModel = require(Shared.GuardModel)
 local BoxModel = require(Shared.BoxModel)
 local Puppet = require(Shared.Puppet)
 local AnimeFX = require(Shared.AnimeFX)
+local Signal = require(Shared.Signal)
 
 local Theme = require(script.Parent.UI.Theme)
 local HideUI = require(script.Parent.UI.HideUI)
@@ -70,8 +71,8 @@ local T = {
 Intro.Times = T
 
 local playing = false
-local finishedSignal = Instance.new("BindableEvent")
-Intro.Finished = finishedSignal.Event
+-- fires when it ends (true = skipped)
+Intro.Finished = Signal.new()
 
 function Intro.IsPlaying(): boolean
 	return playing
@@ -475,7 +476,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 		player:SetAttribute("Intro", nil)
 		playing = false
-		finishedSignal:Fire(skipped)
+		Intro.Finished:Fire(skipped)
 	end
 	screen.Skip.Activated:Connect(function()
 		skipped = true
