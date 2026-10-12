@@ -10,8 +10,8 @@
 	  while you're close enough to grab one of his boxes (their prompts' reach), louder the closer
 	  you get to him - or, with no snore pasted there, a deep rattling breath in and a soft breath
 	  out made from Roblox's own sounds, whenever you're near him.
-	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId),
-	  and a rainbow "!?" pops up over his head, glowing a little and turning round (Config.Guard.Alert)
+	* The moment he wakes up to chase you (silently: grabbing his box plays Config.Guard.GrabSounds),
+	  a rainbow "!?" pops up over his head, glowing a little and turning round (Config.Guard.Alert)
 	  for as long as he's after you (his model's "State": Waking or Chasing).
 	* When you steal a box the server spawns your chasing guard: your sleeping one disappears in a
 	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
@@ -290,41 +290,6 @@ local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: bool
 	end
 end
 
--- The angry grunt when he wakes up: a deep, growly "HUUGH!" with a heavy thump.
-local function grunt(part: BasePart)
-	local custom = Config.Guard.GruntSoundId
-	type Layer = { Id: string, Speed: number, Volume: number, Growl: boolean }
-	local layers: { Layer } = if custom ~= ""
-		then { { Id = custom, Speed = 1, Volume = 1, Growl = false } }
-		else {
-			{ Id = "rbxasset://sounds/uuhhh.mp3", Speed = 0.5, Volume = 1.3, Growl = true },
-			{ Id = "rbxasset://sounds/action_jump_land.mp3", Speed = 0.4, Volume = 0.8, Growl = false },
-		}
-	for _, layer in layers do
-		local sound = Instance.new("Sound")
-		sound.Name = "Grunt"
-		sound.SoundId = layer.Id
-		sound.PlaybackSpeed = layer.Speed
-		sound.Volume = layer.Volume
-		sound.RollOffMinDistance = 30
-		sound.RollOffMaxDistance = 300
-		if layer.Growl then
-			local growl = Instance.new("DistortionSoundEffect")
-			growl.Level = 0.35
-			growl.Parent = sound
-			local eq = Instance.new("EqualizerSoundEffect")
-			eq.LowGain = 4
-			eq.HighGain = -8
-			eq.Parent = sound
-		end
-		sound.Parent = part
-		sound:Play()
-		task.delay(4, function()
-			sound:Destroy()
-		end)
-	end
-end
-
 local function buildSleeper(areaId: number)
 	local map = workspace:WaitForChild("Map")
 	local lane = map:WaitForChild("Lane")
@@ -524,12 +489,11 @@ local function onGuardAdded(instance: Instance)
 			sleeper.Snoring = false
 		end
 	end
-	-- Woken up: an angry grunt, and the "!?" over his head (again each time he's woken up while
+	-- Woken up: the "!?" over his head (again each time he's woken up while
 	-- walking back: the server sets his State)
 	task.spawn(function()
 		local head = instance:WaitForChild("Head", 3)
 		if head and head:IsA("BasePart") then
-			grunt(head)
 			local sign: BasePart? = nil
 			local chase: DomerFX.Chase? = nil
 			local function update()

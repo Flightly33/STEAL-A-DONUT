@@ -105,6 +105,7 @@ UpdateNotes.List = {
 				"...slumped in a beanbag with a controller, tucked into a comfy coffin, napping on a cloud, asleep at his gaming desk, feet up in a recliner...",
 				"...flopped over a giant gear, floating on a donut pool float, stuck in a glitchy T-pose, and curled up floating in space with a sleep mask",
 				"His bed stays where it is when he gets up to chase you",
+				"No more grunt when he wakes up, and the box grab sounds are louder",
 			} },
 			{ Title = "Brick Pets", Tag = "NEW Look", Lines = {
 				"Every pet has been rebuilt out of bricks with studs on top, just like Domer and the donuts",

@@ -2346,18 +2346,18 @@ Config.Guard = {
 	-- he doesn't stand frozen for a moment the first time he wakes up.
 	WalkAnimation = "rbxassetid://180426354",
 	IdleAnimation = "rbxassetid://180435571",
-	-- His snore and the angry grunt when he wakes up. "" = made from Roblox's own sounds; paste
+	-- His snore. "" = made from Roblox's own sounds; paste
 	-- "rbxassetid://..." from the Creator Store to use a real recording. A pasted snore plays only
 	-- while you're close enough to grab one of his boxes, louder the closer you are to him:
 	-- SnoreVolume right next to him, a third of it at the far side of his boxes.
 	SnoreSoundId = "rbxassetid://9115480677",
 	SnoreVolume = 0.45,
-	GruntSoundId = "",
 	-- Grabbing one of his boxes: these all play at once (Volume: 0 to 10, 1 = as uploaded). An empty
 	-- list plays the built-in swipe and "got it!" jingle instead (eggs and meteor shards always do).
+	-- These two are the chase sounds (he wakes up without a sound of his own): keep them loud.
 	GrabSounds = {
-		{ Id = "rbxassetid://6506461886", Volume = 0.5 },
-		{ Id = "rbxassetid://135439749484858", Volume = 0.5 },
+		{ Id = "rbxassetid://6506461886", Volume = 1 },
+		{ Id = "rbxassetid://135439749484858", Volume = 1 },
 	} :: { { Id: string, Volume: number } },
 	-- The "!?" over his head while he's waking up and chasing you (client/Guards): rainbow letters
 	-- with a soft glow, turning round Spin times a second. Size in studs; Glow: how bright (1 = flat).
@@ -17075,6 +17075,7 @@ UpdateNotes.List = {
 				"...slumped in a beanbag with a controller, tucked into a comfy coffin, napping on a cloud, asleep at his gaming desk, feet up in a recliner...",
 				"...flopped over a giant gear, floating on a donut pool float, stuck in a glitchy T-pose, and curled up floating in space with a sleep mask",
 				"His bed stays where it is when he gets up to chase you",
+				"No more grunt when he wakes up, and the box grab sounds are louder",
 			} },
 			{ Title = "Brick Pets", Tag = "NEW Look", Lines = {
 				"Every pet has been rebuilt out of bricks with studs on top, just like Domer and the donuts",
@@ -39315,8 +39316,8 @@ return GiantFX
 	  while you're close enough to grab one of his boxes (their prompts' reach), louder the closer
 	  you get to him - or, with no snore pasted there, a deep rattling breath in and a soft breath
 	  out made from Roblox's own sounds, whenever you're near him.
-	* The moment he wakes up to chase you, he lets out an angry grunt (Config.Guard.GruntSoundId),
-	  and a rainbow "!?" pops up over his head, glowing a little and turning round (Config.Guard.Alert)
+	* The moment he wakes up to chase you (silently: grabbing his box plays Config.Guard.GrabSounds),
+	  a rainbow "!?" pops up over his head, glowing a little and turning round (Config.Guard.Alert)
 	  for as long as he's after you (his model's "State": Waking or Chasing).
 	* When you steal a box the server spawns your chasing guard: your sleeping one disappears in a
 	  puff of smoke, and lies back down once the chasing one has walked back to his corner. His
@@ -39595,41 +39596,6 @@ local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: bool
 	end
 end
 
--- The angry grunt when he wakes up: a deep, growly "HUUGH!" with a heavy thump.
-local function grunt(part: BasePart)
-	local custom = Config.Guard.GruntSoundId
-	type Layer = { Id: string, Speed: number, Volume: number, Growl: boolean }
-	local layers: { Layer } = if custom ~= ""
-		then { { Id = custom, Speed = 1, Volume = 1, Growl = false } }
-		else {
-			{ Id = "rbxasset://sounds/uuhhh.mp3", Speed = 0.5, Volume = 1.3, Growl = true },
-			{ Id = "rbxasset://sounds/action_jump_land.mp3", Speed = 0.4, Volume = 0.8, Growl = false },
-		}
-	for _, layer in layers do
-		local sound = Instance.new("Sound")
-		sound.Name = "Grunt"
-		sound.SoundId = layer.Id
-		sound.PlaybackSpeed = layer.Speed
-		sound.Volume = layer.Volume
-		sound.RollOffMinDistance = 30
-		sound.RollOffMaxDistance = 300
-		if layer.Growl then
-			local growl = Instance.new("DistortionSoundEffect")
-			growl.Level = 0.35
-			growl.Parent = sound
-			local eq = Instance.new("EqualizerSoundEffect")
-			eq.LowGain = 4
-			eq.HighGain = -8
-			eq.Parent = sound
-		end
-		sound.Parent = part
-		sound:Play()
-		task.delay(4, function()
-			sound:Destroy()
-		end)
-	end
-end
-
 local function buildSleeper(areaId: number)
 	local map = workspace:WaitForChild("Map")
 	local lane = map:WaitForChild("Lane")
@@ -39829,12 +39795,11 @@ local function onGuardAdded(instance: Instance)
 			sleeper.Snoring = false
 		end
 	end
-	-- Woken up: an angry grunt, and the "!?" over his head (again each time he's woken up while
+	-- Woken up: the "!?" over his head (again each time he's woken up while
 	-- walking back: the server sets his State)
 	task.spawn(function()
 		local head = instance:WaitForChild("Head", 3)
 		if head and head:IsA("BasePart") then
-			grunt(head)
 			local sign: BasePart? = nil
 			local chase: DomerFX.Chase? = nil
 			local function update()

@@ -81,18 +81,18 @@ Config.Guard = {
 	-- he doesn't stand frozen for a moment the first time he wakes up.
 	WalkAnimation = "rbxassetid://180426354",
 	IdleAnimation = "rbxassetid://180435571",
-	-- His snore and the angry grunt when he wakes up. "" = made from Roblox's own sounds; paste
+	-- His snore. "" = made from Roblox's own sounds; paste
 	-- "rbxassetid://..." from the Creator Store to use a real recording. A pasted snore plays only
 	-- while you're close enough to grab one of his boxes, louder the closer you are to him:
 	-- SnoreVolume right next to him, a third of it at the far side of his boxes.
 	SnoreSoundId = "rbxassetid://9115480677",
 	SnoreVolume = 0.45,
-	GruntSoundId = "",
 	-- Grabbing one of his boxes: these all play at once (Volume: 0 to 10, 1 = as uploaded). An empty
 	-- list plays the built-in swipe and "got it!" jingle instead (eggs and meteor shards always do).
+	-- These two are the chase sounds (he wakes up without a sound of his own): keep them loud.
 	GrabSounds = {
-		{ Id = "rbxassetid://6506461886", Volume = 0.5 },
-		{ Id = "rbxassetid://135439749484858", Volume = 0.5 },
+		{ Id = "rbxassetid://6506461886", Volume = 1 },
+		{ Id = "rbxassetid://135439749484858", Volume = 1 },
 	} :: { { Id: string, Volume: number } },
 	-- The "!?" over his head while he's waking up and chasing you (client/Guards): rainbow letters
 	-- with a soft glow, turning round Spin times a second. Size in studs; Glow: how bright (1 = flat).
