@@ -12,8 +12,10 @@
 	 12.2  WHOOSH: Domer zips in from the side and skids to a stop (an impact puff, a little shake)
 	 12.85 he snatches the box (it flies into his hand); the baker gasps
 	 13.4  he turns to the camera with a big cheeky grin, a wink and a twinkle on his teeth
-	 15.0  and runs off to the first biome with it, legs going like mad; the baker shouts "HEY!"
-	 16.6  the camera pulls back behind you, the bars slide away, and the game starts as normal
+	 15.0  his legs spin on the spot like a cartoon, then he zooms off to the first biome with it;
+	       the baker shouts "HEY!" and you run after him
+	 16.5  the camera rises over your base, then swoops down behind you into the normal view, the
+	       bars slide away, and the game starts as normal
 
 	A SKIP button ends it at any time. The UI is hidden while it plays (HideUI, quietly) and your
 	controls are off; both come back when it ends. While it's on, the player has the attribute
@@ -65,7 +67,9 @@ local T = {
 	Grab = 12.85,
 	Grin = 13.4,
 	Run = 15.0,
-	Pull = 16.6,
+	Dash = 15.4,
+	Chase = 15.7,
+	Pull = 16.5,
 	End = 18.4,
 }
 Intro.Times = T
@@ -82,6 +86,20 @@ local function ease(a: number): number
 	a = math.clamp(a, 0, 1)
 	return a * a * (3 - 2 * a)
 end
+
+-- Between two camera shots, the way a camera operator would: slide along, turn the shorter way
+-- round and tilt - never rolling over (a plain CFrame:Lerp can, on a big turn).
+local function angles(cf: CFrame): (number, number)
+	local look = cf.LookVector
+	return math.atan2(-look.X, -look.Z), math.asin(math.clamp(look.Y, -1, 1))
+end
+local function blend(a: CFrame, b: CFrame, alpha: number): CFrame
+	local yawA, pitchA = angles(a)
+	local yawB, pitchB = angles(b)
+	local turn = (yawB - yawA + math.pi) % (2 * math.pi) - math.pi
+	return CFrame.new(a.Position:Lerp(b.Position, alpha)) * CFrame.Angles(0, yawA + turn * alpha, 0) * CFrame.Angles(pitchA + (pitchB - pitchA) * alpha, 0, 0)
+end
+Intro.Blend = blend
 
 local function sound(id: string, speed: number, volume: number)
 	local s = Instance.new("Sound")
@@ -116,7 +134,8 @@ local function bubble(head: BasePart, text: string, height: number, color: Color
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "SpeechBubble"
 	gui.Adornee = head
-	gui.Size = UDim2.fromOffset(320, 92)
+	-- (as wide as the text needs: "!" gets a little round bubble, a sentence a long one)
+	gui.Size = UDim2.fromOffset(math.clamp(40 + (utf8.len(text) or #text) * 15, 92, 340), 92)
 	gui.StudsOffsetWorldSpace = Vector3.new(0, height, 0)
 	gui.AlwaysOnTop = true
 	gui.LightInfluence = 0
@@ -164,13 +183,19 @@ local function bubble(head: BasePart, text: string, height: number, color: Color
 	task.spawn(function()
 		local count = utf8.len(text) or #text
 		for i = 1, count do
-			if not label.Parent then
+			-- (stops if the bubble's gone)
+			local ok, attached = pcall(function()
+				label.MaxVisibleGraphemes = i
+				return label.Parent ~= nil
+			end)
+			if not (ok and attached) then
 				return
 			end
-			label.MaxVisibleGraphemes = i
 			task.wait(0.025)
 		end
-		label.MaxVisibleGraphemes = -1
+		pcall(function()
+			label.MaxVisibleGraphemes = -1
+		end)
 	end)
 	sound("rbxasset://sounds/button.wav", 1.4, 0.5)
 	return gui
@@ -329,7 +354,6 @@ function Intro.Play(opts: { Speed: number? }?)
 	local screen = buildScreen()
 	local wasHidden = HideUI.IsHidden()
 	HideUI.Set(true, true)
-	local oldType = if camera then camera.CameraType else Enum.CameraType.Custom
 	local oldFov = if camera then camera.FieldOfView else 70
 	if camera then
 		camera.CameraType = Enum.CameraType.Scriptable
@@ -356,17 +380,22 @@ function Intro.Play(opts: { Speed: number? }?)
 	local gate = at(0, 0, Layout.PenFront - 10)
 	local spot = at(0, 0, zSpot)
 	local into = -P.LookVector -- (into the base, towards the shop)
+	local out = P.LookVector
+	local exit = at(0, 0, Layout.PenFront + 6) -- (where you run to, after Domer)
 	local baseView = CFrame.lookAt(at(-12, 18, Layout.PenFront - 34), at(0, 5, Layout.PenFront + 6))
-	local walkView = CFrame.lookAt(at(-17, 9, zSpot - 13), at(1, 5.5, zSpot + 3))
-	local shopView = CFrame.lookAt(at(-14, 8, zSpot - 10), at(1, 6, zSpot + 3.5))
+	local walkView = CFrame.lookAt(at(-17, 10.5, zSpot - 13), at(1, 5.5, zSpot + 3))
+	local shopView = CFrame.lookAt(at(-14, 9.5, zSpot - 10), at(1, 6, zSpot + 3.5))
 	local wideView = CFrame.lookAt(at(-26, 16, zSpot - 28), at(5, 9, zSpot))
 	local closeEye = at(-4, 17, zSpot - 24)
+	-- (further back, for his legs spinning on the spot: all of him in the shot)
+	local windView = CFrame.lookAt(at(-14, 13, zSpot - 34), at(13, 0, zSpot - 2) + Vector3.new(0, floor + 3 * S - P.Position.Y, 0))
 
 	-- Domer: where he comes from, lands and runs to
 	local domerY = floor + 3 * S + 0.3
 	local domerFrom = at(80, 0, zSpot - 3) + Vector3.new(0, domerY - P.Position.Y, 0)
 	local domerAt = at(13, 0, zSpot - 2) + Vector3.new(0, domerY - P.Position.Y, 0)
-	local runPath = { domerAt, at(8, 0, Layout.PenFront - 14) + Vector3.new(0, domerY - P.Position.Y, 0), laneStart + Vector3.new(0, domerY, 0) }
+	-- (out past your right-hand side, well clear of the camera, then across the lobby to the lane)
+	local runPath = { domerAt, at(20, 0, Layout.PenFront - 14) + Vector3.new(0, domerY - P.Position.Y, 0), laneStart + Vector3.new(0, domerY, 0) }
 
 	local domer, grinParts, plainParts = buildDomer()
 	if domer then
@@ -447,6 +476,13 @@ function Intro.Play(opts: { Speed: number? }?)
 		if walkSpeed and humanoid then
 			humanoid.WalkSpeed = walkSpeed
 		end
+		if fired.Walk and humanoid and root then
+			-- (stop where you are: from here on, you're walking)
+			local r = root
+			pcall(function()
+				(humanoid :: Humanoid):MoveTo(r.Position)
+			end)
+		end
 		if skipped or not fired.Run then
 			cleanupDomer()
 		end
@@ -464,7 +500,8 @@ function Intro.Play(opts: { Speed: number? }?)
 			end
 		end)
 		if camera then
-			camera.CameraType = if oldType == Enum.CameraType.Scriptable then Enum.CameraType.Custom else oldType
+			-- (always the normal camera: the scene hands it over behind you)
+			camera.CameraType = Enum.CameraType.Custom
 			camera.FieldOfView = oldFov
 			if humanoid then
 				camera.CameraSubject = humanoid
@@ -483,9 +520,26 @@ function Intro.Play(opts: { Speed: number? }?)
 		finish()
 	end)
 
-	-- Domer running off to the lane (carries on after the scene, then vanishes in a puff)
-	local function runDomer(dt: number)
+	-- Domer running off to the lane (carries on after the scene, then vanishes in a puff). First his
+	-- legs spin on the spot for a moment (`windup`), like a cartoon, then he's off.
+	local function runDomer(dt: number, windup: boolean)
 		if not domer then
+			return
+		end
+		if windup then
+			local ahead = (runPath[2] - domerPos) * Vector3.new(1, 0, 1)
+			if ahead.Magnitude > 0.1 then
+				local goal = CFrame.lookAt(Vector3.zero, ahead).Rotation
+				domerFacing = domerFacing:Lerp(goal, math.min(1, dt * 14))
+			end
+			runDistance += 75 * dt -- (the legs go round, he goes nowhere)
+			local joints = Puppet.Stride(runDistance / (1.4 * S), 1.3)
+			joints["Right Arm"] = CFrame.Angles(0, 0, math.rad(160))
+			Puppet.Pose(domer, CFrame.new(domerPos + Vector3.new(0, 0.25 * S, 0)) * domerFacing * CFrame.Angles(math.rad(-24), 0, 0), joints)
+			local hand = domerHand()
+			if box and hand then
+				box:PivotTo(CFrame.new((hand * CFrame.new(0, -0.75 * S, 0)).Position) * domerFacing)
+			end
 			return
 		end
 		local step = 58 * dt
@@ -523,19 +577,18 @@ function Intro.Play(opts: { Speed: number? }?)
 	end
 
 	-- The camera: from one shot to the next, smoothly
-	local function chaseView(): CFrame
-		local back = -domerFacing.LookVector
-		return CFrame.lookAt(domerPos + back * 40 + Vector3.new(0, 20, 0), domerPos + Vector3.new(0, 4, 0))
+	local function youAt(): Vector3
+		return if root then root.Position else spot
 	end
+	-- high over your base, looking out the way you're running: you, and Domer racing off ahead
+	local function overView(): CFrame
+		local r = youAt()
+		return CFrame.lookAt(r + Vector3.new(0, 55, 0) - out * 30, r + out * 20)
+	end
+	-- the normal camera: behind you, at the usual distance, facing out of your base
 	local function playerView(): CFrame
-		local r = root
-		if not r then
-			return chaseView()
-		end
-		local look = (laneStart - r.Position) * Vector3.new(1, 0, 1)
-		local dir = if look.Magnitude > 1 then look.Unit else -into
-		local eye = r.Position - dir * 13 + Vector3.new(0, 5.5, 0)
-		return CFrame.lookAt(eye, r.Position + dir * 4 + Vector3.new(0, 2, 0))
+		local r = youAt()
+		return CFrame.lookAt(r - out * 13 + Vector3.new(0, 5.5, 0), r + out * 4 + Vector3.new(0, 2, 0))
 	end
 	local function grinView(): CFrame
 		return CFrame.lookAt(closeEye, domerAt + Vector3.new(0, 1.5 * S, 0))
@@ -547,10 +600,12 @@ function Intro.Play(opts: { Speed: number? }?)
 		{ Time = T.Walk, View = function() return baseView end, Fov = 55 },
 		{ Time = T.Arrive, View = function() return walkView end, Fov = 55 },
 		{ Time = T.Zip, View = function() return shopView end, Fov = 55 },
-		{ Time = T.Grab + 0.2, View = function() return wideView end, Fov = 60 },
+		{ Time = T.Land, View = function() return wideView end, Fov = 60 },
 		{ Time = T.Grin + 0.35, View = grinView, Fov = 45 },
 		{ Time = T.Run, View = grinView, Fov = 45 },
-		{ Time = T.Pull, View = chaseView, Fov = 60 },
+		{ Time = T.Run + 0.3, View = function() return windView end, Fov = 55 },
+		{ Time = T.Dash + 0.15, View = function() return windView end, Fov = 55 },
+		{ Time = T.Pull, View = overView, Fov = 60 },
 		{ Time = T.End, View = playerView, Fov = oldFov },
 	}
 	if not full then
@@ -747,6 +802,11 @@ function Intro.Play(opts: { Speed: number? }?)
 					end
 				end
 				if once("Grin", t, T.Grin + 0.2) then
+					-- (the baker's "!" goes: this close-up is all Domer's)
+					for _, b in bubbles do
+						b:Destroy()
+					end
+					table.clear(bubbles)
 					for _, part in plainParts do
 						part.Transparency = 1
 					end
@@ -772,12 +832,30 @@ function Intro.Play(opts: { Speed: number? }?)
 							table.insert(bubbles, bubble(head, "HEY!", 3.5 * BAKER_S, rgb(255, 235, 120)))
 						end
 					end
-					sound("rbxasset://sounds/swordlunge.wav", 0.7, 0.8)
+					sound("rbxasset://sounds/action_footsteps_plastic.mp3", 3, 0.9) -- (feet spinning on the spot)
 					-- he keeps running after the scene ends, then disappears in a puff
 					local lifetime = 0
+					local windup = (T.Dash - T.Run)
 					domerConnection = RunService.RenderStepped:Connect(function(frame: number)
-						lifetime += frame
-						runDomer(frame)
+						local dt = math.min(frame, 0.1) * speed
+						local wasWinding = lifetime < windup
+						lifetime += dt
+						if wasWinding and lifetime >= windup then
+							-- off he goes: a whoosh, speed lines and a cloud of dust left behind
+							sound("rbxasset://sounds/swordlunge.wav", 0.7, 0.8)
+							SpeedLines.Flash(0.45, 0.5)
+							local dust = Instance.new("Part")
+							dust.Anchored = true
+							dust.CanCollide = false
+							dust.CanQuery = false
+							dust.CanTouch = false
+							dust.Transparency = 1
+							dust.Size = Vector3.one * 0.2
+							dust.CFrame = CFrame.new(Vector3.new(domerPos.X, floor + 1, domerPos.Z))
+							dust.Parent = scene
+							AnimeFX.Fire(AnimeFX.Impact(dust, { rgb(255, 225, 170) }, 2.4))
+						end
+						runDomer(dt, lifetime < windup)
 						if runDone or lifetime > 9 then
 							local last = domerPos
 							cleanupDomer()
@@ -800,12 +878,17 @@ function Intro.Play(opts: { Speed: number? }?)
 					end)
 				end
 			end
-			-- you turn to watch him go
-			if once("Watch", t, T.Run + 0.4) then
-				local look = (laneStart - root.Position) * Vector3.new(1, 0, 1)
+			-- you turn to him... and run after him when he's off
+			if once("Watch", t, T.Run + 0.1) then
+				local look = (domerPos - root.Position) * Vector3.new(1, 0, 1)
 				if look.Magnitude > 1 then
 					root.CFrame = CFrame.lookAt(root.Position, root.Position + look.Unit)
 				end
+			end
+			if once("Chase", t, T.Chase) then
+				pcall(function()
+					(humanoid :: Humanoid):MoveTo(exit)
+				end)
 			end
 		end
 
@@ -816,7 +899,7 @@ function Intro.Play(opts: { Speed: number? }?)
 				local a, b = keys[i], keys[i + 1]
 				if t < b.Time then
 					local alpha = ease((t - a.Time) / math.max(b.Time - a.Time, 1e-3))
-					view = a.View():Lerp(b.View(), alpha)
+					view = blend(a.View(), b.View(), alpha)
 					fov = a.Fov + (b.Fov - a.Fov) * alpha
 					break
 				end
