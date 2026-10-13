@@ -87,6 +87,7 @@ local T = {
 Intro.Times = T
 
 local playing = false
+local playStartedAt = 0
 -- fires when it ends (true = skipped)
 Intro.Finished = Signal.new()
 
@@ -388,6 +389,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		return
 	end
 	playing = true
+	playStartedAt = os.clock()
 	player:SetAttribute("Intro", true)
 	local speed = (opts and opts.Speed) or 1
 	local camera = workspace.CurrentCamera
@@ -1278,7 +1280,13 @@ end
 
 function Intro.Watch(anywhere: boolean?, speed: number?): (boolean, string?)
 	if playing then
-		return false, "It's already playing!"
+		-- (stuck: marked as playing a while ago, but nothing on screen - start again)
+		local playerGui = player:FindFirstChildOfClass("PlayerGui")
+		if anywhere and os.clock() - playStartedAt > 14 and not (playerGui and playerGui:FindFirstChild("Intro")) then
+			playing = false
+		else
+			return false, "It's already playing!"
+		end
 	end
 	if anywhere then
 		task.spawn(safePlay, { Speed = speed or 1 })
@@ -1317,7 +1325,7 @@ function Intro.Init()
 					waited += 0.25
 				end
 				task.wait(0.3)
-				Intro.Play()
+				safePlay()
 			end)
 		end
 	end)
