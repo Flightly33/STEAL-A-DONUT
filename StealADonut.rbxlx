@@ -16509,7 +16509,8 @@ UpdateNotes.List = {
 			{ Title = "Mythic Box Opening", Tag = "NEW", Lines = {
 				"Opening a MYTHIC donut box is a whole movie now, with black bars and dark edges like a film",
 				"You're inside your donut shop with the baker, and he hands you the glowing Mythic box: \"A MYTHIC box... just for you!\"",
-				"The camera cranes up over you as you hold it - the lid rattles... and blows off in a burst of bright light",
+				"You take it in both hands, and the camera cranes up over you as you hold it - the lid rattles... and blows off in a burst of bright light",
+				"The shop slowly darkens round the light, so your new donut is the brightest thing on screen",
 				"You reach into the light and pull out your donut, then hold it up high in a flash of white while its rarity and name slam in",
 				"It fades out to white and you're right back where you were. SKIP ends it any time",
 			} },
@@ -16606,6 +16607,7 @@ UpdateNotes.List = {
 				"Grabbing one of his boxes makes a new sound",
 				"No more chase music: just the grab sounds and his angry grunt when he wakes up",
 				"A rainbow !? spins over his head while he's chasing you",
+				"Fixed: the fastest Domers no longer slow down right beside you - once he's caught up with you, he catches you",
 			} },
 			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {
 				"The meteor now crashes 45 seconds into the storm, anywhere from biome 2 to biome 6",
@@ -24592,6 +24594,7 @@ export type Guard = {
 	LastCheckTime: number,
 	StuckTime: number,
 	History: { Sample }, -- recent positions, oldest first
+	LastSeen: Vector3?, -- where the target saw him at the last update (nil: not chasing yet)
 }
 
 local guards: { [Player]: Guard } = {} -- at most one chasing guard per player
@@ -24686,6 +24689,7 @@ local function startChasing(guard: Guard)
 	guard.LastCheckPos = guard.Root.Position
 	guard.LastCheckTime = os.clock()
 	guard.StuckTime = 0
+	guard.LastSeen = nil
 end
 
 --------------------------------------------------------------------------------
@@ -24818,6 +24822,15 @@ local function positionAt(guard: Guard, time: number): Vector3
 	return history[1].Position
 end
 
+-- How close the flat path from `a` to `b` comes to `p`.
+local function segmentDistance(a: Vector3, b: Vector3, p: Vector3): number
+	local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+	local ap = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
+	local length = ab:Dot(ab)
+	local k = if length > 1e-6 then math.clamp(ap:Dot(ab) / length, 0, 1) else 0
+	return (ap - ab * k).Magnitude
+end
+
 -- Distance between the guard and `targetPos` as the target saw it (for the catch and for clients).
 function GuardService.PerceivedDistance(guard: Guard, targetPos: Vector3): number
 	local seen = positionAt(guard, os.clock() - rewindFor(guard.Owner))
@@ -24885,7 +24898,13 @@ local function updateGuard(guard: Guard, now: number)
 	-- Admins can switch on "Domer can't catch me" in the admin panel.
 	local profile = DataService.Get(target)
 	local godMode = profile ~= nil and profile.Session.GodMode
-	if not godMode and GuardService.PerceivedDistance(guard, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
+	-- Caught where you saw him (fair on a laggy connection): his whole path on your screen since
+	-- the last update counts, so even the fastest Domer can't skip past you between two updates.
+	local rewind = rewindFor(target)
+	local seen = positionAt(guard, now - rewind)
+	local close = segmentDistance(guard.LastSeen or seen, seen, targetPos) <= Config.Guard.CatchRadius
+	guard.LastSeen = seen
+	if not godMode and close and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
 		setState(guard, "Celebrating")
 		shout(guard, Config.Guard.CatchShouts, Color3.fromRGB(120, 255, 120))
 		returnAfter(guard, 1.5)
@@ -24895,10 +24914,16 @@ local function updateGuard(guard: Guard, now: number)
 	-- Chase: lead the target a little, and aim THROUGH them by as far as their screen is behind
 	-- him (their rewind x his speed). The catch is judged where they saw him; if he only ran up to
 	-- them, a fast Domer would stay that far behind on their screen and could never catch anyone
-	-- (at 300+ studs a second that's 50+ studs). Never step into the safe zone or through the walls.
+	-- (at 300+ studs a second that's 50+ studs). "Through" points from where they SAW him, not
+	-- from where he is: once he's really level with them he has to keep going until their screen
+	-- shows him there too. (Aimed from where he really was, he turned round the moment he passed
+	-- them and paced alongside, forever that far behind on their screen.) Never step into the safe
+	-- zone or through the walls.
 	local lead = targetRoot.AssemblyLinearVelocity * 0.15
+	local fromSeen = Vector3.new(targetPos.X - seen.X, 0, targetPos.Z - seen.Z)
 	local toTarget = Vector3.new(targetPos.X - guardPos.X, 0, targetPos.Z - guardPos.Z)
-	local through = if toTarget.Magnitude > 0.1 then toTarget.Unit * guard.ChaseSpeed * rewindFor(target) else Vector3.zero
+	local aim = if fromSeen.Magnitude > 0.1 then fromSeen else toTarget
+	local through = if aim.Magnitude > 0.1 then aim.Unit * guard.ChaseSpeed * rewind else Vector3.zero
 	local goal = targetPos + Vector3.new(lead.X, 0, lead.Z) + through
 	-- (he follows you through the other biomes: keep him inside whichever one he's in)
 	local minX, maxX = Layout.LaneLimits(math.max(Layout.AreaAt(guardPos), 1))
@@ -42338,6 +42363,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BoxModel = require(Shared.BoxModel)
@@ -42593,6 +42619,12 @@ function MythicOpening.Play(info: Info): boolean
 	local motors: { [string]: Motor6D } = {}
 	local tookBaker = false
 	local done = false
+	local animate: BaseScript? = nil
+	local animateWasEnabled = true
+	-- (the room's light as it was, and what we last set it to: only our own changes are undone)
+	local lightingBefore: { [string]: any } = {}
+	local lightingSet: { [string]: any } = {}
+	local grade: ColorCorrectionEffect? = nil
 
 	local function finish()
 		if done then
@@ -42634,6 +42666,24 @@ function MythicOpening.Play(info: Info): boolean
 		setControls(true)
 		if not wasHidden then
 			pcall(HideUI.Set, false)
+		end
+		-- your animations back on, and the room's light as it was (unless something else changed it since)
+		pcall(function()
+			if animate then
+				animate.Enabled = animateWasEnabled
+			end
+		end)
+		for key, value in lightingBefore do
+			pcall(function()
+				if (Lighting :: any)[key] == lightingSet[key] then
+					(Lighting :: any)[key] = value
+				end
+			end)
+		end
+		if grade then
+			pcall(function()
+				(grade :: ColorCorrectionEffect):Destroy()
+			end)
 		end
 		player:SetAttribute("MythicOpening", nil)
 		playing = false
@@ -42680,13 +42730,82 @@ function MythicOpening.Play(info: Info): boolean
 		motors = shoulders(character)
 		local armGoal: { [string]: CFrame } = { Left = CFrame.identity, Right = CFrame.identity }
 		local armNow: { [string]: CFrame } = { Left = CFrame.identity, Right = CFrame.identity }
-		table.insert(connections, RunService.Stepped:Connect(function(_, dt: number)
+		local function poseArms(dt: number)
 			for side, motor in motors do
 				armNow[side] = armNow[side]:Lerp(armGoal[side], math.min(1, dt * 9))
 				local q = motor.C0.Rotation
 				motor.Transform = q:Inverse() * armNow[side] * q
 			end
+		end
+		-- (after the animations step, and again just before every frame is drawn: nothing else gets
+		-- the last word on your arms)
+		table.insert(connections, RunService.Stepped:Connect(function(_, dt: number)
+			poseArms(dt)
 		end))
+		table.insert(connections, RunService.RenderStepped:Connect(function()
+			poseArms(0)
+		end))
+		-- Your own animations would keep putting your arms back down, so they pause for the film
+		local animateScript = character:FindFirstChild("Animate")
+		if animateScript and animateScript:IsA("BaseScript") then
+			animate = animateScript
+			pcall(function()
+				animateWasEnabled = animateScript.Enabled
+			end)
+			animateScript.Enabled = false
+		end
+		pcall(function()
+			local animator = humanoid:FindFirstChildOfClass("Animator")
+			if animator then
+				for _, track in animator:GetPlayingAnimationTracks() do
+					track:Stop(0.15)
+				end
+			end
+		end)
+
+		-- Once the light pours out, the room slowly darkens round it (the light, the donut and you stay
+		-- bright): less sun and sky light, darker shadows, a touch more contrast
+		local DARK = rgb(16, 12, 22)
+		local function dimRoom(dim: number)
+			if dim <= 0 then
+				return
+			end
+			if not grade then
+				for _, key in { "Brightness", "Ambient", "OutdoorAmbient", "EnvironmentDiffuseScale", "EnvironmentSpecularScale" } do
+					pcall(function()
+						lightingBefore[key] = (Lighting :: any)[key]
+					end)
+				end
+				local effect = Instance.new("ColorCorrectionEffect")
+				effect.Name = "MythicOpeningGrade"
+				effect.Parent = Lighting
+				grade = effect
+			end
+			local want: { [string]: any } = {}
+			if lightingBefore.Brightness then
+				want.Brightness = lightingBefore.Brightness * (1 - 0.85 * dim)
+			end
+			if lightingBefore.Ambient then
+				want.Ambient = (lightingBefore.Ambient :: Color3):Lerp(DARK, dim)
+			end
+			if lightingBefore.OutdoorAmbient then
+				want.OutdoorAmbient = (lightingBefore.OutdoorAmbient :: Color3):Lerp(DARK, dim)
+			end
+			for _, key in { "EnvironmentDiffuseScale", "EnvironmentSpecularScale" } do
+				if lightingBefore[key] then
+					want[key] = lightingBefore[key] * (1 - 0.8 * dim)
+				end
+			end
+			for key, value in want do
+				pcall(function()
+					(Lighting :: any)[key] = value
+					lightingSet[key] = (Lighting :: any)[key]
+				end)
+			end
+			local effect = grade :: ColorCorrectionEffect
+			effect.Contrast = 0.18 * dim
+			effect.Saturation = 0.1 * dim
+		end
 		-- (in your body's own space: X turns an arm up in front of you, Z swings it in towards your middle)
 		local function arm(side: string, forward: number, inward: number)
 			armGoal[side] = CFrame.Angles(math.rad(forward), 0, math.rad(if side == "Left" then inward else -inward))
@@ -42784,6 +42903,8 @@ function MythicOpening.Play(info: Info): boolean
 			else
 				screen.Fade.BackgroundTransparency = 1
 			end
+
+			dimRoom(smooth((t - T.Light) / 2.5))
 
 			-- The baker: holding the box out, then letting go and clasping his hands, beaming
 			if baker then
@@ -42929,6 +43050,7 @@ function MythicOpening.Play(info: Info): boolean
 				local k = smooth((t - T.Light) / 0.4)
 				if light then
 					light.Brightness = 9 * k * (1 + 0.08 * math.sin(t * 20))
+					light.Range = 18 - 9 * smooth((t - T.Raise) / 1)
 				end
 			end
 			-- the donut: comes up out of the light in your hand, held up high, turning
@@ -42950,6 +43072,13 @@ function MythicOpening.Play(info: Info): boolean
 				ball.Transparency = 1
 				ball.Size = Vector3.one * 2.4
 				ball.Parent = scene
+				local warm = Instance.new("PointLight")
+				warm.Name = "DonutLight"
+				warm.Color = rgb(255, 220, 170)
+				warm.Range = 9
+				warm.Brightness = 0
+				warm.Shadows = false
+				warm.Parent = ball
 				heldGlow = ball
 			end
 			if held then
@@ -42968,7 +43097,12 @@ function MythicOpening.Play(info: Info): boolean
 				held:PivotTo(hold)
 				if heldGlow then
 					heldGlow.CFrame = CFrame.new(spot)
-					heldGlow.Transparency = 1 - 0.35 * smooth((t - T.Pull) / 0.4) * (1 - smooth((t - T.Title) / 0.8))
+					local shine = smooth((t - T.Pull) / 0.4)
+					heldGlow.Transparency = 1 - 0.12 * shine * (1 - smooth((t - T.Title) / 0.8))
+					local warm = heldGlow:FindFirstChildOfClass("PointLight")
+					if warm then
+						warm.Brightness = 3 * shine
+					end
 				end
 			end
 			-- the light fades once the donut's out

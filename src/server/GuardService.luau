@@ -65,6 +65,7 @@ export type Guard = {
 	LastCheckTime: number,
 	StuckTime: number,
 	History: { Sample }, -- recent positions, oldest first
+	LastSeen: Vector3?, -- where the target saw him at the last update (nil: not chasing yet)
 }
 
 local guards: { [Player]: Guard } = {} -- at most one chasing guard per player
@@ -159,6 +160,7 @@ local function startChasing(guard: Guard)
 	guard.LastCheckPos = guard.Root.Position
 	guard.LastCheckTime = os.clock()
 	guard.StuckTime = 0
+	guard.LastSeen = nil
 end
 
 --------------------------------------------------------------------------------
@@ -291,6 +293,15 @@ local function positionAt(guard: Guard, time: number): Vector3
 	return history[1].Position
 end
 
+-- How close the flat path from `a` to `b` comes to `p`.
+local function segmentDistance(a: Vector3, b: Vector3, p: Vector3): number
+	local ab = Vector3.new(b.X - a.X, 0, b.Z - a.Z)
+	local ap = Vector3.new(p.X - a.X, 0, p.Z - a.Z)
+	local length = ab:Dot(ab)
+	local k = if length > 1e-6 then math.clamp(ap:Dot(ab) / length, 0, 1) else 0
+	return (ap - ab * k).Magnitude
+end
+
 -- Distance between the guard and `targetPos` as the target saw it (for the catch and for clients).
 function GuardService.PerceivedDistance(guard: Guard, targetPos: Vector3): number
 	local seen = positionAt(guard, os.clock() - rewindFor(guard.Owner))
@@ -358,7 +369,13 @@ local function updateGuard(guard: Guard, now: number)
 	-- Admins can switch on "Domer can't catch me" in the admin panel.
 	local profile = DataService.Get(target)
 	local godMode = profile ~= nil and profile.Session.GodMode
-	if not godMode and GuardService.PerceivedDistance(guard, targetPos) <= Config.Guard.CatchRadius and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
+	-- Caught where you saw him (fair on a laggy connection): his whole path on your screen since
+	-- the last update counts, so even the fastest Domer can't skip past you between two updates.
+	local rewind = rewindFor(target)
+	local seen = positionAt(guard, now - rewind)
+	local close = segmentDistance(guard.LastSeen or seen, seen, targetPos) <= Config.Guard.CatchRadius
+	guard.LastSeen = seen
+	if not godMode and close and math.abs(guardPos.Y - targetPos.Y) < 6 * Config.Guard.Scale then
 		setState(guard, "Celebrating")
 		shout(guard, Config.Guard.CatchShouts, Color3.fromRGB(120, 255, 120))
 		returnAfter(guard, 1.5)
@@ -368,10 +385,16 @@ local function updateGuard(guard: Guard, now: number)
 	-- Chase: lead the target a little, and aim THROUGH them by as far as their screen is behind
 	-- him (their rewind x his speed). The catch is judged where they saw him; if he only ran up to
 	-- them, a fast Domer would stay that far behind on their screen and could never catch anyone
-	-- (at 300+ studs a second that's 50+ studs). Never step into the safe zone or through the walls.
+	-- (at 300+ studs a second that's 50+ studs). "Through" points from where they SAW him, not
+	-- from where he is: once he's really level with them he has to keep going until their screen
+	-- shows him there too. (Aimed from where he really was, he turned round the moment he passed
+	-- them and paced alongside, forever that far behind on their screen.) Never step into the safe
+	-- zone or through the walls.
 	local lead = targetRoot.AssemblyLinearVelocity * 0.15
+	local fromSeen = Vector3.new(targetPos.X - seen.X, 0, targetPos.Z - seen.Z)
 	local toTarget = Vector3.new(targetPos.X - guardPos.X, 0, targetPos.Z - guardPos.Z)
-	local through = if toTarget.Magnitude > 0.1 then toTarget.Unit * guard.ChaseSpeed * rewindFor(target) else Vector3.zero
+	local aim = if fromSeen.Magnitude > 0.1 then fromSeen else toTarget
+	local through = if aim.Magnitude > 0.1 then aim.Unit * guard.ChaseSpeed * rewind else Vector3.zero
 	local goal = targetPos + Vector3.new(lead.X, 0, lead.Z) + through
 	-- (he follows you through the other biomes: keep him inside whichever one he's in)
 	local minX, maxX = Layout.LaneLimits(math.max(Layout.AreaAt(guardPos), 1))

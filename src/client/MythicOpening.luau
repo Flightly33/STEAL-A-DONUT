@@ -29,6 +29,7 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Lighting = game:GetService("Lighting")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local BoxModel = require(Shared.BoxModel)
@@ -284,6 +285,12 @@ function MythicOpening.Play(info: Info): boolean
 	local motors: { [string]: Motor6D } = {}
 	local tookBaker = false
 	local done = false
+	local animate: BaseScript? = nil
+	local animateWasEnabled = true
+	-- (the room's light as it was, and what we last set it to: only our own changes are undone)
+	local lightingBefore: { [string]: any } = {}
+	local lightingSet: { [string]: any } = {}
+	local grade: ColorCorrectionEffect? = nil
 
 	local function finish()
 		if done then
@@ -325,6 +332,24 @@ function MythicOpening.Play(info: Info): boolean
 		setControls(true)
 		if not wasHidden then
 			pcall(HideUI.Set, false)
+		end
+		-- your animations back on, and the room's light as it was (unless something else changed it since)
+		pcall(function()
+			if animate then
+				animate.Enabled = animateWasEnabled
+			end
+		end)
+		for key, value in lightingBefore do
+			pcall(function()
+				if (Lighting :: any)[key] == lightingSet[key] then
+					(Lighting :: any)[key] = value
+				end
+			end)
+		end
+		if grade then
+			pcall(function()
+				(grade :: ColorCorrectionEffect):Destroy()
+			end)
 		end
 		player:SetAttribute("MythicOpening", nil)
 		playing = false
@@ -371,13 +396,82 @@ function MythicOpening.Play(info: Info): boolean
 		motors = shoulders(character)
 		local armGoal: { [string]: CFrame } = { Left = CFrame.identity, Right = CFrame.identity }
 		local armNow: { [string]: CFrame } = { Left = CFrame.identity, Right = CFrame.identity }
-		table.insert(connections, RunService.Stepped:Connect(function(_, dt: number)
+		local function poseArms(dt: number)
 			for side, motor in motors do
 				armNow[side] = armNow[side]:Lerp(armGoal[side], math.min(1, dt * 9))
 				local q = motor.C0.Rotation
 				motor.Transform = q:Inverse() * armNow[side] * q
 			end
+		end
+		-- (after the animations step, and again just before every frame is drawn: nothing else gets
+		-- the last word on your arms)
+		table.insert(connections, RunService.Stepped:Connect(function(_, dt: number)
+			poseArms(dt)
 		end))
+		table.insert(connections, RunService.RenderStepped:Connect(function()
+			poseArms(0)
+		end))
+		-- Your own animations would keep putting your arms back down, so they pause for the film
+		local animateScript = character:FindFirstChild("Animate")
+		if animateScript and animateScript:IsA("BaseScript") then
+			animate = animateScript
+			pcall(function()
+				animateWasEnabled = animateScript.Enabled
+			end)
+			animateScript.Enabled = false
+		end
+		pcall(function()
+			local animator = humanoid:FindFirstChildOfClass("Animator")
+			if animator then
+				for _, track in animator:GetPlayingAnimationTracks() do
+					track:Stop(0.15)
+				end
+			end
+		end)
+
+		-- Once the light pours out, the room slowly darkens round it (the light, the donut and you stay
+		-- bright): less sun and sky light, darker shadows, a touch more contrast
+		local DARK = rgb(16, 12, 22)
+		local function dimRoom(dim: number)
+			if dim <= 0 then
+				return
+			end
+			if not grade then
+				for _, key in { "Brightness", "Ambient", "OutdoorAmbient", "EnvironmentDiffuseScale", "EnvironmentSpecularScale" } do
+					pcall(function()
+						lightingBefore[key] = (Lighting :: any)[key]
+					end)
+				end
+				local effect = Instance.new("ColorCorrectionEffect")
+				effect.Name = "MythicOpeningGrade"
+				effect.Parent = Lighting
+				grade = effect
+			end
+			local want: { [string]: any } = {}
+			if lightingBefore.Brightness then
+				want.Brightness = lightingBefore.Brightness * (1 - 0.85 * dim)
+			end
+			if lightingBefore.Ambient then
+				want.Ambient = (lightingBefore.Ambient :: Color3):Lerp(DARK, dim)
+			end
+			if lightingBefore.OutdoorAmbient then
+				want.OutdoorAmbient = (lightingBefore.OutdoorAmbient :: Color3):Lerp(DARK, dim)
+			end
+			for _, key in { "EnvironmentDiffuseScale", "EnvironmentSpecularScale" } do
+				if lightingBefore[key] then
+					want[key] = lightingBefore[key] * (1 - 0.8 * dim)
+				end
+			end
+			for key, value in want do
+				pcall(function()
+					(Lighting :: any)[key] = value
+					lightingSet[key] = (Lighting :: any)[key]
+				end)
+			end
+			local effect = grade :: ColorCorrectionEffect
+			effect.Contrast = 0.18 * dim
+			effect.Saturation = 0.1 * dim
+		end
 		-- (in your body's own space: X turns an arm up in front of you, Z swings it in towards your middle)
 		local function arm(side: string, forward: number, inward: number)
 			armGoal[side] = CFrame.Angles(math.rad(forward), 0, math.rad(if side == "Left" then inward else -inward))
@@ -475,6 +569,8 @@ function MythicOpening.Play(info: Info): boolean
 			else
 				screen.Fade.BackgroundTransparency = 1
 			end
+
+			dimRoom(smooth((t - T.Light) / 2.5))
 
 			-- The baker: holding the box out, then letting go and clasping his hands, beaming
 			if baker then
@@ -620,6 +716,7 @@ function MythicOpening.Play(info: Info): boolean
 				local k = smooth((t - T.Light) / 0.4)
 				if light then
 					light.Brightness = 9 * k * (1 + 0.08 * math.sin(t * 20))
+					light.Range = 18 - 9 * smooth((t - T.Raise) / 1)
 				end
 			end
 			-- the donut: comes up out of the light in your hand, held up high, turning
@@ -641,6 +738,13 @@ function MythicOpening.Play(info: Info): boolean
 				ball.Transparency = 1
 				ball.Size = Vector3.one * 2.4
 				ball.Parent = scene
+				local warm = Instance.new("PointLight")
+				warm.Name = "DonutLight"
+				warm.Color = rgb(255, 220, 170)
+				warm.Range = 9
+				warm.Brightness = 0
+				warm.Shadows = false
+				warm.Parent = ball
 				heldGlow = ball
 			end
 			if held then
@@ -659,7 +763,12 @@ function MythicOpening.Play(info: Info): boolean
 				held:PivotTo(hold)
 				if heldGlow then
 					heldGlow.CFrame = CFrame.new(spot)
-					heldGlow.Transparency = 1 - 0.35 * smooth((t - T.Pull) / 0.4) * (1 - smooth((t - T.Title) / 0.8))
+					local shine = smooth((t - T.Pull) / 0.4)
+					heldGlow.Transparency = 1 - 0.12 * shine * (1 - smooth((t - T.Title) / 0.8))
+					local warm = heldGlow:FindFirstChildOfClass("PointLight")
+					if warm then
+						warm.Brightness = 3 * shine
+					end
 				end
 			end
 			-- the light fades once the donut's out

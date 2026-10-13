@@ -64,7 +64,8 @@ UpdateNotes.List = {
 			{ Title = "Mythic Box Opening", Tag = "NEW", Lines = {
 				"Opening a MYTHIC donut box is a whole movie now, with black bars and dark edges like a film",
 				"You're inside your donut shop with the baker, and he hands you the glowing Mythic box: \"A MYTHIC box... just for you!\"",
-				"The camera cranes up over you as you hold it - the lid rattles... and blows off in a burst of bright light",
+				"You take it in both hands, and the camera cranes up over you as you hold it - the lid rattles... and blows off in a burst of bright light",
+				"The shop slowly darkens round the light, so your new donut is the brightest thing on screen",
 				"You reach into the light and pull out your donut, then hold it up high in a flash of white while its rarity and name slam in",
 				"It fades out to white and you're right back where you were. SKIP ends it any time",
 			} },
@@ -161,6 +162,7 @@ UpdateNotes.List = {
 				"Grabbing one of his boxes makes a new sound",
 				"No more chase music: just the grab sounds and his angry grunt when he wakes up",
 				"A rainbow !? spins over his head while he's chasing you",
+				"Fixed: the fastest Domers no longer slow down right beside you - once he's caught up with you, he catches you",
 			} },
 			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {
 				"The meteor now crashes 45 seconds into the storm, anywhere from biome 2 to biome 6",
