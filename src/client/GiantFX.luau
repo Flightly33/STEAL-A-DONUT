@@ -1262,19 +1262,21 @@ function filmEntrance(age: number)
 			return Cinematic.Look(eye, target, roll) * Cinematic.Wobble(clock, 0.01)
 		end,
 		Fov = function(t: number): number
+			-- (as shares of the view you started with: 70 -> 40 -> 54 -> 38 -> 44)
 			local clock = age + t
+			local k = fov / 70
 			if clock < REVEAL - 0.2 then
 				-- pushing in on the hole, then widening to fit him as he climbs out
 				local push = math.clamp(clock / Giant.OPEN, 0, 1)
 				local widen = math.clamp((clock - Giant.OPEN) / (REVEAL - 0.2 - Giant.OPEN), 0, 1)
-				return fov + (40 - fov) * push + 14 * widen * widen
+				return fov + (40 * k - fov) * push + 14 * k * widen * widen
 			elseif clock < REVEAL then
-				return 54
+				return 54 * k
 			elseif clock < REVEAL + 0.15 then
 				-- the crash zoom
-				return 54 - 16 * (clock - REVEAL) / 0.15
+				return (54 - 16 * (clock - REVEAL) / 0.15) * k
 			end
-			return 38 + 6 * math.clamp((clock - REVEAL - 0.15) / 1.6, 0, 1)
+			return (38 + 6 * math.clamp((clock - REVEAL - 0.15) / 1.6, 0, 1)) * k
 		end,
 	})
 end

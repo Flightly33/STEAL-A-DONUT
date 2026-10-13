@@ -15,6 +15,8 @@
 	  * the opening (client/Cinematic), when it starts while you're playing: the camera eases up off
 	    your shoulder to the sky over the lane, purple lightning crackles round a swelling glow, then
 	    a crash zoom, a white flash and speed lines as the black hole tears open - and back to you
+	  * space fills the sky (client/StormSky, nothing to upload): spiral galaxies, nebulae, a ringed
+	    planet, twinkling stars and aurora ribbons, fading in as the black hole tears open
 	  * the cosmic sky (Config.EternalStorm.Sky, made in Blender - art/eternal_sky), once its images
 	    are uploaded: the whole sky turns into space with a galaxy band, slowly turning, and a giant
 	    black hole hangs high in front of you wherever you go (its disk spinning, the light bent
@@ -35,6 +37,7 @@ local Remotes = require(Shared.Remotes)
 
 local Cinematic = require(script.Parent.Cinematic)
 local SpeedLines = require(script.Parent.SpeedLines)
+local StormSky = require(script.Parent.StormSky)
 
 local StormFX = {}
 
@@ -610,14 +613,16 @@ local function stormOpening()
 		end,
 		Fov = function(t: number): number
 			-- a slow push in, a held breath, then a crash zoom as it tears open, easing back a touch
+			-- (as shares of the view you started with: 70 -> 44 -> 41 -> 28 -> 33)
+			local k = fov / 70
 			if t < REVEAL - 0.35 then
-				return fov + (44 - fov) * math.clamp(t / (REVEAL - 0.35), 0, 1) ^ 2
+				return fov + (44 * k - fov) * math.clamp(t / (REVEAL - 0.35), 0, 1) ^ 2
 			elseif t < REVEAL then
-				return 44 - 3 * (t - (REVEAL - 0.35)) / 0.35
+				return (44 - 3 * (t - (REVEAL - 0.35)) / 0.35) * k
 			elseif t < REVEAL + 0.14 then
-				return 41 - 13 * (t - REVEAL) / 0.14
+				return (41 - 13 * (t - REVEAL) / 0.14) * k
 			end
-			return 28 + 5 * math.clamp((t - REVEAL - 0.14) / 2.2, 0, 1)
+			return (28 + 5 * math.clamp((t - REVEAL - 0.14) / 2.2, 0, 1)) * k
 		end,
 		OnStep = function(t: number)
 			-- the glow swells and purple lightning crackles round it...
@@ -662,11 +667,17 @@ local function stormOpening()
 	end)
 end
 
-local function setActive(on: boolean)
+-- `fresh`: it's just started, with you here (the sky fills once the black hole has torn open)
+local function setActive(on: boolean, fresh: boolean?)
 	if on == active then
 		return
 	end
 	active = on
+	if on then
+		StormSky.Start(if fresh then REVEAL else 0)
+	else
+		StormSky.Stop()
+	end
 	grade.Enabled = true
 	TweenService:Create(grade, TweenInfo.new(2.5), {
 		TintColor = if on then rgb(210, 182, 255) else WHITE,
@@ -777,6 +788,7 @@ local function update(dt: number)
 			spinner.Image.Rotation = (spinner.Image.Rotation + spinner.Speed * dt) % 360
 		end
 	end
+	StormSky.Step(dt)
 	if savedSky then
 		skyTurn = (skyTurn + STORM.SkySpin * dt) % 360
 		setOrientation(savedSky.Storm, Vector3.new(18, skyTurn, 0))
@@ -822,7 +834,7 @@ function StormFX.Init(onMusic: ((boolean) -> ())?)
 	end
 	workspace:GetAttributeChangedSignal("EventId"):Connect(function()
 		local was = active
-		refresh()
+		setActive(workspace:GetAttribute("EventId") == "EternalStorm", true)
 		-- (it's just started, with you here: the opening shot)
 		if active and not was then
 			task.spawn(stormOpening)

@@ -62,13 +62,20 @@ UpdateNotes.List = {
 		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
 		Sections = {
 			{ Title = "The Opening Scene", Tag = "NEW", Lines = {
-				"New players get a little movie when they first join: the game's name pops up as a donut - STEAL A dripping with pink frosting and sprinkles, DONUT baked golden with a real donut for the O",
+				"New players get a little movie when they first join: it opens out of black through a circle, and the game's name slams in letter by letter like the logo - STEAL A dripping with bright pink frosting and sprinkles, DONUT baked golden with a real donut for the O - then pops out with a burst of light",
 				"Then fly over the map, walk up to your own donut shop and ask for a box",
 				"Just as the baker hands it over, Domer zips in out of nowhere, grabs it, grins at you... and runs off to the first biome with it!",
 				"Then the camera swoops down behind you and the tutorial starts: go and get some donut boxes back",
 				"Want to see it again? Press WATCH INTRO in Settings (from the lobby). SKIP ends it any time",
 				"Every base's donut shop has a baker in the window now: he looks round at you when you walk past",
+				"Behind him the shop is stocked: shelves full of donut boxes in every rarity, bats, speed sneakers, a tray of fresh donuts and his table where he kneads the dough",
 				"Smooth, lifelike moves all the way through: Domer leans, skids, wobbles and banks round corners, the baker jumps back in surprise, and the camera glides from shot to shot",
+			} },
+			{ Title = "Eternal Storm", Tag = "NEW Look", Lines = {
+				"When the storm starts, the camera swoops up to the sky as the black hole tears open: lightning, a flash and a crash zoom!",
+				"Space fills the sky: spiral galaxies, glowing nebulae, a ringed planet, twinkling stars and aurora ribbons",
+				"Cosmic Domer gets a proper entrance: the camera looks up at him as he climbs out of the black hole, and his name slams on as he roars",
+				"(No camera moves while you're carrying a box, so Domer can never catch you because of one)",
 			} },
 			{ Title = "Chained Hell Donuts", Tag = "NEW", Lines = {
 				"The hell donuts are too dangerous to roam free: in your base they're held down by glowing chains on four iron stakes",
