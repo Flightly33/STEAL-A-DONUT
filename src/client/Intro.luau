@@ -1239,7 +1239,18 @@ function Intro.Play(opts: { Speed: number? }?)
 			finish()
 			return
 		end
-		update(math.min(dt, 0.1))
+		-- (if a frame breaks, end the scene and give the game back instead of freezing on it)
+		local ok, err = pcall(function()
+			update(math.min(dt, 0.1))
+		end)
+		if not ok then
+			warn("[Intro] the cutscene broke: " .. tostring(err))
+			pcall(function()
+				require(script.Parent.UI.Notifications).Toast("The cutscene hit an error: " .. tostring(err), "error")
+			end)
+			skipped = true
+			finish()
+		end
 	end)
 	while not done do
 		task.wait(0.1)
