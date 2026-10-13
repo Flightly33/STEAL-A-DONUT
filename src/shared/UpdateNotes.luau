@@ -61,6 +61,19 @@ UpdateNotes.List = {
 		Decor = "Sparkles",
 		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
 		Sections = {
+			{ Title = "Mythic Box Opening", Tag = "NEW", Lines = {
+				"Opening a MYTHIC donut box is a whole movie now, with black bars and dark edges like a film",
+				"You're inside your donut shop with the baker, and he hands you the glowing Mythic box: \"A MYTHIC box... just for you!\"",
+				"The camera cranes up over you as you hold it - the lid rattles... and blows off in a burst of bright light",
+				"You reach into the light and pull out your donut, then hold it up high in a flash of white while its rarity and name slam in",
+				"It fades out to white and you're right back where you were. SKIP ends it any time",
+			} },
+			{ Title = "Egg Hatching", Tag = "NEW Look", Lines = {
+				"A brand new hatch: the egg drops in and bounces, wobbles harder and harder and cracks open a little more each time",
+				"Light glows out of the cracks and rays spin up behind it - and if it's Epic or better, the glow turns its colour just before it hatches!",
+				"Then it bursts in a flash, bits of shell go flying, and your pet pops out spinning with its rarity slammed on top",
+				"Click to skip straight to the hatch, and again to skip to the end. Hatching lots at once goes a little faster",
+			} },
 			{ Title = "The Opening Scene", Tag = "NEW", Lines = {
 				"New players get a little movie when they first join: it opens out of black through a circle, and the game's name slams in letter by letter like the logo - STEAL A dripping with bright pink frosting and sprinkles, DONUT baked golden with a real donut for the O - then pops out with a burst of light",
 				"Then fly over the map, walk up to your own donut shop and ask for a box",

@@ -344,6 +344,11 @@ function Treadmill.IsRunning(): boolean
 	return running
 end
 
+-- Lets go of you (no hop off the back): for a cutscene that moves you somewhere else
+function Treadmill.Stop()
+	stop(false)
+end
+
 function Treadmill.Init()
 	task.spawn(function()
 		pcall(function()

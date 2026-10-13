@@ -19,7 +19,7 @@ local KEY = Enum.KeyCode.X
 local CORE_GUI = { Enum.CoreGuiType.Chat, Enum.CoreGuiType.PlayerList, Enum.CoreGuiType.Backpack }
 -- Never hidden: our own pill, the steal prompts (you still need to see "Steal"), the loading screen
 -- and the opening cinematic (client/Intro)
-local KEEP = { ShowUI = true, ProximityPrompts = true, LoadingScreen = true, Intro = true }
+local KEEP = { ShowUI = true, ProximityPrompts = true, LoadingScreen = true, Intro = true, MythicOpening = true }
 local FADE_AFTER = 3 -- seconds before the pill fades out on a keyboard
 
 local hidden = false

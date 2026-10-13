@@ -220,7 +220,20 @@ local function build()
 
 	-- The opening cutscene, for testing: play it now, wherever you are (normal speed or slowed down
 	-- to look at it closely). SKIP still ends it.
-	local cutscene = section("Opening cutscene (test)", 170)
+	local cutscene = section("Cutscenes (test)", 170)
+	-- (the Mythic box opening and the egg hatch, as previews: nothing is given)
+	button(cutscene, "MYTHIC BOX OPENING", Color3.fromRGB(200, 30, 60), function()
+		modal:Close()
+		task.delay(0.3, function()
+			if not require(script.Parent.Parent.MythicOpening).Preview() then
+				require(script.Parent.Notifications).Toast("Can't play it right now (in another scene, or your base isn't loaded)", "error")
+			end
+		end)
+	end)
+	button(cutscene, "EGG HATCH", Theme.Colors.Orange, function()
+		modal:Close()
+		require(script.Parent.PetsWindow).PreviewHatch()
+	end)
 	for _, entry in { { Text = "PLAY CUTSCENE", Speed = 1 }, { Text = "PLAY AT HALF SPEED", Speed = 0.5 } } do
 		button(cutscene, entry.Text, Theme.Colors.Purple, function()
 			local ok, why = require(script.Parent.Parent.Intro).Watch(true, entry.Speed)

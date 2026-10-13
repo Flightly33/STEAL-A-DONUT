@@ -9,6 +9,7 @@
 	    while it waits, "Open!" once it's ready) and can click it.
 	  * Opening (remote "BoxOpened"): the lid flips off, the box spins faster and faster, a white
 	    flash - and the donut pops out, then drops into its owner's inventory (flies to them).
+	    Your own MYTHIC box gets a film of its own instead (client/MythicOpening).
 	  * The pill at the top: the Box Rush (every Config.Boxes.Rush.Interval seconds every box in
 	    every pen opens Rush.Speed times faster for Rush.Duration seconds), and in a biome the time
 	    until every box is replaced with a fresh one. "ALL BOXES RESET!" when that happens.
@@ -32,6 +33,7 @@ local Remotes = require(Shared.Remotes)
 local Theme = require(script.Parent.UI.Theme)
 local Notifications = require(script.Parent.UI.Notifications)
 local AreaTracker = require(script.Parent.AreaTracker)
+local MythicOpening = require(script.Parent.MythicOpening)
 
 local BoxFX = {}
 
@@ -337,6 +339,13 @@ local function onBoxOpened(info: Opened)
 	local size = Boxes.Size(box:GetAttribute("BoxSize") :: string?)
 	local mutation = Rarities.Mutation(box:GetAttribute("Mutation") :: string?)
 	local glow = if mutation.Order > 0 then mutation.Color else tier.Color
+	-- your own Mythic box: its own little film (client/MythicOpening) instead
+	if info.Owner == player and tier.Id == "Mythic" and MythicOpening.CanPlay() then
+		if MythicOpening.Play({ DonutId = info.DonutId, Mutation = info.Mutation, Size = info.Size }) then
+			hide(box)
+			return
+		end
+	end
 
 	-- Play it on a copy (the server removes the real box in a moment)
 	local copy = box:Clone()
