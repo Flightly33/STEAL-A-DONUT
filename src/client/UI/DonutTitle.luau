@@ -1,11 +1,16 @@
 --[[
 	DonutTitle: the game's name made to look like a donut, for the opening cinematic (client/Intro).
 
-	  STEAL A  - glossy pink frosting, dripping down off the letters, covered in sprinkles
+	  STEAL A  - glossy bright pink frosting, dripping down off the letters, covered in sprinkles
 	  DONUT    - golden baked dough, and its O is a real frosted donut
 
+	Lettered like the game's logo: a chunky round font (Fredoka One), every letter tipped a little
+	this way or that on a bouncy baseline, a thick dark outline with a pink rim round it all, and a
+	solid 3D edge under every letter so the title pops out of the screen. It slams in letter by
+	letter, then punches out once with a burst of light behind it.
+
 	Built from text and frames only (nothing to upload). It's designed at a fixed size (WIDTH x
-	HEIGHT pixels, the letters at TextSize 74 and 100) and a UIScale makes it fit the screen, so the
+	HEIGHT pixels, the letters at TextSize 82 and 110) and a UIScale makes it fit the screen, so the
 	letters stay sharp at any size.
 
 	  local title = DonutTitle.new(parent)
@@ -13,9 +18,10 @@
 	      pop in one by one, the frosting drips down, the sprinkles pop on and the donut spins in;
 	      `alpha` fades all of it; `grow` scales it up (for going out)
 
-	Where the drips and sprinkles sit was measured from the font itself (Luckiest Guy): every drip
+	Where the drips and sprinkles sit was measured from the font itself (Fredoka One): every drip
 	starts inside its letter and flows out of its bottom edge, and every sprinkle sits on a thick
-	part of a letter. All in units of the letters' text size.
+	part of a letter. All in units of the letters' text size (the line: the capitals fill it from
+	CAP_TOP to CAP_BOTTOM).
 ]]
 
 local DonutTitle = {}
@@ -23,60 +29,69 @@ local DonutTitle = {}
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
 
-local WIDTH, HEIGHT = 344, 168
-local TOP_SIZE, BOTTOM_SIZE = 74, 100
-local TOP_Y, BOTTOM_Y = 4, 80
-local CAP = 0.7 -- (how much of a line the capitals fill, from the top)
+local WIDTH, HEIGHT = 392, 180
+local TOP_SIZE, BOTTOM_SIZE = 82, 110
+local CAP_TOP, CAP_BOTTOM = 0.2, 0.805 -- (where the capitals are in a line, from the top)
+local CAP_MID = (CAP_TOP + CAP_BOTTOM) / 2
+local TOP_Y, BOTTOM_Y = 8 - CAP_TOP * 82, 86 - CAP_TOP * 110
 
-local FROSTING = { rgb(255, 214, 236), rgb(255, 140, 200), rgb(243, 86, 164) }
-local DOUGH = { rgb(255, 226, 168), rgb(238, 176, 98), rgb(193, 120, 56) }
-local BERRY = rgb(104, 22, 64)
-local CRUST = rgb(86, 46, 22)
+local FROSTING = { rgb(255, 196, 238), rgb(255, 102, 200), rgb(236, 40, 160) }
+local DOUGH = { rgb(255, 238, 150), rgb(255, 196, 60), rgb(234, 130, 26) }
+local BERRY = rgb(84, 10, 58)
+local CRUST = rgb(92, 40, 14)
+local RIM = rgb(255, 128, 176) -- (the pink rim round the outline, like the logo)
+local DEPTH = 5 -- layers in each letter's 3D edge
+-- each letter's tilt (degrees) and how far it's bumped up or down (share of its size), in order:
+-- S T E A L A, then D O N U T
+local BOUNCE = { { -8, 0.02 }, { 5, -0.03 }, { -4, 0.02 }, { 7, -0.02 }, { -6, 0.03 }, { 6, -0.01 }, { -5, -0.02 }, { 0, 0.02 }, { 5, -0.03 }, { -6, 0.02 }, { 7, 0 } }
 local SPRINKLES = { WHITE, rgb(255, 214, 60), rgb(90, 200, 255), rgb(120, 222, 110), rgb(190, 120, 255), rgb(255, 140, 60), rgb(255, 84, 96) }
 
 type Glyph = { Advance: number, Sprinkles: { { number } }?, Drips: { { number } }? }
 -- Drips: { x, where it starts (inside the letter), width, length }.
 local GLYPHS: { [string]: Glyph } = {
 	S = {
-		Advance = 0.53,
-		Sprinkles = { { 0.2925, 0.35 }, { 0.0825, 0.61 }, { 0.4025, 0.05 }, { 0.1125, 0.12 } },
-		Drips = { { 0.106, 0.64, 0.1, 0.27 }, { 0.33, 0.66, 0.085, 0.15 } },
+		Advance = 0.4814,
+		Sprinkles = { { 0.2686, 0.5124 }, { 0.1529, 0.2562 }, { 0.1364, 0.7355 }, { 0.3595, 0.719 } },
+		Drips = { { 0.17, 0.74, 0.085, 0.24 }, { 0.31, 0.74, 0.075, 0.13 } },
 	},
 	T = {
-		Advance = 0.5425,
-		Sprinkles = { { 0.3425, 0.185 }, { 0.2125, 0.625 }, { 0.0725, 0.065 }, { 0.2125, 0.385 }, { 0.4725, 0.065 } },
-		Drips = { { 0.06, 0.19, 0.075, 0.13 }, { 0.245, 0.64, 0.11, 0.4 } },
+		Advance = 0.6033,
+		Sprinkles = { { 0.2934, 0.3574 }, { 0.3182, 0.7541 }, { 0.5331, 0.25 }, { 0.062, 0.25 }, { 0.2851, 0.5558 } },
+		Drips = { { 0.3, 0.74, 0.09, 0.33 } },
 	},
 	E = {
-		Advance = 0.48,
-		Sprinkles = { { 0.2525, 0.3375 }, { 0.0825, 0.6375 }, { 0.4225, 0.0575 }, { 0.0925, 0.0575 } },
-		Drips = { { 0.08, 0.66, 0.09, 0.2 }, { 0.31, 0.66, 0.095, 0.32 } },
+		Advance = 0.5269,
+		Sprinkles = { { 0.3636, 0.4979 }, { 0.0826, 0.7459 }, { 0.0826, 0.2583 }, { 0.4463, 0.7541 }, { 0.4463, 0.25 } },
+		Drips = { { 0.1, 0.74, 0.085, 0.18 }, { 0.33, 0.74, 0.09, 0.3 } },
 	},
 	A = {
-		Advance = 0.625,
-		Sprinkles = { { 0.425, 0.3825 }, { 0.065, 0.6125 }, { 0.225, 0.0725 }, { 0.145, 0.3425 }, { 0.555, 0.6125 }, { 0.435, 0.1525 } },
-		Drips = { { 0.095, 0.64, 0.1, 0.3 }, { 0.53, 0.64, 0.09, 0.16 } },
+		Advance = 0.6322,
+		Sprinkles = { { 0.1942, 0.5475 }, { 0.5661, 0.7376 }, { 0.3264, 0.2583 }, { 0.4504, 0.4979 }, { 0.0702, 0.7459 } },
+		Drips = { { 0.095, 0.74, 0.085, 0.27 }, { 0.535, 0.74, 0.08, 0.15 } },
 	},
 	L = {
-		Advance = 0.4525,
-		Sprinkles = { { 0.1225, 0.415 }, { 0.2225, 0.055 }, { 0.3825, 0.575 }, { 0.0925, 0.215 } },
-		Drips = { { 0.06, 0.63, 0.095, 0.36 }, { 0.33, 0.62, 0.085, 0.19 } },
+		Advance = 0.4855,
+		Sprinkles = { { 0.1157, 0.5806 }, { 0.4132, 0.7541 }, { 0.0909, 0.25 }, { 0.2149, 0.7541 } },
+		Drips = { { 0.08, 0.74, 0.085, 0.33 }, { 0.36, 0.74, 0.08, 0.17 } },
 	},
-	D = { Advance = 0.5825 },
-	N = { Advance = 0.7025 },
-	U = { Advance = 0.6225 },
+	D = { Advance = 0.5826 },
+	N = { Advance = 0.595 },
+	U = { Advance = 0.5992 },
 }
 -- (the second A drips differently from the first)
-local SECOND_A_DRIPS = { { 0.11, 0.64, 0.095, 0.18 }, { 0.5, 0.64, 0.1, 0.33 } }
+local SECOND_A_DRIPS = { { 0.11, 0.74, 0.08, 0.16 }, { 0.53, 0.74, 0.085, 0.3 } }
 
 type Fade = { Object: Instance, Property: string, Base: number }
 type Drip = { Fill: Frame, Line: Frame, Blob: Frame, BlobLine: Frame, X: number, Y: number, Width: number, Length: number, Start: number, Phase: number }
 type Pop = { Item: GuiObject, Scale: UIScale, Start: number }
-type Letter = { Holder: Frame, Scale: UIScale, Y: number, Start: number, Spin: boolean }
+type Letter = { Holder: Frame, Scale: UIScale, X: number, Y: number, Tilt: number, Start: number, Spin: boolean }
+type Ray = { Bar: Frame, Angle: number }
 export type Title = {
 	Frame: Frame,
 	Scale: UIScale,
 	Letters: { Letter },
+	Rays: { Ray },
+	Burst: Frame,
 	Drips: { Drip },
 	Sprinkles: { Pop },
 	Fades: { Fade },
@@ -113,7 +128,15 @@ function DonutTitle.new(parent: Instance): Title
 	frame.Visible = false
 	local scale = Instance.new("UIScale")
 	scale.Parent = frame
-	local title: Title = { Frame = frame, Scale = scale, Letters = {}, Drips = {}, Sprinkles = {}, Fades = {}, Alpha = -1 }
+	local burst = Instance.new("Frame")
+	burst.Name = "Burst"
+	burst.BackgroundTransparency = 1
+	burst.AnchorPoint = Vector2.new(0.5, 0.5)
+	burst.Position = UDim2.fromScale(0.5, 0.5)
+	burst.Size = UDim2.fromOffset(WIDTH, HEIGHT)
+	burst.ZIndex = 0
+	burst.Parent = frame
+	local title: Title = { Frame = frame, Scale = scale, Letters = {}, Rays = {}, Burst = burst, Drips = {}, Sprinkles = {}, Fades = {}, Alpha = -1 }
 	local rng = Random.new(20261012)
 
 	local function fade(object: Instance, property: string, base: number)
@@ -129,37 +152,52 @@ function DonutTitle.new(parent: Instance): Title
 		fade(f, "BackgroundTransparency", 0)
 		return f
 	end
-	local function glyph(holder: Frame, ch: string, size: number, colors: { Color3 }, line: Color3, thickness: number, shadow: boolean)
-		local label = Instance.new("TextLabel")
-		label.Name = if shadow then "Shadow" else "Glyph"
-		label.BackgroundTransparency = 1
-		label.Size = UDim2.fromScale(1, 1)
-		label.Position = if shadow then UDim2.fromOffset(0, size * 0.055) else UDim2.fromOffset(0, 0)
-		label.Font = Enum.Font.LuckiestGuy
-		label.Text = ch
-		label.TextSize = size
-		label.TextColor3 = if shadow then rgb(60, 18, 40) else WHITE
-		label.ZIndex = if shadow then 1 else 3
-		label.Parent = holder
-		fade(label, "TextTransparency", if shadow then 0.45 else 0)
-		if not shadow then
-			-- (the colours run down the capitals, which fill the top of the line)
-			gradient(label, colors, 90, { 0, CAP * 0.45, CAP })
+	-- A letter: its pink rim (a thick light outline, furthest back), its solid 3D edge (copies
+	-- stepping down and right, in the outline's colour), then the letter itself on top, its colours
+	-- running down the capital, with a thick dark outline.
+	local function glyph(holder: Frame, ch: string, size: number, colors: { Color3 }, line: Color3, thickness: number)
+		local step = Vector2.new(0.011, 0.016) * size
+		local function copy(name: string, offset: Vector2, color: Color3, strokeColor: Color3, strokeWidth: number, z: number): TextLabel
+			local label = Instance.new("TextLabel")
+			label.Name = name
+			label.BackgroundTransparency = 1
+			label.Size = UDim2.fromScale(1, 1)
+			label.Position = UDim2.fromOffset(offset.X, offset.Y)
+			label.Font = Enum.Font.FredokaOne
+			label.Text = ch
+			label.TextSize = size
+			label.TextColor3 = color
+			label.ZIndex = z
+			label.Parent = holder
+			fade(label, "TextTransparency", 0)
+			local stroke = Instance.new("UIStroke")
+			stroke.Color = strokeColor
+			stroke.Thickness = strokeWidth
+			stroke.LineJoinMode = Enum.LineJoinMode.Round
+			stroke.Parent = label
+			fade(stroke, "Transparency", 0)
+			return label
 		end
-		local stroke = Instance.new("UIStroke")
-		stroke.Color = if shadow then rgb(60, 18, 40) else line
-		stroke.Thickness = thickness
-		stroke.LineJoinMode = Enum.LineJoinMode.Round
-		stroke.Parent = label
-		fade(stroke, "Transparency", if shadow then 0.45 else 0)
+		copy("Rim", step * DEPTH * 0.5, RIM, RIM, thickness * 2.6, 1)
+		for k = DEPTH, 1, -1 do
+			copy("Extrude", step * k, line, line, thickness, 1)
+		end
+		local face = copy("Glyph", Vector2.zero, WHITE, line, thickness, 3)
+		-- (the colours run down the capital)
+		gradient(face, colors, 90, { CAP_TOP, CAP_MID, CAP_BOTTOM })
 	end
+	local letterCount = 0
 	local function letterHolder(name: string, x: number, y: number, w: number, h: number, start: number, spin: boolean): (Frame, Letter)
+		letterCount += 1
+		local bounce = BOUNCE[letterCount] or { 0, 0 }
+		y += bounce[2] * h
 		local holder = Instance.new("Frame")
 		holder.Name = name
 		holder.BackgroundTransparency = 1
 		-- (it pops up from the middle of the capital)
-		holder.AnchorPoint = Vector2.new(0.5, CAP / 2)
-		holder.Position = UDim2.fromOffset(x + w / 2, y + h * CAP / 2)
+		holder.AnchorPoint = Vector2.new(0.5, CAP_MID)
+		holder.Position = UDim2.fromOffset(x + w / 2, y + h * CAP_MID)
+		holder.Rotation = bounce[1]
 		holder.Size = UDim2.fromOffset(w, h)
 		-- (DONUT in front: any long drip hangs down behind it)
 		holder.ZIndex = if y >= BOTTOM_Y then 3 else 2
@@ -167,7 +205,7 @@ function DonutTitle.new(parent: Instance): Title
 		local s = Instance.new("UIScale")
 		s.Scale = 0
 		s.Parent = holder
-		local letter: Letter = { Holder = holder, Scale = s, Y = y + h * CAP / 2, Start = start, Spin = spin }
+		local letter: Letter = { Holder = holder, Scale = s, X = x + w / 2, Y = y + h * CAP_MID, Tilt = bounce[1], Start = start, Spin = spin }
 		table.insert(title.Letters, letter)
 		return holder, letter
 	end
@@ -203,8 +241,7 @@ function DonutTitle.new(parent: Instance): Title
 		local start = order * 0.07
 		order += 1
 		local holder = letterHolder("Letter" .. ch, x, TOP_Y, w, TOP_SIZE, start, false)
-		glyph(holder, ch, TOP_SIZE, FROSTING, BERRY, 3.5, true)
-		glyph(holder, ch, TOP_SIZE, FROSTING, BERRY, 3.5, false)
+		glyph(holder, ch, TOP_SIZE, FROSTING, BERRY, 4)
 		local drips: { { number } } = g.Drips or {}
 		if ch == "A" then
 			drips = if seenA then SECOND_A_DRIPS else drips
@@ -237,7 +274,7 @@ function DonutTitle.new(parent: Instance): Title
 
 	-- DONUT: baked dough, with a real donut for the O
 	local bottom = { "D", "O", "N", "U", "T" }
-	local ring = 0.74 * BOTTOM_SIZE
+	local ring = 0.68 * BOTTOM_SIZE
 	widths = 0
 	for _, ch in bottom do
 		widths += (if ch == "O" then ring + 6 else GLYPHS[ch].Advance * BOTTOM_SIZE) + 3
@@ -250,7 +287,7 @@ function DonutTitle.new(parent: Instance): Title
 		if ch == "O" then
 			local w = ring + 6
 			local holder = letterHolder("DonutO", x, BOTTOM_Y, w, BOTTOM_SIZE, start, true)
-			local cx, cy = w / 2, BOTTOM_SIZE * CAP / 2
+			local cx, cy = w / 2, BOTTOM_SIZE * CAP_MID
 			local hole = ring * 0.34
 			local band = (ring - hole) / 2
 			-- a ring is a round frame's outline (UIStroke): the dough, its crust line, the frosting
@@ -275,14 +312,15 @@ function DonutTitle.new(parent: Instance): Title
 				end
 				return f
 			end
-			local shadow = ringOf("RingShadow", hole - 4, band + 4, rgb(60, 18, 40), 1)
-			shadow.Position = UDim2.fromOffset(cx, cy + BOTTOM_SIZE * 0.055)
-			local shadowStroke = shadow:FindFirstChildOfClass("UIStroke")
-			if shadowStroke then
-				shadowStroke.Transparency = 0.45
-				title.Fades[#title.Fades].Base = 0.45
+			-- (its rim and 3D edge, like the letters)
+			local step = Vector2.new(0.011, 0.016) * BOTTOM_SIZE
+			local rim = ringOf("RingRim", hole - 13, band + 13, RIM, 1)
+			rim.Position = UDim2.fromOffset(cx + step.X * DEPTH * 0.5, cy + step.Y * DEPTH * 0.5)
+			for k = DEPTH, 1, -1 do
+				local edge = ringOf("RingEdge", hole - 5, band + 5, CRUST, 1)
+				edge.Position = UDim2.fromOffset(cx + step.X * k, cy + step.Y * k)
 			end
-			ringOf("RingLine", hole - 4.5, band + 4.5, CRUST, 2)
+			ringOf("RingLine", hole - 5, band + 5, CRUST, 2)
 			ringOf("Dough", hole, band, WHITE, 3, DOUGH)
 			local inner = hole + band * 0.32
 			local frostBand = band * 0.62
@@ -323,10 +361,34 @@ function DonutTitle.new(parent: Instance): Title
 		else
 			local w = GLYPHS[ch].Advance * BOTTOM_SIZE
 			local holder = letterHolder("Letter" .. ch, x, BOTTOM_Y, w, BOTTOM_SIZE, start, false)
-			glyph(holder, ch, BOTTOM_SIZE, DOUGH, CRUST, 4.5, true)
-			glyph(holder, ch, BOTTOM_SIZE, DOUGH, CRUST, 4.5, false)
+			glyph(holder, ch, BOTTOM_SIZE, DOUGH, CRUST, 5)
 			x += w + 3
 		end
+	end
+	-- The burst behind it: soft rays of light from its middle (bars through the middle, each one
+	-- two rays), popping out once the letters have landed and turning slowly
+	local burstScale = Instance.new("UIScale")
+	burstScale.Scale = 0
+	burstScale.Parent = burst
+	for i = 1, 9 do
+		local bar = block("Ray", if i % 2 == 0 then rgb(255, 214, 236) else WHITE, 0, burst)
+		bar.AnchorPoint = Vector2.new(0.5, 0.5)
+		bar.Position = UDim2.fromScale(0.5, 0.5)
+		bar.Size = UDim2.fromOffset(WIDTH * 1.3, if i % 2 == 0 then 20 else 30)
+		bar.Rotation = (i - 1) * 20
+		corner(bar, UDim.new(0.5, 0))
+		local g = Instance.new("UIGradient")
+		g.Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.22, 0.55),
+			NumberSequenceKeypoint.new(0.5, 0.3),
+			NumberSequenceKeypoint.new(0.78, 0.55),
+			NumberSequenceKeypoint.new(1, 1),
+		})
+		g.Parent = bar
+		title.Fades[#title.Fades].Base = 0.45
+		bar.BackgroundTransparency = 0.45
+		table.insert(title.Rays, { Bar = bar, Angle = bar.Rotation })
 	end
 	frame.Parent = parent
 	return title
@@ -336,10 +398,24 @@ local function smooth(a: number): number
 	a = math.clamp(a, 0, 1)
 	return a * a * a * (a * (a * 6 - 15) + 10)
 end
-local function backOut(u: number): number
+local function backOut(u: number, c: number?): number
 	u = math.clamp(u, 0, 1)
-	local c = 1.70158
-	return 1 + (c + 1) * (u - 1) ^ 3 + c * (u - 1) ^ 2
+	local k = c or 1.70158
+	return 1 + (k + 1) * (u - 1) ^ 3 + k * (u - 1) ^ 2
+end
+
+-- A letter slamming onto the screen: it drops in big (1.9x) and fast, squashes a little small
+-- as it lands, then bounces back to size. 0 before it starts.
+local SLAM = 0.16 -- (seconds to land)
+local SETTLE = 0.34 -- (seconds to bounce back)
+local function slam(t: number): number
+	if t < 0 then
+		return 0
+	elseif t < SLAM then
+		local u = t / SLAM
+		return 1.9 + (0.84 - 1.9) * u * u
+	end
+	return 0.84 + 0.16 * backOut((t - SLAM) / SETTLE, 3)
 end
 
 function DonutTitle.Step(title: Title, now: number, start: number, alpha: number, viewport: Vector2, grow: number)
@@ -350,16 +426,28 @@ function DonutTitle.Step(title: Title, now: number, start: number, alpha: number
 	end
 	-- fits about 60% of the screen's width, 40% of its height (whichever is smaller)
 	local fit = math.min(viewport.X * 0.6 / WIDTH, viewport.Y * 0.4 / HEIGHT)
-	title.Scale.Scale = fit * grow
-	title.Frame.Rotation = -4 + math.sin(now * 1.7) * 1.2
-	for _, letter in title.Letters do
-		local u = (t - letter.Start) / 0.42
-		letter.Scale.Scale = backOut(u)
-		letter.Holder.Position = UDim2.fromOffset(letter.Holder.Position.X.Offset, letter.Y - (1 - smooth(u)) * 22)
-		if letter.Spin then
-			letter.Holder.Rotation = -220 * (1 - smooth(u))
-		end
+	title.Frame.Rotation = -3 + math.sin(now * 1.7) * 1.2
+	local landed = 0
+	for i, letter in title.Letters do
+		local lt = t - letter.Start
+		letter.Scale.Scale = slam(lt)
+		local u = smooth(lt / SLAM)
+		local settle = smooth((lt - SLAM) / SETTLE)
+		-- (drops in from above, swinging into its tilt from the other side)
+		letter.Holder.Position = UDim2.fromOffset(letter.X, letter.Y - (1 - u) * 34)
+		local swing = (if i % 2 == 0 then 1 else -1) * 16 * (1 - settle)
+		letter.Holder.Rotation = letter.Tilt + swing + (if letter.Spin then -240 * (1 - u) else 0)
+		landed = math.max(landed, letter.Start + SLAM + SETTLE)
 	end
+	-- once they've all landed, the whole title punches out once and the burst pops behind it
+	local punch = t - landed + SETTLE * 0.5
+	local pulse = if punch > 0 and punch < 0.36 then math.sin(punch / 0.36 * math.pi) * 0.09 else 0
+	title.Scale.Scale = fit * grow * (1 + pulse)
+	local burstScale = title.Burst:FindFirstChildOfClass("UIScale")
+	if burstScale then
+		burstScale.Scale = backOut(punch / 0.45, 2.2) * (1 + 0.04 * math.sin(now * 2.3))
+	end
+	title.Burst.Rotation = now * 9
 	-- the frosting oozes down, then sways a little
 	for _, d in title.Drips do
 		local u = math.clamp((t - d.Start) / 0.9, 0, 1)

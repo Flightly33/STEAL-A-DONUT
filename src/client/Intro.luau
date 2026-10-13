@@ -64,6 +64,8 @@ local S = Config.Guard.Scale -- (Domer's scale: about 20 studs tall)
 local BAKER_S = 1.5
 
 -- When each part of the scene starts (seconds).
+local IRIS_OPEN = 1.05 -- (seconds for the scene to open out of black)
+local VIGNETTE_OPEN, VIGNETTE = 0.85, 0.5 -- (how dark the screen's edges are as it opens, and after)
 local T = {
 	TitleIn = 0.3,
 	TitleOut = 3.0,
@@ -228,8 +230,10 @@ local function stepBubble(b: Bubble, now: number): boolean
 	return true
 end
 
--- The title card (a donut: client/UI/DonutTitle), black bars and SKIP button.
-type Screen = { Gui: ScreenGui, Title: DonutTitle.Title, Top: Frame, Bottom: Frame, Skip: GuiButton }
+-- The title card (a donut: client/UI/DonutTitle), black bars and SKIP button, and the vignette:
+-- the scene opens from black through a circle that widens out from the middle (a cartoon iris),
+-- then a soft dark edge round the screen stays for the rest of it, like a film.
+type Screen = { Gui: ScreenGui, Title: DonutTitle.Title, Top: Frame, Bottom: Frame, Skip: GuiButton, Iris: { Frame }, Edges: { Frame } }
 local function buildScreen(): Screen
 	local gui = Theme.ScreenGui("Intro", 60)
 	gui.IgnoreGuiInset = true
@@ -244,8 +248,53 @@ local function buildScreen(): Screen
 		f.Parent = gui
 		return f
 	end
+	-- the vignette: an edge of black fading in from each side (the corners, where two meet, darkest)
+	local edges: { Frame } = {}
+	for _, side in { { 0, 0, 0.26, 1, 0 }, { 1, 0, 0.26, 1, 180 }, { 0, 0, 1, 0.3, 90 }, { 0, 1, 1, 0.3, 270 } } do
+		local f = Instance.new("Frame")
+		f.Name = "Vignette"
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = rgb(0, 0, 0)
+		f.BackgroundTransparency = 1
+		f.AnchorPoint = Vector2.new(side[1], side[2])
+		f.Position = UDim2.fromScale(side[1], side[2])
+		f.Size = UDim2.fromScale(side[3], side[4])
+		f.ZIndex = 2
+		local g = Instance.new("UIGradient")
+		g.Rotation = side[5]
+		g.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.45, 0.6), NumberSequenceKeypoint.new(1, 1) })
+		g.Parent = f
+		f.Parent = gui
+		table.insert(edges, f)
+	end
+	-- the iris: a round hole in a sea of black (a circle with a huge black outline), with a soft
+	-- inside edge (two fainter rings just inside it)
+	local iris: { Frame } = {}
+	for i, ring in { { 0, 0 }, { 26, 0.55 }, { 13, 0.25 } } do
+		local f = Instance.new("Frame")
+		f.Name = if i == 1 then "Iris" else "IrisSoft"
+		f.BackgroundTransparency = 1
+		f.AnchorPoint = Vector2.new(0.5, 0.5)
+		f.Position = UDim2.fromScale(0.5, 0.5)
+		f.Size = UDim2.fromOffset(0, 0)
+		f.ZIndex = 3
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0.5, 0)
+		corner.Parent = f
+		local stroke = Instance.new("UIStroke")
+		stroke.Color = rgb(0, 0, 0)
+		stroke.Thickness = if i == 1 then 2000 else ring[1]
+		stroke.Transparency = ring[2]
+		stroke.Parent = f
+		f:SetAttribute("Inset", ring[1] * 2)
+		f.Parent = gui
+		table.insert(iris, f)
+	end
 	local top, bottom = bar("TopBar", 0), bar("BottomBar", 1)
+	top.ZIndex, bottom.ZIndex = 6, 6
 	local title = DonutTitle.new(gui)
+	-- (over the iris: the first letters slam in over the black as the scene opens behind them)
+	title.Frame.ZIndex = 5
 	local skip = Theme.Button({
 		Name = "Skip",
 		Text = "SKIP",
@@ -256,7 +305,7 @@ local function buildScreen(): Screen
 		Parent = gui,
 	})
 	skip.ZIndex = 5
-	return { Gui = gui, Title = title, Top = top, Bottom = bottom, Skip = skip }
+	return { Gui = gui, Title = title, Top = top, Bottom = bottom, Skip = skip, Iris = iris, Edges = edges }
 end
 
 -- Domer for the scene: the first biome's, with a grin and a wink he can switch to.
@@ -694,6 +743,12 @@ function Intro.Play(opts: { Speed: number? }?)
 		TweenService:Create(screen.Bottom, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), { Size = UDim2.fromScale(1, 0) }):Play()
 		screen.Skip.Visible = false
 		screen.Title.Frame.Visible = false
+		for _, f in screen.Iris do
+			f.Visible = false
+		end
+		for _, f in screen.Edges do
+			TweenService:Create(f, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { BackgroundTransparency = 1 }):Play()
+		end
 		task.delay(0.45, function()
 			screen.Gui:Destroy()
 			if not domerConnection then
@@ -1111,6 +1166,27 @@ function Intro.Play(opts: { Speed: number? }?)
 		local bars = 0.1 * smooth(t / 0.6)
 		screen.Top.Size = UDim2.fromScale(1, bars)
 		screen.Bottom.Size = UDim2.fromScale(1, bars)
+		local view = if camera then camera.ViewportSize else Vector2.new(1280, 720)
+		-- the iris opens from black (a small circle first, then sweeping out), then it's gone
+		local open = smooth(t / IRIS_OPEN)
+		local across = view.Magnitude * 1.08 * open
+		for i, f in screen.Iris do
+			f.Visible = open < 1
+			if f.Visible then
+				local inset = (f:GetAttribute("Inset") :: number?) or 0
+				local d = math.max(0, across - inset)
+				f.Size = UDim2.fromOffset(d, d)
+				local stroke = f:FindFirstChildOfClass("UIStroke")
+				if i == 1 and stroke then
+					stroke.Thickness = view.Magnitude
+				end
+			end
+		end
+		-- the vignette: strong as the scene opens, settling to a soft edge
+		local edge = VIGNETTE + (VIGNETTE_OPEN - VIGNETTE) * (1 - smooth((t - IRIS_OPEN * 0.5) / 1.2))
+		for _, f in screen.Edges do
+			f.BackgroundTransparency = 1 - edge
+		end
 		-- the title: its letters pop in, the frosting drips, then it swells and fades away
 		local outA = smooth((t - T.TitleOut) / 0.45)
 		local viewport = if camera then camera.ViewportSize else Vector2.new(1280, 720)
