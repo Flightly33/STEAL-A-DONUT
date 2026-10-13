@@ -10,11 +10,11 @@ function Format.Number(value: number): string
 	if value ~= value then
 		return "0"
 	end
-	if value == math.huge then
-		return "inf"
-	end
 	local negative = value < 0
 	value = math.abs(value)
+	if value == math.huge then
+		return if negative then "-inf" else "inf"
+	end
 
 	local text
 	if value < 1000 then
@@ -27,7 +27,11 @@ function Format.Number(value: number): string
 		local tier = math.min(math.floor(math.log10(value) / 3), #SUFFIXES - 1)
 		local scaled = value / 10 ^ (tier * 3)
 		-- Truncate (never round up) so "$999.99" shows as "999.9", not "1000.0".
-		if scaled >= 100 then
+		if scaled >= 1000 then
+			-- (past the last suffix: a power of ten - "%d" can't hold numbers this big)
+			local power = math.floor(math.log10(value))
+			return (if negative then "-" else "") .. (string.gsub(string.format("%.1fe%d", math.floor(value / 10 ^ power * 10) / 10, power), "%.0e", "e"))
+		elseif scaled >= 100 then
 			text = string.format("%d", math.floor(scaled))
 		else
 			text = string.format("%.1f", math.floor(scaled * 10) / 10):gsub("%.0$", "")

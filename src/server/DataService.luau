@@ -172,6 +172,14 @@ local function deepCopy<T>(value: T): T
 	return copy :: any
 end
 
+-- A number the game can hold: never NaN ("not a number"), never below 0 or past `max`.
+local function sane(value: any, max: number): number
+	if type(value) ~= "number" or value ~= value then
+		return 0
+	end
+	return math.clamp(value, 0, max)
+end
+
 -- Fill in keys that were added to TEMPLATE after this player's data was first saved.
 local function reconcile(data: { [string]: any }, template: { [string]: any })
 	for key, value in template do
@@ -419,6 +427,11 @@ function DataService.Load(player: Player): Profile?
 	reconcile(data :: any, TEMPLATE :: any)
 	migrate(data, isNew)
 	dropRemovedDonuts(data)
+	-- (mends money and Speed broken before there were limits: infinite, NaN, or too big to show)
+	data.Money = sane(data.Money, Config.Limits.Money)
+	data.TotalEarned = sane(data.TotalEarned, Config.Limits.Money)
+	data.Speed = sane(data.Speed, Config.Limits.Speed)
+	data.BestSpeed = sane(data.BestSpeed, Config.Limits.Speed)
 
 	if RunService:IsStudio() then
 		if Config.Debug.StudioStartMoney > 0 and data.Money < Config.Debug.StudioStartMoney then
@@ -568,9 +581,9 @@ function DataService.AddMoney(player: Player, amount: number, countsAsEarned: bo
 	if not profile or amount ~= amount then
 		return
 	end
-	profile.Data.Money += amount
+	profile.Data.Money = sane(profile.Data.Money + amount, Config.Limits.Money)
 	if countsAsEarned ~= false and amount > 0 then
-		profile.Data.TotalEarned += amount
+		profile.Data.TotalEarned = sane(profile.Data.TotalEarned + amount, Config.Limits.Money)
 	end
 	player:SetAttribute("Money", profile.Data.Money)
 	player:SetAttribute("TotalEarned", profile.Data.TotalEarned)
@@ -581,7 +594,7 @@ function DataService.TrySpend(player: Player, amount: number): boolean
 	if not profile or amount ~= amount or amount < 0 or profile.Data.Money < amount then
 		return false
 	end
-	profile.Data.Money -= amount
+	profile.Data.Money = sane(profile.Data.Money - amount, Config.Limits.Money)
 	player:SetAttribute("Money", profile.Data.Money)
 	return true
 end
@@ -591,7 +604,7 @@ function DataService.AddSpeed(player: Player, amount: number)
 	if not profile or amount ~= amount then
 		return
 	end
-	profile.Data.Speed += amount
+	profile.Data.Speed = sane(profile.Data.Speed + amount, Config.Limits.Speed)
 	player:SetAttribute("Speed", profile.Data.Speed)
 	if profile.Data.Speed > profile.Data.BestSpeed then
 		profile.Data.BestSpeed = profile.Data.Speed
@@ -631,7 +644,7 @@ function DataService.TrySpendSpeed(player: Player, amount: number): boolean
 	if not profile or amount ~= amount or amount < 0 or profile.Data.Speed < amount then
 		return false
 	end
-	profile.Data.Speed -= amount
+	profile.Data.Speed = sane(profile.Data.Speed - amount, Config.Limits.Speed)
 	player:SetAttribute("Speed", profile.Data.Speed)
 	return true
 end

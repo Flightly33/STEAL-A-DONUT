@@ -2685,6 +2685,14 @@ Config.Music = {
 --------------------------------------------------------------------------------
 -- Saving
 --------------------------------------------------------------------------------
+-- The most money and Speed anyone can have (the admin panel's money and Speed buttons stop here).
+-- Far past anything you can earn, and safely inside what the game can handle: a save can't hold
+-- "infinite" money, and past about 1e80 the money counter can't be shown.
+Config.Limits = {
+	Money = 1e60,
+	Speed = 1e12,
+}
+
 Config.Data = {
 	StoreName = "StealADonut_PlayerData_v1",
 	AutosaveInterval = 90,
@@ -9655,11 +9663,11 @@ function Format.Number(value: number): string
 	if value ~= value then
 		return "0"
 	end
-	if value == math.huge then
-		return "inf"
-	end
 	local negative = value < 0
 	value = math.abs(value)
+	if value == math.huge then
+		return if negative then "-inf" else "inf"
+	end
 
 	local text
 	if value < 1000 then
@@ -9672,7 +9680,11 @@ function Format.Number(value: number): string
 		local tier = math.min(math.floor(math.log10(value) / 3), #SUFFIXES - 1)
 		local scaled = value / 10 ^ (tier * 3)
 		-- Truncate (never round up) so "$999.99" shows as "999.9", not "1000.0".
-		if scaled >= 100 then
+		if scaled >= 1000 then
+			-- (past the last suffix: a power of ten - "%d" can't hold numbers this big)
+			local power = math.floor(math.log10(value))
+			return (if negative then "-" else "") .. (string.gsub(string.format("%.1fe%d", math.floor(value / 10 ^ power * 10) / 10, power), "%.0e", "e"))
+		elseif scaled >= 100 then
 			text = string.format("%d", math.floor(scaled))
 		else
 			text = string.format("%.1f", math.floor(scaled * 10) / 10):gsub("%.0$", "")
@@ -17241,6 +17253,10 @@ end
 local Commands: { [string]: (Player, DataService.Profile, any) -> () } = {}
 
 function Commands.Money(player: Player, profile: DataService.Profile, amount: any)
+	if profile.Data.Money >= Config.Limits.Money then
+		notify(player, "That's the most money there is!", "info")
+		return
+	end
 	if amount == "x10" then
 		DataService.AddMoney(player, math.max(profile.Data.Money, 1000) * 9, false)
 	elseif type(amount) == "number" and amount > 0 and amount < 1e30 then
@@ -17250,6 +17266,10 @@ end
 
 function Commands.Speed(player: Player, profile: DataService.Profile, amount: any)
 	if type(amount) == "number" and amount == amount then
+		if amount > 0 and profile.Data.Speed >= Config.Limits.Speed then
+			notify(player, "That's the most Speed there is!", "info")
+			return
+		end
 		DataService.AddSpeed(player, math.max(amount, -profile.Data.Speed))
 	end
 end
@@ -19361,6 +19381,14 @@ local function deepCopy<T>(value: T): T
 	return copy :: any
 end
 
+-- A number the game can hold: never NaN ("not a number"), never below 0 or past `max`.
+local function sane(value: any, max: number): number
+	if type(value) ~= "number" or value ~= value then
+		return 0
+	end
+	return math.clamp(value, 0, max)
+end
+
 -- Fill in keys that were added to TEMPLATE after this player's data was first saved.
 local function reconcile(data: { [string]: any }, template: { [string]: any })
 	for key, value in template do
@@ -19608,6 +19636,11 @@ function DataService.Load(player: Player): Profile?
 	reconcile(data :: any, TEMPLATE :: any)
 	migrate(data, isNew)
 	dropRemovedDonuts(data)
+	-- (mends money and Speed broken before there were limits: infinite, NaN, or too big to show)
+	data.Money = sane(data.Money, Config.Limits.Money)
+	data.TotalEarned = sane(data.TotalEarned, Config.Limits.Money)
+	data.Speed = sane(data.Speed, Config.Limits.Speed)
+	data.BestSpeed = sane(data.BestSpeed, Config.Limits.Speed)
 
 	if RunService:IsStudio() then
 		if Config.Debug.StudioStartMoney > 0 and data.Money < Config.Debug.StudioStartMoney then
@@ -19757,9 +19790,9 @@ function DataService.AddMoney(player: Player, amount: number, countsAsEarned: bo
 	if not profile or amount ~= amount then
 		return
 	end
-	profile.Data.Money += amount
+	profile.Data.Money = sane(profile.Data.Money + amount, Config.Limits.Money)
 	if countsAsEarned ~= false and amount > 0 then
-		profile.Data.TotalEarned += amount
+		profile.Data.TotalEarned = sane(profile.Data.TotalEarned + amount, Config.Limits.Money)
 	end
 	player:SetAttribute("Money", profile.Data.Money)
 	player:SetAttribute("TotalEarned", profile.Data.TotalEarned)
@@ -19770,7 +19803,7 @@ function DataService.TrySpend(player: Player, amount: number): boolean
 	if not profile or amount ~= amount or amount < 0 or profile.Data.Money < amount then
 		return false
 	end
-	profile.Data.Money -= amount
+	profile.Data.Money = sane(profile.Data.Money - amount, Config.Limits.Money)
 	player:SetAttribute("Money", profile.Data.Money)
 	return true
 end
@@ -19780,7 +19813,7 @@ function DataService.AddSpeed(player: Player, amount: number)
 	if not profile or amount ~= amount then
 		return
 	end
-	profile.Data.Speed += amount
+	profile.Data.Speed = sane(profile.Data.Speed + amount, Config.Limits.Speed)
 	player:SetAttribute("Speed", profile.Data.Speed)
 	if profile.Data.Speed > profile.Data.BestSpeed then
 		profile.Data.BestSpeed = profile.Data.Speed
@@ -19820,7 +19853,7 @@ function DataService.TrySpendSpeed(player: Player, amount: number): boolean
 	if not profile or amount ~= amount or amount < 0 or profile.Data.Speed < amount then
 		return false
 	end
-	profile.Data.Speed -= amount
+	profile.Data.Speed = sane(profile.Data.Speed - amount, Config.Limits.Speed)
 	player:SetAttribute("Speed", profile.Data.Speed)
 	return true
 end
@@ -28813,34 +28846,50 @@ local function grantOfflineEarnings(player: Player)
 	end
 end
 
+-- One step of getting a player going. If it breaks, it says so and the rest carries on: a single
+-- broken step must never leave someone half-joined (never Ready: no run speed, no income, and a
+-- HUD that never gets its state, so no button works).
+local function step(player: Player, name: string, fn: (Player) -> ())
+	local ok, err = pcall(function()
+		fn(player)
+	end)
+	if not ok then
+		warn(`[PlayerService] {name} failed for {player.Name}: {err}`)
+	end
+end
+
 local function onPlayerAdded(player: Player)
 	local profile = DataService.Load(player)
 	if not profile or not player.Parent then
 		return
 	end
-	ShopService.LoadOwnership(player)
+	step(player, "Game passes", ShopService.LoadOwnership)
 	if not player.Parent then
 		return
 	end
 
-	local plotIndex = PlotService.Assign(player)
-	if not plotIndex then
+	local assigned, plotIndex = pcall(PlotService.Assign, player)
+	if not assigned then
+		warn(`[PlayerService] Base for {player.Name} failed: {plotIndex}`)
+		player:Kick("Your base couldn't be set up. Please rejoin!")
+		return
+	elseif not plotIndex then
 		player:Kick("This server is full. Please join another server!")
 		return
 	end
-	TreadmillService.Build(player)
-	InventoryService.SyncTools(player)
-	createLeaderstats(player)
-	grantOfflineEarnings(player)
+	step(player, "Treadmill", TreadmillService.Build)
+	step(player, "Tools", InventoryService.SyncTools)
+	step(player, "Leaderstats", createLeaderstats)
+	step(player, "Offline earnings", grantOfflineEarnings)
 
 	profile.Session.Ready = true
 	player:SetAttribute("World", 1)
 	player:SetAttribute("Donated", profile.Data.Donated)
-	DataService.SyncAttributes(player)
-	DataService.CheckTrails(player) -- (saves from before trails: already fast enough for one)
-	PetService.OnPlayerReady(player) -- pets' bonuses (money multiplier), followers, incubator
-	CrateService.OnPlayerReady(player) -- may this player buy crates? (paid random items rules)
-	DataService.PushState(player)
+	step(player, "Attributes", DataService.SyncAttributes)
+	step(player, "Trails", DataService.CheckTrails) -- (saves from before trails: already fast enough for one)
+	step(player, "Pets", PetService.OnPlayerReady) -- pets' bonuses (money multiplier), followers, incubator
+	step(player, "Crates", CrateService.OnPlayerReady) -- may this player buy crates? (paid random items rules)
+	step(player, "State", DataService.PushState)
 
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
@@ -52856,7 +52905,17 @@ local function enqueue(info: { EggId: string, PetId: string })
 	while #queue > 0 do
 		local nextHatch = table.remove(queue, 1)
 		if nextHatch then
-			playHatch(nextHatch, if #queue > 0 then 1.5 else 1)
+			local ok, err = pcall(function()
+				playHatch(nextHatch, if #queue > 0 then 1.5 else 1)
+			end)
+			if not ok then
+				-- (never leave the show - and its full-screen skip button - over the game)
+				warn(`[Hatch] {err}`)
+				for _, child in overlay:GetChildren() do
+					child:Destroy()
+				end
+				overlay.Visible = false
+			end
 		end
 	end
 	hatching = false

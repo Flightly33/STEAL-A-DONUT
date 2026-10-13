@@ -138,34 +138,50 @@ local function grantOfflineEarnings(player: Player)
 	end
 end
 
+-- One step of getting a player going. If it breaks, it says so and the rest carries on: a single
+-- broken step must never leave someone half-joined (never Ready: no run speed, no income, and a
+-- HUD that never gets its state, so no button works).
+local function step(player: Player, name: string, fn: (Player) -> ())
+	local ok, err = pcall(function()
+		fn(player)
+	end)
+	if not ok then
+		warn(`[PlayerService] {name} failed for {player.Name}: {err}`)
+	end
+end
+
 local function onPlayerAdded(player: Player)
 	local profile = DataService.Load(player)
 	if not profile or not player.Parent then
 		return
 	end
-	ShopService.LoadOwnership(player)
+	step(player, "Game passes", ShopService.LoadOwnership)
 	if not player.Parent then
 		return
 	end
 
-	local plotIndex = PlotService.Assign(player)
-	if not plotIndex then
+	local assigned, plotIndex = pcall(PlotService.Assign, player)
+	if not assigned then
+		warn(`[PlayerService] Base for {player.Name} failed: {plotIndex}`)
+		player:Kick("Your base couldn't be set up. Please rejoin!")
+		return
+	elseif not plotIndex then
 		player:Kick("This server is full. Please join another server!")
 		return
 	end
-	TreadmillService.Build(player)
-	InventoryService.SyncTools(player)
-	createLeaderstats(player)
-	grantOfflineEarnings(player)
+	step(player, "Treadmill", TreadmillService.Build)
+	step(player, "Tools", InventoryService.SyncTools)
+	step(player, "Leaderstats", createLeaderstats)
+	step(player, "Offline earnings", grantOfflineEarnings)
 
 	profile.Session.Ready = true
 	player:SetAttribute("World", 1)
 	player:SetAttribute("Donated", profile.Data.Donated)
-	DataService.SyncAttributes(player)
-	DataService.CheckTrails(player) -- (saves from before trails: already fast enough for one)
-	PetService.OnPlayerReady(player) -- pets' bonuses (money multiplier), followers, incubator
-	CrateService.OnPlayerReady(player) -- may this player buy crates? (paid random items rules)
-	DataService.PushState(player)
+	step(player, "Attributes", DataService.SyncAttributes)
+	step(player, "Trails", DataService.CheckTrails) -- (saves from before trails: already fast enough for one)
+	step(player, "Pets", PetService.OnPlayerReady) -- pets' bonuses (money multiplier), followers, incubator
+	step(player, "Crates", CrateService.OnPlayerReady) -- may this player buy crates? (paid random items rules)
+	step(player, "State", DataService.PushState)
 
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)

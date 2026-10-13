@@ -970,6 +970,14 @@ Config.Music = {
 --------------------------------------------------------------------------------
 -- Saving
 --------------------------------------------------------------------------------
+-- The most money and Speed anyone can have (the admin panel's money and Speed buttons stop here).
+-- Far past anything you can earn, and safely inside what the game can handle: a save can't hold
+-- "infinite" money, and past about 1e80 the money counter can't be shown.
+Config.Limits = {
+	Money = 1e60,
+	Speed = 1e12,
+}
+
 Config.Data = {
 	StoreName = "StealADonut_PlayerData_v1",
 	AutosaveInterval = 90,

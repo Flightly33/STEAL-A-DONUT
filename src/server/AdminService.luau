@@ -162,6 +162,10 @@ end
 local Commands: { [string]: (Player, DataService.Profile, any) -> () } = {}
 
 function Commands.Money(player: Player, profile: DataService.Profile, amount: any)
+	if profile.Data.Money >= Config.Limits.Money then
+		notify(player, "That's the most money there is!", "info")
+		return
+	end
 	if amount == "x10" then
 		DataService.AddMoney(player, math.max(profile.Data.Money, 1000) * 9, false)
 	elseif type(amount) == "number" and amount > 0 and amount < 1e30 then
@@ -171,6 +175,10 @@ end
 
 function Commands.Speed(player: Player, profile: DataService.Profile, amount: any)
 	if type(amount) == "number" and amount == amount then
+		if amount > 0 and profile.Data.Speed >= Config.Limits.Speed then
+			notify(player, "That's the most Speed there is!", "info")
+			return
+		end
 		DataService.AddSpeed(player, math.max(amount, -profile.Data.Speed))
 	end
 end

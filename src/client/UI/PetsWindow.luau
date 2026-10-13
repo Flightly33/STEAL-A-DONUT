@@ -740,7 +740,17 @@ local function enqueue(info: { EggId: string, PetId: string })
 	while #queue > 0 do
 		local nextHatch = table.remove(queue, 1)
 		if nextHatch then
-			playHatch(nextHatch, if #queue > 0 then 1.5 else 1)
+			local ok, err = pcall(function()
+				playHatch(nextHatch, if #queue > 0 then 1.5 else 1)
+			end)
+			if not ok then
+				-- (never leave the show - and its full-screen skip button - over the game)
+				warn(`[Hatch] {err}`)
+				for _, child in overlay:GetChildren() do
+					child:Destroy()
+				end
+				overlay.Visible = false
+			end
 		end
 	end
 	hatching = false
