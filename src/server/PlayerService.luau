@@ -162,10 +162,21 @@ local function onPlayerAdded(player: Player)
 
 	local assigned, plotIndex = pcall(PlotService.Assign, player)
 	if not assigned then
+		-- (you got a plot and part of your base broke: play on with what's there, never a kick)
 		warn(`[PlayerService] Base for {player.Name} failed: {plotIndex}`)
-		player:Kick("Your base couldn't be set up. Please rejoin!")
-		return
-	elseif not plotIndex then
+		local reason = tostring(plotIndex)
+		plotIndex = PlotService.GetPlotIndex(player)
+		task.delay(8, function()
+			if player.Parent then
+				Remotes.Event("Notify"):FireClient(player, `Your base had a problem loading - {reason}`, "error")
+			end
+		end)
+		if not plotIndex then
+			player:Kick("Your base couldn't be set up. Please rejoin!")
+			return
+		end
+	end
+	if not plotIndex then
 		player:Kick("This server is full. Please join another server!")
 		return
 	end

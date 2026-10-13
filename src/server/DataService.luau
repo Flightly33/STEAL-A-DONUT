@@ -180,6 +180,32 @@ local function sane(value: any, max: number): number
 	return math.clamp(value, 0, max)
 end
 
+-- Throw away anything in the saved lists that isn't a proper entry (so a bad one can never stop
+-- someone loading in): pen slots and boxes are keyed by spot, the rest are plain lists.
+local function dropJunk(data: { [string]: any })
+	for _, name in { "Slots", "PenBoxes" } do
+		if type(data[name]) ~= "table" then
+			data[name] = {}
+		end
+		for key, entry in data[name] do
+			if type(entry) ~= "table" then
+				data[name][key] = nil
+			end
+		end
+	end
+	for _, name in { "Inventory", "Pets", "Eggs" } do
+		if type(data[name]) ~= "table" then
+			data[name] = {}
+		end
+		local list = data[name]
+		for i = #list, 1, -1 do
+			if type(list[i]) ~= "table" then
+				table.remove(list, i)
+			end
+		end
+	end
+end
+
 -- Fill in keys that were added to TEMPLATE after this player's data was first saved.
 local function reconcile(data: { [string]: any }, template: { [string]: any })
 	for key, value in template do
@@ -425,6 +451,7 @@ function DataService.Load(player: Player): Profile?
 	end
 	local isNew = (data :: any).Version == nil or (data.PlayTime == 0 and data.TotalEarned == 0)
 	reconcile(data :: any, TEMPLATE :: any)
+	dropJunk(data :: any)
 	migrate(data, isNew)
 	dropRemovedDonuts(data)
 	-- (mends money and Speed broken before there were limits: infinite, NaN, or too big to show)

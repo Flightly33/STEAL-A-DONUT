@@ -1453,18 +1453,54 @@ local function showBase(player: Player)
 	local plot = MapBuilder.GetPlot(index)
 	plot:SetAttribute("OwnerUserId", player.UserId)
 	player:SetAttribute("BaseWorld", 1)
-	if profile then
-		MapBuilder.BuildPen(plot, PlotService.GetSlotCount(player))
-		for i = 1, PlotService.GetSlotCount(player) do
-			spawnSlotModel(player, i)
-			spawnBoxModel(player, i)
+	-- (each part on its own: one that breaks - a donut that won't build, say - is skipped and noted,
+	-- and the rest of the base still goes up)
+	local problems: { string } = {}
+	local function try(what: string, fn: () -> ())
+		local ok, err = pcall(function()
+			fn()
+		end)
+		if not ok then
+			warn(`[PlotService] {what} failed for {player.Name}: {err}`)
+			table.insert(problems, `{what}: {err}`)
 		end
 	end
-	recalcIncome(player)
-	PlotService.ApplySkin(player)
-	PlotService.RefreshSign(player)
-	PlotService.RefreshPodium(player)
-	refreshUpgradeSign(index, player)
+	if profile then
+		try("Pen", function()
+			MapBuilder.BuildPen(plot, PlotService.GetSlotCount(player))
+		end)
+		for i = 1, PlotService.GetSlotCount(player) do
+			try(`Slot {i}`, function()
+				spawnSlotModel(player, i)
+			end)
+			try(`Box {i}`, function()
+				spawnBoxModel(player, i)
+			end)
+		end
+	end
+	try("Income", function()
+		recalcIncome(player)
+	end)
+	try("Skin", function()
+		PlotService.ApplySkin(player)
+	end)
+	try("Sign", function()
+		PlotService.RefreshSign(player)
+	end)
+	try("Podium", function()
+		PlotService.RefreshPodium(player)
+	end)
+	try("Upgrade sign", function()
+		refreshUpgradeSign(index, player)
+	end)
+	if #problems > 0 then
+		-- (told once the HUD is up, so it can be screenshotted and fixed)
+		task.delay(8, function()
+			if player.Parent then
+				Remotes.Event("Notify"):FireClient(player, `Part of your base couldn't load ({#problems}). First problem - {problems[1]}`, "error")
+			end
+		end)
+	end
 end
 
 -- Take the player's base off their plot.
@@ -1514,13 +1550,14 @@ function PlotService.Assign(player: Player): number?
 	if profile then
 		-- Drop any saved slot that points at a donut that no longer exists (e.g. removed from
 		-- Donuts.luau), and move anything saved past the end of the base into free spots.
+		-- (and anything that isn't a proper slot or box at all)
 		for key, slot in profile.Data.Slots do
-			if not Donuts.ById[slot.Id] or not tonumber(key) then
+			if type(slot) ~= "table" or not Donuts.ById[slot.Id] or not tonumber(key) then
 				profile.Data.Slots[key] = nil
 			end
 		end
 		for key, box in profile.Data.PenBoxes do
-			if not tonumber(key) or not Donuts.HasBox(box.Area, box.Tier) then
+			if type(box) ~= "table" or not tonumber(key) or not Donuts.HasBox(box.Area, box.Tier) then
 				profile.Data.PenBoxes[key] = nil
 			end
 		end

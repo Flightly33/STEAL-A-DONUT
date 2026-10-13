@@ -19389,6 +19389,32 @@ local function sane(value: any, max: number): number
 	return math.clamp(value, 0, max)
 end
 
+-- Throw away anything in the saved lists that isn't a proper entry (so a bad one can never stop
+-- someone loading in): pen slots and boxes are keyed by spot, the rest are plain lists.
+local function dropJunk(data: { [string]: any })
+	for _, name in { "Slots", "PenBoxes" } do
+		if type(data[name]) ~= "table" then
+			data[name] = {}
+		end
+		for key, entry in data[name] do
+			if type(entry) ~= "table" then
+				data[name][key] = nil
+			end
+		end
+	end
+	for _, name in { "Inventory", "Pets", "Eggs" } do
+		if type(data[name]) ~= "table" then
+			data[name] = {}
+		end
+		local list = data[name]
+		for i = #list, 1, -1 do
+			if type(list[i]) ~= "table" then
+				table.remove(list, i)
+			end
+		end
+	end
+end
+
 -- Fill in keys that were added to TEMPLATE after this player's data was first saved.
 local function reconcile(data: { [string]: any }, template: { [string]: any })
 	for key, value in template do
@@ -19634,6 +19660,7 @@ function DataService.Load(player: Player): Profile?
 	end
 	local isNew = (data :: any).Version == nil or (data.PlayTime == 0 and data.TotalEarned == 0)
 	reconcile(data :: any, TEMPLATE :: any)
+	dropJunk(data :: any)
 	migrate(data, isNew)
 	dropRemovedDonuts(data)
 	-- (mends money and Speed broken before there were limits: infinite, NaN, or too big to show)
@@ -28870,10 +28897,21 @@ local function onPlayerAdded(player: Player)
 
 	local assigned, plotIndex = pcall(PlotService.Assign, player)
 	if not assigned then
+		-- (you got a plot and part of your base broke: play on with what's there, never a kick)
 		warn(`[PlayerService] Base for {player.Name} failed: {plotIndex}`)
-		player:Kick("Your base couldn't be set up. Please rejoin!")
-		return
-	elseif not plotIndex then
+		local reason = tostring(plotIndex)
+		plotIndex = PlotService.GetPlotIndex(player)
+		task.delay(8, function()
+			if player.Parent then
+				Remotes.Event("Notify"):FireClient(player, `Your base had a problem loading - {reason}`, "error")
+			end
+		end)
+		if not plotIndex then
+			player:Kick("Your base couldn't be set up. Please rejoin!")
+			return
+		end
+	end
+	if not plotIndex then
 		player:Kick("This server is full. Please join another server!")
 		return
 	end
@@ -30461,18 +30499,54 @@ local function showBase(player: Player)
 	local plot = MapBuilder.GetPlot(index)
 	plot:SetAttribute("OwnerUserId", player.UserId)
 	player:SetAttribute("BaseWorld", 1)
-	if profile then
-		MapBuilder.BuildPen(plot, PlotService.GetSlotCount(player))
-		for i = 1, PlotService.GetSlotCount(player) do
-			spawnSlotModel(player, i)
-			spawnBoxModel(player, i)
+	-- (each part on its own: one that breaks - a donut that won't build, say - is skipped and noted,
+	-- and the rest of the base still goes up)
+	local problems: { string } = {}
+	local function try(what: string, fn: () -> ())
+		local ok, err = pcall(function()
+			fn()
+		end)
+		if not ok then
+			warn(`[PlotService] {what} failed for {player.Name}: {err}`)
+			table.insert(problems, `{what}: {err}`)
 		end
 	end
-	recalcIncome(player)
-	PlotService.ApplySkin(player)
-	PlotService.RefreshSign(player)
-	PlotService.RefreshPodium(player)
-	refreshUpgradeSign(index, player)
+	if profile then
+		try("Pen", function()
+			MapBuilder.BuildPen(plot, PlotService.GetSlotCount(player))
+		end)
+		for i = 1, PlotService.GetSlotCount(player) do
+			try(`Slot {i}`, function()
+				spawnSlotModel(player, i)
+			end)
+			try(`Box {i}`, function()
+				spawnBoxModel(player, i)
+			end)
+		end
+	end
+	try("Income", function()
+		recalcIncome(player)
+	end)
+	try("Skin", function()
+		PlotService.ApplySkin(player)
+	end)
+	try("Sign", function()
+		PlotService.RefreshSign(player)
+	end)
+	try("Podium", function()
+		PlotService.RefreshPodium(player)
+	end)
+	try("Upgrade sign", function()
+		refreshUpgradeSign(index, player)
+	end)
+	if #problems > 0 then
+		-- (told once the HUD is up, so it can be screenshotted and fixed)
+		task.delay(8, function()
+			if player.Parent then
+				Remotes.Event("Notify"):FireClient(player, `Part of your base couldn't load ({#problems}). First problem - {problems[1]}`, "error")
+			end
+		end)
+	end
 end
 
 -- Take the player's base off their plot.
@@ -30522,13 +30596,14 @@ function PlotService.Assign(player: Player): number?
 	if profile then
 		-- Drop any saved slot that points at a donut that no longer exists (e.g. removed from
 		-- Donuts.luau), and move anything saved past the end of the base into free spots.
+		-- (and anything that isn't a proper slot or box at all)
 		for key, slot in profile.Data.Slots do
-			if not Donuts.ById[slot.Id] or not tonumber(key) then
+			if type(slot) ~= "table" or not Donuts.ById[slot.Id] or not tonumber(key) then
 				profile.Data.Slots[key] = nil
 			end
 		end
 		for key, box in profile.Data.PenBoxes do
-			if not tonumber(key) or not Donuts.HasBox(box.Area, box.Tier) then
+			if type(box) ~= "table" or not tonumber(key) or not Donuts.HasBox(box.Area, box.Tier) then
 				profile.Data.PenBoxes[key] = nil
 			end
 		end
