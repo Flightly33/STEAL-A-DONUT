@@ -427,10 +427,16 @@ function MythicOpening.Play(info: Info): boolean
 			local middle = pz.Parts[l].CFrame.Position:Lerp(pz.Parts[r].CFrame.Position, 0.5)
 			return CFrame.new(middle) * body * CFrame.new(0, -0.9, -0.3 * BAKER_S)
 		end
+		-- Where the box sits in your hands: at their height, but always fully in front of your body
+		-- (its back edge a little past your chest - real avatars are thick, and hands held out
+		-- aren't far enough forward for a box this deep)
+		local torso = (character :: Model):FindFirstChild("UpperTorso") or (character :: Model):FindFirstChild("Torso")
+		local chest = (if torso and torso:IsA("BasePart") then torso.Size.Z / 2 else 0.5) + 0.45
+		local hold = chest + extents.Z / 2
 		local function yourHands(): CFrame
 			local l, r = handOf(character :: Model, "Left", stand.Position), handOf(character :: Model, "Right", stand.Position)
-			local middle = if l and r then l:Lerp(r, 0.5) else (stand * CFrame.new(0, 0, -1.8)).Position
-			return CFrame.new(middle) * stand.Rotation * CFrame.Angles(0, math.pi, 0) * CFrame.new(0, -0.55, 0)
+			local height = if l and r then stand:PointToObjectSpace(l:Lerp(r, 0.5)).Y else 0
+			return stand * CFrame.new(0, height - 0.55, -hold) * CFrame.Angles(0, math.pi, 0)
 		end
 
 		local t = 0
