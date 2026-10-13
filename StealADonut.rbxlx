@@ -1813,6 +1813,8 @@ local LOOKS: { [string]: Look } = {
 	Legendary = { Body = rgb(255, 195, 40), Lid = rgb(255, 242, 205), Trim = rgb(255, 160, 20), Panel = WHITE, Text = rgb(235, 150, 10), Ribbon = rgb(255, 120, 40), Material = Enum.Material.Foil, Label = "LEGENDARY" },
 	Mythic = { Body = rgb(150, 15, 40), Lid = rgb(28, 12, 18), Trim = GOLD, Panel = rgb(60, 20, 30), Text = GOLD, Ribbon = GOLD, Material = Enum.Material.Plastic, Label = "MYTHIC" },
 }
+-- (each tier's colours, for things that show a box without building one: the shop's shelves)
+BoxModel.Looks = LOOKS
 
 local function studs(part: BasePart)
 	part.TopSurface = Enum.SurfaceType.Studs
@@ -16129,7 +16131,8 @@ return Pets
 	Leg), every other piece welded to one of them. Puppet.new anchors everything and removes the
 	joints. Puppet.Pose(puppet, cf, joints) then puts its root at `cf` and turns each limb round its
 	joint (shoulder, hip, neck) by joints[limb name] (in the character's own space: +X its right,
-	+Y up, -Z its front; e.g. CFrame.Angles(math.rad(-90), 0, 0) swings an arm or leg forward).
+	+Y up, -Z its front). A negative X turn is forward for every limb: CFrame.Angles(math.rad(-90), 0, 0)
+	nods the head down, or swings an arm or leg straight out in front (see mirrorFrontBack).
 ]]
 
 local Puppet = {}
@@ -16200,12 +16203,24 @@ function Puppet.Add(puppet: Puppet, part: BasePart, limb: string)
 	table.insert(puppet.Limb, limb)
 end
 
+-- An arm or leg hangs down, so a plain turn about X swings it the opposite way to a head nod:
+-- CFrame.Angles(-a, 0, 0) would put an arm BEHIND the body. Every pose is written so that a
+-- negative X turn is forward for every limb (like a nod), so arms' and legs' turns are mirrored
+-- front to back here (their X and Y turns flip, the sideways Z turn stays).
+local function mirrorFrontBack(turn: CFrame): CFrame
+	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = turn:GetComponents()
+	return CFrame.new(x, y, -z, r00, r01, -r02, r10, r11, -r12, -r20, -r21, r22)
+end
+
 -- Where a part would be, without moving anything.
 function Puppet.Where(puppet: Puppet, cf: CFrame, joints: { [string]: CFrame }?, index: number): CFrame
 	local rest = puppet.Rest[index]
 	local limb = puppet.Limb[index]
 	local turn = joints and joints[limb]
 	if turn then
+		if limb ~= "Head" then
+			turn = mirrorFrontBack(turn)
+		end
 		local pivot = CFrame.new(PIVOTS[limb] * puppet.Scale)
 		rest = pivot * turn * pivot:Inverse() * rest
 	end
@@ -26991,6 +27006,7 @@ local Format = require(Shared.Format)
 local Economy = require(Shared.Economy)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
+local BoxModel = require(Shared.BoxModel)
 
 local Build = require(script.Parent.Build)
 local Decor = require(script.Parent.Decor)
@@ -27595,6 +27611,153 @@ local SHOP_TRIM = rgb(255, 255, 255)
 local SHOP_ROOF = rgb(110, 62, 36)
 local SHOP_ICING = rgb(255, 140, 190)
 
+local SHELF_WOOD = rgb(196, 128, 70)
+local SHELF_BOARD = rgb(226, 166, 100)
+local SHELF_BACK = rgb(255, 236, 214)
+local DOUGH = rgb(232, 178, 112)
+
+-- What's inside the shop (all decoration, nothing to bump into): a tall shelf unit along the back
+-- wall stocked with donut boxes of every rarity (BoxModel's colours, made of a few parts each),
+-- the gear on the middle shelf (bats, speed sneakers, a tray of fresh donuts) and the best boxes on
+-- top; a bat rack on the left wall, a stack of boxes on the right, and the baker's prep table with
+-- his dough just behind the counter (client/Intro has him kneading at it).
+-- `at(x, y, z)`: shop space (x across, y up from the ground, z into the shop from its front wall
+-- at `zb`); D: how deep the shop is.
+local function stockShop(shop: Model, at: (number, number, number) -> CFrame, zb: number, D: number)
+	local function decor(name: string, size: Vector3, c: CFrame, color: Color3, material: Enum.Material?, shape: Enum.PartType?): BasePart
+		local p = Build.Decor({ Parent = shop, Name = name, Size = size, CFrame = c, Color = color, Material = material or Enum.Material.SmoothPlastic, CastShadow = false })
+		if shape then
+			(p :: Part).Shape = shape
+		end
+		return p
+	end
+	-- a donut box: its body, the lid, and a ribbon (or a trim band on a plain one)
+	local function box(tier: string, c: CFrame, s: number)
+		local look = BoxModel.Looks[tier] or BoxModel.Looks.Basic
+		local w, h, d = 2.5 * s, 1.35 * s, 1.75 * s
+		local base = h * 0.72
+		decor("ShelfBox", Vector3.new(w, base, d), c * CFrame.new(0, base / 2, 0), look.Body, look.Material)
+		decor("ShelfBoxLid", Vector3.new(w * 1.06, h - base, d * 1.06), c * CFrame.new(0, base + (h - base) / 2, 0), look.Lid, look.Material)
+		if look.Ribbon then
+			decor("ShelfBoxRibbon", Vector3.new(0.28 * s, h + 0.04, d * 1.09), c * CFrame.new(0, h / 2, 0), look.Ribbon)
+		else
+			decor("ShelfBoxBand", Vector3.new(w * 1.02, 0.18 * s, d * 1.02), c * CFrame.new(0, 0.1 * s, 0), look.Trim)
+		end
+		if tier == "Mythic" or tier == "Legendary" then
+			-- (the best ones glow round the lid)
+			local glow = decor("ShelfBoxGlow", Vector3.new(w * 1.08, 0.1 * s, d * 1.08), c * CFrame.new(0, base + 0.02, 0), look.Trim, Enum.Material.Neon)
+			glow.Transparency = 0.2
+		end
+		return h
+	end
+	local function stack(tiers: { string }, c: CFrame, s: number)
+		local y = 0
+		for i, tier in tiers do
+			y += box(tier, c * CFrame.new(0, y, 0) * CFrame.Angles(0, (i % 2) * 0.12 - 0.06, 0), s)
+		end
+	end
+	local function bat(c: CFrame, length: number)
+		-- (along the frame's Y: handle at the bottom, the barrel at the top)
+		decor("ShelfBatGrip", Vector3.new(length * 0.45, 0.32, 0.32), c * CFrame.new(0, length * 0.22, 0) * CFrame.Angles(0, 0, math.pi / 2), rgb(70, 50, 40), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		decor("ShelfBat", Vector3.new(length * 0.6, 0.62, 0.62), c * CFrame.new(0, length * 0.7, 0) * CFrame.Angles(0, 0, math.pi / 2), rgb(190, 120, 60), Enum.Material.Wood, Enum.PartType.Cylinder)
+	end
+	local function sneaker(c: CFrame, color: Color3)
+		local k = 1.4
+		decor("ShelfShoeSole", Vector3.new(0.9, 0.25, 2) * k, c * CFrame.new(0, 0.125 * k, 0), rgb(250, 250, 250))
+		decor("ShelfShoe", Vector3.new(0.82, 0.55, 1.5) * k, c * CFrame.new(0, 0.5 * k, 0.2 * k), color)
+		decor("ShelfShoeToe", Vector3.new(0.8, 0.35, 0.6) * k, c * CFrame.new(0, 0.42 * k, -0.65 * k), color:Lerp(rgb(255, 255, 255), 0.25))
+		local stripe = decor("ShelfShoeStripe", Vector3.new(0.86, 0.14, 0.9) * k, c * CFrame.new(0, 0.55 * k, 0.15 * k) * CFrame.Angles(math.rad(-25), 0, 0), rgb(255, 230, 60), Enum.Material.Neon)
+		stripe.Transparency = 0.1
+	end
+	local function donut(c: CFrame, icing: Color3)
+		local flat = c * CFrame.Angles(0, 0, math.pi / 2)
+		decor("ShelfDonut", Vector3.new(0.42, 1.25, 1.25), flat * CFrame.new(0.21, 0, 0), DOUGH, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		decor("ShelfDonutIcing", Vector3.new(0.14, 1.05, 1.05), flat * CFrame.new(0.46, 0, 0), icing, Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+		decor("ShelfDonutHole", Vector3.new(0.5, 0.38, 0.38), flat * CFrame.new(0.3, 0, 0), rgb(120, 70, 40), Enum.Material.SmoothPlastic, Enum.PartType.Cylinder)
+	end
+
+	-- The shelf unit along the back wall: three bays, four shelves
+	local back = zb + D - 1.5
+	local depth = 2.6
+	local z = back - depth / 2
+	local width, top = 30, 13.6
+	decor("ShelfBack", Vector3.new(width, top - 1, 0.3), at(0, (top + 1) / 2, back - 0.15), SHELF_BACK)
+	for _, x in { -width / 2, -width / 6, width / 6, width / 2 } do
+		decor("ShelfUpright", Vector3.new(0.8, top - 1, depth), at(x, (top + 1) / 2, z), SHELF_WOOD, Enum.Material.Wood)
+	end
+	local levels = { 1.6, 4.6, 7.6, 10.6, top }
+	for _, y in levels do
+		decor("ShelfBoard", Vector3.new(width + 0.8, 0.4, depth), at(0, y, z), SHELF_BOARD, Enum.Material.Wood)
+	end
+	local function on(level: number, x: number, dz: number?): CFrame
+		return at(x, levels[level] + 0.2, z - 0.15 + (dz or 0))
+	end
+	local bays = { -width / 3, 0, width / 3 }
+	-- bottom: the bigger boxes
+	for i, tiers in { { "Basic", "Rare" }, { "Basic", "Epic" }, { "Rare", "Basic" } } do
+		for j, tier in tiers do
+			box(tier, on(1, bays[i] + (j - 1.5) * 4.4), 1.3)
+		end
+	end
+	-- second shelf: rows of small boxes, a few stacked
+	for i, row in { { { "Basic" }, { "Rare", "Basic" }, { "Basic" } }, { { "Epic" }, { "Basic", "Basic" }, { "Rare" } }, { { "Rare", "Rare" }, { "Basic" }, { "Epic" } } } do
+		for j, tiers in row do
+			stack(tiers, on(2, bays[i] + (j - 2) * 3), 0.95)
+		end
+	end
+	-- the middle shelf is the gear: two bats on pegs, a pair of speed sneakers, a tray of donuts
+	for j = 0, 1 do
+		bat(on(3, bays[1] - 0.6 + j * 1.6, 0.5) * CFrame.new(0, 0.1, 0) * CFrame.Angles(0, 0, math.rad(-62 + j * 8)) * CFrame.new(0, -1.4, 0), 4.2)
+	end
+	sneaker(on(3, bays[2] - 0.85) * CFrame.Angles(0, 0.25, 0), rgb(255, 80, 120))
+	sneaker(on(3, bays[2] + 0.85) * CFrame.Angles(0, -0.2, 0), rgb(255, 80, 120))
+	decor("ShelfTray", Vector3.new(6.4, 0.2, 2.1), on(3, bays[3]) * CFrame.new(0, 0.1, 0), rgb(235, 235, 240), Enum.Material.Metal)
+	for j, icing in { rgb(255, 120, 180), rgb(120, 70, 40), rgb(255, 245, 220), rgb(120, 200, 255) } do
+		donut(on(3, bays[3] + (j - 2.5) * 1.45) * CFrame.new(0, 0.2, 0), icing)
+	end
+	-- top shelf: the best boxes, on show
+	box("Legendary", on(4, bays[1]), 1.15)
+	box("Mythic", on(4, bays[2]), 1.25)
+	stack({ "Epic", "Rare" }, on(4, bays[3]), 0.9)
+	-- and a sign over it all
+	local sign = decor("ShelfSign", Vector3.new(14, 2.2, 0.4), at(0, top + 1.6, back - 0.5), rgb(255, 140, 190))
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 16
+	gui.LightInfluence = 0
+	gui.Parent = sign
+	Build.Text(gui, "BOXES & GEAR", { TextColor3 = rgb(255, 255, 255), TextStrokeColor3 = rgb(200, 60, 120), TextStrokeTransparency = 0 })
+
+	-- A bat rack on the left wall, a stack of boxes on the right
+	local wall = -20 + 1.5
+	decor("BatRack", Vector3.new(0.3, 6, 7.5), at(wall + 0.15, 4, zb + 12), SHELF_BOARD, Enum.Material.Wood)
+	decor("BatRail", Vector3.new(0.35, 0.45, 7.5), at(wall + 1.35, 5.4, zb + 12), SHELF_WOOD, Enum.Material.Wood)
+	for j = -1, 1 do
+		-- (standing on the floor, leaning back against the wall behind the rail)
+		bat(at(wall + 0.75, 1.05, zb + 12 + j * 2.2) * CFrame.Angles(0, 0, math.rad(5)), 5.6)
+	end
+	local pile = at(20 - 1.5 - 2.4, 1, zb + 11)
+	for j, tier in { "Basic", "Rare", "Basic" } do
+		box(tier, pile * CFrame.new(0, 0, (j - 2) * 2.6) * CFrame.Angles(0, (j - 2) * 0.05, 0), 1.3)
+	end
+	for j, tier in { "Epic", "Basic" } do
+		box(tier, pile * CFrame.new(0, 1.35 * 1.3, (j - 1.5) * 2.6) * CFrame.Angles(0, 0.08, 0), 1.3)
+	end
+	box("Legendary", pile * CFrame.new(0, 1.35 * 1.3 * 2, 0) * CFrame.Angles(0, -0.1, 0), 1.3)
+
+	-- The prep table just behind the counter, where the baker kneads his dough
+	local tz = zb + 7.6
+	decor("PrepTable", Vector3.new(7, 0.5, 2.6), at(0, 4.15, tz), SHELF_BOARD, Enum.Material.Wood)
+	for _, sx in { -1, 1 } do
+		decor("PrepLeg", Vector3.new(0.5, 3.1, 2.2), at(sx * 3.1, 2.55, tz), SHELF_WOOD, Enum.Material.Wood)
+	end
+	-- (a ball only uses its smallest side: a round lump half sunk into the table)
+	decor("Dough", Vector3.one * 1.6, at(0, 4.5, tz - 0.3), DOUGH, Enum.Material.SmoothPlastic, Enum.PartType.Ball)
+	decor("RollingPin", Vector3.new(2.8, 0.36, 0.36), at(2.2, 4.6, tz + 0.4) * CFrame.Angles(0, 0.3, 0), rgb(214, 160, 100), Enum.Material.Wood, Enum.PartType.Cylinder)
+	stack({ "Basic", "Basic" }, at(-2.4, 4.4, tz + 0.2) * CFrame.Angles(0, 0.2, 0), 0.8)
+end
+
 -- The donut shop at the back of a pen: a little pink bakery made of studded bricks, with a striped
 -- awning over the counter window, a chocolate roof dripping with icing and a giant donut on top.
 -- `zb`: (plot space) where its front wall is, facing the pen.
@@ -27639,6 +27802,7 @@ local function buildShop(pen: Model, cf: CFrame, zb: number)
 	end
 	-- the giant donut on the roof
 	Decor.GiantDonut(shop, at(0, H + 10, zb + D / 2), 5, 3.4, rgb(222, 165, 95), SHOP_ICING, { rgb(255, 60, 60), rgb(255, 230, 60), rgb(60, 200, 255), rgb(255, 255, 255) })
+	stockShop(shop, at, zb, D)
 	shop.PrimaryPart = shop:FindFirstChild("ShopFloor") :: BasePart
 	shop.Parent = pen
 end

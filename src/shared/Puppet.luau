@@ -7,7 +7,8 @@
 	Leg), every other piece welded to one of them. Puppet.new anchors everything and removes the
 	joints. Puppet.Pose(puppet, cf, joints) then puts its root at `cf` and turns each limb round its
 	joint (shoulder, hip, neck) by joints[limb name] (in the character's own space: +X its right,
-	+Y up, -Z its front; e.g. CFrame.Angles(math.rad(-90), 0, 0) swings an arm or leg forward).
+	+Y up, -Z its front). A negative X turn is forward for every limb: CFrame.Angles(math.rad(-90), 0, 0)
+	nods the head down, or swings an arm or leg straight out in front (see mirrorFrontBack).
 ]]
 
 local Puppet = {}
@@ -78,12 +79,24 @@ function Puppet.Add(puppet: Puppet, part: BasePart, limb: string)
 	table.insert(puppet.Limb, limb)
 end
 
+-- An arm or leg hangs down, so a plain turn about X swings it the opposite way to a head nod:
+-- CFrame.Angles(-a, 0, 0) would put an arm BEHIND the body. Every pose is written so that a
+-- negative X turn is forward for every limb (like a nod), so arms' and legs' turns are mirrored
+-- front to back here (their X and Y turns flip, the sideways Z turn stays).
+local function mirrorFrontBack(turn: CFrame): CFrame
+	local x, y, z, r00, r01, r02, r10, r11, r12, r20, r21, r22 = turn:GetComponents()
+	return CFrame.new(x, y, -z, r00, r01, -r02, r10, r11, -r12, -r20, -r21, r22)
+end
+
 -- Where a part would be, without moving anything.
 function Puppet.Where(puppet: Puppet, cf: CFrame, joints: { [string]: CFrame }?, index: number): CFrame
 	local rest = puppet.Rest[index]
 	local limb = puppet.Limb[index]
 	local turn = joints and joints[limb]
 	if turn then
+		if limb ~= "Head" then
+			turn = mirrorFrontBack(turn)
+		end
 		local pivot = CFrame.new(PIVOTS[limb] * puppet.Scale)
 		rest = pivot * turn * pivot:Inverse() * rest
 	end

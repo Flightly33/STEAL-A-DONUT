@@ -48,6 +48,8 @@ local LOOKS: { [string]: Look } = {
 	Legendary = { Body = rgb(255, 195, 40), Lid = rgb(255, 242, 205), Trim = rgb(255, 160, 20), Panel = WHITE, Text = rgb(235, 150, 10), Ribbon = rgb(255, 120, 40), Material = Enum.Material.Foil, Label = "LEGENDARY" },
 	Mythic = { Body = rgb(150, 15, 40), Lid = rgb(28, 12, 18), Trim = GOLD, Panel = rgb(60, 20, 30), Text = GOLD, Ribbon = GOLD, Material = Enum.Material.Plastic, Label = "MYTHIC" },
 }
+-- (each tier's colours, for things that show a box without building one: the shop's shelves)
+BoxModel.Looks = LOOKS
 
 local function studs(part: BasePart)
 	part.TopSurface = Enum.SurfaceType.Studs
