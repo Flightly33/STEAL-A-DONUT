@@ -8,8 +8,12 @@
 
 	  * the black hole tears open: spiral arms pour into it, its rings swirl, lightning crackles
 	    off its torn edge
-	  * he climbs out of it with his entrance sound (Sounds.Emerge), a shock wave (every screen shakes) and his title card
-	    slams onto the screen; a boss bar at the top shows how long until he leaves
+	  * he climbs out of it with his entrance sound (Sounds.Emerge) and a shock wave (every screen
+	    shakes); when he's most of the way out a crash zoom, speed lines and his title card slam onto
+	    the screen; a boss bar at the top shows how long until he leaves
+	  * his entrance on camera (client/Cinematic), if you're there as it starts and not carrying
+	    anything: a low angle up at the hole tearing open, tilting up his body as he rises, a crash
+	    zoom on his reveal, and back to you
 	  * all the time: his reactor pulses, his halo turns, moons circle his shoulders, asteroids his
 	    waist, his cape sways, his crown of planets circles his head
 	  * SLAM: his palm glows and a ball of energy grows round his fist as he lifts it; runes circle
@@ -41,6 +45,7 @@ local AnimeFX = require(Shared.AnimeFX)
 local Theme = require(script.Parent.UI.Theme)
 local Notifications = require(script.Parent.UI.Notifications)
 local SpeedLines = require(script.Parent.SpeedLines)
+local Cinematic = require(script.Parent.Cinematic)
 
 local GiantFX = {}
 
@@ -78,6 +83,10 @@ local rumble = 0 -- a steady shake while a beam burns
 local slowClock = 0
 local nextBolt = 0
 local roared = false
+local titled = false -- (his title card has shown)
+local filmed = false -- (his entrance has been on camera, or couldn't be)
+local REVEAL = Giant.OPEN + Giant.RISE * 0.78 -- (seconds after the hole starts opening: his reveal)
+local filmEntrance: (age: number) -> ()
 local rng = Random.new()
 local bulkMove = false -- (workspace:BulkMoveTo works: much faster than moving 600 parts one by one)
 
@@ -361,6 +370,8 @@ local function clear()
 	clearAttacks()
 	built, site, layout = nil, nil, nil
 	roared = false
+	titled = false
+	filmed = false
 end
 
 -- His glow: lights and drifting cosmic dust (made once, with him).
@@ -1216,6 +1227,58 @@ local function updateLoose(now: number, dt: number)
 	end
 end
 
+-- His entrance on camera (client/Cinematic): from your spot, low, looking up at the hole as it tears
+-- open, then tilting up his body as he climbs out (the shot widening to fit him), a crash zoom as
+-- he's revealed, and back to you. `age`: how far into it we already are.
+function filmEntrance(age: number)
+	local L = layout
+	if not L or not Cinematic.CanPlay() then
+		return
+	end
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	local fov = camera.FieldOfView
+	local start = os.clock() - age
+	local function headNow(now: number): Vector3
+		local _, out = emergence(now)
+		return (bodyFrame(now, out, 0) * CFrame.new(0, 2.6 * S, 0)).Position
+	end
+	local portal = L.Portal.Position
+	Cinematic.Play({
+		Duration = REVEAL + 2.6 - age,
+		BlendIn = 1.1,
+		BlendOut = 1.3,
+		Frame = function(t: number, base: CFrame): CFrame
+			local clock = age + t
+			-- (low: a little under your normal view, looking up)
+			local eye = base.Position - Vector3.new(0, 1.6 * math.clamp(t / 1.2, 0, 1), 0)
+			-- the hole first, then up his body to his face as he rises
+			local follow = math.clamp((clock - Giant.OPEN) / Giant.RISE, 0, 1)
+			follow = follow * follow * (3 - 2 * follow)
+			local target = portal:Lerp(headNow(start + clock), follow)
+			local roll = math.rad(5) * math.clamp((clock - REVEAL) / 0.3, 0, 1)
+			return Cinematic.Look(eye, target, roll) * Cinematic.Wobble(clock, 0.01)
+		end,
+		Fov = function(t: number): number
+			local clock = age + t
+			if clock < REVEAL - 0.2 then
+				-- pushing in on the hole, then widening to fit him as he climbs out
+				local push = math.clamp(clock / Giant.OPEN, 0, 1)
+				local widen = math.clamp((clock - Giant.OPEN) / (REVEAL - 0.2 - Giant.OPEN), 0, 1)
+				return fov + (40 - fov) * push + 14 * widen * widen
+			elseif clock < REVEAL then
+				return 54
+			elseif clock < REVEAL + 0.15 then
+				-- the crash zoom
+				return 54 - 16 * (clock - REVEAL) / 0.15
+			end
+			return 38 + 6 * math.clamp((clock - REVEAL - 0.15) / 1.6, 0, 1)
+		end,
+	})
+end
+
 local function update(dt: number)
 	local now = os.clock()
 	updateLoose(now, dt)
@@ -1234,7 +1297,7 @@ local function update(dt: number)
 	local giant = built :: Giant.Built
 	local L = layout :: Giant.Layout
 	local open, out, age, leaving = emergence(now)
-	-- his entrance: a roar, a shock wave, his title card (once, when he's just come out)
+	-- his entrance: a roar and a shock wave (once, as he starts climbing out)
 	if not roared and age >= Giant.OPEN and not leaving then
 		roared = true
 		if age < Giant.OPEN + Giant.RISE + 3 then
@@ -1250,7 +1313,23 @@ local function update(dt: number)
 				bolt(rim, Vector3.new(rng:NextNumber(-100, 100), 0, L.Portal.Position.Z - rng:NextNumber(60, 220)), 3, Giant.VIOLET)
 			end
 		end
+	end
+	-- his reveal: most of the way out, his title card slams on (with a crash zoom if it's on camera)
+	if not titled and age >= REVEAL and not leaving then
+		titled = true
 		titleCard()
+		if age < REVEAL + 1 then
+			shake(1.8)
+			SpeedLines.Flash(1, 1.1, rgb(255, 230, 255))
+			oneShot(THUD, 1.2, 0.35)
+		end
+	end
+	-- his entrance on camera: if you're here as the hole starts to open
+	if not filmed and not leaving then
+		filmed = true
+		if age < 1.2 then
+			task.spawn(filmEntrance, age)
+		end
 	end
 	-- lightning crackles off the hole's torn edge now and then
 	if out > 0.2 and not leaving and now >= nextBolt then

@@ -12,6 +12,9 @@
 	  * shooting stars streaking across the sky
 	  * ambience (Config.EternalStorm.Ambience): a loop in the background the whole time, and now
 	    and then distant thunder or the other sound, taking turns
+	  * the opening (client/Cinematic), when it starts while you're playing: the camera eases up off
+	    your shoulder to the sky over the lane, purple lightning crackles round a swelling glow, then
+	    a crash zoom, a white flash and speed lines as the black hole tears open - and back to you
 	  * the cosmic sky (Config.EternalStorm.Sky, made in Blender - art/eternal_sky), once its images
 	    are uploaded: the whole sky turns into space with a galaxy band, slowly turning, and a giant
 	    black hole hangs high in front of you wherever you go (its disk spinning, the light bent
@@ -29,6 +32,9 @@ local TweenService = game:GetService("TweenService")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Remotes = require(Shared.Remotes)
+
+local Cinematic = require(script.Parent.Cinematic)
+local SpeedLines = require(script.Parent.SpeedLines)
 
 local StormFX = {}
 
@@ -518,6 +524,144 @@ local function stopAmbience()
 	end
 end
 
+--------------------------------------------------------------------------------
+-- The opening: the black hole tearing open, on camera
+--------------------------------------------------------------------------------
+local OPENING = 5.2 -- seconds, all of it
+local REVEAL = 1.75 -- when the hole tears open
+StormFX.OpeningLength, StormFX.OpeningReveal = OPENING, REVEAL
+
+-- Where the black hole is: the cosmic one (always ahead of you, up in the sky), or the nearest of
+-- the server's (one over every world's lane, its middle a part called Core).
+local function holeCenter(eye: Vector3): Vector3?
+	if skyId("Disk") and skyId("Halo") then
+		local elevation = math.rad(HOLE_ELEVATION)
+		return eye + Vector3.new(0, math.sin(elevation), math.cos(elevation)) * HOLE_DISTANCE
+	end
+	local sky = workspace:FindFirstChild("StormSky")
+	local best, bestDistance = nil, math.huge
+	for _, core in (if sky then sky:GetDescendants() else {}) do
+		if core.Name == "Core" and core:IsA("BasePart") then
+			local d = ((core.Position - eye) * Vector3.new(1, 0, 1)).Magnitude
+			if d < bestDistance then
+				best, bestDistance = core.Position, d
+			end
+		end
+	end
+	return best
+end
+
+local function stormOpening()
+	if not Cinematic.CanPlay() then
+		return
+	end
+	local camera = workspace.CurrentCamera
+	if not camera then
+		return
+	end
+	-- (the server's black hole can arrive a moment after the storm starts)
+	local center: Vector3? = nil
+	for _ = 1, 20 do
+		center = holeCenter(camera.CFrame.Position)
+		if center then
+			break
+		end
+		task.wait(0.1)
+	end
+	local hole = center
+	if not hole or not active or not Cinematic.CanPlay() then
+		return
+	end
+	-- the hole isn't there until it tears open (here only: everyone else sees their own opening)
+	local sky = workspace:FindFirstChild("StormSky")
+	local skyParent = if sky then sky.Parent else nil
+	if sky then
+		sky.Parent = nil
+	end
+	local fov = camera.FieldOfView
+	local radius = math.clamp((hole - camera.CFrame.Position).Magnitude * 0.16, 90, 260)
+	local glow = part("OpeningGlow", Vector3.one * 2, CFrame.new(hole), PURPLE, Enum.Material.Neon)
+	glow.Shape = Enum.PartType.Ball
+	glow.Transparency = 1
+	local fired: { [string]: boolean } = {}
+	local function once(name: string, t: number, at: number): boolean
+		if t >= at and not fired[name] then
+			fired[name] = true
+			return true
+		end
+		return false
+	end
+	local nextCrackle = 0.55
+	local function reveal()
+		if sky and not sky.Parent then
+			sky.Parent = skyParent or workspace
+		end
+	end
+	local played = Cinematic.Play({
+		Duration = OPENING,
+		BlendIn = 1.0,
+		BlendOut = 1.2,
+		Frame = function(t: number, base: CFrame): CFrame
+			-- up off your shoulder, looking up at it, a little dutch tilt and a handheld breath
+			local rise = Vector3.new(0, 3.5 * math.clamp(t / 1.4, 0, 1), 0)
+			local eye = base.Position + rise
+			local roll = math.rad(-4) * math.clamp((t - REVEAL) / 0.4, 0, 1)
+			return Cinematic.Look(eye, hole, roll) * Cinematic.Wobble(t, 0.012)
+		end,
+		Fov = function(t: number): number
+			-- a slow push in, a held breath, then a crash zoom as it tears open, easing back a touch
+			if t < REVEAL - 0.35 then
+				return fov + (44 - fov) * math.clamp(t / (REVEAL - 0.35), 0, 1) ^ 2
+			elseif t < REVEAL then
+				return 44 - 3 * (t - (REVEAL - 0.35)) / 0.35
+			elseif t < REVEAL + 0.14 then
+				return 41 - 13 * (t - REVEAL) / 0.14
+			end
+			return 28 + 5 * math.clamp((t - REVEAL - 0.14) / 2.2, 0, 1)
+		end,
+		OnStep = function(t: number)
+			-- the glow swells and purple lightning crackles round it...
+			if t < REVEAL then
+				local grow = math.clamp((t - 0.35) / (REVEAL - 0.35), 0, 1)
+				glow.Size = Vector3.one * math.max(2, radius * 0.9 * grow * grow)
+				glow.Transparency = 1 - 0.75 * grow
+				if t >= nextCrackle then
+					nextCrackle = t + 0.18
+					local a = rng:NextUnitVector() * radius * (0.5 + grow)
+					bolt(hole + a, hole + a * 0.25 + rng:NextUnitVector() * radius * 0.3, 2.5 + 3 * grow, 0.3, false)
+				end
+			end
+			if once("Rumble", t, 0.4) then
+				thunder(camera.CFrame.Position + Vector3.new(0, 60, 0), false)
+			end
+			-- ...then it tears open
+			if once("Reveal", t, REVEAL) then
+				reveal()
+				flash = 1
+				shakeStrength, shakeUntil = 1.6, os.clock() + 0.55
+				thunder(camera.CFrame.Position + Vector3.new(0, 40, 0), true)
+				SpeedLines.Flash(1, 1, LIGHT_PURPLE)
+				TweenService:Create(glow, TweenInfo.new(0.55, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.one * radius * 2.4, Transparency = 1 }):Play()
+				local ground = camera.CFrame.Position * Vector3.new(1, 0, 1)
+				for _ = 1, 3 do
+					local spot = ground + Vector3.new(rng:NextNumber(-160, 160), 0, rng:NextNumber(60, 260))
+					bolt(hole + rng:NextUnitVector() * radius * 0.4, spot, 7, 0.6, true)
+				end
+			end
+		end,
+	})
+	if not played then
+		reveal()
+		glow:Destroy()
+		return
+	end
+	-- (whatever happens to the shot, the hole is back and the glow gone in time)
+	task.delay(REVEAL + 0.05, reveal)
+	task.delay(OPENING, function()
+		glow:Destroy()
+	end)
+end
+
 local function setActive(on: boolean)
 	if on == active then
 		return
@@ -676,11 +820,18 @@ function StormFX.Init(onMusic: ((boolean) -> ())?)
 	local function refresh()
 		setActive(workspace:GetAttribute("EventId") == "EternalStorm")
 	end
-	workspace:GetAttributeChangedSignal("EventId"):Connect(refresh)
+	workspace:GetAttributeChangedSignal("EventId"):Connect(function()
+		local was = active
+		refresh()
+		-- (it's just started, with you here: the opening shot)
+		if active and not was then
+			task.spawn(stormOpening)
+		end
+	end)
 	refresh()
 	RunService.RenderStepped:Connect(update)
-	-- Screen shake (after the camera has moved, so it never builds up)
-	RunService:BindToRenderStep("StormShake", Enum.RenderPriority.Camera.Value + 1, function()
+	-- Screen shake (after the camera has moved, and after a Cinematic shot, so it never builds up)
+	RunService:BindToRenderStep("StormShake", Enum.RenderPriority.Camera.Value + 4, function()
 		local now = os.clock()
 		if now >= shakeUntil then
 			return
