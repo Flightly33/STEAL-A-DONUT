@@ -29,11 +29,13 @@ local DonutTitle = {}
 local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
 
-local WIDTH, HEIGHT = 392, 180
+local WIDTH, HEIGHT = 440, 188
 local TOP_SIZE, BOTTOM_SIZE = 82, 110
 local CAP_TOP, CAP_BOTTOM = 0.2, 0.805 -- (where the capitals are in a line, from the top)
 local CAP_MID = (CAP_TOP + CAP_BOTTOM) / 2
-local TOP_Y, BOTTOM_Y = 8 - CAP_TOP * 82, 86 - CAP_TOP * 110
+local TOP_Y, BOTTOM_Y = 8 - CAP_TOP * 82, 94 - CAP_TOP * 110
+-- the room between letters (pixels), and between STEAL and A (a share of the text size)
+local TOP_GAP, BOTTOM_GAP, WORD_GAP = 9, 11, 0.45
 
 local FROSTING = { rgb(255, 196, 238), rgb(255, 102, 200), rgb(236, 40, 160) }
 local DOUGH = { rgb(255, 238, 150), rgb(255, 196, 60), rgb(234, 130, 26) }
@@ -226,14 +228,14 @@ function DonutTitle.new(parent: Instance): Title
 	local top = { "S", "T", "E", "A", "L", " ", "A" }
 	local widths = 0
 	for _, ch in top do
-		widths += if ch == " " then 0.3 * TOP_SIZE else GLYPHS[ch].Advance * TOP_SIZE + 2
+		widths += if ch == " " then WORD_GAP * TOP_SIZE else GLYPHS[ch].Advance * TOP_SIZE + TOP_GAP
 	end
 	local x = (WIDTH - widths) / 2
 	local order = 0
 	local seenA = false
 	for _, ch in top do
 		if ch == " " then
-			x += 0.3 * TOP_SIZE
+			x += WORD_GAP * TOP_SIZE
 			continue
 		end
 		local g = GLYPHS[ch]
@@ -269,7 +271,7 @@ function DonutTitle.new(parent: Instance): Title
 		for _, p in spots do
 			sprinkle(holder, p[1] * TOP_SIZE, p[2] * TOP_SIZE, TOP_SIZE, 0.95 + rng:NextNumber(0, 0.55))
 		end
-		x += w + 2
+		x += w + TOP_GAP
 	end
 
 	-- DONUT: baked dough, with a real donut for the O
@@ -277,7 +279,7 @@ function DonutTitle.new(parent: Instance): Title
 	local ring = 0.68 * BOTTOM_SIZE
 	widths = 0
 	for _, ch in bottom do
-		widths += (if ch == "O" then ring + 6 else GLYPHS[ch].Advance * BOTTOM_SIZE) + 3
+		widths += (if ch == "O" then ring + 6 else GLYPHS[ch].Advance * BOTTOM_SIZE) + BOTTOM_GAP
 	end
 	x = (WIDTH - widths) / 2
 	order = 0
@@ -357,12 +359,12 @@ function DonutTitle.new(parent: Instance): Title
 			corner(shine, UDim.new(0.5, 0))
 			title.Fades[#title.Fades].Base = 0.35
 			shine.BackgroundTransparency = 0.35
-			x += w + 3
+			x += w + BOTTOM_GAP
 		else
 			local w = GLYPHS[ch].Advance * BOTTOM_SIZE
 			local holder = letterHolder("Letter" .. ch, x, BOTTOM_Y, w, BOTTOM_SIZE, start, false)
 			glyph(holder, ch, BOTTOM_SIZE, DOUGH, CRUST, 5)
-			x += w + 3
+			x += w + BOTTOM_GAP
 		end
 	end
 	-- The burst behind it: soft rays of light from its middle (bars through the middle, each one
