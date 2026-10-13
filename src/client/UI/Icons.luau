@@ -33,6 +33,7 @@
 	art/hud_icons, once they're uploaded) shows that picture, the same size, instead of the drawing.
 ]]
 
+local ContentProvider = game:GetService("ContentProvider")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Config"))
@@ -683,21 +684,24 @@ function Icons.Draw(name: string, parent: Instance, background: Color3?, layout:
 			placeTop = layout.Position.Y.Scale - holder.AnchorPoint.Y * layout.Size.Y.Scale
 		end
 	end
-	-- a picture instead (Config.IconImages), when there is one
+	-- a picture instead (Config.IconImages), when there is one. The drawn icon is made too and
+	-- shows until the picture has really loaded - so a picture that won't load (a decal's id, one
+	-- still waiting for moderation, a deleted one) never leaves the button blank
 	local image = Config.IconImages[name]
+	local picture: ImageLabel? = nil
 	if image ~= nil and image ~= "" then
-		local picture = Instance.new("ImageLabel")
-		picture.Name = "Picture"
-		picture.BackgroundTransparency = 1
-		picture.Image = image
-		picture.ScaleType = Enum.ScaleType.Fit
-		picture.AnchorPoint = Vector2.new(0.5, 0.5)
-		picture.Position = UDim2.fromScale(0.5, 0.52)
-		picture.Size = UDim2.fromScale(1.15, 1.15) -- (the pictures leave room round them for their outline and shadow)
-		picture.ZIndex = 2
-		picture.Parent = holder
-		holder.Parent = parent
-		return holder
+		local p = Instance.new("ImageLabel")
+		p.Name = "Picture"
+		p.BackgroundTransparency = 1
+		p.Image = image
+		p.ScaleType = Enum.ScaleType.Fit
+		p.AnchorPoint = Vector2.new(0.5, 0.5)
+		p.Position = UDim2.fromScale(0.5, 0.52)
+		p.Size = UDim2.fromScale(1.15, 1.15) -- (the pictures leave room round them for their outline and shadow)
+		p.ZIndex = 2
+		p.Visible = false
+		p.Parent = holder
+		picture = p
 	end
 	local back = background or NO_BACKGROUND
 	local buttonGradient = parent:FindFirstChildOfClass("UIGradient")
@@ -775,6 +779,43 @@ function Icons.Draw(name: string, parent: Instance, background: Color3?, layout:
 		buttonGradient:GetPropertyChangedSignal("Color"):Connect(repaint)
 	end
 	holder.Parent = parent
+	if picture then
+		local p = picture
+		local function swap(loaded: boolean)
+			if not p.Parent then
+				return
+			end
+			if loaded then
+				for _, child in holder:GetChildren() do
+					if child ~= p and child:IsA("GuiObject") then
+						child.Visible = false
+					end
+				end
+				p.Visible = true
+			else
+				p:Destroy()
+			end
+		end
+		local function isLoaded(): boolean
+			local ok, loaded = pcall(function()
+				return p.IsLoaded
+			end)
+			return ok and loaded == true
+		end
+		if isLoaded() then
+			swap(true)
+		else
+			task.spawn(function()
+				local status: Enum.AssetFetchStatus? = nil
+				pcall(function()
+					ContentProvider:PreloadAsync({ p }, function(_, fetched: Enum.AssetFetchStatus)
+						status = fetched
+					end)
+				end)
+				swap(isLoaded() or status == Enum.AssetFetchStatus.Success)
+			end)
+		end
+	end
 	return holder
 end
 

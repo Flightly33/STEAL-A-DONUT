@@ -109,11 +109,18 @@ end
 local function gradient(parent: Instance, colors: { Color3 }, rotation: number, stops: { number }?)
 	local g = Instance.new("UIGradient")
 	local at = stops or { 0, 0.5, 1 }
-	g.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(at[1], colors[1]),
-		ColorSequenceKeypoint.new(at[2], colors[2]),
-		ColorSequenceKeypoint.new(at[3], colors[3]),
-	})
+	-- (a ColorSequence has to run from 0 to 1: hold the end colours out to the ends)
+	local keys = {}
+	if at[1] > 0 then
+		table.insert(keys, ColorSequenceKeypoint.new(0, colors[1]))
+	end
+	for i = 1, 3 do
+		table.insert(keys, ColorSequenceKeypoint.new(at[i], colors[i]))
+	end
+	if at[3] < 1 then
+		table.insert(keys, ColorSequenceKeypoint.new(1, colors[3]))
+	end
+	g.Color = ColorSequence.new(keys)
 	g.Rotation = rotation
 	g.Parent = parent
 end
