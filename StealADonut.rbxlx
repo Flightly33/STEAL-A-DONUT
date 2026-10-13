@@ -2659,15 +2659,15 @@ Config.EternalStorm = {
 	--     spinning (instead of the black hole made of parts); Galaxy: a spinning galaxy behind you
 	-- Leave them empty and the storm keeps its built-in look.
 	Sky = {
-		SkyboxFt = "",
-		SkyboxBk = "",
-		SkyboxLf = "",
-		SkyboxRt = "",
-		SkyboxUp = "",
-		SkyboxDn = "",
-		Disk = "",
-		Halo = "",
-		Galaxy = "",
+		SkyboxFt = "rbxassetid://140165024463451",
+		SkyboxBk = "rbxassetid://116120088410426",
+		SkyboxLf = "rbxassetid://73253109630486",
+		SkyboxRt = "rbxassetid://111989916909420",
+		SkyboxUp = "rbxassetid://116288554121696",
+		SkyboxDn = "rbxassetid://85435402396221",
+		Disk = "rbxassetid://79576369861982",
+		Halo = "rbxassetid://124679147014479",
+		Galaxy = "rbxassetid://79470253400802",
 	},
 	SkySpin = 1.2, -- degrees per second the cosmic sky turns
 	DiskSpin = 16, -- degrees per second the black hole's disk spins
@@ -17058,7 +17058,7 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Eternal Storm", Tag = "NEW Look", Lines = {
 				"When the storm starts, the camera swoops up to the sky as the black hole tears open: lightning, a flash and a crash zoom!",
-				"Space fills the sky: spiral galaxies, glowing nebulae, a ringed planet, twinkling stars and aurora ribbons",
+				"As it tears open the whole sky turns to space: a giant black hole with a spinning disk, spiral galaxies, glowing nebulae, a ringed planet, twinkling stars and aurora ribbons",
 				"Cosmic Domer gets a proper entrance: the camera looks up at him as he climbs out of the black hole, and his name slams on as he roars",
 				"(No camera moves while you're carrying a box, so Domer can never catch you because of one)",
 			} },
@@ -43730,10 +43730,19 @@ local function setActive(on: boolean, fresh: boolean?)
 	else
 		stopAmbience()
 	end
-	swapSky(on)
-	if on then
+	if on and fresh then
+		-- (it's just started: the sky turns to space as the black hole tears open)
+		task.delay(REVEAL, function()
+			if active and not savedSky and not cosmos then
+				swapSky(true)
+				buildCosmos()
+			end
+		end)
+	elseif on then
+		swapSky(true)
 		buildCosmos()
 	else
+		swapSky(false)
 		clearCosmos()
 	end
 end

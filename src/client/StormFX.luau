@@ -699,10 +699,19 @@ local function setActive(on: boolean, fresh: boolean?)
 	else
 		stopAmbience()
 	end
-	swapSky(on)
-	if on then
+	if on and fresh then
+		-- (it's just started: the sky turns to space as the black hole tears open)
+		task.delay(REVEAL, function()
+			if active and not savedSky and not cosmos then
+				swapSky(true)
+				buildCosmos()
+			end
+		end)
+	elseif on then
+		swapSky(true)
 		buildCosmos()
 	else
+		swapSky(false)
 		clearCosmos()
 	end
 end

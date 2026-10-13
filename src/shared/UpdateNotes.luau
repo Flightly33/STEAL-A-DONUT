@@ -73,7 +73,7 @@ UpdateNotes.List = {
 			} },
 			{ Title = "Eternal Storm", Tag = "NEW Look", Lines = {
 				"When the storm starts, the camera swoops up to the sky as the black hole tears open: lightning, a flash and a crash zoom!",
-				"Space fills the sky: spiral galaxies, glowing nebulae, a ringed planet, twinkling stars and aurora ribbons",
+				"As it tears open the whole sky turns to space: a giant black hole with a spinning disk, spiral galaxies, glowing nebulae, a ringed planet, twinkling stars and aurora ribbons",
 				"Cosmic Domer gets a proper entrance: the camera looks up at him as he climbs out of the black hole, and his name slams on as he roars",
 				"(No camera moves while you're carrying a box, so Domer can never catch you because of one)",
 			} },

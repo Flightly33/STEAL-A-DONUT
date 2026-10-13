@@ -392,15 +392,15 @@ Config.EternalStorm = {
 	--     spinning (instead of the black hole made of parts); Galaxy: a spinning galaxy behind you
 	-- Leave them empty and the storm keeps its built-in look.
 	Sky = {
-		SkyboxFt = "",
-		SkyboxBk = "",
-		SkyboxLf = "",
-		SkyboxRt = "",
-		SkyboxUp = "",
-		SkyboxDn = "",
-		Disk = "",
-		Halo = "",
-		Galaxy = "",
+		SkyboxFt = "rbxassetid://140165024463451",
+		SkyboxBk = "rbxassetid://116120088410426",
+		SkyboxLf = "rbxassetid://73253109630486",
+		SkyboxRt = "rbxassetid://111989916909420",
+		SkyboxUp = "rbxassetid://116288554121696",
+		SkyboxDn = "rbxassetid://85435402396221",
+		Disk = "rbxassetid://79576369861982",
+		Halo = "rbxassetid://124679147014479",
+		Galaxy = "rbxassetid://79470253400802",
 	},
 	SkySpin = 1.2, -- degrees per second the cosmic sky turns
 	DiskSpin = 16, -- degrees per second the black hole's disk spins
