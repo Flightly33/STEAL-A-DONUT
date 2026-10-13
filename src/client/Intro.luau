@@ -390,6 +390,7 @@ function Intro.Play(opts: { Speed: number? }?)
 	end
 	playing = true
 	playStartedAt = os.clock()
+	print("[Intro] starting")
 	player:SetAttribute("Intro", true)
 	local speed = (opts and opts.Speed) or 1
 	local camera = workspace.CurrentCamera
@@ -419,6 +420,7 @@ function Intro.Play(opts: { Speed: number? }?)
 	end
 	local plotIndex = player:GetAttribute("PlotIndex")
 	local full = counter ~= nil and root ~= nil and humanoid ~= nil and plot ~= nil and type(plotIndex) == "number"
+	print(`[Intro] ready after {waited}s (base: {plot ~= nil}, shop: {counter ~= nil}, you: {root ~= nil})`)
 
 	-- How far behind you your camera sits now, so the scene can hand it back without a jump
 	local zoom = 12.5
@@ -437,6 +439,13 @@ function Intro.Play(opts: { Speed: number? }?)
 	scene.Name = "IntroScene"
 	scene.Parent = workspace
 	local screen = buildScreen()
+	local openedAt = os.clock()
+	-- (whatever else happens, the black opening circle is gone a moment after it should have opened)
+	task.delay(IRIS_OPEN / speed + 0.8, function()
+		for _, f in screen.Iris do
+			f.Visible = false
+		end
+	end)
 	local wasHidden = HideUI.IsHidden()
 	HideUI.Set(true, true)
 	local oldFov = if camera then camera.FieldOfView else 70
@@ -777,6 +786,41 @@ function Intro.Play(opts: { Speed: number? }?)
 		skipped = true
 		finish()
 	end)
+	-- If something breaks: end it however it can, then make sure the game is back no matter what
+	-- (the screen gone, your camera, controls and HUD back), and say what went wrong.
+	local function abort(err: any)
+		warn("[Intro] the cutscene broke: " .. tostring(err))
+		skipped = true
+		pcall(finish)
+		done = true
+		if connection then
+			connection:Disconnect()
+		end
+		pcall(function()
+			screen.Gui:Destroy()
+		end)
+		pcall(function()
+			if not domerConnection then
+				scene:Destroy()
+			end
+		end)
+		if camera then
+			camera.CameraType = Enum.CameraType.Custom
+			camera.FieldOfView = oldFov
+			if humanoid then
+				camera.CameraSubject = humanoid
+			end
+		end
+		setControls(true)
+		pcall(HideUI.Set, false)
+		player:SetAttribute("Intro", nil)
+		playing = false
+		task.delay(0.2, function()
+			pcall(function()
+				require(script.Parent.UI.Notifications).Toast("The cutscene hit an error: " .. tostring(err), "error")
+			end)
+		end)
+	end
 
 	-- Domer running off to the lane (carries on after the scene, then vanishes in a puff). First
 	-- the cartoon wind-up: he crouches, his legs spin faster and faster on the spot... then he's off.
@@ -1170,7 +1214,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		screen.Bottom.Size = UDim2.fromScale(1, bars)
 		local view = if camera then camera.ViewportSize else Vector2.new(1280, 720)
 		-- the iris opens from black (a small circle first, then sweeping out), then it's gone
-		local open = smooth(t / IRIS_OPEN)
+		local open = if os.clock() - openedAt > IRIS_OPEN / speed + 0.6 then 1 else smooth(t / IRIS_OPEN)
 		local across = view.Magnitude * 1.08 * open
 		for i, f in screen.Iris do
 			f.Visible = open < 1
@@ -1233,6 +1277,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
+	local firstFrame = false
 	connection = RunService.RenderStepped:Connect(function(dt: number)
 		if character and humanoid and humanoid.Health <= 0 then
 			skipped = true
@@ -1243,13 +1288,18 @@ function Intro.Play(opts: { Speed: number? }?)
 		local ok, err = pcall(function()
 			update(math.min(dt, 0.1))
 		end)
+		if ok and not firstFrame then
+			firstFrame = true
+			print("[Intro] playing")
+		end
 		if not ok then
-			warn("[Intro] the cutscene broke: " .. tostring(err))
-			pcall(function()
-				require(script.Parent.UI.Notifications).Toast("The cutscene hit an error: " .. tostring(err), "error")
-			end)
-			skipped = true
-			finish()
+			abort(err)
+		end
+	end)
+	-- (and if it's somehow still going long after it should have ended, end it)
+	task.delay(endTime / speed + 12, function()
+		if not done then
+			abort("it never finished")
 		end
 	end)
 	while not done do
@@ -1284,8 +1334,15 @@ local function safePlay(opts: { Speed: number? }?)
 	if screen then
 		screen:Destroy()
 	end
-	pcall(function()
-		require(script.Parent.UI.Notifications).Toast("The cutscene hit an error: " .. tostring(err), "error")
+	local scene = workspace:FindFirstChild("IntroScene")
+	if scene then
+		scene:Destroy()
+	end
+	pcall(HideUI.Set, false)
+	task.delay(0.2, function()
+		pcall(function()
+			require(script.Parent.UI.Notifications).Toast("The cutscene hit an error: " .. tostring(err), "error")
+		end)
 	end)
 end
 
