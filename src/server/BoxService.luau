@@ -27,7 +27,6 @@ local Areas = require(Shared.Areas)
 local Boxes = require(Shared.Boxes)
 local BoxModel = require(Shared.BoxModel)
 local Rarities = require(Shared.Rarities)
-local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -122,13 +121,13 @@ local function show(record: BoxRecord, cf: CFrame)
 	BoxModel.PlaceOn(model, cf)
 	model:SetAttribute("BoxId", record.Id)
 	model:SetAttribute("Ground", record.Spot == nil)
-	-- (clients make boxes bob and turn gently, and show their name over them)
+	-- (clients make boxes bob and turn gently)
 	CollectionService:AddTag(model, "LaneBox")
 	local scale = Boxes.Size(record.Size).Scale
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "StealPrompt"
 	prompt.ActionText = if record.Spot then "Steal" else "Pick up"
-	prompt.ObjectText = Rarities.DisplayName(Boxes.DisplayName(record.Tier, record.Size), record.Mutation, nil)
+	prompt.ObjectText = "Donut Box" -- (no names over the boxes in the lane: just this, up close)
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.HoldDuration = Config.Boxes.StealSeconds
@@ -140,16 +139,6 @@ local function show(record: BoxRecord, cf: CFrame)
 			stealHandler(player, record)
 		end
 	end)
-	-- its name floating over it (in its rarity's colour) and how long it takes to open
-	local label = Instance.new("BillboardGui")
-	label.Name = "BoxLabel"
-	label.Size = UDim2.fromScale(10, 2.5)
-	label.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.3, 0)
-	label.LightInfluence = 0
-	label.MaxDistance = 140
-	label.Parent = model.PrimaryPart
-	Build.Text(label, prompt.ObjectText, { Size = UDim2.fromScale(1, 0.6), TextColor3 = (if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else Boxes.Tier(record.Tier).Color):Lerp(Color3.new(1, 1, 1), 0.25), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
-	Build.Text(label, `Opens in {Format.Duration(Boxes.HatchSeconds(record.Tier, record.Size))}`, { Name = "OpenTime", Size = UDim2.fromScale(1, 0.38), Position = UDim2.fromScale(0, 0.62), Font = Enum.Font.FredokaOne, TextColor3 = Color3.fromRGB(255, 255, 255), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
 	-- a glowing ring on the ground under the better boxes, so they stand out from far away
 	local tier = Boxes.Tier(record.Tier)
 	if Boxes.Rank(record.AreaId, record.Tier) >= 2 or record.Mutation ~= "None" then

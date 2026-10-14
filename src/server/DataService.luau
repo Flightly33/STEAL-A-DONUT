@@ -78,6 +78,7 @@ export type Data = {
 	DonorTier: number, -- the biggest tip bought (Config.Donations.Products[].Amount): gives a title
 	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
 	SeenTutorial: boolean, -- the first-join "how to play" window
+	IntroVersion: number, -- the newest opening cinematic (Config.Intro.Version) this player has seen
 	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
 	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
@@ -145,6 +146,7 @@ local TEMPLATE: Data = {
 	DonorTier = 0,
 	HiddenItems = {},
 	SeenTutorial = false,
+	IntroVersion = 0,
 	SeenUpdate = 0,
 	NotesOnLogin = true,
 	TutorialEggClaimed = false,
@@ -708,6 +710,7 @@ function DataService.PushState(player: Player)
 		Donated = profile.Data.Donated + profile.Session.TestDonated,
 		HiddenItems = profile.Data.HiddenItems,
 		SeenTutorial = profile.Data.SeenTutorial,
+		IntroVersion = profile.Data.IntroVersion,
 		SeenUpdate = profile.Data.SeenUpdate,
 		NotesOnLogin = profile.Data.NotesOnLogin,
 		TutorialEggClaimed = profile.Data.TutorialEggClaimed,

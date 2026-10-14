@@ -1010,7 +1010,7 @@ Areas.List = {
 	},
 	{
 		Id = 17, Name = "The Black Hole", Theme = "BlackHole",
-		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 135, DomerBoost = 1.5,
+		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 175, DomerBoost = 1.5,
 		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,
@@ -1806,12 +1806,12 @@ Config.Guard = {
 	-- list plays the built-in swipe and "got it!" jingle instead (eggs and meteor shards always do).
 	-- These two are the chase sounds (he wakes up without a sound of his own): keep them loud.
 	GrabSounds = {
-		{ Id = "rbxassetid://6506461886", Volume = 1 },
-		{ Id = "rbxassetid://135439749484858", Volume = 1 },
+		{ Id = "rbxassetid://6506461886", Volume = 2.5 },
+		{ Id = "rbxassetid://135439749484858", Volume = 2.5 },
 	} :: { { Id: string, Volume: number } },
 	-- The "!?" over his head while he's waking up and chasing you (client/Guards): rainbow letters
 	-- with a soft glow, turning round Spin times a second. Size in studs; Glow: how bright (1 = flat).
-	Alert = { Text = "!?", Spin = 0.5, Size = 6, Glow = 1.6 },
+	Alert = { Text = "!?", Spin = 0.5, Size = 14, Glow = 1.6 },
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
 	-- A biome's Speed is the Speed you need to get away from its Domer: each Domer is just fast
 	-- enough that a player with exactly that Speed, running a small box straight back, gets out of
@@ -1856,9 +1856,11 @@ Config.Guard = {
 -- Map layout (studs). Floor top is at Y = 0.
 -- One lobby (bases, treadmills, the sell stall, leaderboards) and one long lane of biomes (Areas.luau)
 -- running from it along +Z. Every biome is LaneHalfWidth * 2 studs wide with thick grassy walls.
+-- (Changing the width or the wall squares rebuilds the map: bump MapBuilder's MAP_VERSION.)
 --------------------------------------------------------------------------------
 Config.Map = {
-	LaneHalfWidth = 100, -- the lane runs along +Z, from X = -100 to X = 100
+	LaneHalfWidth = 130, -- the lane runs along +Z, from X = -130 to X = 130
+	LaneWallSquare = 12, -- the lane walls' checker squares (studs)
 	AreaLength = 500, -- a biome's length when Areas.luau doesn't give one (multiple of TileSize)
 	TileSize = 20,
 	LaneWallHeight = 60,
@@ -2539,8 +2541,8 @@ Config.Sounds = {
 -- (Config.EternalStorm.Ambience). Volume: 0 to 10 (1 = the sound as uploaded).
 Config.BiomeAmbience = {
 	Loops = {
-		{ Id = "rbxassetid://9116969962", Volume = 0.6 },
-		{ Id = "rbxassetid://128828483841636", Volume = 1.2 }, -- (twice as loud as the first)
+		{ Id = "rbxassetid://9116969962", Volume = 0.8 },
+		{ Id = "rbxassetid://128828483841636", Volume = 1.4 },
 	} :: { { Id: string, Volume: number } },
 	Fade = 1.5,
 }
@@ -2563,10 +2565,53 @@ Config.Tutorial = {
 --   EveryJoin: false = only for brand-new players (anyone can watch it again: Settings > WATCH INTRO);
 --              true = every time anyone joins
 --   Bubble:    what you say to the baker
+--   Version:   bump it to show the (new) intro once more to everyone who has played before
+--   Sounds:    Volume 0 to 10 (1 = as uploaded). Start: as it begins. Song: plays all through it.
+--              Talk: every speech bubble. Walk: your footsteps. DomerRun: Domer's footsteps as he
+--              runs off. Wink / Laugh: Domer's. Scream: you yelling after him. Panting: you, out
+--              of breath. Shine: the treadmill lighting up at the end.
 Config.Intro = {
 	Enabled = true,
 	EveryJoin = false,
+	Version = 2,
 	Bubble = "One Donut Box Please",
+	Sounds = {
+		Start = { Id = "rbxassetid://119105724864233", Volume = 1 },
+		Song = { Id = "rbxassetid://1845756489", Volume = 0.45 },
+		Talk = { Id = "rbxassetid://100200548530524", Volume = 0.8 },
+		Walk = { Id = "rbxassetid://174960816", Volume = 1.5 },
+		DomerRun = { Id = "rbxassetid://127992015008072", Volume = 1 },
+		Wink = { Id = "rbxassetid://11734490534927", Volume = 1 },
+		Laugh = { Id = "rbxassetid://154157543", Volume = 1 },
+		Scream = { Id = "rbxassetid://140729021718836", Volume = 1 },
+		Panting = { Id = "rbxassetid://8152642803", Volume = 1 },
+		Shine = { Id = "rbxassetid://135385970610304", Volume = 1 },
+	} :: { [string]: { Id: string, Volume: number } },
+}
+
+-- Opening a MYTHIC box (client/MythicOpening): its sounds. Volume 0 to 10 (1 = as uploaded).
+--   Intro:  the first Seconds of it, from the shot in the sky into the next one, then it fades out
+--   Sky:    only while the camera is up in the sky
+--   Shake:  while the box rattles and shakes
+--   Beams:  as the box shakes, and again when the beams of light burst out of it
+--   Launch: all of these as the donut leaps out
+--   Fall:   you stumbling back onto the ground
+--   Name:   its name popping onto the screen
+--   Background: quietly, all the way through
+Config.MythicOpening = {
+	Sounds = {
+		Intro = { Id = "rbxassetid://95440268335130", Volume = 1, Seconds = 2.5 },
+		Sky = { Id = "rbxassetid://9112771314", Volume = 1.5 },
+		Shake = { Id = "rbxassetid://9112771314", Volume = 1 },
+		Beams = { Id = "rbxassetid://9114369623", Volume = 1 },
+		Launch = {
+			{ Id = "rbxassetid://138890894929151", Volume = 1 },
+			{ Id = "rbxassetid://70940368101652", Volume = 1 },
+		},
+		Fall = { Id = "rbxassetid://103126547745840", Volume = 1 },
+		Name = { Id = "rbxassetid://80355950745320", Volume = 1 },
+		Background = { Id = "rbxassetid://135631575856786", Volume = 0.25 },
+	},
 }
 
 -- Daily Rewards (shared/DailyRewards, server/DailyService, UI/DailyRewards): one reward a day, Day 1
@@ -10777,7 +10822,7 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 		m.Scale = scale
 	end
 
-	-- Name tag + status line ("Zzz", "D'OH!")
+	-- What he shouts ("Zzz", "D'OH!") - no name tag
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "GuardTag"
 	tag.Size = UDim2.fromScale(12, 3.2)
@@ -10799,7 +10844,7 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 		l.Parent = tag
 		return l
 	end
-	label("Title", `{look.Title} {Config.Guard.Name}`, rgb(255, 230, 60), 0.5, 0.5)
+	-- (no name over him: just what he shouts)
 	local status = label("Status", "Zzz", rgb(180, 220, 255), 0, 0.5)
 
 	model:SetAttribute("Area", areaId)
@@ -16636,12 +16681,11 @@ UpdateNotes.List = {
 				"Press 1 - 9 or click a tile to hold it. Got more than nine? The last tile opens a bag with everything",
 			} },
 			{ Title = "Mythic Box Opening", Tag = "NEW", Lines = {
-				"Opening a MYTHIC donut box is a whole movie now, with black bars and dark edges like a film",
-				"You're inside your donut shop with the baker, and he hands you the glowing Mythic box: \"A MYTHIC box... just for you!\"",
-				"You take it in both hands, and the camera cranes up over you as you hold it - the lid rattles... and blows off in a burst of bright light",
-				"The shop slowly darkens round the light, so your new donut is the brightest thing on screen",
-				"You reach into the light and pull out your donut, then hold it up high in a flash of white while its rarity and name slam in",
-				"It fades out to white and you're right back where you were. SKIP ends it any time",
+				"Opening a MYTHIC donut box is a whole movie now, right where the box is in your pen",
+				"It starts high in the sky above you while black bars roll in, then cuts down close as the box rattles and shakes",
+				"The camera swings round to you as you open it: a blinding light and beams of light burst out, and the room darkens round them",
+				"The donut LEAPS out of the box and knocks you flat on your back - then stands on top of the box while you sit there staring at it",
+				"Its name pops onto the screen at an angle, shaking with the screen. With its own sounds all the way through. SKIP ends it any time",
 			} },
 			{ Title = "Egg Hatching", Tag = "NEW Look", Lines = {
 				"A brand new hatch: the egg drops in and bounces, wobbles harder and harder and cracks open a little more each time",
@@ -16650,14 +16694,13 @@ UpdateNotes.List = {
 				"Click to skip straight to the hatch, and again to skip to the end. Hatching lots at once goes a little faster",
 			} },
 			{ Title = "The Opening Scene", Tag = "NEW", Lines = {
-				"New players get a little movie when they first join: it opens out of black through a circle, and the game's name slams in letter by letter like the logo - STEAL A dripping with bright pink frosting and sprinkles, DONUT baked golden with a real donut for the O - then pops out with a burst of light",
-				"Then fly over the map, walk up to your own donut shop and ask for a box",
-				"Just as the baker hands it over, Domer zips in out of nowhere, grabs it, grins at you... and runs off to the first biome with it!",
-				"Then the camera swoops down behind you and the tutorial starts: go and get some donut boxes back",
+				"Everyone gets to see the new opening movie once, the first time they play after this update: it opens out of black through a circle, and the game's name slams in letter by letter like the logo",
+				"Then fly over the map, walk up to your own donut shop and ask for a box - the baker turns round, fetches one off the shelves at the back and brings it over",
+				"Just as he hands it over, Domer zips in out of nowhere, grabs it, winks and laughs at you... and runs off with it, waving back at you over his shoulder!",
+				"You yell after him, chase him until you're out of breath, then catch sight of your treadmill shining - and the game starts",
+				"With its own song and sounds: talking, footsteps, Domer's wink and laugh, you yelling and panting",
 				"Want to see it again? Press WATCH INTRO in Settings (from the lobby). SKIP ends it any time",
-				"Every base's donut shop has a baker in the window now: he looks round at you when you walk past",
-				"Behind him the shop is stocked: shelves full of donut boxes in every rarity, bats, speed sneakers, a tray of fresh donuts and his table where he kneads the dough",
-				"Smooth, lifelike moves all the way through: Domer leans, skids, wobbles and banks round corners, the baker jumps back in surprise, and the camera glides from shot to shot",
+				"Behind the baker the shop is stocked: shelves full of donut boxes in every rarity, bats, speed sneakers, a tray of fresh donuts and his table where he kneads the dough",
 			} },
 			{ Title = "Eternal Storm", Tag = "NEW Look", Lines = {
 				"When the storm starts, the camera swoops up to the sky as the black hole tears open: lightning, a flash and a crash zoom!",
@@ -16737,6 +16780,14 @@ UpdateNotes.List = {
 				"No more chase music: just the grab sounds and his angry grunt when he wakes up",
 				"A rainbow !? spins over his head while he's chasing you",
 				"Fixed: the fastest Domers no longer slow down right beside you - once he's caught up with you, he catches you",
+				"When you grab his box he jumps up FURIOUS - stomping, shaking his head, steam coming out of his ears (it doesn't cost you any head start)",
+				"His !? is much bigger, and the two sounds when he gets up are louder",
+				"Fixed: his snore cut out when you (or your camera) were right next to him. You can hear it from a bit further away now too",
+			} },
+			{ Title = "The Lane", Tag = "CHANGED", Lines = {
+				"Every biome is wider, with smaller squares on its walls",
+				"No more names floating over the boxes, Domers or biomes: walk up to a box and it just says Donut Box",
+				"The biome sounds are a little louder, and donuts are quiet now",
 			} },
 			{ Title = "Eternal Storm", Tag = "CHANGED", Lines = {
 				"The meteor now crashes 45 seconds into the storm, anywhere from biome 2 to biome 6",
@@ -18354,7 +18405,6 @@ local Areas = require(Shared.Areas)
 local Boxes = require(Shared.Boxes)
 local BoxModel = require(Shared.BoxModel)
 local Rarities = require(Shared.Rarities)
-local Format = require(Shared.Format)
 local Remotes = require(Shared.Remotes)
 
 local MapBuilder = require(script.Parent.MapBuilder)
@@ -18449,13 +18499,13 @@ local function show(record: BoxRecord, cf: CFrame)
 	BoxModel.PlaceOn(model, cf)
 	model:SetAttribute("BoxId", record.Id)
 	model:SetAttribute("Ground", record.Spot == nil)
-	-- (clients make boxes bob and turn gently, and show their name over them)
+	-- (clients make boxes bob and turn gently)
 	CollectionService:AddTag(model, "LaneBox")
 	local scale = Boxes.Size(record.Size).Scale
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "StealPrompt"
 	prompt.ActionText = if record.Spot then "Steal" else "Pick up"
-	prompt.ObjectText = Rarities.DisplayName(Boxes.DisplayName(record.Tier, record.Size), record.Mutation, nil)
+	prompt.ObjectText = "Donut Box" -- (no names over the boxes in the lane: just this, up close)
 	prompt.KeyboardKeyCode = Enum.KeyCode.E
 	prompt.GamepadKeyCode = Enum.KeyCode.ButtonX
 	prompt.HoldDuration = Config.Boxes.StealSeconds
@@ -18467,16 +18517,6 @@ local function show(record: BoxRecord, cf: CFrame)
 			stealHandler(player, record)
 		end
 	end)
-	-- its name floating over it (in its rarity's colour) and how long it takes to open
-	local label = Instance.new("BillboardGui")
-	label.Name = "BoxLabel"
-	label.Size = UDim2.fromScale(10, 2.5)
-	label.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.3, 0)
-	label.LightInfluence = 0
-	label.MaxDistance = 140
-	label.Parent = model.PrimaryPart
-	Build.Text(label, prompt.ObjectText, { Size = UDim2.fromScale(1, 0.6), TextColor3 = (if record.Mutation ~= "None" then Rarities.Mutation(record.Mutation).Color else Boxes.Tier(record.Tier).Color):Lerp(Color3.new(1, 1, 1), 0.25), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
-	Build.Text(label, `Opens in {Format.Duration(Boxes.HatchSeconds(record.Tier, record.Size))}`, { Name = "OpenTime", Size = UDim2.fromScale(1, 0.38), Position = UDim2.fromScale(0, 0.62), Font = Enum.Font.FredokaOne, TextColor3 = Color3.fromRGB(255, 255, 255), TextStrokeColor3 = Color3.fromRGB(25, 15, 25), TextStrokeTransparency = 0 })
 	-- a glowing ring on the ground under the better boxes, so they stand out from far away
 	local tier = Boxes.Tier(record.Tier)
 	if Boxes.Rank(record.AreaId, record.Tier) >= 2 or record.Mutation ~= "None" then
@@ -19418,6 +19458,7 @@ export type Data = {
 	DonorTier: number, -- the biggest tip bought (Config.Donations.Products[].Amount): gives a title
 	HiddenItems: { [string]: boolean }, -- items taken off the hotbar (still owned)
 	SeenTutorial: boolean, -- the first-join "how to play" window
+	IntroVersion: number, -- the newest opening cinematic (Config.Intro.Version) this player has seen
 	SeenUpdate: number, -- the last UpdateNotes Version this player was shown
 	NotesOnLogin: boolean, -- the Update Log pops up after a new update ("Shown on login")
 	TutorialEggClaimed: boolean, -- the free egg at the end of the tutorial (once)
@@ -19485,6 +19526,7 @@ local TEMPLATE: Data = {
 	DonorTier = 0,
 	HiddenItems = {},
 	SeenTutorial = false,
+	IntroVersion = 0,
 	SeenUpdate = 0,
 	NotesOnLogin = true,
 	TutorialEggClaimed = false,
@@ -20048,6 +20090,7 @@ function DataService.PushState(player: Player)
 		Donated = profile.Data.Donated + profile.Session.TestDonated,
 		HiddenItems = profile.Data.HiddenItems,
 		SeenTutorial = profile.Data.SeenTutorial,
+		IntroVersion = profile.Data.IntroVersion,
 		SeenUpdate = profile.Data.SeenUpdate,
 		NotesOnLogin = profile.Data.NotesOnLogin,
 		TutorialEggClaimed = profile.Data.TutorialEggClaimed,
@@ -26676,8 +26719,7 @@ return LuckService
 
 	Biomes (Lane/AreaN) run one after another along +Z from the lobby. Each one has:
 	  * thick grassy walls (Config.Map.WallThickness) and a checker floor,
-	  * an arch at its entrance with its name and the Speed you need to escape its Domer (anyone
-	    can walk in: there are no speed gates),
+	  * an arch at its entrance (no title over the lane; anyone can walk in: no speed gates),
 	  * its Domer's spot in a back corner (GuardHome; the first biomes have his couch there) and
 	    the box spots around it (BoxSpots: BoxService puts the boxes on them),
 	  * its theme's decorations (Decor.luau) and lots of little props (DecorProps.luau: igloos,
@@ -26691,8 +26733,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Layout = require(Shared.Layout)
-local Format = require(Shared.Format)
-local Economy = require(Shared.Economy)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 local BoxModel = require(Shared.BoxModel)
@@ -26709,7 +26749,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 19
+local MAP_VERSION = 20
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -27005,16 +27045,6 @@ end
 --------------------------------------------------------------------------------
 -- Lane / biomes
 --------------------------------------------------------------------------------
--- Third line of a biome's arch sign. Rewritten on every start (refreshAreaSigns), so a saved map
--- never shows old speeds after a rebalance.
-local function speedText(area: Areas.Area): string
-	local need = Economy.EscapeSpeed(area.Id)
-	if need <= 0 then
-		return "No speed needed - start here!"
-	end
-	return Format.Number(need) .. " Speed to escape " .. Config.Guard.Name
-end
-
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	local half = Layout.AreaHalfWidth(area.Id)
 	local arch = Instance.new("Model")
@@ -27023,25 +27053,6 @@ local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 		Build.Part({ Parent = arch, Name = "ArchPillar", Size = Vector3.new(8, 38, 8), Position = Vector3.new(side * (half - 4), 19, zs + 4), Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.25), Material = area.WallMaterial })
 		Build.Part({ Parent = arch, Name = "ArchCap", Size = Vector3.new(9, 1.5, 9), Position = Vector3.new(side * (half - 4), 38.75, zs + 4), Color = area.Trim, Material = area.TrimMaterial })
 	end
-	local beam = Build.Part({
-		Parent = arch, Name = "ArchSign",
-		Size = Vector3.new(half * 2 - 6, 12, 4),
-		CFrame = CFrame.lookAt(Vector3.new(0, 45, zs + 4), Vector3.new(0, 45, zs - 10)),
-		Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.4), Material = area.WallMaterial,
-	})
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 12
-	gui.LightInfluence = 0
-	gui.Parent = beam
-	local list = Instance.new("UIListLayout")
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Parent = gui
-	Build.Text(gui, "BIOME " .. area.Id, { Size = UDim2.fromScale(1, 0.22), TextColor3 = rgb(255, 255, 255), LayoutOrder = 1 })
-	Build.Text(gui, string.upper(area.Name), { Size = UDim2.fromScale(1, 0.46), TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.35), LayoutOrder = 2 })
-	Build.Text(gui, speedText(area), { Name = "SpeedInfo", Size = UDim2.fromScale(1, 0.26), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne, LayoutOrder = 3 })
 	arch.Parent = parent
 end
 
@@ -27051,10 +27062,9 @@ local function refreshAreaSigns(folder: Instance)
 		local biome = lane and lane:FindFirstChild("Area" .. area.Id)
 		local arch = biome and biome:FindFirstChild("Arch")
 		local sign = arch and arch:FindFirstChild("ArchSign")
-		local gui = sign and sign:FindFirstChildOfClass("SurfaceGui")
-		local label = gui and gui:FindFirstChild("SpeedInfo")
-		if label and label:IsA("TextLabel") then
-			label.Text = speedText(area)
+		-- (old saved maps: no titles over the lane any more)
+		if sign then
+			sign:Destroy()
 		end
 		-- (old saved maps: the speed gates are gone)
 		local gate = biome and biome:FindFirstChild("SpeedGate")
@@ -27246,11 +27256,11 @@ local function buildArea(parent: Instance, area: Areas.Area)
 		local inner, outer = math.min(half, beforeHalf), math.max(half, beforeHalf)
 		for _, side in { -1, 1 } do
 			local from = if side < 0 then -(outer + t) else inner
-			Build.CheckerWall(folder, Vector3.new(from, 0, zs + 2), Vector3.new(1, 0, 0), outer + t - inner, h, 4, area.Wall, area.WallMaterial, 20)
+			Build.CheckerWall(folder, Vector3.new(from, 0, zs + 2), Vector3.new(1, 0, 0), outer + t - inner, h, 4, area.Wall, area.WallMaterial, map.LaneWallSquare)
 		end
 	end
 	for _, side in { -1, 1 } do
-		Build.CheckerWall(folder, Vector3.new(side * (half + t / 2), 0, zs), Vector3.new(0, 0, 1), ze - zs, h, t, area.Wall, area.WallMaterial, 20)
+		Build.CheckerWall(folder, Vector3.new(side * (half + t / 2), 0, zs), Vector3.new(0, 0, 1), ze - zs, h, t, area.Wall, area.WallMaterial, map.LaneWallSquare)
 		Build.Part({ Parent = folder, Name = "WallTop", Size = Vector3.new(t + 1, 2, ze - zs), Position = Vector3.new(side * (half + t / 2), h + 1, (zs + ze) / 2), Color = area.Trim, Material = area.TrimMaterial })
 	end
 	-- Coloured line marking the start of the biome
@@ -27272,7 +27282,7 @@ local function buildArea(parent: Instance, area: Areas.Area)
 
 	-- Close the lane after the last biome
 	if area.Id == #Areas.List then
-		Build.CheckerWall(folder, Vector3.new(-half - t, 0, ze + 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, 4, area.Wall, area.WallMaterial, 20)
+		Build.CheckerWall(folder, Vector3.new(-half - t, 0, ze + 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, 4, area.Wall, area.WallMaterial, map.LaneWallSquare)
 	end
 end
 
@@ -31568,6 +31578,14 @@ function Actions.SeenTutorial(player: Player, profile: DataService.Profile)
 	DataService.PushState(player)
 end
 
+-- The opening cinematic started: this version of it counts as seen (it plays once per version).
+function Actions.SeenIntro(player: Player, profile: DataService.Profile)
+	if profile.Data.IntroVersion < Config.Intro.Version then
+		profile.Data.IntroVersion = Config.Intro.Version
+		DataService.PushState(player)
+	end
+end
+
 -- The free egg at the end of the tutorial: once per player, ever.
 function Actions.ClaimTutorialEgg(player: Player, profile: DataService.Profile)
 	profile.Data.SeenTutorial = true
@@ -33824,7 +33842,7 @@ local function onBoxOpened(info: Opened)
 	local glow = if mutation.Order > 0 then mutation.Color else tier.Color
 	-- your own Mythic box: its own little film (client/MythicOpening) instead
 	if info.Owner == player and tier.Id == "Mythic" and MythicOpening.CanPlay() then
-		if MythicOpening.Play({ DonutId = info.DonutId, Mutation = info.Mutation, Size = info.Size }) then
+		if MythicOpening.Play({ DonutId = info.DonutId, Mutation = info.Mutation, Size = info.Size, At = box:GetPivot() }) then
 			hide(box)
 			return
 		end
@@ -39857,6 +39875,8 @@ local CUSTOM_SNORE = Config.Guard.SnoreSoundId ~= ""
 -- SNORE_FAR - about as far as you can be from him and still reach one of his boxes)
 local SNORE_NEAR = 16
 local SNORE_FAR = Layout.BoxRadius + 22
+-- ...and it carries further than that, fading out by SNORE_HEAR (you, or your camera, that close)
+local SNORE_HEAR = Layout.BoxRadius + 55
 local Z_RANGE = 240 -- ...and see his Z's
 local BREATH = 3.8 -- seconds per breath (in 1.7 s, out 1.3 s, then a pause)
 local BREATH_IN = 1.7
@@ -39910,7 +39930,7 @@ end
 
 -- His snore: a slowed-down rumble with a fast flutter on it (the rattle), fading in and out with
 -- every breath (see breathe). A pasted Creator Store snore plays as it is instead.
-local function makeSnore(mouth: BasePart?): Sound?
+local function makeSnore(mouth: BasePart?, model: Model): Sound?
 	if not mouth then
 		return nil
 	end
@@ -39941,7 +39961,9 @@ local function makeSnore(mouth: BasePart?): Sound?
 		eq.HighGain = -16
 		eq.Parent = sound
 	end
-	sound.Parent = mouth
+	-- A pasted snore isn't placed in the world (its loudness is worked out from how far you are):
+	-- placed in his mouth it went silent with you or your camera right up against (or inside) him.
+	sound.Parent = if CUSTOM_SNORE then model else mouth
 	return sound
 end
 
@@ -40002,7 +40024,8 @@ end
 -- How loud the pasted snore is `distance` studs from him.
 local function snoreVolume(distance: number): number
 	local t = math.clamp((distance - SNORE_NEAR) / (SNORE_FAR - SNORE_NEAR), 0, 1)
-	return Config.Guard.SnoreVolume * (1 - t * 2 / 3)
+	local beyond = math.clamp((distance - SNORE_FAR) / (SNORE_HEAR - SNORE_FAR), 0, 1)
+	return Config.Guard.SnoreVolume * (1 - t * 2 / 3) * (1 - beyond)
 end
 
 -- The biomes with a box you're close enough to grab right now (within its prompt's reach).
@@ -40132,7 +40155,7 @@ local function buildSleeper(areaId: number)
 		Home = home,
 		Hidden = false,
 		Mouth = mouth,
-		Snore = makeSnore(mouth),
+		Snore = makeSnore(mouth, model),
 		Phase = math.random() * BREATH,
 		BreathingOut = false,
 		Snoring = false,
@@ -40248,6 +40271,113 @@ local function alertSign(model: Model, head: BasePart)
 	return board
 end
 
+-- Waking up, on your screen only: he sits up, springs to his feet throwing his arms up, then
+-- stomps and shakes his head, fists out, steaming. It's quick (Guards.WakeTime) and fits inside
+-- his wake delay, so it never changes your head start: the server starts the chase at exactly
+-- the same moment either way. Poses are angles in degrees for his R6 joints: Root/Neck pitch
+-- (+ = forward), arms and legs forward (+), arms out to the side (Out).
+Guards.WakeTime = 0.85
+type WakeKey = { T: number, Root: number, Neck: number, Arms: number, Out: number, RightLeg: number, LeftLeg: number }
+local WAKE_KEYS: { WakeKey } = {
+	{ T = 0, Root = -45, Neck = -20, Arms = -35, Out = 5, RightLeg = 75, LeftLeg = 75 }, -- sitting up
+	{ T = 0.22, Root = -10, Neck = -15, Arms = 150, Out = 15, RightLeg = 10, LeftLeg = 10 }, -- springing up
+	{ T = 0.38, Root = -6, Neck = -20, Arms = 170, Out = 20, RightLeg = 0, LeftLeg = 0 }, -- arms in the air
+	{ T = 0.52, Root = 16, Neck = 18, Arms = 25, Out = 38, RightLeg = 42, LeftLeg = 0 }, -- fists out, foot up
+	{ T = 0.62, Root = 20, Neck = 18, Arms = 15, Out = 40, RightLeg = -4, LeftLeg = 0 }, -- STOMP
+	{ T = 0.85, Root = 12, Neck = 12, Arms = 10, Out = 32, RightLeg = 0, LeftLeg = 0 },
+}
+
+-- His pose `t` seconds into waking up (joint name -> Motor6D.Transform).
+function Guards.WakePose(t: number): { [string]: CFrame }
+	local a, b = WAKE_KEYS[1], WAKE_KEYS[#WAKE_KEYS]
+	for i = 1, #WAKE_KEYS - 1 do
+		if t >= WAKE_KEYS[i].T and t <= WAKE_KEYS[i + 1].T then
+			a, b = WAKE_KEYS[i], WAKE_KEYS[i + 1]
+			break
+		end
+	end
+	local span = math.max(b.T - a.T, 1e-3)
+	local k = math.clamp((t - a.T) / span, 0, 1)
+	k = k * k * (3 - 2 * k)
+	local function mix(key: string): number
+		return math.rad((a :: any)[key] + ((b :: any)[key] - (a :: any)[key]) * k)
+	end
+	-- (shaking his head, furious, once he's up)
+	local shake = if t > 0.45 then math.rad(22) * math.sin(t * 38) * math.clamp((Guards.WakeTime - t) / 0.2, 0, 1) else 0
+	local out = mix("Out")
+	return {
+		RootJoint = CFrame.Angles(mix("Root"), 0, 0),
+		Neck = CFrame.Angles(mix("Neck"), 0, shake),
+		["Right Shoulder"] = CFrame.Angles(-out, 0, mix("Arms")),
+		["Left Shoulder"] = CFrame.Angles(-out, 0, -mix("Arms")),
+		["Right Hip"] = CFrame.Angles(0, 0, mix("RightLeg")),
+		["Left Hip"] = CFrame.Angles(0, 0, -mix("LeftLeg")),
+	}
+end
+
+local function steamPuff(head: BasePart)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "AngrySteam"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 120, 110), Color3.fromRGB(255, 235, 230))
+	emitter.LightEmission = 0.2
+	emitter.Lifetime = NumberRange.new(0.4, 0.7)
+	emitter.Speed = NumberRange.new(10, 18)
+	emitter.SpreadAngle = Vector2.new(25, 25)
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.Drag = 4
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 3) })
+	emitter.Transparency = NumberSequence.new(0.15, 1)
+	emitter.Rate = 0
+	emitter.Parent = head
+	emitter:Emit(18)
+	task.delay(1.2, function()
+		emitter:Destroy()
+	end)
+end
+
+function Guards.WakeUp(model: Model)
+	local motors: { [string]: Motor6D } = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("Motor6D") then
+			motors[d.Name] = d
+		end
+	end
+	if not motors.RootJoint then
+		return
+	end
+	local head = model:FindFirstChild("Head")
+	local started = os.clock()
+	local stomped = false
+	local connections: { RBXScriptConnection } = {}
+	local function pose()
+		local t = os.clock() - started
+		local ok, state = pcall(model.GetAttribute, model, "State")
+		if t > Guards.WakeTime or not ok or not model.Parent or state ~= "Waking" then
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			return
+		end
+		for name, transform in Guards.WakePose(t) do
+			local motor = motors[name]
+			if motor then
+				motor.Transform = transform
+			end
+		end
+		if not stomped and t >= 0.6 then
+			stomped = true
+			if head and head:IsA("BasePart") then
+				steamPuff(head)
+			end
+			Guards.Poof(model:GetPivot().Position - Vector3.new(0, 2.5 * Config.Guard.Scale, 0), Color3.fromRGB(230, 210, 190))
+		end
+	end
+	-- (after his animations step, and again right before each frame: our pose wins)
+	table.insert(connections, RunService.Stepped:Connect(pose))
+	table.insert(connections, RunService.RenderStepped:Connect(pose))
+	pose()
+end
+
 local function hideForMe(model: Instance)
 	local function hide(d: Instance)
 		if d:IsA("BasePart") then
@@ -40291,9 +40421,15 @@ local function onGuardAdded(instance: Instance)
 		if head and head:IsA("BasePart") then
 			local sign: BasePart? = nil
 			local chase: DomerFX.Chase? = nil
+			local waking = false
 			local function update()
 				local state = instance:GetAttribute("State")
 				local alert = state == "Waking" or state == "Chasing"
+				-- he gets up, furious (each time he's woken)
+				if state == "Waking" and not waking then
+					Guards.WakeUp(instance)
+				end
+				waking = state == "Waking"
 				if alert and not (sign and sign.Parent) then
 					sign = alertSign(instance, head)
 				end
@@ -40383,8 +40519,11 @@ function Guards.Init()
 					moveSleeper(sleeper, now)
 				end
 				if CUSTOM_SNORE then
+					-- heard near him (you or your camera, even right up against him) or near his boxes
 					local fromYou = if at and not sleeper.Hidden then (sleeper.Home.Position - at).Magnitude else math.huge
-					breathe(sleeper, now, distance < Z_RANGE, reach[areaId] == true and not sleeper.Hidden, snoreVolume(fromYou))
+					local closest = math.min(fromYou, distance)
+					local near = closest < SNORE_HEAR or (reach[areaId] == true and not sleeper.Hidden)
+					breathe(sleeper, now, distance < Z_RANGE, near, snoreVolume(math.min(closest, SNORE_FAR)))
 				else
 					breathe(sleeper, now, distance < Z_RANGE, distance < SNORE_RANGE + 10, 0)
 				end
@@ -40407,8 +40546,8 @@ return Guards
 	  - the sealing circle turns slowly and its glow breathes
 	  - the chains glow brighter and thicken while the donut strains against them (DonutIdle's
 	    Tug), and the shackles flare
-	  - each tug: a burst of spikes and an impact puff round the donut, a spray of embers and a
-	    clank of the chains
+	  - each tug: a burst of spikes and an impact puff round the donut and a spray of embers
+	    (no sound: donuts are silent)
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -40455,25 +40594,6 @@ local function register(model: Instance)
 	rigs[model] = rig
 end
 
-local function clank(at: BasePart)
-	local sounds: { { Id: string, Speed: number, Volume: number } } = {
-		{ Id = "rbxasset://sounds/unsheath.wav", Speed = 0.55, Volume = 0.45 },
-		{ Id = "rbxasset://sounds/action_jump_land.mp3", Speed = 0.5, Volume = 0.5 },
-	}
-	for _, spec in sounds do
-		local s = Instance.new("Sound")
-		s.SoundId = spec.Id
-		s.PlaybackSpeed = spec.Speed
-		s.Volume = spec.Volume
-		s.RollOffMaxDistance = 90
-		s.Parent = at
-		s:Play()
-		task.delay(3, function()
-			s:Destroy()
-		end)
-	end
-end
-
 function HellChainsFX.Init()
 	for _, model in CollectionService:GetTagged("HellChains") do
 		register(model)
@@ -40500,7 +40620,6 @@ function HellChainsFX.Init()
 		if rig.Embers then
 			rig.Embers:Emit(14)
 		end
-		clank(rig.Core)
 	end)
 
 	local clock = 0
@@ -40558,23 +40677,32 @@ return HellChainsFX
           <Properties>
             <string name="Name">Intro</string>
             <string name="Source"><![CDATA[--[[
-	Intro: the opening cinematic (Config.Intro). Plays for brand-new players once the loading screen
-	is gone, before the Update Log and the tutorial; anyone can watch it again from Settings (WATCH
-	INTRO). Everything here is on this client only, apart from your own character walking (the real
-	one, so you end up where the scene leaves you).
+	Intro: the opening cinematic (Config.Intro). Plays once for every player who hasn't seen this
+	version of it yet (Config.Intro.Version: new players, and everyone once more after an update
+	that changes it), once the loading screen is gone, before the Update Log and the tutorial;
+	anyone can watch it again from Settings (WATCH INTRO). Everything here is on this client only,
+	apart from your own character walking (the real one, so you end up where the scene leaves you).
+	Its sounds are Config.Intro.Sounds (a song all the way through).
 
 	  0.0  black bars slide in; the STEAL A DONUT title pops up over an aerial view of the map
 	  3.4  the camera glides down to your base
-	  6.0  you walk through your pen up to the donut shop's window...
-	  9.2  ...and ask the baker: "One Donut Box Please" (he glances back over his shoulder)
-	 10.6  he turns round with a donut box and holds it out over the counter
-	 12.2  WHOOSH: Domer zips in from the side and skids to a stop beside you (dust, a little shake)
-	 13.1  he winds up and snatches the box (it flies into his hand); the baker jumps back
-	 13.65 he turns to the camera with a big cheeky grin, a wink and a twinkle on his teeth
-	 15.0  his legs spin on the spot like a cartoon, then he zooms off to the first biome with it;
-	       the baker shouts "HEY!", you point at him and run after him
-	 16.7  the camera rises over your base, then swoops down behind you into the normal view, the
-	       bars slide away, and the game starts as normal
+	  6.0  you walk through your pen up to the donut shop's window (the baker watching you come)...
+	  9.2  ...and ask him: "One Donut Box Please" - "Coming right up!"
+	 10.6  he turns round, walks over to the shelves at the back, takes a box down, turns back,
+	       walks back to the counter and holds it out to you
+	 15.9  WHOOSH: Domer zips in from the side and skids to a stop beside you (dust, a little shake)
+	 16.8  he winds up and snatches the box (it flies into his hand); the baker jumps back
+	 17.35 he turns to the camera with a big cheeky grin, a wink, a laugh and a twinkle on his teeth
+	 18.7  his legs spin on the spot like a cartoon, then he zooms off with it; the baker shouts "HEY!"
+	 19.2  you're FURIOUS (steam out of your ears) and yell after him - and as he runs off, his back
+	       to you, he waves back over his shoulder (the camera behind your shoulder)
+	 21.2  you run after him... and run out of puff: bent over, hands on your knees, sweating and
+	       panting
+	 25.0  the camera comes round in front of you as you stand up straight...
+	 26.0  ...and over your right shoulder as you turn to look at your treadmill - glowing, a big
+	       cartoon star shining behind it
+	 28.8  the camera settles behind you into the normal view, the bars slide away, and the game
+	       starts (the tutorial, for new players)
 
 	How it moves: nothing snaps from one pose to the next (Puppet.Animate fades between them),
 	Domer and the baker lean, recoil and settle on springs (Motion.Spring), Domer's feet stay on
@@ -40631,17 +40759,27 @@ local T = {
 	Fly = 3.4,
 	Walk = 6.0,
 	Arrive = 9.2,
+	Reply = 10.0,
 	Turn = 10.6,
-	Offer = 11.3,
-	Zip = 12.2,
-	Land = 12.55,
-	Grab = 13.1,
-	Grin = 13.65,
-	Run = 15.0,
-	Dash = 15.4,
-	Chase = 15.7,
-	Pull = 16.7,
-	End = 18.6,
+	Fetch = 11.1,
+	Pick = 12.7,
+	Back = 13.4,
+	Offer = 15.1,
+	Zip = 15.9,
+	Land = 16.25,
+	Grab = 16.8,
+	Grin = 17.35,
+	Run = 18.7,
+	Dash = 19.1,
+	Angry = 19.2,
+	Yell = 19.9,
+	Chase = 21.2,
+	Kneel = 22.6,
+	StandUp = 25.0,
+	Look = 26.0,
+	Shine = 26.6,
+	Pull = 27.6,
+	End = 28.8,
 }
 Intro.Times = T
 
@@ -40671,6 +40809,28 @@ end
 local function angles(cf: CFrame): (number, number)
 	local look = cf.LookVector
 	return yawOf(look), math.asin(math.clamp(look.Y, -1, 1))
+end
+
+-- The scene's own sounds (Config.Intro.Sounds), in a folder that goes when it ends.
+local soundFolder: Instance? = nil
+local function cue(name: string, looped: boolean?): Sound?
+	local def = Config.Intro.Sounds[name]
+	if not def or def.Id == "" then
+		return nil
+	end
+	local s = Instance.new("Sound")
+	s.Name = name
+	s.SoundId = def.Id
+	s.Volume = def.Volume
+	s.Looped = looped == true
+	s.Parent = soundFolder or SoundService
+	s:Play()
+	if not looped then
+		task.delay(8, function()
+			s:Destroy()
+		end)
+	end
+	return s
 end
 
 local function sound(id: string, speed: number, volume: number)
@@ -40767,7 +40927,7 @@ local function makeBubble(head: BasePart, text: string, height: number, color: C
 	label.MaxVisibleGraphemes = 0
 	label.Parent = box
 	gui.Parent = parent
-	sound("rbxasset://sounds/button.wav", 1.4, 0.5)
+	cue("Talk") -- (someone's talking)
 	return { Gui = gui, Label = label, Scale = scale, Height = height, Born = now, Dying = nil, Count = utf8.len(text) or #text }
 end
 
@@ -40997,6 +41157,38 @@ function Intro.Play(opts: { Speed: number? }?)
 	local scene = Instance.new("Folder")
 	scene.Name = "IntroScene"
 	scene.Parent = workspace
+	-- its sounds: a sting as it starts, and the song all the way through
+	local sounds = Instance.new("Folder")
+	sounds.Name = "IntroSounds"
+	sounds.Parent = SoundService
+	soundFolder = sounds
+	cue("Start")
+	local song = cue("Song", true)
+	local loops: { [string]: Sound } = {} -- (footsteps and panting, while they last)
+	local function loop(name: string, on: boolean)
+		local existing = loops[name]
+		if on and not existing then
+			loops[name] = cue(name, true) :: Sound
+		elseif not on and existing then
+			existing:Stop()
+			existing:Destroy()
+			loops[name] = nil
+		end
+	end
+	local function stopSounds()
+		soundFolder = nil
+		if song then
+			TweenService:Create(song, TweenInfo.new(0.6), { Volume = 0 }):Play()
+		end
+		for name in loops do
+			loop(name, false)
+		end
+		task.delay(0.7, function()
+			sounds:Destroy()
+		end)
+	end
+	-- (it counts as seen for this version from the moment it starts)
+	State.Action("SeenIntro")
 	local screen = buildScreen()
 	local openedAt = os.clock()
 	-- (whatever else happens, the black opening circle is gone a moment after it should have opened)
@@ -41071,17 +41263,56 @@ function Intro.Play(opts: { Speed: number? }?)
 		follow = follow:Lerp(real, 1 - math.exp(-dt * 5))
 		follow = follow:Lerp(real, smooth((now - (T.End - 0.9)) / 0.9))
 	end
-	-- high over your base, looking out the way you're running: you, and Domer racing off ahead
-	local function overView(): CFrame
-		local r = follow
-		return CFrame.lookAt(r + Vector3.new(0, 55, 0) - out * 30, r + out * 20)
+	-- Your treadmill (where you look at the end)
+	local treadAnchor = plot and plot:FindFirstChild("TreadmillAnchor")
+	local treadAt = if treadAnchor and treadAnchor:IsA("BasePart") then treadAnchor.CFrame.Position else ground(-20, Layout.PenFront + 4)
+	local function toTreadmill(): Vector3
+		local v = Vector3.new(treadAt.X - follow.X, 0, treadAt.Z - follow.Z)
+		return if v.Magnitude > 0.1 then v.Unit else out
 	end
-	-- the normal camera, exactly: behind you at your usual distance, looking over your head
-	local handLook = (Vector3.new(out.X, 0, out.Z).Unit - Vector3.new(0, 0.23, 0)).Unit
+	-- (where Domer is, for the shots that watch him go: kept up to date by update)
+	local domerSeen = domerAt
+	local function flatUnit(v: Vector3, fallback: Vector3): Vector3
+		local f = Vector3.new(v.X, 0, v.Z)
+		return if f.Magnitude > 0.1 then f.Unit else fallback
+	end
+	local UP = Vector3.new(0, 1, 0)
+	-- behind your right shoulder, watching Domer run off
+	local function shoulderView(): CFrame
+		local you = follow
+		local dir = flatUnit(domerSeen - you, out)
+		local right = dir:Cross(UP)
+		return CFrame.lookAt(you - dir * 6.5 + right * 2 + UP * 2.6, domerSeen + UP * 2 * S)
+	end
+	-- low, from the side, while you're bent over panting
+	local function kneelView(): CFrame
+		local you = follow
+		local facing = if root then flatUnit(root.CFrame.LookVector, out) else out
+		local side = facing:Cross(UP)
+		return CFrame.lookAt(you + facing * 3 - side * 7 + UP * 0.6, you - UP * 0.4)
+	end
+	-- in front of you as you stand up
+	local function frontView(): CFrame
+		local you = follow
+		local facing = if root then flatUnit(root.CFrame.LookVector, out) else out
+		return CFrame.lookAt(you + facing * 7 + UP * 1.4, you + UP * 1.2)
+	end
+	-- over your right shoulder, at your treadmill
+	local function treadmillView(): CFrame
+		local you = follow
+		local dir = toTreadmill()
+		local right = dir:Cross(UP)
+		return CFrame.lookAt(you - dir * 5.5 + right * 2.2 + UP * 2.4, treadAt + UP * 3)
+	end
+	-- the normal camera, exactly: behind you at your usual distance, looking over your head (the
+	-- way you're facing at the end: at your treadmill)
 	local function playerView(): CFrame
 		local focus = follow + Vector3.new(0, 1.5, 0)
+		local handLook = (toTreadmill() - Vector3.new(0, 0.23, 0)).Unit
 		return CFrame.lookAt(focus - handLook * zoom, focus)
 	end
+	-- into the shop over your shoulder, watching the baker fetch a box from the shelves
+	local fetchView = CFrame.lookAt(at(-7, 9, zSpot - 9), at(-6, 6, zSpot + 14))
 	local function still(cf: CFrame): () -> CFrame
 		return function()
 			return cf
@@ -41093,13 +41324,23 @@ function Intro.Play(opts: { Speed: number? }?)
 		{ Time = T.Fly, View = still(aerial1), Fov = 60, Hand = 0.3 },
 		{ Time = T.Walk, View = still(baseView), Fov = 55, Hand = 0.6 },
 		{ Time = T.Arrive, View = still(walkView), Fov = 55, Hand = 0.7 },
+		{ Time = T.Turn, View = still(shopView), Fov = 55, Hand = 0.7 },
+		{ Time = T.Fetch + 0.8, View = still(fetchView), Fov = 52, Hand = 0.7 },
+		{ Time = T.Back + 0.6, View = still(fetchView), Fov = 52, Hand = 0.7 },
+		{ Time = T.Offer, View = still(shopView), Fov = 55, Hand = 0.7 },
 		{ Time = T.Zip, View = still(shopView), Fov = 55, Hand = 0.7 },
 		{ Time = T.Land + 0.15, View = still(wideView), Fov = 60, Hand = 0.9 },
 		{ Time = T.Grin, View = still(wideView2), Fov = 58, Hand = 0.8 },
 		{ Time = T.Grin + 0.55, View = still(grinView), Fov = 45, Hand = 0.8 },
 		{ Time = T.Run - 0.2, View = still(grinView2), Fov = 44, Hand = 0.8 },
 		{ Time = T.Run + 0.4, View = still(windView), Fov = 55, Hand = 0.9 },
-		{ Time = T.Pull, View = overView, Fov = 60, Hand = 0.5 },
+		{ Time = T.Angry + 0.6, View = shoulderView, Fov = 55, Hand = 0.6 },
+		{ Time = T.Chase - 0.1, View = shoulderView, Fov = 58, Hand = 0.6 },
+		{ Time = T.Kneel + 0.5, View = kneelView, Fov = 55, Hand = 0.5 },
+		{ Time = T.StandUp, View = kneelView, Fov = 55, Hand = 0.5 },
+		{ Time = T.StandUp + 0.8, View = frontView, Fov = 52, Hand = 0.4 },
+		{ Time = T.Look + 0.9, View = treadmillView, Fov = 55, Hand = 0.4 },
+		{ Time = T.Pull, View = treadmillView, Fov = 55, Hand = 0.3 },
 		{ Time = T.End, View = playerView, Fov = oldFov, Hand = 0 },
 	}
 	if not full then
@@ -41255,10 +41496,169 @@ function Intro.Play(opts: { Speed: number? }?)
 		local v = from:PointToObjectSpace(target)
 		return math.clamp(math.atan2(-v.X, -v.Z), -limit, limit)
 	end
+	local lastDomerHead = faceAt
 	local function domerHeadAt(): Vector3
+		-- (once he's run off and gone, where he was last seen)
+		if not (domer and domer.Model.Parent) then
+			return lastDomerHead
+		end
 		local head = domerPart("Head")
-		return if head and head.Parent then head.CFrame.Position else faceAt
+		if head and head.Parent then
+			lastDomerHead = head.CFrame.Position
+		end
+		return lastDomerHead
 	end
+
+	-- Your own body, posed (furious, yelling, bent over out of breath): your animations pause
+	-- meanwhile, and your shoulders, hips and knees are turned every frame after them (R6 or R15).
+	-- (In your body's own space: X turns a limb up in front of you, Z swings it in or out.)
+	local poseMotors: { [string]: Motor6D } = {}
+	local poseGoal: { [string]: CFrame } = {}
+	local poseNow: { [string]: CFrame } = {}
+	local posing = false
+	local animate: BaseScript? = nil
+	local animateWas = true
+	local poseConnections: { RBXScriptConnection } = {}
+	local poseSpeed = 10
+	local function findLimbs(model: Model): { [string]: Motor6D }
+		local found: { [string]: Motor6D } = {}
+		local torso = model:FindFirstChild("Torso")
+		for _, joint in {
+			{ Key = "LeftArm", R6 = "Left Shoulder", Part = "LeftUpperArm", R15 = "LeftShoulder" },
+			{ Key = "RightArm", R6 = "Right Shoulder", Part = "RightUpperArm", R15 = "RightShoulder" },
+			{ Key = "LeftLeg", R6 = "Left Hip", Part = "LeftUpperLeg", R15 = "LeftHip" },
+			{ Key = "RightLeg", R6 = "Right Hip", Part = "RightUpperLeg", R15 = "RightHip" },
+			{ Key = "LeftKnee", R6 = "", Part = "LeftLowerLeg", R15 = "LeftKnee" },
+			{ Key = "RightKnee", R6 = "", Part = "RightLowerLeg", R15 = "RightKnee" },
+		} do
+			local motor = if torso and joint.R6 ~= "" then torso:FindFirstChild(joint.R6) else nil
+			if not motor then
+				local part = model:FindFirstChild(joint.Part)
+				motor = part and part:FindFirstChild(joint.R15)
+			end
+			if motor and motor:IsA("Motor6D") then
+				found[joint.Key] = motor
+			end
+		end
+		return found
+	end
+	local function poseStep(dt: number)
+		for key, motor in poseMotors do
+			poseNow[key] = (poseNow[key] or CFrame.identity):Lerp(poseGoal[key] or CFrame.identity, math.min(1, dt * poseSpeed))
+			local q = motor.C0.Rotation
+			motor.Transform = q:Inverse() * poseNow[key] * q
+		end
+	end
+	local function bodyStart()
+		if posing or not (character and humanoid) then
+			return
+		end
+		posing = true
+		poseMotors = findLimbs(character :: Model)
+		local a = (character :: Model):FindFirstChild("Animate")
+		if a and a:IsA("BaseScript") then
+			animate = a
+			pcall(function()
+				animateWas = a.Enabled
+			end)
+			a.Enabled = false
+		end
+		pcall(function()
+			local animator = (humanoid :: Humanoid):FindFirstChildOfClass("Animator")
+			if animator then
+				for _, track in animator:GetPlayingAnimationTracks() do
+					track:Stop(0.15)
+				end
+			end
+		end)
+		table.insert(poseConnections, RunService.Stepped:Connect(function(_, dt: number)
+			poseStep(dt)
+		end))
+		table.insert(poseConnections, RunService.RenderStepped:Connect(function()
+			poseStep(0)
+		end))
+	end
+	local function bodyStop()
+		if not posing then
+			return
+		end
+		posing = false
+		for _, c in poseConnections do
+			c:Disconnect()
+		end
+		table.clear(poseConnections)
+		pcall(function()
+			for _, motor in poseMotors do
+				motor.Transform = CFrame.identity
+			end
+		end)
+		table.clear(poseNow)
+		table.clear(poseGoal)
+		local a = animate
+		if a then
+			pcall(function()
+				a.Enabled = animateWas
+			end)
+			animate = nil
+		end
+	end
+	local function limb(key: string, forward: number, inward: number)
+		local left = string.sub(key, 1, 4) == "Left"
+		poseGoal[key] = CFrame.Angles(rad(forward), 0, rad(if left then inward else -inward))
+	end
+	-- steam out of your ears, sweat flying off you
+	local function headPart(): BasePart?
+		local head = character and (character :: Model):FindFirstChild("Head")
+		return if head and head:IsA("BasePart") then head else nil
+	end
+	local function steam()
+		local head = headPart()
+		if not head then
+			return
+		end
+		local e = Instance.new("ParticleEmitter")
+		e.Name = "AngrySteam"
+		e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		e.Color = ColorSequence.new(rgb(255, 120, 110), rgb(255, 240, 235))
+		e.Lifetime = NumberRange.new(0.4, 0.7)
+		e.Speed = NumberRange.new(6, 10)
+		e.SpreadAngle = Vector2.new(30, 30)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1.6) })
+		e.Transparency = NumberSequence.new(0.2, 1)
+		e.Rate = 0
+		e.Parent = head
+		e:Emit(16)
+		task.delay(1.2, function()
+			e:Destroy()
+		end)
+	end
+	local sweat: ParticleEmitter? = nil
+	local function sweating(on: boolean)
+		if on and not sweat then
+			local head = headPart()
+			if head then
+				local e = Instance.new("ParticleEmitter")
+				e.Name = "Sweat"
+				e.Color = ColorSequence.new(rgb(140, 210, 255))
+				e.LightEmission = 0.2
+				e.Lifetime = NumberRange.new(0.5, 0.8)
+				e.Speed = NumberRange.new(3, 6)
+				e.SpreadAngle = Vector2.new(70, 70)
+				e.EmissionDirection = Enum.NormalId.Top
+				e.Acceleration = Vector3.new(0, -25, 0)
+				e.Size = NumberSequence.new(0.22, 0.08)
+				e.Rate = 9
+				e.Parent = head
+				sweat = e
+			end
+		elseif not on and sweat then
+			sweat:Destroy()
+			sweat = nil
+		end
+	end
+
+	local kneelBase: CFrame? = nil -- (where you stopped, out of breath)
 
 	local t = 0
 	local shake = 0
@@ -41294,6 +41694,12 @@ function Intro.Play(opts: { Speed: number? }?)
 		table.clear(bubbles)
 		if walkSpeed and humanoid then
 			humanoid.WalkSpeed = walkSpeed
+		end
+		-- your body back to you: your animations on, free to move
+		bodyStop()
+		sweating(false)
+		if root and kneelBase then
+			(root :: BasePart).Anchored = false
 		end
 		if fired.Walk and humanoid and root then
 			-- (stop where you are: from here on, you're walking)
@@ -41337,6 +41743,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		if not wasHidden then
 			HideUI.Set(false)
 		end
+		stopSounds()
 		player:SetAttribute("Intro", nil)
 		playing = false
 		Intro.Finished:Fire(skipped)
@@ -41372,6 +41779,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 		setControls(true)
 		pcall(HideUI.Set, false)
+		pcall(stopSounds)
 		player:SetAttribute("Intro", nil)
 		playing = false
 		task.delay(0.2, function()
@@ -41406,6 +41814,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		else
 			if not launched then
 				launched = true
+				loop("DomerRun", true)
 				sound("rbxasset://sounds/swordlunge.wav", 0.7, 0.8)
 				SpeedLines.Flash(0.45, 0.5)
 				local puff = stillPart("DashDust", CFrame.new(dPos + Vector3.new(0, 1, 0)), scene)
@@ -41420,6 +41829,11 @@ function Intro.Play(opts: { Speed: number? }?)
 			local bounce, twist
 			joints, bounce, twist = Puppet.Gait(stridePhase, 0.78)
 			joints["Right Arm"] = CFrame.Angles(rad(-162), 0, rad(14))
+			-- a cheeky wave back over his shoulder as he goes (his back to you)
+			local waving = age - windup
+			if waving > 0.25 and waving < 2.3 then
+				joints["Left Arm"] = CFrame.Angles(rad(-168), 0, rad(-14) + math.sin(waving * 15) * rad(30))
+			end
 			Motion.Step(dYaw, near(yawOf(dir) + twist * 0.07, dYaw.X), dt, 6, 0.9)
 			Motion.Step(dLean, rad(-15) - rad(10) * (1 - runSpeed / 58), dt, 5, 0.8)
 			Motion.Step(dRoll, math.clamp(turn * runSpeed * 0.1, -0.3, 0.3), dt, 3, 0.8)
@@ -41429,6 +41843,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			poseDomer(dt, "Run", 0.25, joints, true, bounce * 0.22 * S)
 			if runDistance >= runPath.Length - 0.5 then
 				runDone = true
+				loop("DomerRun", false)
 			end
 		end
 		swingBox(dt)
@@ -41438,7 +41853,9 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
-	-- You: walk up to the window, ask for a box, point after Domer and run after him
+	-- You: walk up to the window and ask for a box; furious when Domer runs off with it, yelling
+	-- after him; run after him until you're out of puff, bent over panting; stand up, and look over
+	-- at your treadmill
 	local function updateYou(dt: number)
 		local r, h = root, humanoid
 		if not (r and h) then
@@ -41451,8 +41868,10 @@ function Intro.Play(opts: { Speed: number? }?)
 			pcall(function()
 				h:MoveTo(spot)
 			end)
+			loop("Walk", true)
 		end
 		if once("Arrive", t, T.Arrive) then
+			loop("Walk", false)
 			if walkSpeed then
 				h.WalkSpeed = walkSpeed
 				walkSpeed = nil
@@ -41470,25 +41889,90 @@ function Intro.Play(opts: { Speed: number? }?)
 				b.Dying = b.Dying or t
 			end
 		end
-		if once("Point", t, T.Run + 0.05) then
-			turnGoal = (dPos - r.Position) * Vector3.new(1, 0, 1)
-			-- (the point emote, where the avatar's animations have it)
-			task.spawn(function()
-				pcall(function()
-					h:PlayEmoteAsync("point")
-				end)
-			end)
+		-- furious: fists clenched, glaring after him, steam coming out of your ears
+		if t >= T.Angry and t < T.Chase then
+			if once("Angry", t, T.Angry) then
+				bodyStart()
+				poseSpeed = 12
+				steam()
+			end
+			turnGoal = (domerSeen - r.Position) * Vector3.new(1, 0, 1)
+			local tremble = math.sin(t * 34) * 4
+			if t < T.Yell then
+				limb("LeftArm", 12 + tremble, -24)
+				limb("RightArm", 12 - tremble, -24)
+			else
+				-- shaking your fist at him, yelling
+				limb("RightArm", 160 + math.sin(t * 22) * 14, 6)
+				limb("LeftArm", 18, -28)
+			end
+		end
+		if once("Yell", t, T.Yell) then
+			say(character and character:FindFirstChild("Head") :: BasePart?, "HEY! GIVE THAT BACK!", 3.2, rgb(255, 235, 120), t)
+			cue("Scream")
+			steam()
 		end
 		if once("Chase", t, T.Chase) then
+			bodyStop()
 			turnGoal = nil
+			walkSpeed = h.WalkSpeed
+			h.WalkSpeed = 24
 			pcall(function()
 				h:MoveTo(exit)
 			end)
+			loop("Walk", true)
+		end
+		-- out of puff: bent over, hands on your knees, sweating and panting
+		if once("Kneel", t, T.Kneel) then
+			loop("Walk", false)
+			if walkSpeed then
+				h.WalkSpeed = walkSpeed
+				walkSpeed = nil
+			end
+			pcall(function()
+				h:MoveTo(r.Position)
+			end)
+			local facing = Vector3.new(r.CFrame.LookVector.X, 0, r.CFrame.LookVector.Z)
+			facing = if facing.Magnitude > 0.1 then facing.Unit else out
+			kneelBase = CFrame.lookAt(r.Position, r.Position + facing)
+			r.Anchored = true
+			bodyStart()
+			poseSpeed = 7
+			sweating(true)
+			loop("Panting", true)
+		end
+		local base = kneelBase
+		if base and t >= T.Kneel then
+			local r15 = h.RigType == Enum.HumanoidRigType.R15
+			-- 1 bent over (panting) ... 0 standing up straight
+			local bent = smooth((t - T.Kneel) / 0.35) * (1 - smooth((t - T.StandUp) / 0.8))
+			local pant = math.sin(t * 2 * math.pi * 1.6) * 3 * bent
+			local lean = 34 * bent + pant
+			-- turning to look at your treadmill
+			local yaw = 0
+			if t >= T.Look then
+				local toward = Vector3.new(treadAt.X - base.Position.X, 0, treadAt.Z - base.Position.Z)
+				if toward.Magnitude > 0.1 then
+					local want = near(yawOf(toward), yawOf(base.LookVector))
+					yaw = (want - yawOf(base.LookVector)) * smooth((t - T.Look) / 0.8)
+				end
+			end
+			r.CFrame = base * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -0.5 * bent, -0.3 * bent) * CFrame.Angles(rad(-lean), 0, 0)
+			limb("LeftArm", 62 * bent, 6 * bent)
+			limb("RightArm", 62 * bent, 6 * bent)
+			limb("LeftLeg", (lean + (if r15 then 18 else 6) * bent), 0)
+			limb("RightLeg", (lean + (if r15 then 18 else 6) * bent), 0)
+			limb("LeftKnee", -24 * bent, 0)
+			limb("RightKnee", -24 * bent, 0)
+			if once("Recovered", t, T.StandUp + 0.3) then
+				loop("Panting", false)
+				sweating(false)
+			end
 		end
 		-- turning smoothly to face something (only while standing: walking, you face your way)
-		local walking = (t >= T.Walk and t < T.Arrive) or t >= T.Chase
+		local walking = (t >= T.Walk and t < T.Arrive) or (t >= T.Chase and t < T.Kneel)
 		local goal = turnGoal
-		if goal and not walking and goal.Magnitude > 0.01 then
+		if goal and not walking and not kneelBase and goal.Magnitude > 0.01 then
 			local yaw = yawOf(r.CFrame.LookVector)
 			local want = near(yawOf(goal), yaw)
 			if math.abs(want - yaw) < 0.01 then
@@ -41500,38 +41984,106 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
-	-- The baker: kneading at the back, a glance over his shoulder, turning round with the box,
-	-- holding it out... jumping back when it's snatched, then shaking his fist after Domer
+	-- The baker: watching you come up to the window; "Coming right up!"; he turns round, walks round
+	-- his prep table to the shelves at the back, takes a box down, walks back with it and holds it
+	-- out... jumping back when it's snatched, then shaking his fist after Domer
+	local bakerPath: Motion.Path? = nil
+	local function bakerWalk(): Motion.Path?
+		if bakerPath or not baker then
+			return bakerPath
+		end
+		-- (plot space: the shop's front wall is at zb, the shelves along its back wall)
+		local zb = counterLocal.Z - 1
+		local y = baker.Home.Position.Y
+		local function onFloor(x: number, z: number): Vector3
+			local p = at(x, 0, z)
+			return Vector3.new(p.X, y, p.Z)
+		end
+		bakerPath = Motion.Path({ baker.Home.Position, onFloor(-5.4, zb + 5.4), onFloor(-7.6, zb + 10.5), onFloor(-10, zb + 15.4) }, 2.2)
+		return bakerPath
+	end
+	local bakerPhase = 0
 	local function updateBaker(dt: number)
 		if not baker then
 			return
 		end
 		local s = BAKER_S
-		local turnA = smooth((t - T.Turn - 0.08) / 0.55)
-		local headA = smooth((t - T.Turn) / 0.4)
-		local body = baker.Home * CFrame.Angles(0, math.pi * (1 - turnA), 0)
+		local path = bakerWalk()
+		local homeYaw = yawOf(baker.Home.LookVector)
+		local yaw = homeYaw
+		local where = baker.Home.Position
 		local joints: { [string]: CFrame } = {}
-		local state, fade = "Knead", 0.3
+		local state, fade = "Idle", 0.3
 		local leanGoal, headGoal, dip = 0, 0, 0
 		local headTilt = CFrame.identity
 		local release = T.Grab + 0.1
+		local walkIn = T.Pick - 0.15 -- (when he gets to the shelves)
+		local walkOut0, walkOut1 = T.Back + 0.45, T.Offer - 0.3
+		local function walking(u: number)
+			-- (a brisk walk: his legs swing, his arms too unless they're carrying something)
+			bakerPhase += dt * 9
+			local gait = Puppet.Gait(bakerPhase, 0.55 * math.sin(math.clamp(u, 0, 1) * math.pi) ^ 0.3)
+			for name, cf in gait do
+				joints[name] = cf
+			end
+			dip = -math.abs(math.sin(bakerPhase)) * 0.06 * s
+		end
 		if t < T.Turn then
-			local k = math.sin(t * 2 * math.pi * 1.4)
-			joints["Left Arm"] = CFrame.Angles(rad(-62) + 0.2 * k, 0, rad(-8))
-			joints["Right Arm"] = CFrame.Angles(rad(-62) + 0.2 * k, 0, rad(8))
-			headTilt = CFrame.Angles(rad(-12) - 0.05 * k, 0, 0)
-			dip = -(k + 1) * 0.035 * s
-			leanGoal = rad(-6) - 0.04 * k
-			-- ("Coming!": a look back over his shoulder when you ask)
-			local glance = smooth((t - T.Arrive - 0.5) / 0.3) * (1 - smooth((t - T.Arrive - 1.3) / 0.35))
-			headGoal = -1.2 * glance
-		elseif t < T.Offer then
-			state, fade = "Carry", 0.35
+			-- facing you, hands on the counter, leaning in; a nod when you ask
+			joints["Left Arm"] = CFrame.Angles(rad(-42), 0, rad(-10))
+			joints["Right Arm"] = CFrame.Angles(rad(-42), 0, rad(10))
+			leanGoal = rad(-5)
+			if root then
+				headGoal = gaze(baker.Home, root.Position + Vector3.new(0, 1.5, 0), 0.6)
+			end
+			local nod = smooth((t - T.Arrive - 0.4) / 0.2) * (1 - smooth((t - T.Arrive - 0.75) / 0.25))
+			headTilt = CFrame.Angles(rad(-14) * nod, 0, 0)
+		elseif t < T.Fetch then
+			-- turning round to the shelves
+			yaw = homeYaw + math.pi * smooth((t - T.Turn) / (T.Fetch - T.Turn))
+		elseif t < walkIn and path then
+			local u = (t - T.Fetch) / (walkIn - T.Fetch)
+			local pos, dir = Motion.PathAt(path, path.Length * smooth(u))
+			where = pos
+			yaw = near(yawOf(dir), homeYaw + math.pi)
+			walking(u)
+			state, fade = "Walk", 0.2
+		elseif t < T.Back and path then
+			-- at the shelves: reaching up for a box, taking it down
+			where = Motion.PathAt(path, path.Length)
+			yaw = near(yawOf(into), homeYaw + math.pi)
+			local reach = smooth((t - T.Pick) / 0.3) * (1 - smooth((t - T.Pick - 0.45) / 0.25))
+			joints["Left Arm"] = CFrame.Angles(rad(-58 - 52 * reach), 0, rad(-8))
+			joints["Right Arm"] = CFrame.Angles(rad(-58 - 52 * reach), 0, rad(8))
+			headTilt = CFrame.Angles(rad(14) * reach, 0, 0)
+			state, fade = "Reach", 0.2
+		elseif t < walkOut0 and path then
+			-- turning back round with it
+			where = Motion.PathAt(path, path.Length)
+			yaw = near(yawOf(into), homeYaw + math.pi) - math.pi * smooth((t - T.Back) / (walkOut0 - T.Back))
 			joints["Left Arm"] = CFrame.Angles(rad(-58), 0, rad(-10))
 			joints["Right Arm"] = CFrame.Angles(rad(-58), 0, rad(10))
-			-- (his head comes round first, his body follows)
-			headGoal = math.clamp(math.pi * (turnA - headA), -1.2, 0)
-			dip = -math.sin(math.pi * turnA) * 0.07 * s
+			state, fade = "Carry", 0.3
+		elseif t < walkOut1 and path then
+			local u = (t - walkOut0) / (walkOut1 - walkOut0)
+			local pos, dir = Motion.PathAt(path, path.Length * (1 - smooth(u)))
+			where = pos
+			yaw = near(yawOf(-dir), homeYaw)
+			walking(u)
+			joints["Left Arm"] = CFrame.Angles(rad(-58), 0, rad(-10))
+			joints["Right Arm"] = CFrame.Angles(rad(-58), 0, rad(10))
+			state, fade = "CarryWalk", 0.2
+		elseif t < T.Offer then
+			-- back at the counter, turning round to face you
+			local fromYaw = homeYaw
+			if path then
+				local _, firstDir = Motion.PathAt(path, 0)
+				fromYaw = near(yawOf(-firstDir), homeYaw)
+			end
+			yaw = fromYaw + (homeYaw - fromYaw) * smooth((t - walkOut1) / (T.Offer - walkOut1))
+			joints["Left Arm"] = CFrame.Angles(rad(-58), 0, rad(-10))
+			joints["Right Arm"] = CFrame.Angles(rad(-58), 0, rad(10))
+			state, fade = "Carry", 0.3
 		elseif t < release then
 			state, fade = "Offer", 0.4
 			joints["Left Arm"] = CFrame.Angles(rad(-84), 0, rad(-6))
@@ -41539,7 +42091,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			headTilt = CFrame.Angles(rad(-4), 0, 0)
 			leanGoal = rad(-9)
 			if root then
-				headGoal = gaze(body, root.Position + Vector3.new(0, 1.5, 0), 0.5)
+				headGoal = gaze(baker.Home, root.Position + Vector3.new(0, 1.5, 0), 0.5)
 			end
 		elseif t < T.Run then
 			local startled = t < release + 0.6
@@ -41548,7 +42100,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			joints["Right Arm"] = if startled then CFrame.Angles(rad(-128), 0, rad(28)) else CFrame.Angles(rad(-32), 0, rad(14))
 			headTilt = if startled then CFrame.Angles(rad(12), 0, 0) else CFrame.Angles(0, 0, rad(-6))
 			leanGoal = rad(4)
-			headGoal = gaze(body, domerHeadAt(), 1.1)
+			headGoal = gaze(baker.Home, domerHeadAt(), 1.1)
 		else
 			state, fade = "Angry", 0.25
 			local shake = math.sin(t * 2 * math.pi * 5.5)
@@ -41556,7 +42108,10 @@ function Intro.Play(opts: { Speed: number? }?)
 			joints["Left Arm"] = CFrame.Angles(rad(-40), 0, rad(-12))
 			leanGoal = rad(-10)
 			dip = -math.abs(math.sin(t * 2 * math.pi * 2.75)) * 0.05 * s
-			headGoal = gaze(body, domerHeadAt(), 1.2)
+			headGoal = gaze(baker.Home, domerHeadAt(), 1.2)
+		end
+		if once("Reply", t, T.Reply) then
+			say(baker.Puppet.Model:FindFirstChild("Head") :: BasePart?, "Coming right up!", 3.5 * BAKER_S, nil, t)
 		end
 		if once("Recoil", t, release) then
 			Motion.Kick(bLean, 3.2)
@@ -41565,6 +42120,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		Motion.Step(bHead, headGoal, dt, 4, 0.85)
 		joints.Head = CFrame.Angles(0, bHead.X, 0) * headTilt
 		local breathe = math.sin(t * 1.7) * 0.025 * s
+		local body = CFrame.new(where) * CFrame.Angles(0, yaw, 0)
 		Puppet.Animate(baker.Anim, dt, body * CFrame.new(0, dip + breathe, 0) * CFrame.Angles(bLean.X, 0, 0), joints, state, fade)
 	end
 
@@ -41577,6 +42133,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		if once("Zip", t, T.Zip) then
 			domer.Model.Parent = scene
 			sound("rbxasset://sounds/swordlunge.wav", 0.55, 0.9)
+			loop("DomerRun", true)
 			SpeedLines.Flash(0.55, 0.6)
 			local dustAt = stillPart("SkidDust", CFrame.new(domerAt), scene)
 			dustPart = dustAt
@@ -41659,6 +42216,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			dust.Rate = 90
 		end
 		if once("Land", t, T.Land) then
+			loop("DomerRun", false)
 			sound("rbxasset://sounds/action_jump_land.mp3", 0.6, 1)
 			local puff = stillPart("LandDust", CFrame.new(domerAt + Vector3.new(0, 1, 0)), scene)
 			AnimeFX.Fire(AnimeFX.Impact(puff, { rgb(255, 210, 120) }, 1.8))
@@ -41694,13 +42252,16 @@ function Intro.Play(opts: { Speed: number? }?)
 				twinkle.Enabled = true
 				twinkle:Emit(2)
 			end
-			sound("rbxasset://sounds/electronicpingshort.wav", 2, 0.6)
+			cue("Wink")
+		end
+		if once("Laugh", t, T.Grin + 0.45) then
+			cue("Laugh")
 		end
 	end
 
 	-- The box: appears in the baker's hands while his back is turned, flies to Domer's hand
 	local function updateBox(dt: number)
-		if once("Box", t, T.Turn - 0.25) then
+		if once("Box", t, T.Pick + 0.35) then
 			local b = BoxModel.Build("Basic", nil, { NoEffects = true })
 			for _, part in b:GetDescendants() do
 				if part:IsA("BasePart") then
@@ -41806,9 +42367,97 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
+	-- Your treadmill lights up: a warm glow all round it, and a big cartoon star shining behind it
+	type Star = { Gui: BillboardGui, Scale: UIScale, Spin: { GuiObject }, Born: number }
+	local star: Star? = nil
+	local function shineTreadmill()
+		cue("Shine")
+		local model = plot and plot:FindFirstChild("Treadmill")
+		local center = treadAt
+		if model and model:IsA("Model") then
+			center = model:GetPivot().Position
+			local glow = Instance.new("Highlight")
+			glow.Name = "TreadmillGlow"
+			glow.Adornee = model
+			glow.FillColor = rgb(255, 225, 90)
+			glow.FillTransparency = 0.55
+			glow.OutlineColor = WHITE
+			glow.OutlineTransparency = 0
+			glow.DepthMode = Enum.HighlightDepthMode.Occluded
+			glow.Parent = scene
+		end
+		local away = Vector3.new(center.X - follow.X, 0, center.Z - follow.Z)
+		away = if away.Magnitude > 0.1 then away.Unit else into
+		local holder = stillPart("TreadmillStar", CFrame.new(center + away * 6 + Vector3.new(0, 6, 0)), scene)
+		local light = Instance.new("PointLight")
+		light.Color = rgb(255, 225, 140)
+		light.Range = 22
+		light.Brightness = 3
+		light.Parent = holder
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "Star"
+		gui.Size = UDim2.fromScale(16, 16)
+		gui.LightInfluence = 0
+		gui.Parent = holder
+		local scale = Instance.new("UIScale")
+		scale.Scale = 0.1
+		scale.Parent = gui
+		local spin: { GuiObject } = {}
+		local function shape(name: string, size: number, color: Color3, rotation: number, round: boolean, z: number): Frame
+			local f = Instance.new("Frame")
+			f.Name = name
+			f.AnchorPoint = Vector2.new(0.5, 0.5)
+			f.Position = UDim2.fromScale(0.5, 0.5)
+			f.Size = UDim2.fromScale(size, size)
+			f.BackgroundColor3 = color
+			f.Rotation = rotation
+			f.ZIndex = z
+			f.BorderSizePixel = 0
+			if round then
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(0.5, 0)
+				corner.Parent = f
+			else
+				local stroke = Instance.new("UIStroke")
+				stroke.Thickness = 4
+				stroke.Color = rgb(255, 170, 40)
+				stroke.Parent = f
+			end
+			f.Parent = gui
+			return f
+		end
+		-- a soft round glow, rays turning one way, an eight-pointed star (two squares) the other
+		local halo = shape("Glow", 1, rgb(255, 240, 170), 0, true, 1)
+		halo.BackgroundTransparency = 0.6
+		for i = 0, 5 do
+			local ray = shape("Ray", 0.08, rgb(255, 245, 200), i * 30, false, 2)
+			ray.Size = UDim2.fromScale(0.07, 1.25)
+			ray.BackgroundTransparency = 0.35
+			table.insert(spin, ray)
+		end
+		table.insert(spin, shape("Point", 0.5, rgb(255, 215, 60), 0, false, 3))
+		table.insert(spin, shape("Point", 0.5, rgb(255, 215, 60), 45, false, 3))
+		shape("Middle", 0.28, rgb(255, 250, 225), 0, true, 4)
+		star = { Gui = gui, Scale = scale, Spin = spin, Born = t }
+	end
+	local function stepStar()
+		local st = star
+		if not st then
+			return
+		end
+		local age = t - st.Born
+		st.Scale.Scale = backOut(age / 0.45) * (1 + 0.06 * math.sin(age * 5))
+		for _, f in st.Spin do
+			local base = (f:GetAttribute("Base") :: number?) or f.Rotation
+			f:SetAttribute("Base", base)
+			f.Rotation = base + age * (if f.Name == "Ray" then 25 else -40)
+		end
+	end
+
 	local function update(dt: number)
 		local step = dt * speed
 		t += step
+		domerSeen = dPos
 		updateScreen()
 		if full and root and humanoid then
 			updateYou(step)
@@ -41818,6 +42467,10 @@ function Intro.Play(opts: { Speed: number? }?)
 			if domer and once("Run", t, T.Run) then
 				startRun()
 			end
+			if once("Shine", t, T.Shine) then
+				shineTreadmill()
+			end
+			stepStar()
 		end
 		-- the camera (and a shake when Domer lands)
 		if camera then
@@ -41935,15 +42588,17 @@ function Intro.Init()
 	if not Config.Intro.Enabled then
 		return
 	end
-	-- Brand-new players (or everyone, with EveryJoin): once the loading screen has gone. (The
-	-- attribute goes on straight away, so the Update Log knows to wait.)
+	-- Everyone who hasn't seen this version of it yet (brand-new players, and everyone once more
+	-- after Config.Intro.Version goes up), or everyone, with EveryJoin: once the loading screen has
+	-- gone. (The attribute goes on straight away, so the Update Log knows to wait.)
 	local checked = false
 	State.Changed:Connect(function(snapshot)
 		if checked then
 			return
 		end
 		checked = true
-		if snapshot.SeenTutorial == false or Config.Intro.EveryJoin then
+		local seen = if type(snapshot.IntroVersion) == "number" then snapshot.IntroVersion else 0
+		if seen < Config.Intro.Version or Config.Intro.EveryJoin then
 			player:SetAttribute("Intro", true)
 			task.spawn(function()
 				local waited = 0
@@ -42753,46 +43408,45 @@ return MeteorFX
             <string name="Name">MythicOpening</string>
             <string name="Source"><![CDATA[--[[
 	MythicOpening: opening a MYTHIC donut box gets its own little film (instead of the box popping
-	open in your pen), all of it in a vignette between black bars:
+	open in your pen), right where the box is, with black bars rolling in top and bottom:
 
-	  0.0  you're inside your donut shop with the baker; he holds out the glowing Mythic box -
-	       "A MYTHIC box... just for you!"
-	  1.7  your arms come up and you take it from him
-	  2.9  the camera cranes up to just above you, looking down at the box in your hands
-	  4.0  the lid rattles... and blows off in a burst of bright light (a pillar of light, sparkles
-	       rising)
-	  5.0  you reach into the light... and pull the donut out; a white flash and you're holding it
-	       up high, the camera in front of you looking up at it
-	  6.6  its rarity and name slam onto the screen
-	  7.8  everything fades out to white, and you're back where you were
+	  0.0  high up in the sky, looking down on you and the box (the camera slowly turning)
+	  2.2  cut: close up, at an angle just above you, looking at the box as it rattles and shakes
+	  4.3  the camera pans round to you: you reach for the lid... it flies off and a bright light
+	       and beams of light burst out of the box
+	  6.0  the donut LEAPS out of the box - and you stumble back and land sitting on the ground
+	  6.5  the camera pans round behind you: you sit there, propped up, looking at the open box with
+	       the donut standing on top of it
+	  7.7  its name pops onto the screen at an angle, shaking as the screen shakes
+	  9.3  it fades out, and you're back where you were
 
-	Your real character is used: it's moved into the shop (and back after), held still, and its
-	arms are posed by turning its shoulder joints every frame after its animations (R6 or R15).
-	The baker is your shop's own (client/Bakers). SKIP ends it any time; if anything breaks, it ends
-	and puts everything back. The donut is already yours (the server gave it when the box opened):
-	this is only the show.
+	Sounds: Config.MythicOpening.Sounds. Your real character is used: moved next to the box (and
+	back after), held still, its own animations paused, and its arms and legs posed by turning its
+	shoulder and hip joints every frame (R6 or R15). SKIP ends it any time; if anything breaks, it
+	ends and puts everything back. The donut is already yours (the server gave it when the box
+	opened): this is only the show.
 
 	  MythicOpening.CanPlay()           not during another scene, the loading screen or a shot, or
 	                                    while you're carrying something
-	  MythicOpening.Play(info)          info: { DonutId, Mutation, Size } (the box's BoxOpened info)
+	  MythicOpening.Play(info)          info: { DonutId, Mutation, Size, At? } (At: the box, on the
+	                                    ground; without it the film plays right in front of you)
 	  MythicOpening.Preview()           the admin panel's test: a random rare donut, nothing given
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(Shared.Config)
 local BoxModel = require(Shared.BoxModel)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 local Rarities = require(Shared.Rarities)
-local Puppet = require(Shared.Puppet)
 
-local Bakers = require(script.Parent.Bakers)
-local Bases = require(script.Parent.Bases)
 local Cinematic = require(script.Parent.Cinematic)
 local HideUI = require(script.Parent.UI.HideUI)
 local Theme = require(script.Parent.UI.Theme)
@@ -42804,17 +43458,19 @@ local rgb = Color3.fromRGB
 local WHITE = rgb(255, 255, 255)
 local CRIMSON = rgb(255, 45, 85)
 local GOLD = rgb(255, 210, 90)
-local BAKER_S = 1.5
-local BOX_SCALE = 0.5 -- (a box small enough to hold in your hands)
+local BOX_SCALE = 0.8
+local DONUT_SCALE = 0.85
+local STAND_OFF = 4.8 -- studs between you and the box
 
 -- When each thing happens (seconds)
-local T = { Ask = 0.3, Reach = 1.7, Take = 2.2, Swing = 2.9, Open = 4.0, Light = 4.35, Dip = 5.0, Pull = 5.55, Raise = 6.1, Title = 6.6, Fade = 7.8, End = 8.6 }
+local T = { Cut = 2.2, Pan = 4.3, Reach = 4.45, Open = 4.9, Launch = 6.0, Fall = 6.05, Behind = 6.5, Land = 7.0, Name = 7.7, Fade = 9.3, End = 10.0 }
 MythicOpening.Times = T
+MythicOpening.Sounds = {} :: { [string]: Sound } -- (the last film's sounds, by cue: for the tests)
 
 local player = Players.LocalPlayer
 local playing = false
 
-export type Info = { DonutId: string, Mutation: string?, Size: string? }
+export type Info = { DonutId: string, Mutation: string?, Size: string?, At: CFrame? }
 
 local function smooth(a: number): number
 	a = math.clamp(a, 0, 1)
@@ -42836,19 +43492,6 @@ local function setControls(on: boolean)
 	end)
 end
 
--- Your shop's counter and baker (nil if your base isn't there)
-local function myShop(): (BasePart?, number?)
-	local index = player:GetAttribute("PlotIndex")
-	local plot = if type(index) == "number" then Bases.GetPlot(index) else nil
-	local pen = plot and plot:FindFirstChild("Pen")
-	local shop = pen and pen:FindFirstChild("DonutShop")
-	local counter = shop and shop:FindFirstChild("Counter")
-	if counter and counter:IsA("BasePart") and type(index) == "number" then
-		return counter, index
-	end
-	return nil, nil
-end
-
 function MythicOpening.CanPlay(): boolean
 	if playing or not player then
 		return false
@@ -42858,47 +43501,35 @@ function MythicOpening.CanPlay(): boolean
 	end
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	local counter = myShop()
-	return root ~= nil and counter ~= nil
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	return root ~= nil and humanoid ~= nil
 end
 
 function MythicOpening.IsPlaying(): boolean
 	return playing
 end
 
--- Your character's shoulder joints (R6: in the Torso; R15: in each upper arm)
-local function shoulders(character: Model): { [string]: Motor6D }
+-- Your character's shoulder and hip joints (R6: in the Torso; R15: in each upper arm and leg)
+local function limbs(character: Model): { [string]: Motor6D }
 	local found: { [string]: Motor6D } = {}
 	local torso = character:FindFirstChild("Torso")
-	local joints: { { Side: string, R6: string, R15: string } } = {
-		{ Side = "Left", R6 = "Left Shoulder", R15 = "LeftShoulder" },
-		{ Side = "Right", R6 = "Right Shoulder", R15 = "RightShoulder" },
+	local joints: { { Key: string, R6: string, Part: string, R15: string } } = {
+		{ Key = "LeftArm", R6 = "Left Shoulder", Part = "LeftUpperArm", R15 = "LeftShoulder" },
+		{ Key = "RightArm", R6 = "Right Shoulder", Part = "RightUpperArm", R15 = "RightShoulder" },
+		{ Key = "LeftLeg", R6 = "Left Hip", Part = "LeftUpperLeg", R15 = "LeftHip" },
+		{ Key = "RightLeg", R6 = "Right Hip", Part = "RightUpperLeg", R15 = "RightHip" },
 	}
 	for _, joint in joints do
 		local motor = torso and torso:FindFirstChild(joint.R6)
 		if not motor then
-			local upper = character:FindFirstChild(joint.Side .. "UpperArm")
+			local upper = character:FindFirstChild(joint.Part)
 			motor = upper and upper:FindFirstChild(joint.R15)
 		end
 		if motor and motor:IsA("Motor6D") then
-			found[joint.Side] = motor
+			found[joint.Key] = motor
 		end
 	end
 	return found
-end
-
--- Where your hand is (the bottom of an R6 arm, or an R15 hand); nil if it can't be found, or if
--- it's nowhere near you (an odd custom rig)
-local function handOf(character: Model, side: string, body: Vector3): Vector3?
-	local at: Vector3? = nil
-	local hand = character:FindFirstChild(side .. "Hand")
-	local arm = character:FindFirstChild(side .. " Arm")
-	if hand and hand:IsA("BasePart") then
-		at = hand.CFrame.Position
-	elseif arm and arm:IsA("BasePart") then
-		at = (arm.CFrame * CFrame.new(0, -arm.Size.Y / 2 + 0.2, 0)).Position
-	end
-	return if at and (at - body).Magnitude < 6 then at else nil
 end
 
 local function anchorAll(model: Model)
@@ -42912,8 +43543,9 @@ local function anchorAll(model: Model)
 	end
 end
 
--- The screen: black bars, a dark vignette all round, the fades, the title, SKIP
-type Screen = { Gui: ScreenGui, Bars: { Frame }, Edges: { Frame }, Fade: Frame, Title: TextLabel, Name: TextLabel, TitleScale: UIScale, Skip: GuiButton }
+-- The screen: black bars, a dark vignette all round, the fades, the name card, SKIP
+type Screen = { Gui: ScreenGui, Bars: { Frame }, Edges: { Frame }, Fade: Frame, Card: Frame, CardScale: UIScale, Title: TextLabel, Name: TextLabel, Skip: GuiButton }
+local CARD_TILT = -9 -- degrees: the name card sits at an angle
 local function buildScreen(): Screen
 	local gui = Theme.ScreenGui("MythicOpening", 61)
 	gui.IgnoreGuiInset = true
@@ -42931,7 +43563,7 @@ local function buildScreen(): Screen
 		table.insert(bars, f)
 	end
 	local edges: { Frame } = {}
-	for _, side in { { 0, 0, 0.28, 1, 0 }, { 1, 0, 0.28, 1, 180 }, { 0, 0, 1, 0.32, 90 }, { 0, 1, 1, 0.32, 270 } } do
+	for _, side in { { 0, 0, 0.25, 1, 0 }, { 1, 0, 0.25, 1, 180 }, { 0, 0, 1, 0.3, 90 }, { 0, 1, 1, 0.3, 270 } } do
 		local f = Instance.new("Frame")
 		f.Name = "Vignette"
 		f.BorderSizePixel = 0
@@ -42956,58 +43588,30 @@ local function buildScreen(): Screen
 	fade.Size = UDim2.fromScale(1, 1)
 	fade.ZIndex = 6
 	fade.Parent = gui
-	local title = Theme.Label({ Name = "Title", Text = "MYTHIC!", TextColor3 = CRIMSON, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.72), Size = UDim2.fromOffset(700, 90), StrokeThickness = 6, Parent = gui })
+	-- its name, on a card turned at an angle (it pops in, then shakes with the screen)
+	local card = Instance.new("Frame")
+	card.Name = "NameCard"
+	card.BackgroundTransparency = 1
+	card.AnchorPoint = Vector2.new(0.5, 0.5)
+	card.Position = UDim2.fromScale(0.5, 0.4)
+	card.Size = UDim2.fromOffset(760, 160)
+	card.Rotation = CARD_TILT
+	card.Visible = false
+	card.ZIndex = 5
+	card.Parent = gui
+	local cardScale = Instance.new("UIScale")
+	cardScale.Parent = card
+	local title = Theme.Label({ Name = "Title", Text = "MYTHIC!", TextColor3 = CRIMSON, Size = UDim2.new(1, 0, 0.5, 0), StrokeThickness = 6, Parent = card })
 	title.ZIndex = 5
-	title.Visible = false
 	local gradient = Instance.new("UIGradient")
 	gradient.Color = ColorSequence.new({ ColorSequenceKeypoint.new(0, GOLD), ColorSequenceKeypoint.new(0.5, WHITE), ColorSequenceKeypoint.new(1, CRIMSON) })
 	gradient.Rotation = 90
 	gradient.Parent = title
-	local titleScale = Instance.new("UIScale")
-	titleScale.Parent = title
-	local name = Theme.Label({ Name = "DonutName", Text = "", TextColor3 = WHITE, AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.81), Size = UDim2.fromOffset(700, 44), StrokeThickness = 3.5, Parent = gui })
+	local name = Theme.Label({ Name = "DonutName", Text = "", TextColor3 = WHITE, Position = UDim2.fromScale(0, 0.52), Size = UDim2.new(1, 0, 0.42, 0), StrokeThickness = 4, Parent = card })
 	name.ZIndex = 5
-	name.Visible = false
 	local skip = Theme.Button({ Name = "Skip", Text = "SKIP", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(120, 42), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18), Parent = gui })
 	skip.ZIndex = 7
-	return { Gui = gui, Bars = bars, Edges = edges, Fade = fade, Title = title, Name = name, TitleScale = titleScale, Skip = skip }
-end
-
--- A speech bubble over the baker's head
-local function bubble(head: BasePart, text: string): BillboardGui
-	local b = Instance.new("BillboardGui")
-	b.Name = "SpeechBubble"
-	b.Size = UDim2.fromOffset(300, 56)
-	b.StudsOffsetWorldSpace = Vector3.new(0, 3.2 * BAKER_S, 0)
-	b.AlwaysOnTop = true
-	b.LightInfluence = 0
-	b.Adornee = head
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.fromScale(1, 1)
-	frame.BackgroundColor3 = WHITE
-	frame.Parent = b
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(0, 14)
-	corner.Parent = frame
-	local stroke = Instance.new("UIStroke")
-	stroke.Thickness = 3
-	stroke.Color = rgb(40, 30, 40)
-	stroke.Parent = frame
-	local label = Instance.new("TextLabel")
-	label.Name = "Text"
-	label.BackgroundTransparency = 1
-	label.Size = UDim2.fromScale(1, 1)
-	label.Font = Theme.Font
-	label.TextScaled = true
-	label.TextColor3 = rgb(40, 30, 40)
-	label.Text = text
-	label.Parent = frame
-	local padding = Instance.new("UIPadding")
-	padding.PaddingLeft, padding.PaddingRight = UDim.new(0, 12), UDim.new(0, 12)
-	padding.PaddingTop, padding.PaddingBottom = UDim.new(0, 8), UDim.new(0, 8)
-	padding.Parent = frame
-	b.Parent = head
-	return b
+	return { Gui = gui, Bars = bars, Edges = edges, Fade = fade, Card = card, CardScale = cardScale, Title = title, Name = name, Skip = skip }
 end
 
 function MythicOpening.Play(info: Info): boolean
@@ -43015,13 +43619,12 @@ function MythicOpening.Play(info: Info): boolean
 		return false
 	end
 	local donut = Donuts.ById[info.DonutId]
-	local counter, plotIndex = myShop()
 	local rarity = Rarities.Get(if donut then donut.Rarity else "Common")
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	local camera = workspace.CurrentCamera
-	if not (donut and counter and plotIndex and character and root and humanoid and camera) then
+	if not (donut and character and root and humanoid and camera) then
 		return false
 	end
 	playing = true
@@ -43034,9 +43637,10 @@ function MythicOpening.Play(info: Info): boolean
 	local wasAnchored = root.Anchored
 	local scene = Instance.new("Folder")
 	scene.Name = "MythicOpeningScene"
+	local soundFolder = Instance.new("Folder")
+	soundFolder.Name = "MythicOpeningSounds"
 	local connections: { RBXScriptConnection } = {}
 	local motors: { [string]: Motor6D } = {}
-	local tookBaker = false
 	local done = false
 	local animate: BaseScript? = nil
 	local animateWasEnabled = true
@@ -43044,6 +43648,7 @@ function MythicOpening.Play(info: Info): boolean
 	local lightingBefore: { [string]: any } = {}
 	local lightingSet: { [string]: any } = {}
 	local grade: ColorCorrectionEffect? = nil
+	table.clear(MythicOpening.Sounds)
 
 	local function finish()
 		if done then
@@ -43053,7 +43658,7 @@ function MythicOpening.Play(info: Info): boolean
 		for _, c in connections do
 			c:Disconnect()
 		end
-		-- (the next animation frame puts your shoulders back by itself)
+		-- (the next animation frame puts your joints back by themselves)
 		pcall(function()
 			for _, motor in motors do
 				motor.Transform = CFrame.identity
@@ -43069,9 +43674,9 @@ function MythicOpening.Play(info: Info): boolean
 		pcall(function()
 			scene:Destroy()
 		end)
-		if tookBaker then
-			pcall(Bakers.Release, plotIndex :: number)
-		end
+		pcall(function()
+			soundFolder:Destroy()
+		end)
 		pcall(function()
 			local r = root :: BasePart
 			r.CFrame = saved
@@ -43111,59 +43716,73 @@ function MythicOpening.Play(info: Info): boolean
 
 	local started, problem = pcall(function()
 		scene.Parent = workspace
+		soundFolder.Parent = SoundService
 		-- (off the treadmill, or it would keep pulling you back onto its belt)
 		Treadmill.Stop()
 		local screen = buildScreen()
 		HideUI.Set(true, true)
 		camera.CameraType = Enum.CameraType.Scriptable
 		setControls(false)
-		local baker = Bakers.Take(plotIndex :: number)
-		tookBaker = baker ~= nil
 
-		-- It all happens inside your shop, on the open floor left of the prep table (in the counter's
-		-- own space: +X across the shop, +Z deeper in, the floor half its height below its middle):
-		-- the baker steps over there and turns round, and you stand in front of him facing the
-		-- window, held still. (All while the screen is still black.)
-		local SPOT_X, BAKER_Z, YOU_Z = -8.5, 4.5, 9.3
-		local floorY = -counter.Size.Y / 2
-		local bakerSpot = counter.CFrame * CFrame.new(SPOT_X, floorY + 3 * BAKER_S, BAKER_Z) * CFrame.Angles(0, math.pi, 0)
-		local front = counter.CFrame * CFrame.new(SPOT_X, 0, YOU_Z)
-		local facing = (counter.CFrame.LookVector * Vector3.new(1, 0, 1)).Unit
+		-- Where it happens: the box on the ground (in your pen), you a few steps in front of it, facing
+		-- it. (All while the screen is still black.)
+		local here = root.CFrame
+		local boxGround = info.At or (here * CFrame.new(0, -3, -STAND_OFF))
+		local boxPos = boxGround.Position
+		local away = Vector3.new(here.Position.X - boxPos.X, 0, here.Position.Z - boxPos.Z)
+		if away.Magnitude < 0.5 then
+			away = -boxGround.LookVector * Vector3.new(1, 0, 1)
+		end
+		away = if away.Magnitude > 1e-3 then away.Unit else Vector3.new(0, 0, 1)
 		local hip = if humanoid.RigType == Enum.HumanoidRigType.R15 then humanoid.HipHeight + root.Size.Y / 2 else 3
-		-- (the floor under you; if it can't be found, the floor the counter stands on)
-		local ground = front.Position.Y - counter.Size.Y / 2
+		local spot = boxPos + away * STAND_OFF
+		-- (the floor under you; if it can't be found, the floor the box stands on)
+		local ground = boxPos.Y
 		pcall(function()
 			local params = RaycastParams.new()
 			params.FilterType = Enum.RaycastFilterType.Exclude
 			params.FilterDescendantsInstances = { character, scene }
-			local hit = workspace:Raycast(front.Position + Vector3.new(0, 6, 0), Vector3.new(0, -20, 0), params)
+			local hit = workspace:Raycast(spot + Vector3.new(0, 6, 0), Vector3.new(0, -20, 0), params)
 			if hit then
 				ground = hit.Position.Y
 			end
 		end)
-		local stand = CFrame.lookAt(Vector3.new(front.Position.X, ground + hip, front.Position.Z), Vector3.new(front.Position.X, ground + hip, front.Position.Z) + facing)
+		local stand = CFrame.lookAt(Vector3.new(spot.X, ground + hip, spot.Z), Vector3.new(boxPos.X, ground + hip, boxPos.Z))
+		-- sitting on the ground after the fall: further back, low, leaning back on your hands
+		local sitHeight = if humanoid.RigType == Enum.HumanoidRigType.R15 then 1.05 else 1.5
+		local sitFlat = stand * CFrame.new(0, sitHeight - hip, 2.2)
+		local sit = sitFlat * CFrame.Angles(math.rad(20), 0, 0)
 		root.Anchored = true
 		root.CFrame = stand
 
-		-- Your arms: turned at the shoulders every frame, after your animations
-		motors = shoulders(character)
-		local armGoal: { [string]: CFrame } = { Left = CFrame.identity, Right = CFrame.identity }
-		local armNow: { [string]: CFrame } = { Left = CFrame.identity, Right = CFrame.identity }
-		local function poseArms(dt: number)
-			for side, motor in motors do
-				armNow[side] = armNow[side]:Lerp(armGoal[side], math.min(1, dt * 9))
+		-- Your arms and legs: turned at the shoulders and hips every frame, after your animations.
+		-- (In your body's own space: X turns a limb up in front of you, Z swings it in or out.)
+		motors = limbs(character)
+		local limbGoal: { [string]: CFrame } = {}
+		local limbNow: { [string]: CFrame } = {}
+		for key in motors do
+			limbGoal[key], limbNow[key] = CFrame.identity, CFrame.identity
+		end
+		local snap = 9
+		local function poseLimbs(dt: number)
+			for key, motor in motors do
+				limbNow[key] = limbNow[key]:Lerp(limbGoal[key], math.min(1, dt * snap))
 				local q = motor.C0.Rotation
-				motor.Transform = q:Inverse() * armNow[side] * q
+				motor.Transform = q:Inverse() * limbNow[key] * q
 			end
 		end
-		-- (after the animations step, and again just before every frame is drawn: nothing else gets
-		-- the last word on your arms)
 		table.insert(connections, RunService.Stepped:Connect(function(_, dt: number)
-			poseArms(dt)
+			poseLimbs(dt)
 		end))
 		table.insert(connections, RunService.RenderStepped:Connect(function()
-			poseArms(0)
+			poseLimbs(0)
 		end))
+		local function limb(key: string, forward: number, inward: number)
+			if motors[key] then
+				local left = string.sub(key, 1, 4) == "Left"
+				limbGoal[key] = CFrame.Angles(math.rad(forward), 0, math.rad(if left then inward else -inward))
+			end
+		end
 		-- Your own animations would keep putting your arms back down, so they pause for the film
 		local animateScript = character:FindFirstChild("Animate")
 		if animateScript and animateScript:IsA("BaseScript") then
@@ -43181,6 +43800,32 @@ function MythicOpening.Play(info: Info): boolean
 				end
 			end
 		end)
+
+		-- Sounds (Config.MythicOpening.Sounds)
+		local cues = Config.MythicOpening.Sounds
+		local function play(cue: string, def: { Id: string, Volume: number }, looped: boolean?): Sound
+			local s = Instance.new("Sound")
+			s.Name = cue
+			s.SoundId = def.Id
+			s.Volume = def.Volume
+			s.Looped = looped == true
+			s.Parent = soundFolder
+			s:Play()
+			MythicOpening.Sounds[cue] = s
+			return s
+		end
+		local function fadeOut(s: Sound?, seconds: number)
+			if s then
+				TweenService:Create(s, TweenInfo.new(seconds), { Volume = 0 }):Play()
+				task.delay(seconds, function()
+					pcall(s.Stop, s)
+				end)
+			end
+		end
+		local background = play("Background", cues.Background, true)
+		local intro = play("Intro", cues.Intro)
+		local sky: Sound? = play("Sky", cues.Sky)
+		local shake: Sound? = nil
 
 		-- Once the light pours out, the room slowly darkens round it (the light, the donut and you stay
 		-- bright): less sun and sky light, darker shadows, a touch more contrast
@@ -43225,16 +43870,13 @@ function MythicOpening.Play(info: Info): boolean
 			effect.Contrast = 0.18 * dim
 			effect.Saturation = 0.1 * dim
 		end
-		-- (in your body's own space: X turns an arm up in front of you, Z swings it in towards your middle)
-		local function arm(side: string, forward: number, inward: number)
-			armGoal[side] = CFrame.Angles(math.rad(forward), 0, math.rad(if side == "Left" then inward else -inward))
-		end
 
-		-- The box (the real Mythic one, with all its glow), in the baker's hands
+		-- The box (the real Mythic one, with all its glow), on the ground in front of you
 		local box = BoxModel.Build("Mythic", "Small", { Scale = BOX_SCALE })
 		anchorAll(box)
 		box.Parent = scene
-		local boxPivot = box:GetPivot()
+		local boxRest = CFrame.lookAt(Vector3.new(boxPos.X, ground, boxPos.Z), Vector3.new(spot.X, ground, spot.Z))
+		box:PivotTo(boxRest)
 		local lidParts: { BasePart } = {}
 		local lidOffsets: { CFrame } = {}
 		for _, part in box:GetDescendants() do
@@ -43242,7 +43884,7 @@ function MythicOpening.Play(info: Info): boolean
 				local start = string.sub(part.Name, 1, 3)
 				if start == "Lid" or start == "Bow" then
 					table.insert(lidParts, part)
-					table.insert(lidOffsets, boxPivot:ToObjectSpace(part.CFrame))
+					table.insert(lidOffsets, boxRest:ToObjectSpace(part.CFrame))
 				end
 			end
 		end
@@ -43250,41 +43892,15 @@ function MythicOpening.Play(info: Info): boolean
 		local _, extents = box:GetBoundingBox()
 		local lidGone = false
 
-		-- The light inside, a pillar of light and sparkles (made when it opens)
+		-- The light inside, the beams of light, a pillar of light and sparkles (made when it opens)
 		local glow: BasePart? = nil
 		local light: PointLight? = nil
 		local pillar: Beam? = nil
 		local sparkles: ParticleEmitter? = nil
-		local held: Model? = nil
-		local heldScale = 1
-		local heldGlow: BasePart? = nil
-
-		local bakerHead = baker and baker.Puppet.Model:FindFirstChild("Head") :: BasePart?
-		local speech: BillboardGui? = nil
-		local function bakerHands(): CFrame?
-			if not baker then
-				return nil
-			end
-			local pz = baker.Puppet
-			local l, r = Puppet.Find(pz, "Hand", "Left Arm"), Puppet.Find(pz, "Hand", "Right Arm")
-			if not (l and r) then
-				return nil
-			end
-			local body = (pz.Pose or bakerSpot).Rotation
-			local middle = pz.Parts[l].CFrame.Position:Lerp(pz.Parts[r].CFrame.Position, 0.5)
-			return CFrame.new(middle) * body * CFrame.new(0, -0.9, -0.3 * BAKER_S)
-		end
-		-- Where the box sits in your hands: at their height, but always fully in front of your body
-		-- (its back edge a little past your chest - real avatars are thick, and hands held out
-		-- aren't far enough forward for a box this deep)
-		local torso = (character :: Model):FindFirstChild("UpperTorso") or (character :: Model):FindFirstChild("Torso")
-		local chest = (if torso and torso:IsA("BasePart") then torso.Size.Z / 2 else 0.5) + 0.45
-		local hold = chest + extents.Z / 2
-		local function yourHands(): CFrame
-			local l, r = handOf(character :: Model, "Left", stand.Position), handOf(character :: Model, "Right", stand.Position)
-			local height = if l and r then stand:PointToObjectSpace(l:Lerp(r, 0.5)).Y else 0
-			return stand * CFrame.new(0, height - 0.55, -hold) * CFrame.Angles(0, math.pi, 0)
-		end
+		local shafts: { BasePart } = {}
+		local flying: Model? = nil
+		local flyingScale = 1
+		local donutBottom = 0
 
 		local t = 0
 		local fired: { [string]: boolean } = {}
@@ -43295,126 +43911,122 @@ function MythicOpening.Play(info: Info): boolean
 			end
 			return false
 		end
-		local boxFrom: CFrame? = nil
-		local boxHeld: CFrame? = nil -- (where it stays once it's in your hands)
 
 		local function update(dt: number)
 			t += dt
-			local cover = smooth(t / 0.5) * (1 - smooth((t - T.End + 0.4) / 0.4))
+			-- the black bars roll slowly in from the start (out again at the very end)
+			local cover = smooth((t - 0.2) / 2.6) * (1 - smooth((t - T.End + 0.4) / 0.4))
 			for _, bar in screen.Bars do
-				bar.Size = UDim2.fromScale(1, 0.1 * cover)
+				bar.Size = UDim2.fromScale(1, 0.12 * cover)
 			end
 			for _, edge in screen.Edges do
-				edge.BackgroundTransparency = 1 - 0.75 * cover
+				edge.BackgroundTransparency = 1 - 0.6 * cover
 			end
-			-- fading in from black at the start; a white flash as the donut comes up (the cut to it);
-			-- out to white at the end
+			-- in from black at the start, out to black at the end
 			if t < 0.6 then
-				screen.Fade.BackgroundColor3 = rgb(0, 0, 0)
 				screen.Fade.BackgroundTransparency = smooth(t / 0.5)
 			elseif t >= T.Fade then
-				screen.Fade.BackgroundColor3 = WHITE
-				local u = (t - T.Fade) / (T.End - T.Fade)
-				screen.Fade.BackgroundTransparency = if u < 0.45 then 1 - smooth(u / 0.45) else smooth((u - 0.55) / 0.45)
-			elseif t >= T.Raise and t < T.Raise + 0.35 then
-				screen.Fade.BackgroundColor3 = WHITE
-				screen.Fade.BackgroundTransparency = 0.2 + 0.8 * smooth((t - T.Raise) / 0.35)
+				screen.Fade.BackgroundTransparency = 1 - smooth((t - T.Fade) / (T.End - T.Fade - 0.1))
 			else
 				screen.Fade.BackgroundTransparency = 1
 			end
 
-			dimRoom(smooth((t - T.Light) / 2.5))
-
-			-- The baker: holding the box out, then letting go and clasping his hands, beaming
-			if baker then
-				local joints: { [string]: CFrame } = {}
-				local state = "Offer"
-				if t < T.Take + 0.15 then
-					-- (low, down to your hands)
-					joints["Left Arm"] = CFrame.Angles(math.rad(-50), 0, math.rad(-6))
-					joints["Right Arm"] = CFrame.Angles(math.rad(-50), 0, math.rad(6))
-					joints.Head = CFrame.Angles(math.rad(-14), 0, 0)
-				else
-					-- (a step back to watch, hands clasped)
-					state = "Proud"
-					joints["Left Arm"] = CFrame.Angles(math.rad(-28), 0, math.rad(24))
-					joints["Right Arm"] = CFrame.Angles(math.rad(-28), 0, math.rad(-24))
-					joints.Head = CFrame.Angles(math.rad(-12) + math.sin(t * 3) * 0.04, 0, 0)
+			-- Sounds on their cues
+			if once("IntroFade", Config.MythicOpening.Sounds.Intro.Seconds) then
+				fadeOut(intro, 0.8)
+			end
+			if once("SkyEnd", T.Cut) then
+				fadeOut(sky, 0.15)
+				sky = nil
+				shake = play("Shake", cues.Shake)
+				play("ShakeBeams", cues.Beams)
+			end
+			if once("ShakeEnd", T.Open) then
+				fadeOut(shake, 0.3)
+				play("Beams", cues.Beams)
+			end
+			if once("Launch", T.Launch) then
+				for i, def in cues.Launch do
+					play("Launch" .. i, def)
 				end
-				local back = 1.4 * smooth((t - T.Take - 0.1) / 0.7)
-				Puppet.Animate(baker.Anim, dt, bakerSpot * CFrame.new(0, math.sin(t * 2.2) * 0.04, back), joints, state, 0.35)
 			end
-			if once("Ask", T.Ask) and bakerHead then
-				speech = bubble(bakerHead, "A MYTHIC box... just for you!")
+			if once("FallSound", T.Fall + 0.1) then
+				play("Fall", cues.Fall)
 			end
-			if once("Hush", T.Swing) and speech then
-				speech:Destroy()
+			if t >= T.Fade then
+				background.Volume = cues.Background.Volume * (1 - smooth((t - T.Fade) / (T.End - T.Fade)))
 			end
 
-			-- Your arms: reaching for it, holding it, one hand into the box, then up high
+			dimRoom(smooth((t - T.Open) / 2.5))
+
+			-- You: waiting, then reaching for the lid, flinching from the light, then falling back
+			-- onto the ground and sitting there, propped up on your hands
+			local body = stand
 			if t < T.Reach then
-				arm("Left", 0, 0)
-				arm("Right", 0, 0)
-			elseif t < T.Dip then
-				arm("Left", 70, 4)
-				arm("Right", 70, 4)
-			elseif t < T.Pull then
-				arm("Left", 70, 4)
-				arm("Right", 48, 22)
-			elseif t < T.Raise then
-				arm("Left", 70, 4)
-				arm("Right", 105, 16)
+				limb("LeftArm", 15, 6)
+				limb("RightArm", 15, 6)
+			elseif t < T.Open then
+				local k = smooth((t - T.Reach) / 0.3)
+				body = stand * CFrame.Angles(math.rad(-18) * k, 0, 0)
+				limb("LeftArm", 55, 12)
+				limb("RightArm", 55, 12)
+			elseif t < T.Fall then
+				local k = 1 - smooth((t - T.Open) / 0.4)
+				body = stand * CFrame.Angles(math.rad(-18) * k + math.rad(6) * (1 - k), 0, 0)
+				limb("LeftArm", 115, 28)
+				limb("RightArm", 115, 28)
 			else
-				arm("Left", 66, 4)
-				arm("Right", 155, 8)
-			end
-
-			-- The box: in the baker's hands, across to yours, the lid opening
-			if t < T.Take then
-				local h = bakerHands() or (bakerSpot * CFrame.new(0, -1.5, -2.4))
-				box:PivotTo(h)
-				boxFrom = h
-			elseif not boxHeld then
-				local k = smooth((t - T.Take) / 0.6)
-				local goal = yourHands()
-				local from = boxFrom or goal
-				local p = from.Position:Lerp(goal.Position, k) + Vector3.new(0, math.sin(k * math.pi) * 0.8, 0)
-				box:PivotTo(CFrame.new(p) * from.Rotation:Lerp(goal.Rotation, k))
-				if k >= 1 then
-					boxHeld = goal
-				end
-			end
-			-- the lid: rattles as the light pushes at it, then blows off in a burst of light and
-			-- tumbles away to your right (away from the camera), out of the shot
-			if t >= T.Open and not lidGone then
-				local pivot = box:GetPivot()
-				local middle = CFrame.new(0, top * 0.85, 0) -- (the lid turns round its own middle)
-				local move: CFrame
-				if t < T.Light then
-					local r = (t - T.Open) / (T.Light - T.Open)
-					move = CFrame.new(0, 0.12 * r + 0.08 * math.abs(math.sin(t * 40)) * r, 0) * middle * CFrame.Angles(math.sin(t * 53) * 0.07 * r, 0, math.sin(t * 61) * 0.07 * r) * middle:Inverse()
+				local k = smooth((t - T.Fall) / 0.45)
+				local hop = math.sin(math.min(k, 1) * math.pi) * 0.9
+				body = stand:Lerp(sit, k) * CFrame.new(0, hop, 0)
+				if k < 0.6 then
+					snap = 16
+					limb("LeftArm", 150, -30)
+					limb("RightArm", 150, -30)
 				else
-					-- (the box faces you, so its -X is your right)
-					local k = (t - T.Light) / 0.9
-					move = CFrame.new(-6 * k, 6 * k - 3 * k * k, 0) * middle * CFrame.Angles(2.5 * k, 0, 4 * k) * middle:Inverse()
+					snap = 7
+					limb("LeftArm", -38, -14)
+					limb("RightArm", -38, -14)
+				end
+				limb("LeftLeg", 85 * k, -6 * k)
+				limb("RightLeg", 85 * k, -6 * k)
+			end
+			root.CFrame = body
+
+			-- The box: still... then rattling and hopping, harder and harder, until it's opened
+			if t >= T.Cut and t < T.Open + 0.1 then
+				local r = smooth((t - T.Cut) / (T.Open - T.Cut))
+				local strength = 0.25 + 0.75 * r
+				local hop = math.max(0, math.sin(t * 17)) * 0.18 * strength
+				box:PivotTo(boxRest * CFrame.new(0, hop, 0) * CFrame.Angles(math.sin(t * 43) * 0.06 * strength, math.sin(t * 29) * 0.05 * strength, math.sin(t * 51) * 0.07 * strength))
+			elseif t >= T.Open + 0.1 then
+				box:PivotTo(boxRest)
+			end
+			-- the lid: rattles with the box, then flies up and off away from you, spinning
+			if not lidGone then
+				local pivot = box:GetPivot()
+				local middle = CFrame.new(0, top * 0.85, 0)
+				local move = CFrame.identity
+				if t >= T.Open then
+					local k = (t - T.Open) / 0.9
+					-- (the box faces you: its +Z is away from you)
+					move = CFrame.new(0, 9 * k - 4 * k * k, 5 * k) * middle * CFrame.Angles(3 * k, 0, 2 * k) * middle:Inverse()
 					if k >= 1 then
 						lidGone = true
 						for _, part in lidParts do
 							part.Transparency = 1
 						end
 					end
+				elseif t >= T.Cut then
+					local r = (t - T.Cut) / (T.Open - T.Cut)
+					move = CFrame.new(0, 0.1 * math.abs(math.sin(t * 37)) * r, 0) * middle * CFrame.Angles(math.sin(t * 53) * 0.08 * r, 0, math.sin(t * 61) * 0.08 * r) * middle:Inverse()
 				end
 				for i, part in lidParts do
 					part.CFrame = pivot * move * lidOffsets[i]
 				end
 			end
-			if once("Crack", T.Open) then
-				Theme.PlaySound("Crack")
-			end
-			-- the light pours out
-			if once("Light", T.Light) then
-				Theme.PlaySound("Hatch")
-				local pivot = box:GetPivot()
+			-- the light and the beams of light burst out
+			if once("Light", T.Open) then
 				local g = Instance.new("Part")
 				g.Name = "BoxLight"
 				g.Anchored = true
@@ -43425,12 +44037,12 @@ function MythicOpening.Play(info: Info): boolean
 				g.Material = Enum.Material.Neon
 				g.Color = rgb(255, 245, 210)
 				g.Size = Vector3.new(extents.X * 0.55, 0.1, extents.Z * 0.55)
-				g.CFrame = pivot * CFrame.new(0, top * 0.62, 0)
+				g.CFrame = boxRest * CFrame.new(0, top * 0.62, 0)
 				g.Parent = scene
 				glow = g
 				local l = Instance.new("PointLight")
 				l.Color = rgb(255, 225, 170)
-				l.Range = 18
+				l.Range = 16
 				l.Brightness = 0
 				l.Shadows = false
 				l.Parent = g
@@ -43438,11 +44050,11 @@ function MythicOpening.Play(info: Info): boolean
 				local a0 = Instance.new("Attachment")
 				a0.Parent = g
 				local a1 = Instance.new("Attachment")
-				a1.Position = Vector3.new(0, 10, 0) -- (up to the shop's roof)
+				a1.Position = Vector3.new(0, 16, 0)
 				a1.Parent = g
 				local beam = Instance.new("Beam")
 				beam.Attachment0, beam.Attachment1 = a0, a1
-				beam.Width0, beam.Width1 = extents.X * 0.5, extents.X * 1.3
+				beam.Width0, beam.Width1 = extents.X * 0.5, extents.X * 1.6
 				beam.FaceCamera = true
 				beam.LightEmission = 1
 				beam.LightInfluence = 0
@@ -43454,127 +44066,149 @@ function MythicOpening.Play(info: Info): boolean
 				e.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 				e.Rate = 40
 				e.Lifetime = NumberRange.new(0.8, 1.6)
-				e.Speed = NumberRange.new(3, 7)
-				e.SpreadAngle = Vector2.new(25, 25)
+				e.Speed = NumberRange.new(3, 8)
+				e.SpreadAngle = Vector2.new(30, 30)
 				e.EmissionDirection = Enum.NormalId.Top
 				e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
 				e.Color = ColorSequence.new(GOLD, CRIMSON)
 				e.LightEmission = 1
 				e.Parent = g
 				sparkles = e
+				-- shafts of light fanning out of the box, turning slowly
+				for i = 1, 7 do
+					local shaft = Instance.new("Part")
+					shaft.Name = "LightShaft"
+					shaft.Anchored = true
+					shaft.CanCollide = false
+					shaft.CanQuery = false
+					shaft.CanTouch = false
+					shaft.CastShadow = false
+					shaft.Material = Enum.Material.Neon
+					shaft.Color = if i % 2 == 0 then rgb(255, 235, 170) else rgb(255, 250, 235)
+					shaft.Transparency = 1
+					shaft.Size = Vector3.new(0.35, 10 + (i % 3) * 3, 0.35)
+					shaft.Parent = scene
+					table.insert(shafts, shaft)
+				end
 			end
 			if glow then
-				local pivot = box:GetPivot()
-				glow.CFrame = pivot * CFrame.new(0, top * 0.62, 0)
-				local k = smooth((t - T.Light) / 0.4)
+				local k = smooth((t - T.Open) / 0.35)
+				local fadeAway = 1 - smooth((t - T.Behind) / 1.4) * 0.6
 				if light then
-					light.Brightness = 9 * k * (1 + 0.08 * math.sin(t * 20))
-					light.Range = 18 - 9 * smooth((t - T.Raise) / 1)
+					light.Brightness = 9 * k * fadeAway * (1 + 0.08 * math.sin(t * 20))
+				end
+				for i, shaft in shafts do
+					local around = (i / #shafts) * math.pi * 2 + t * 0.6
+					local lean = math.rad(20 + 10 * math.sin(i * 1.7))
+					local length = shaft.Size.Y
+					shaft.CFrame = boxRest * CFrame.new(0, top * 0.6, 0) * CFrame.Angles(0, around, 0) * CFrame.Angles(lean, 0, 0) * CFrame.new(0, length / 2, 0)
+					shaft.Transparency = 1 - (0.55 + 0.15 * math.sin(t * 6 + i)) * k * fadeAway
 				end
 			end
-			-- the donut: comes up out of the light in your hand, held up high, turning
-			if once("Donut", T.Dip + 0.35) then
-				local d = DonutModel.Build(donut, { Scale = 0.6, Mutation = info.Mutation, Size = info.Size, Calm = true })
+
+			-- The donut: leaps out of the box, high up, spinning, and lands standing on top of it
+			if once("Donut", T.Launch) then
+				local d = DonutModel.Build(donut, { Scale = DONUT_SCALE, Mutation = info.Mutation, Size = info.Size, Calm = true })
 				anchorAll(d)
 				d.Parent = scene
-				held = d
-				local ball = Instance.new("Part")
-				ball.Name = "DonutGlow"
-				ball.Shape = Enum.PartType.Ball
-				ball.Anchored = true
-				ball.CanCollide = false
-				ball.CanQuery = false
-				ball.CanTouch = false
-				ball.CastShadow = false
-				ball.Material = Enum.Material.Neon
-				ball.Color = rgb(255, 235, 190)
-				ball.Transparency = 1
-				ball.Size = Vector3.one * 2.4
-				ball.Parent = scene
-				local warm = Instance.new("PointLight")
-				warm.Name = "DonutLight"
-				warm.Color = rgb(255, 220, 170)
-				warm.Range = 9
-				warm.Brightness = 0
-				warm.Shadows = false
-				warm.Parent = ball
-				heldGlow = ball
+				donutBottom = (d:GetAttribute("Bottom") :: number?) or 1.5
+				flying = d
 			end
-			if held then
-				local hand = handOf(character :: Model, "Right", stand.Position) or (stand * CFrame.new(0, 2, -1.5)).Position
-				-- (it grows out of the light: rescaled only while it grows)
-				local size = math.max(0.05, smooth((t - T.Dip - 0.35) / 0.35))
-				if size ~= heldScale then
-					heldScale = size
+			if flying then
+				local u = math.clamp((t - T.Launch) / (T.Land - T.Launch), 0, 1)
+				local grow = math.max(0.05, smooth((t - T.Launch) / 0.3))
+				if grow ~= flyingScale then
+					flyingScale = grow
 					pcall(function()
-						(held :: Model):ScaleTo(size)
+						(flying :: Model):ScaleTo(grow)
 					end)
 				end
-				-- (held up facing the camera - its face is its front - swaying a little)
-				local spot = hand + Vector3.new(0, 1.5, 0)
-				local hold = CFrame.lookAt(spot, camera.CFrame.Position) * CFrame.Angles(math.sin(t * 1.3) * 0.08, math.sin(t * 2) * 0.25, 0)
-				held:PivotTo(hold)
-				if heldGlow then
-					heldGlow.CFrame = CFrame.new(spot)
-					local shine = smooth((t - T.Pull) / 0.4)
-					heldGlow.Transparency = 1 - 0.12 * shine * (1 - smooth((t - T.Title) / 0.8))
-					local warm = heldGlow:FindFirstChildOfClass("PointLight")
-					if warm then
-						warm.Brightness = 3 * shine
-					end
-				end
+				local rest = boxRest * CFrame.new(0, top + donutBottom * grow, 0)
+				local height = 10 * 4 * u * (1 - u)
+				-- (a little bounce as it lands, then it breathes)
+				local after = t - T.Land
+				local bounce = if after > 0 then math.abs(math.sin(after * 9)) * 0.7 * math.exp(-after * 5) else 0
+				local bob = if after > 0 then math.sin(after * 2.2) * 0.12 else 0
+				local spin = if u < 1 then u * math.pi * 4 else 0
+				local facing = CFrame.lookAt(rest.Position, Vector3.new(spot.X, rest.Position.Y, spot.Z))
+				flying:PivotTo(facing * CFrame.new(0, height + bounce + bob, 0) * CFrame.Angles(0, spin, 0))
 			end
-			-- the light fades once the donut's out
-			if pillar and t > T.Raise then
-				local k = 1 - smooth((t - T.Raise) / 0.8)
+			-- the light settles once the donut's out
+			if pillar and t > T.Launch then
+				local k = 1 - 0.7 * smooth((t - T.Launch) / 1.2)
 				pillar.Width0 = extents.X * 0.5 * k + 0.01
 				if sparkles then
 					sparkles.Rate = 40 * k
 				end
 			end
-			-- its name
-			if once("Title", T.Title) then
+
+			-- Its name pops onto the screen at an angle and shakes with the screen
+			local shakeAmount = 0
+			if once("Name", T.Name) then
 				screen.Title.Text = `{string.upper(rarity.Id)}!`
-				screen.Title.Visible = true
-				screen.Name.Visible = true
 				screen.Name.Text = Rarities.DisplayName(donut.Name, info.Mutation, info.Size)
-				screen.TitleScale.Scale = 2.4
-				TweenService:Create(screen.TitleScale, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				screen.Card.Visible = true
+				screen.CardScale.Scale = 2.6
+				TweenService:Create(screen.CardScale, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), { Scale = 1 }):Play()
+				play("Name", cues.Name)
+			end
+			if t >= T.Name then
+				shakeAmount = 0.15 + 0.85 * math.exp(-(t - T.Name) * 2.5)
+				screen.Card.Position = UDim2.new(0.5, math.sin(t * 61) * 7 * shakeAmount, 0.4, math.cos(t * 53) * 6 * shakeAmount)
+				screen.Card.Rotation = CARD_TILT + math.sin(t * 47) * 2.2 * shakeAmount
 			end
 
-			-- The camera, in your own space (+X your right, +Y up, +Z behind you): side on, the baker
-			-- and you either side of the box (from the open floor by the bat rack), easing in; then
-			-- craning up high in front of you, to your left, to look down into the box as it opens
-			-- (your face lit by it, your head well off to the side of the box), tilting up after the
-			-- donut as you lift it out; then - in a white flash - a cut to the front, low, looking up at
-			-- the donut held high, slowly pushing in
+			-- The camera, in your standing spot's space (+X your right, +Y up, +Z behind you; the box
+			-- is ahead, at -Z): up in the sky turning slowly; cut to just above you at an angle on the
+			-- rattling box; a pan round to your side as you open it (tilting up after the donut as it
+			-- leaps); then a pan round behind you sitting on the ground, looking at the box and donut
 			local function at(x: number, y: number, z: number): Vector3
 				return (stand * CFrame.new(x, y, z)).Position
 			end
-			local boxAt = box:GetPivot().Position
-			local inside = (box:GetPivot() * CFrame.new(0, top * 0.6, 0)).Position
-			local you = at(0, 1.5, 0)
-			local between = at(0, 1.4, -2.4)
+			local boxTop = (boxRest * CFrame.new(0, top, 0)).Position
+			local middle = at(0, -hip + 1, -STAND_OFF / 2)
 			local eye: Vector3, look: Vector3
-			if held and t >= T.Raise then
-				local push = smooth((t - T.Raise) / 2.4)
-				eye = at(6.2, 0.9, -5.2):Lerp(at(5.3, 1.2, -4.3), push)
-				look = held:GetPivot().Position:Lerp(you, 0.3)
-			elseif t < T.Swing then
-				eye = at(-8, 2.2, -2.4):Lerp(at(-7.2, 2, -1.9), smooth(t / T.Swing))
-				look = between:Lerp(boxAt, 0.3)
+			local fov = 50
+			if t < T.Cut then
+				local turn = CFrame.Angles(0, t * 0.15, 0)
+				local height = 72 - 8 * smooth(t / T.Cut)
+				eye = middle + turn:VectorToWorldSpace(stand:VectorToWorldSpace(Vector3.new(9, 0, 16))) + Vector3.new(0, height, 0)
+				look = middle
+				fov = 45
+			elseif t < T.Pan then
+				local push = smooth((t - T.Cut) / (T.Pan - T.Cut))
+				eye = at(3.4, 4.4, 3.2):Lerp(at(2.6, 3.7, 2.1), push)
+				look = boxTop
+				fov = 46
 			else
-				local crane = smooth((t - T.Swing) / (T.Open - T.Swing))
-				eye = at(-7.2, 2, -1.9):Lerp(at(-4.6, 5.4, -3.4), crane)
-				eye = eye:Lerp(at(-3.9, 4.7, -3), smooth((t - T.Open) / 1.4))
-				look = between:Lerp(boxAt, 0.3):Lerp(inside, crane)
-				if held then
-					look = look:Lerp(held:GetPivot().Position, 0.6 * smooth((t - T.Pull) / 0.5))
+				local side = at(-5.6, 2.8, -2.3)
+				local opening = at(0, 0.6 - 0.4 * hip, -STAND_OFF * 0.55)
+				local pan = smooth((t - T.Pan) / 0.9)
+				eye = at(2.6, 3.7, 2.1):Lerp(side, pan)
+				look = boxTop:Lerp(opening, pan)
+				if flying then
+					look = look:Lerp(flying:GetPivot().Position, 0.55 * smooth((t - T.Launch) / 0.3) * (1 - smooth((t - T.Behind) / 0.9)))
 				end
+				-- behind you, low over your shoulder, at the box with the donut on it
+				local behind = smooth((t - T.Behind) / 1.2)
+				if behind > 0 then
+					local sitEye = (sitFlat * CFrame.new(1.7, 1.9, 4.6)).Position
+					local onBox = if flying then flying:GetPivot().Position:Lerp(boxTop, 0.35) else boxTop
+					eye = eye:Lerp(sitEye:Lerp((sitFlat * CFrame.new(1.3, 1.7, 3.6)).Position, smooth((t - T.Behind - 1.2) / 2.5)), behind)
+					look = look:Lerp(onBox, behind)
+				end
+				fov = 48 + 6 * smooth((t - T.Behind) / 1.2)
 			end
-			local shake = if t > T.Light and t < T.Light + 0.4 then (1 - (t - T.Light) / 0.4) * 0.15 else 0
-			camera.CFrame = CFrame.lookAt(eye, look) * CFrame.Angles(math.sin(t * 47) * 0.02 * shake, math.cos(t * 41) * 0.02 * shake, 0)
-			camera.FieldOfView = oldFov + (52 - oldFov) * smooth((t - T.Swing) / 1.2) + 4 * smooth((t - T.Pull) / 1.1)
+			-- the screen shakes: the box hopping, the light bursting out, the donut leaping, the name
+			local jolt = shakeAmount * 0.6
+			if t > T.Open and t < T.Open + 0.4 then
+				jolt += (1 - (t - T.Open) / 0.4) * 0.5
+			end
+			if t > T.Launch and t < T.Launch + 0.5 then
+				jolt += (1 - (t - T.Launch) / 0.5) * 0.6
+			end
+			camera.CFrame = CFrame.lookAt(eye, look) * CFrame.Angles(math.sin(t * 47) * 0.02 * jolt, math.cos(t * 41) * 0.02 * jolt, math.sin(t * 37) * 0.012 * jolt)
+			camera.FieldOfView = fov
 			if t >= T.End then
 				finish()
 			end
@@ -43985,6 +44619,7 @@ export type Snapshot = {
 	Donated: number?,
 	HiddenItems: { [string]: boolean }?, -- items taken off the hotbar
 	SeenTutorial: boolean?,
+	IntroVersion: number?, -- the newest opening cinematic (Config.Intro.Version) you've seen
 	SeenUpdate: number?,
 	NotesOnLogin: boolean?,
 	TutorialEggClaimed: boolean?,

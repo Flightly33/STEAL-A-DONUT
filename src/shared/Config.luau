@@ -91,12 +91,12 @@ Config.Guard = {
 	-- list plays the built-in swipe and "got it!" jingle instead (eggs and meteor shards always do).
 	-- These two are the chase sounds (he wakes up without a sound of his own): keep them loud.
 	GrabSounds = {
-		{ Id = "rbxassetid://6506461886", Volume = 1 },
-		{ Id = "rbxassetid://135439749484858", Volume = 1 },
+		{ Id = "rbxassetid://6506461886", Volume = 2.5 },
+		{ Id = "rbxassetid://135439749484858", Volume = 2.5 },
 	} :: { { Id: string, Volume: number } },
 	-- The "!?" over his head while he's waking up and chasing you (client/Guards): rainbow letters
 	-- with a soft glow, turning round Spin times a second. Size in studs; Glow: how bright (1 = flat).
-	Alert = { Text = "!?", Spin = 0.5, Size = 6, Glow = 1.6 },
+	Alert = { Text = "!?", Spin = 0.5, Size = 14, Glow = 1.6 },
 	CatchRadius = 10, -- studs (horizontal) between his centre and yours that counts as "caught"
 	-- A biome's Speed is the Speed you need to get away from its Domer: each Domer is just fast
 	-- enough that a player with exactly that Speed, running a small box straight back, gets out of
@@ -141,9 +141,11 @@ Config.Guard = {
 -- Map layout (studs). Floor top is at Y = 0.
 -- One lobby (bases, treadmills, the sell stall, leaderboards) and one long lane of biomes (Areas.luau)
 -- running from it along +Z. Every biome is LaneHalfWidth * 2 studs wide with thick grassy walls.
+-- (Changing the width or the wall squares rebuilds the map: bump MapBuilder's MAP_VERSION.)
 --------------------------------------------------------------------------------
 Config.Map = {
-	LaneHalfWidth = 100, -- the lane runs along +Z, from X = -100 to X = 100
+	LaneHalfWidth = 130, -- the lane runs along +Z, from X = -130 to X = 130
+	LaneWallSquare = 12, -- the lane walls' checker squares (studs)
 	AreaLength = 500, -- a biome's length when Areas.luau doesn't give one (multiple of TileSize)
 	TileSize = 20,
 	LaneWallHeight = 60,
@@ -824,8 +826,8 @@ Config.Sounds = {
 -- (Config.EternalStorm.Ambience). Volume: 0 to 10 (1 = the sound as uploaded).
 Config.BiomeAmbience = {
 	Loops = {
-		{ Id = "rbxassetid://9116969962", Volume = 0.6 },
-		{ Id = "rbxassetid://128828483841636", Volume = 1.2 }, -- (twice as loud as the first)
+		{ Id = "rbxassetid://9116969962", Volume = 0.8 },
+		{ Id = "rbxassetid://128828483841636", Volume = 1.4 },
 	} :: { { Id: string, Volume: number } },
 	Fade = 1.5,
 }
@@ -848,10 +850,53 @@ Config.Tutorial = {
 --   EveryJoin: false = only for brand-new players (anyone can watch it again: Settings > WATCH INTRO);
 --              true = every time anyone joins
 --   Bubble:    what you say to the baker
+--   Version:   bump it to show the (new) intro once more to everyone who has played before
+--   Sounds:    Volume 0 to 10 (1 = as uploaded). Start: as it begins. Song: plays all through it.
+--              Talk: every speech bubble. Walk: your footsteps. DomerRun: Domer's footsteps as he
+--              runs off. Wink / Laugh: Domer's. Scream: you yelling after him. Panting: you, out
+--              of breath. Shine: the treadmill lighting up at the end.
 Config.Intro = {
 	Enabled = true,
 	EveryJoin = false,
+	Version = 2,
 	Bubble = "One Donut Box Please",
+	Sounds = {
+		Start = { Id = "rbxassetid://119105724864233", Volume = 1 },
+		Song = { Id = "rbxassetid://1845756489", Volume = 0.45 },
+		Talk = { Id = "rbxassetid://100200548530524", Volume = 0.8 },
+		Walk = { Id = "rbxassetid://174960816", Volume = 1.5 },
+		DomerRun = { Id = "rbxassetid://127992015008072", Volume = 1 },
+		Wink = { Id = "rbxassetid://11734490534927", Volume = 1 },
+		Laugh = { Id = "rbxassetid://154157543", Volume = 1 },
+		Scream = { Id = "rbxassetid://140729021718836", Volume = 1 },
+		Panting = { Id = "rbxassetid://8152642803", Volume = 1 },
+		Shine = { Id = "rbxassetid://135385970610304", Volume = 1 },
+	} :: { [string]: { Id: string, Volume: number } },
+}
+
+-- Opening a MYTHIC box (client/MythicOpening): its sounds. Volume 0 to 10 (1 = as uploaded).
+--   Intro:  the first Seconds of it, from the shot in the sky into the next one, then it fades out
+--   Sky:    only while the camera is up in the sky
+--   Shake:  while the box rattles and shakes
+--   Beams:  as the box shakes, and again when the beams of light burst out of it
+--   Launch: all of these as the donut leaps out
+--   Fall:   you stumbling back onto the ground
+--   Name:   its name popping onto the screen
+--   Background: quietly, all the way through
+Config.MythicOpening = {
+	Sounds = {
+		Intro = { Id = "rbxassetid://95440268335130", Volume = 1, Seconds = 2.5 },
+		Sky = { Id = "rbxassetid://9112771314", Volume = 1.5 },
+		Shake = { Id = "rbxassetid://9112771314", Volume = 1 },
+		Beams = { Id = "rbxassetid://9114369623", Volume = 1 },
+		Launch = {
+			{ Id = "rbxassetid://138890894929151", Volume = 1 },
+			{ Id = "rbxassetid://70940368101652", Volume = 1 },
+		},
+		Fall = { Id = "rbxassetid://103126547745840", Volume = 1 },
+		Name = { Id = "rbxassetid://80355950745320", Volume = 1 },
+		Background = { Id = "rbxassetid://135631575856786", Volume = 0.25 },
+	},
 }
 
 -- Daily Rewards (shared/DailyRewards, server/DailyService, UI/DailyRewards): one reward a day, Day 1

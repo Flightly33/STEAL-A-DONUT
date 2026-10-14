@@ -338,7 +338,7 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 		m.Scale = scale
 	end
 
-	-- Name tag + status line ("Zzz", "D'OH!")
+	-- What he shouts ("Zzz", "D'OH!") - no name tag
 	local tag = Instance.new("BillboardGui")
 	tag.Name = "GuardTag"
 	tag.Size = UDim2.fromScale(12, 3.2)
@@ -360,7 +360,7 @@ function GuardModel.Build(areaId: number, options: BuildOptions?): (Model, TextL
 		l.Parent = tag
 		return l
 	end
-	label("Title", `{look.Title} {Config.Guard.Name}`, rgb(255, 230, 60), 0.5, 0.5)
+	-- (no name over him: just what he shouts)
 	local status = label("Status", "Zzz", rgb(180, 220, 255), 0, 0.5)
 
 	model:SetAttribute("Area", areaId)

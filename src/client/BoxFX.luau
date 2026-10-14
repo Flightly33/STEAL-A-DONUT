@@ -363,7 +363,7 @@ local function onBoxOpened(info: Opened)
 	local glow = if mutation.Order > 0 then mutation.Color else tier.Color
 	-- your own Mythic box: its own little film (client/MythicOpening) instead
 	if info.Owner == player and tier.Id == "Mythic" and MythicOpening.CanPlay() then
-		if MythicOpening.Play({ DonutId = info.DonutId, Mutation = info.Mutation, Size = info.Size }) then
+		if MythicOpening.Play({ DonutId = info.DonutId, Mutation = info.Mutation, Size = info.Size, At = box:GetPivot() }) then
 			hide(box)
 			return
 		end

@@ -5,8 +5,8 @@
 	  - the sealing circle turns slowly and its glow breathes
 	  - the chains glow brighter and thicken while the donut strains against them (DonutIdle's
 	    Tug), and the shackles flare
-	  - each tug: a burst of spikes and an impact puff round the donut, a spray of embers and a
-	    clank of the chains
+	  - each tug: a burst of spikes and an impact puff round the donut and a spray of embers
+	    (no sound: donuts are silent)
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -53,25 +53,6 @@ local function register(model: Instance)
 	rigs[model] = rig
 end
 
-local function clank(at: BasePart)
-	local sounds: { { Id: string, Speed: number, Volume: number } } = {
-		{ Id = "rbxasset://sounds/unsheath.wav", Speed = 0.55, Volume = 0.45 },
-		{ Id = "rbxasset://sounds/action_jump_land.mp3", Speed = 0.5, Volume = 0.5 },
-	}
-	for _, spec in sounds do
-		local s = Instance.new("Sound")
-		s.SoundId = spec.Id
-		s.PlaybackSpeed = spec.Speed
-		s.Volume = spec.Volume
-		s.RollOffMaxDistance = 90
-		s.Parent = at
-		s:Play()
-		task.delay(3, function()
-			s:Destroy()
-		end)
-	end
-end
-
 function HellChainsFX.Init()
 	for _, model in CollectionService:GetTagged("HellChains") do
 		register(model)
@@ -98,7 +79,6 @@ function HellChainsFX.Init()
 		if rig.Embers then
 			rig.Embers:Emit(14)
 		end
-		clank(rig.Core)
 	end)
 
 	local clock = 0

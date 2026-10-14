@@ -408,6 +408,14 @@ function Actions.SeenTutorial(player: Player, profile: DataService.Profile)
 	DataService.PushState(player)
 end
 
+-- The opening cinematic started: this version of it counts as seen (it plays once per version).
+function Actions.SeenIntro(player: Player, profile: DataService.Profile)
+	if profile.Data.IntroVersion < Config.Intro.Version then
+		profile.Data.IntroVersion = Config.Intro.Version
+		DataService.PushState(player)
+	end
+end
+
 -- The free egg at the end of the tutorial: once per player, ever.
 function Actions.ClaimTutorialEgg(player: Player, profile: DataService.Profile)
 	profile.Data.SeenTutorial = true

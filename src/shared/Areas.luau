@@ -255,7 +255,7 @@ Areas.List = {
 	},
 	{
 		Id = 17, Name = "The Black Hole", Theme = "BlackHole",
-		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 135, DomerBoost = 1.5,
+		RecommendedSpeed = 400_000_000, WakeDelay = 0.78, World = 1, Index = 17, HalfWidth = 175, DomerBoost = 1.5,
 		Floor = { Color3.fromRGB(14, 10, 26), Color3.fromRGB(22, 16, 40) }, FloorMaterial = Enum.Material.Glass,
 		Wall = { Color3.fromRGB(10, 8, 20), Color3.fromRGB(18, 12, 34) }, WallMaterial = Enum.Material.Glass,
 		Trim = Color3.fromRGB(170, 90, 255), TrimMaterial = Enum.Material.Neon,

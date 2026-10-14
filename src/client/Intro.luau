@@ -1,21 +1,30 @@
 --[[
-	Intro: the opening cinematic (Config.Intro). Plays for brand-new players once the loading screen
-	is gone, before the Update Log and the tutorial; anyone can watch it again from Settings (WATCH
-	INTRO). Everything here is on this client only, apart from your own character walking (the real
-	one, so you end up where the scene leaves you).
+	Intro: the opening cinematic (Config.Intro). Plays once for every player who hasn't seen this
+	version of it yet (Config.Intro.Version: new players, and everyone once more after an update
+	that changes it), once the loading screen is gone, before the Update Log and the tutorial;
+	anyone can watch it again from Settings (WATCH INTRO). Everything here is on this client only,
+	apart from your own character walking (the real one, so you end up where the scene leaves you).
+	Its sounds are Config.Intro.Sounds (a song all the way through).
 
 	  0.0  black bars slide in; the STEAL A DONUT title pops up over an aerial view of the map
 	  3.4  the camera glides down to your base
-	  6.0  you walk through your pen up to the donut shop's window...
-	  9.2  ...and ask the baker: "One Donut Box Please" (he glances back over his shoulder)
-	 10.6  he turns round with a donut box and holds it out over the counter
-	 12.2  WHOOSH: Domer zips in from the side and skids to a stop beside you (dust, a little shake)
-	 13.1  he winds up and snatches the box (it flies into his hand); the baker jumps back
-	 13.65 he turns to the camera with a big cheeky grin, a wink and a twinkle on his teeth
-	 15.0  his legs spin on the spot like a cartoon, then he zooms off to the first biome with it;
-	       the baker shouts "HEY!", you point at him and run after him
-	 16.7  the camera rises over your base, then swoops down behind you into the normal view, the
-	       bars slide away, and the game starts as normal
+	  6.0  you walk through your pen up to the donut shop's window (the baker watching you come)...
+	  9.2  ...and ask him: "One Donut Box Please" - "Coming right up!"
+	 10.6  he turns round, walks over to the shelves at the back, takes a box down, turns back,
+	       walks back to the counter and holds it out to you
+	 15.9  WHOOSH: Domer zips in from the side and skids to a stop beside you (dust, a little shake)
+	 16.8  he winds up and snatches the box (it flies into his hand); the baker jumps back
+	 17.35 he turns to the camera with a big cheeky grin, a wink, a laugh and a twinkle on his teeth
+	 18.7  his legs spin on the spot like a cartoon, then he zooms off with it; the baker shouts "HEY!"
+	 19.2  you're FURIOUS (steam out of your ears) and yell after him - and as he runs off, his back
+	       to you, he waves back over his shoulder (the camera behind your shoulder)
+	 21.2  you run after him... and run out of puff: bent over, hands on your knees, sweating and
+	       panting
+	 25.0  the camera comes round in front of you as you stand up straight...
+	 26.0  ...and over your right shoulder as you turn to look at your treadmill - glowing, a big
+	       cartoon star shining behind it
+	 28.8  the camera settles behind you into the normal view, the bars slide away, and the game
+	       starts (the tutorial, for new players)
 
 	How it moves: nothing snaps from one pose to the next (Puppet.Animate fades between them),
 	Domer and the baker lean, recoil and settle on springs (Motion.Spring), Domer's feet stay on
@@ -72,17 +81,27 @@ local T = {
 	Fly = 3.4,
 	Walk = 6.0,
 	Arrive = 9.2,
+	Reply = 10.0,
 	Turn = 10.6,
-	Offer = 11.3,
-	Zip = 12.2,
-	Land = 12.55,
-	Grab = 13.1,
-	Grin = 13.65,
-	Run = 15.0,
-	Dash = 15.4,
-	Chase = 15.7,
-	Pull = 16.7,
-	End = 18.6,
+	Fetch = 11.1,
+	Pick = 12.7,
+	Back = 13.4,
+	Offer = 15.1,
+	Zip = 15.9,
+	Land = 16.25,
+	Grab = 16.8,
+	Grin = 17.35,
+	Run = 18.7,
+	Dash = 19.1,
+	Angry = 19.2,
+	Yell = 19.9,
+	Chase = 21.2,
+	Kneel = 22.6,
+	StandUp = 25.0,
+	Look = 26.0,
+	Shine = 26.6,
+	Pull = 27.6,
+	End = 28.8,
 }
 Intro.Times = T
 
@@ -112,6 +131,28 @@ end
 local function angles(cf: CFrame): (number, number)
 	local look = cf.LookVector
 	return yawOf(look), math.asin(math.clamp(look.Y, -1, 1))
+end
+
+-- The scene's own sounds (Config.Intro.Sounds), in a folder that goes when it ends.
+local soundFolder: Instance? = nil
+local function cue(name: string, looped: boolean?): Sound?
+	local def = Config.Intro.Sounds[name]
+	if not def or def.Id == "" then
+		return nil
+	end
+	local s = Instance.new("Sound")
+	s.Name = name
+	s.SoundId = def.Id
+	s.Volume = def.Volume
+	s.Looped = looped == true
+	s.Parent = soundFolder or SoundService
+	s:Play()
+	if not looped then
+		task.delay(8, function()
+			s:Destroy()
+		end)
+	end
+	return s
 end
 
 local function sound(id: string, speed: number, volume: number)
@@ -208,7 +249,7 @@ local function makeBubble(head: BasePart, text: string, height: number, color: C
 	label.MaxVisibleGraphemes = 0
 	label.Parent = box
 	gui.Parent = parent
-	sound("rbxasset://sounds/button.wav", 1.4, 0.5)
+	cue("Talk") -- (someone's talking)
 	return { Gui = gui, Label = label, Scale = scale, Height = height, Born = now, Dying = nil, Count = utf8.len(text) or #text }
 end
 
@@ -438,6 +479,38 @@ function Intro.Play(opts: { Speed: number? }?)
 	local scene = Instance.new("Folder")
 	scene.Name = "IntroScene"
 	scene.Parent = workspace
+	-- its sounds: a sting as it starts, and the song all the way through
+	local sounds = Instance.new("Folder")
+	sounds.Name = "IntroSounds"
+	sounds.Parent = SoundService
+	soundFolder = sounds
+	cue("Start")
+	local song = cue("Song", true)
+	local loops: { [string]: Sound } = {} -- (footsteps and panting, while they last)
+	local function loop(name: string, on: boolean)
+		local existing = loops[name]
+		if on and not existing then
+			loops[name] = cue(name, true) :: Sound
+		elseif not on and existing then
+			existing:Stop()
+			existing:Destroy()
+			loops[name] = nil
+		end
+	end
+	local function stopSounds()
+		soundFolder = nil
+		if song then
+			TweenService:Create(song, TweenInfo.new(0.6), { Volume = 0 }):Play()
+		end
+		for name in loops do
+			loop(name, false)
+		end
+		task.delay(0.7, function()
+			sounds:Destroy()
+		end)
+	end
+	-- (it counts as seen for this version from the moment it starts)
+	State.Action("SeenIntro")
 	local screen = buildScreen()
 	local openedAt = os.clock()
 	-- (whatever else happens, the black opening circle is gone a moment after it should have opened)
@@ -512,17 +585,56 @@ function Intro.Play(opts: { Speed: number? }?)
 		follow = follow:Lerp(real, 1 - math.exp(-dt * 5))
 		follow = follow:Lerp(real, smooth((now - (T.End - 0.9)) / 0.9))
 	end
-	-- high over your base, looking out the way you're running: you, and Domer racing off ahead
-	local function overView(): CFrame
-		local r = follow
-		return CFrame.lookAt(r + Vector3.new(0, 55, 0) - out * 30, r + out * 20)
+	-- Your treadmill (where you look at the end)
+	local treadAnchor = plot and plot:FindFirstChild("TreadmillAnchor")
+	local treadAt = if treadAnchor and treadAnchor:IsA("BasePart") then treadAnchor.CFrame.Position else ground(-20, Layout.PenFront + 4)
+	local function toTreadmill(): Vector3
+		local v = Vector3.new(treadAt.X - follow.X, 0, treadAt.Z - follow.Z)
+		return if v.Magnitude > 0.1 then v.Unit else out
 	end
-	-- the normal camera, exactly: behind you at your usual distance, looking over your head
-	local handLook = (Vector3.new(out.X, 0, out.Z).Unit - Vector3.new(0, 0.23, 0)).Unit
+	-- (where Domer is, for the shots that watch him go: kept up to date by update)
+	local domerSeen = domerAt
+	local function flatUnit(v: Vector3, fallback: Vector3): Vector3
+		local f = Vector3.new(v.X, 0, v.Z)
+		return if f.Magnitude > 0.1 then f.Unit else fallback
+	end
+	local UP = Vector3.new(0, 1, 0)
+	-- behind your right shoulder, watching Domer run off
+	local function shoulderView(): CFrame
+		local you = follow
+		local dir = flatUnit(domerSeen - you, out)
+		local right = dir:Cross(UP)
+		return CFrame.lookAt(you - dir * 6.5 + right * 2 + UP * 2.6, domerSeen + UP * 2 * S)
+	end
+	-- low, from the side, while you're bent over panting
+	local function kneelView(): CFrame
+		local you = follow
+		local facing = if root then flatUnit(root.CFrame.LookVector, out) else out
+		local side = facing:Cross(UP)
+		return CFrame.lookAt(you + facing * 3 - side * 7 + UP * 0.6, you - UP * 0.4)
+	end
+	-- in front of you as you stand up
+	local function frontView(): CFrame
+		local you = follow
+		local facing = if root then flatUnit(root.CFrame.LookVector, out) else out
+		return CFrame.lookAt(you + facing * 7 + UP * 1.4, you + UP * 1.2)
+	end
+	-- over your right shoulder, at your treadmill
+	local function treadmillView(): CFrame
+		local you = follow
+		local dir = toTreadmill()
+		local right = dir:Cross(UP)
+		return CFrame.lookAt(you - dir * 5.5 + right * 2.2 + UP * 2.4, treadAt + UP * 3)
+	end
+	-- the normal camera, exactly: behind you at your usual distance, looking over your head (the
+	-- way you're facing at the end: at your treadmill)
 	local function playerView(): CFrame
 		local focus = follow + Vector3.new(0, 1.5, 0)
+		local handLook = (toTreadmill() - Vector3.new(0, 0.23, 0)).Unit
 		return CFrame.lookAt(focus - handLook * zoom, focus)
 	end
+	-- into the shop over your shoulder, watching the baker fetch a box from the shelves
+	local fetchView = CFrame.lookAt(at(-7, 9, zSpot - 9), at(-6, 6, zSpot + 14))
 	local function still(cf: CFrame): () -> CFrame
 		return function()
 			return cf
@@ -534,13 +646,23 @@ function Intro.Play(opts: { Speed: number? }?)
 		{ Time = T.Fly, View = still(aerial1), Fov = 60, Hand = 0.3 },
 		{ Time = T.Walk, View = still(baseView), Fov = 55, Hand = 0.6 },
 		{ Time = T.Arrive, View = still(walkView), Fov = 55, Hand = 0.7 },
+		{ Time = T.Turn, View = still(shopView), Fov = 55, Hand = 0.7 },
+		{ Time = T.Fetch + 0.8, View = still(fetchView), Fov = 52, Hand = 0.7 },
+		{ Time = T.Back + 0.6, View = still(fetchView), Fov = 52, Hand = 0.7 },
+		{ Time = T.Offer, View = still(shopView), Fov = 55, Hand = 0.7 },
 		{ Time = T.Zip, View = still(shopView), Fov = 55, Hand = 0.7 },
 		{ Time = T.Land + 0.15, View = still(wideView), Fov = 60, Hand = 0.9 },
 		{ Time = T.Grin, View = still(wideView2), Fov = 58, Hand = 0.8 },
 		{ Time = T.Grin + 0.55, View = still(grinView), Fov = 45, Hand = 0.8 },
 		{ Time = T.Run - 0.2, View = still(grinView2), Fov = 44, Hand = 0.8 },
 		{ Time = T.Run + 0.4, View = still(windView), Fov = 55, Hand = 0.9 },
-		{ Time = T.Pull, View = overView, Fov = 60, Hand = 0.5 },
+		{ Time = T.Angry + 0.6, View = shoulderView, Fov = 55, Hand = 0.6 },
+		{ Time = T.Chase - 0.1, View = shoulderView, Fov = 58, Hand = 0.6 },
+		{ Time = T.Kneel + 0.5, View = kneelView, Fov = 55, Hand = 0.5 },
+		{ Time = T.StandUp, View = kneelView, Fov = 55, Hand = 0.5 },
+		{ Time = T.StandUp + 0.8, View = frontView, Fov = 52, Hand = 0.4 },
+		{ Time = T.Look + 0.9, View = treadmillView, Fov = 55, Hand = 0.4 },
+		{ Time = T.Pull, View = treadmillView, Fov = 55, Hand = 0.3 },
 		{ Time = T.End, View = playerView, Fov = oldFov, Hand = 0 },
 	}
 	if not full then
@@ -696,10 +818,169 @@ function Intro.Play(opts: { Speed: number? }?)
 		local v = from:PointToObjectSpace(target)
 		return math.clamp(math.atan2(-v.X, -v.Z), -limit, limit)
 	end
+	local lastDomerHead = faceAt
 	local function domerHeadAt(): Vector3
+		-- (once he's run off and gone, where he was last seen)
+		if not (domer and domer.Model.Parent) then
+			return lastDomerHead
+		end
 		local head = domerPart("Head")
-		return if head and head.Parent then head.CFrame.Position else faceAt
+		if head and head.Parent then
+			lastDomerHead = head.CFrame.Position
+		end
+		return lastDomerHead
 	end
+
+	-- Your own body, posed (furious, yelling, bent over out of breath): your animations pause
+	-- meanwhile, and your shoulders, hips and knees are turned every frame after them (R6 or R15).
+	-- (In your body's own space: X turns a limb up in front of you, Z swings it in or out.)
+	local poseMotors: { [string]: Motor6D } = {}
+	local poseGoal: { [string]: CFrame } = {}
+	local poseNow: { [string]: CFrame } = {}
+	local posing = false
+	local animate: BaseScript? = nil
+	local animateWas = true
+	local poseConnections: { RBXScriptConnection } = {}
+	local poseSpeed = 10
+	local function findLimbs(model: Model): { [string]: Motor6D }
+		local found: { [string]: Motor6D } = {}
+		local torso = model:FindFirstChild("Torso")
+		for _, joint in {
+			{ Key = "LeftArm", R6 = "Left Shoulder", Part = "LeftUpperArm", R15 = "LeftShoulder" },
+			{ Key = "RightArm", R6 = "Right Shoulder", Part = "RightUpperArm", R15 = "RightShoulder" },
+			{ Key = "LeftLeg", R6 = "Left Hip", Part = "LeftUpperLeg", R15 = "LeftHip" },
+			{ Key = "RightLeg", R6 = "Right Hip", Part = "RightUpperLeg", R15 = "RightHip" },
+			{ Key = "LeftKnee", R6 = "", Part = "LeftLowerLeg", R15 = "LeftKnee" },
+			{ Key = "RightKnee", R6 = "", Part = "RightLowerLeg", R15 = "RightKnee" },
+		} do
+			local motor = if torso and joint.R6 ~= "" then torso:FindFirstChild(joint.R6) else nil
+			if not motor then
+				local part = model:FindFirstChild(joint.Part)
+				motor = part and part:FindFirstChild(joint.R15)
+			end
+			if motor and motor:IsA("Motor6D") then
+				found[joint.Key] = motor
+			end
+		end
+		return found
+	end
+	local function poseStep(dt: number)
+		for key, motor in poseMotors do
+			poseNow[key] = (poseNow[key] or CFrame.identity):Lerp(poseGoal[key] or CFrame.identity, math.min(1, dt * poseSpeed))
+			local q = motor.C0.Rotation
+			motor.Transform = q:Inverse() * poseNow[key] * q
+		end
+	end
+	local function bodyStart()
+		if posing or not (character and humanoid) then
+			return
+		end
+		posing = true
+		poseMotors = findLimbs(character :: Model)
+		local a = (character :: Model):FindFirstChild("Animate")
+		if a and a:IsA("BaseScript") then
+			animate = a
+			pcall(function()
+				animateWas = a.Enabled
+			end)
+			a.Enabled = false
+		end
+		pcall(function()
+			local animator = (humanoid :: Humanoid):FindFirstChildOfClass("Animator")
+			if animator then
+				for _, track in animator:GetPlayingAnimationTracks() do
+					track:Stop(0.15)
+				end
+			end
+		end)
+		table.insert(poseConnections, RunService.Stepped:Connect(function(_, dt: number)
+			poseStep(dt)
+		end))
+		table.insert(poseConnections, RunService.RenderStepped:Connect(function()
+			poseStep(0)
+		end))
+	end
+	local function bodyStop()
+		if not posing then
+			return
+		end
+		posing = false
+		for _, c in poseConnections do
+			c:Disconnect()
+		end
+		table.clear(poseConnections)
+		pcall(function()
+			for _, motor in poseMotors do
+				motor.Transform = CFrame.identity
+			end
+		end)
+		table.clear(poseNow)
+		table.clear(poseGoal)
+		local a = animate
+		if a then
+			pcall(function()
+				a.Enabled = animateWas
+			end)
+			animate = nil
+		end
+	end
+	local function limb(key: string, forward: number, inward: number)
+		local left = string.sub(key, 1, 4) == "Left"
+		poseGoal[key] = CFrame.Angles(rad(forward), 0, rad(if left then inward else -inward))
+	end
+	-- steam out of your ears, sweat flying off you
+	local function headPart(): BasePart?
+		local head = character and (character :: Model):FindFirstChild("Head")
+		return if head and head:IsA("BasePart") then head else nil
+	end
+	local function steam()
+		local head = headPart()
+		if not head then
+			return
+		end
+		local e = Instance.new("ParticleEmitter")
+		e.Name = "AngrySteam"
+		e.Texture = "rbxasset://textures/particles/smoke_main.dds"
+		e.Color = ColorSequence.new(rgb(255, 120, 110), rgb(255, 240, 235))
+		e.Lifetime = NumberRange.new(0.4, 0.7)
+		e.Speed = NumberRange.new(6, 10)
+		e.SpreadAngle = Vector2.new(30, 30)
+		e.EmissionDirection = Enum.NormalId.Top
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 1.6) })
+		e.Transparency = NumberSequence.new(0.2, 1)
+		e.Rate = 0
+		e.Parent = head
+		e:Emit(16)
+		task.delay(1.2, function()
+			e:Destroy()
+		end)
+	end
+	local sweat: ParticleEmitter? = nil
+	local function sweating(on: boolean)
+		if on and not sweat then
+			local head = headPart()
+			if head then
+				local e = Instance.new("ParticleEmitter")
+				e.Name = "Sweat"
+				e.Color = ColorSequence.new(rgb(140, 210, 255))
+				e.LightEmission = 0.2
+				e.Lifetime = NumberRange.new(0.5, 0.8)
+				e.Speed = NumberRange.new(3, 6)
+				e.SpreadAngle = Vector2.new(70, 70)
+				e.EmissionDirection = Enum.NormalId.Top
+				e.Acceleration = Vector3.new(0, -25, 0)
+				e.Size = NumberSequence.new(0.22, 0.08)
+				e.Rate = 9
+				e.Parent = head
+				sweat = e
+			end
+		elseif not on and sweat then
+			sweat:Destroy()
+			sweat = nil
+		end
+	end
+
+	local kneelBase: CFrame? = nil -- (where you stopped, out of breath)
 
 	local t = 0
 	local shake = 0
@@ -735,6 +1016,12 @@ function Intro.Play(opts: { Speed: number? }?)
 		table.clear(bubbles)
 		if walkSpeed and humanoid then
 			humanoid.WalkSpeed = walkSpeed
+		end
+		-- your body back to you: your animations on, free to move
+		bodyStop()
+		sweating(false)
+		if root and kneelBase then
+			(root :: BasePart).Anchored = false
 		end
 		if fired.Walk and humanoid and root then
 			-- (stop where you are: from here on, you're walking)
@@ -778,6 +1065,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		if not wasHidden then
 			HideUI.Set(false)
 		end
+		stopSounds()
 		player:SetAttribute("Intro", nil)
 		playing = false
 		Intro.Finished:Fire(skipped)
@@ -813,6 +1101,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 		setControls(true)
 		pcall(HideUI.Set, false)
+		pcall(stopSounds)
 		player:SetAttribute("Intro", nil)
 		playing = false
 		task.delay(0.2, function()
@@ -847,6 +1136,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		else
 			if not launched then
 				launched = true
+				loop("DomerRun", true)
 				sound("rbxasset://sounds/swordlunge.wav", 0.7, 0.8)
 				SpeedLines.Flash(0.45, 0.5)
 				local puff = stillPart("DashDust", CFrame.new(dPos + Vector3.new(0, 1, 0)), scene)
@@ -861,6 +1151,11 @@ function Intro.Play(opts: { Speed: number? }?)
 			local bounce, twist
 			joints, bounce, twist = Puppet.Gait(stridePhase, 0.78)
 			joints["Right Arm"] = CFrame.Angles(rad(-162), 0, rad(14))
+			-- a cheeky wave back over his shoulder as he goes (his back to you)
+			local waving = age - windup
+			if waving > 0.25 and waving < 2.3 then
+				joints["Left Arm"] = CFrame.Angles(rad(-168), 0, rad(-14) + math.sin(waving * 15) * rad(30))
+			end
 			Motion.Step(dYaw, near(yawOf(dir) + twist * 0.07, dYaw.X), dt, 6, 0.9)
 			Motion.Step(dLean, rad(-15) - rad(10) * (1 - runSpeed / 58), dt, 5, 0.8)
 			Motion.Step(dRoll, math.clamp(turn * runSpeed * 0.1, -0.3, 0.3), dt, 3, 0.8)
@@ -870,6 +1165,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			poseDomer(dt, "Run", 0.25, joints, true, bounce * 0.22 * S)
 			if runDistance >= runPath.Length - 0.5 then
 				runDone = true
+				loop("DomerRun", false)
 			end
 		end
 		swingBox(dt)
@@ -879,7 +1175,9 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
-	-- You: walk up to the window, ask for a box, point after Domer and run after him
+	-- You: walk up to the window and ask for a box; furious when Domer runs off with it, yelling
+	-- after him; run after him until you're out of puff, bent over panting; stand up, and look over
+	-- at your treadmill
 	local function updateYou(dt: number)
 		local r, h = root, humanoid
 		if not (r and h) then
@@ -892,8 +1190,10 @@ function Intro.Play(opts: { Speed: number? }?)
 			pcall(function()
 				h:MoveTo(spot)
 			end)
+			loop("Walk", true)
 		end
 		if once("Arrive", t, T.Arrive) then
+			loop("Walk", false)
 			if walkSpeed then
 				h.WalkSpeed = walkSpeed
 				walkSpeed = nil
@@ -911,25 +1211,90 @@ function Intro.Play(opts: { Speed: number? }?)
 				b.Dying = b.Dying or t
 			end
 		end
-		if once("Point", t, T.Run + 0.05) then
-			turnGoal = (dPos - r.Position) * Vector3.new(1, 0, 1)
-			-- (the point emote, where the avatar's animations have it)
-			task.spawn(function()
-				pcall(function()
-					h:PlayEmoteAsync("point")
-				end)
-			end)
+		-- furious: fists clenched, glaring after him, steam coming out of your ears
+		if t >= T.Angry and t < T.Chase then
+			if once("Angry", t, T.Angry) then
+				bodyStart()
+				poseSpeed = 12
+				steam()
+			end
+			turnGoal = (domerSeen - r.Position) * Vector3.new(1, 0, 1)
+			local tremble = math.sin(t * 34) * 4
+			if t < T.Yell then
+				limb("LeftArm", 12 + tremble, -24)
+				limb("RightArm", 12 - tremble, -24)
+			else
+				-- shaking your fist at him, yelling
+				limb("RightArm", 160 + math.sin(t * 22) * 14, 6)
+				limb("LeftArm", 18, -28)
+			end
+		end
+		if once("Yell", t, T.Yell) then
+			say(character and character:FindFirstChild("Head") :: BasePart?, "HEY! GIVE THAT BACK!", 3.2, rgb(255, 235, 120), t)
+			cue("Scream")
+			steam()
 		end
 		if once("Chase", t, T.Chase) then
+			bodyStop()
 			turnGoal = nil
+			walkSpeed = h.WalkSpeed
+			h.WalkSpeed = 24
 			pcall(function()
 				h:MoveTo(exit)
 			end)
+			loop("Walk", true)
+		end
+		-- out of puff: bent over, hands on your knees, sweating and panting
+		if once("Kneel", t, T.Kneel) then
+			loop("Walk", false)
+			if walkSpeed then
+				h.WalkSpeed = walkSpeed
+				walkSpeed = nil
+			end
+			pcall(function()
+				h:MoveTo(r.Position)
+			end)
+			local facing = Vector3.new(r.CFrame.LookVector.X, 0, r.CFrame.LookVector.Z)
+			facing = if facing.Magnitude > 0.1 then facing.Unit else out
+			kneelBase = CFrame.lookAt(r.Position, r.Position + facing)
+			r.Anchored = true
+			bodyStart()
+			poseSpeed = 7
+			sweating(true)
+			loop("Panting", true)
+		end
+		local base = kneelBase
+		if base and t >= T.Kneel then
+			local r15 = h.RigType == Enum.HumanoidRigType.R15
+			-- 1 bent over (panting) ... 0 standing up straight
+			local bent = smooth((t - T.Kneel) / 0.35) * (1 - smooth((t - T.StandUp) / 0.8))
+			local pant = math.sin(t * 2 * math.pi * 1.6) * 3 * bent
+			local lean = 34 * bent + pant
+			-- turning to look at your treadmill
+			local yaw = 0
+			if t >= T.Look then
+				local toward = Vector3.new(treadAt.X - base.Position.X, 0, treadAt.Z - base.Position.Z)
+				if toward.Magnitude > 0.1 then
+					local want = near(yawOf(toward), yawOf(base.LookVector))
+					yaw = (want - yawOf(base.LookVector)) * smooth((t - T.Look) / 0.8)
+				end
+			end
+			r.CFrame = base * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -0.5 * bent, -0.3 * bent) * CFrame.Angles(rad(-lean), 0, 0)
+			limb("LeftArm", 62 * bent, 6 * bent)
+			limb("RightArm", 62 * bent, 6 * bent)
+			limb("LeftLeg", (lean + (if r15 then 18 else 6) * bent), 0)
+			limb("RightLeg", (lean + (if r15 then 18 else 6) * bent), 0)
+			limb("LeftKnee", -24 * bent, 0)
+			limb("RightKnee", -24 * bent, 0)
+			if once("Recovered", t, T.StandUp + 0.3) then
+				loop("Panting", false)
+				sweating(false)
+			end
 		end
 		-- turning smoothly to face something (only while standing: walking, you face your way)
-		local walking = (t >= T.Walk and t < T.Arrive) or t >= T.Chase
+		local walking = (t >= T.Walk and t < T.Arrive) or (t >= T.Chase and t < T.Kneel)
 		local goal = turnGoal
-		if goal and not walking and goal.Magnitude > 0.01 then
+		if goal and not walking and not kneelBase and goal.Magnitude > 0.01 then
 			local yaw = yawOf(r.CFrame.LookVector)
 			local want = near(yawOf(goal), yaw)
 			if math.abs(want - yaw) < 0.01 then
@@ -941,38 +1306,106 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
-	-- The baker: kneading at the back, a glance over his shoulder, turning round with the box,
-	-- holding it out... jumping back when it's snatched, then shaking his fist after Domer
+	-- The baker: watching you come up to the window; "Coming right up!"; he turns round, walks round
+	-- his prep table to the shelves at the back, takes a box down, walks back with it and holds it
+	-- out... jumping back when it's snatched, then shaking his fist after Domer
+	local bakerPath: Motion.Path? = nil
+	local function bakerWalk(): Motion.Path?
+		if bakerPath or not baker then
+			return bakerPath
+		end
+		-- (plot space: the shop's front wall is at zb, the shelves along its back wall)
+		local zb = counterLocal.Z - 1
+		local y = baker.Home.Position.Y
+		local function onFloor(x: number, z: number): Vector3
+			local p = at(x, 0, z)
+			return Vector3.new(p.X, y, p.Z)
+		end
+		bakerPath = Motion.Path({ baker.Home.Position, onFloor(-5.4, zb + 5.4), onFloor(-7.6, zb + 10.5), onFloor(-10, zb + 15.4) }, 2.2)
+		return bakerPath
+	end
+	local bakerPhase = 0
 	local function updateBaker(dt: number)
 		if not baker then
 			return
 		end
 		local s = BAKER_S
-		local turnA = smooth((t - T.Turn - 0.08) / 0.55)
-		local headA = smooth((t - T.Turn) / 0.4)
-		local body = baker.Home * CFrame.Angles(0, math.pi * (1 - turnA), 0)
+		local path = bakerWalk()
+		local homeYaw = yawOf(baker.Home.LookVector)
+		local yaw = homeYaw
+		local where = baker.Home.Position
 		local joints: { [string]: CFrame } = {}
-		local state, fade = "Knead", 0.3
+		local state, fade = "Idle", 0.3
 		local leanGoal, headGoal, dip = 0, 0, 0
 		local headTilt = CFrame.identity
 		local release = T.Grab + 0.1
+		local walkIn = T.Pick - 0.15 -- (when he gets to the shelves)
+		local walkOut0, walkOut1 = T.Back + 0.45, T.Offer - 0.3
+		local function walking(u: number)
+			-- (a brisk walk: his legs swing, his arms too unless they're carrying something)
+			bakerPhase += dt * 9
+			local gait = Puppet.Gait(bakerPhase, 0.55 * math.sin(math.clamp(u, 0, 1) * math.pi) ^ 0.3)
+			for name, cf in gait do
+				joints[name] = cf
+			end
+			dip = -math.abs(math.sin(bakerPhase)) * 0.06 * s
+		end
 		if t < T.Turn then
-			local k = math.sin(t * 2 * math.pi * 1.4)
-			joints["Left Arm"] = CFrame.Angles(rad(-62) + 0.2 * k, 0, rad(-8))
-			joints["Right Arm"] = CFrame.Angles(rad(-62) + 0.2 * k, 0, rad(8))
-			headTilt = CFrame.Angles(rad(-12) - 0.05 * k, 0, 0)
-			dip = -(k + 1) * 0.035 * s
-			leanGoal = rad(-6) - 0.04 * k
-			-- ("Coming!": a look back over his shoulder when you ask)
-			local glance = smooth((t - T.Arrive - 0.5) / 0.3) * (1 - smooth((t - T.Arrive - 1.3) / 0.35))
-			headGoal = -1.2 * glance
-		elseif t < T.Offer then
-			state, fade = "Carry", 0.35
+			-- facing you, hands on the counter, leaning in; a nod when you ask
+			joints["Left Arm"] = CFrame.Angles(rad(-42), 0, rad(-10))
+			joints["Right Arm"] = CFrame.Angles(rad(-42), 0, rad(10))
+			leanGoal = rad(-5)
+			if root then
+				headGoal = gaze(baker.Home, root.Position + Vector3.new(0, 1.5, 0), 0.6)
+			end
+			local nod = smooth((t - T.Arrive - 0.4) / 0.2) * (1 - smooth((t - T.Arrive - 0.75) / 0.25))
+			headTilt = CFrame.Angles(rad(-14) * nod, 0, 0)
+		elseif t < T.Fetch then
+			-- turning round to the shelves
+			yaw = homeYaw + math.pi * smooth((t - T.Turn) / (T.Fetch - T.Turn))
+		elseif t < walkIn and path then
+			local u = (t - T.Fetch) / (walkIn - T.Fetch)
+			local pos, dir = Motion.PathAt(path, path.Length * smooth(u))
+			where = pos
+			yaw = near(yawOf(dir), homeYaw + math.pi)
+			walking(u)
+			state, fade = "Walk", 0.2
+		elseif t < T.Back and path then
+			-- at the shelves: reaching up for a box, taking it down
+			where = Motion.PathAt(path, path.Length)
+			yaw = near(yawOf(into), homeYaw + math.pi)
+			local reach = smooth((t - T.Pick) / 0.3) * (1 - smooth((t - T.Pick - 0.45) / 0.25))
+			joints["Left Arm"] = CFrame.Angles(rad(-58 - 52 * reach), 0, rad(-8))
+			joints["Right Arm"] = CFrame.Angles(rad(-58 - 52 * reach), 0, rad(8))
+			headTilt = CFrame.Angles(rad(14) * reach, 0, 0)
+			state, fade = "Reach", 0.2
+		elseif t < walkOut0 and path then
+			-- turning back round with it
+			where = Motion.PathAt(path, path.Length)
+			yaw = near(yawOf(into), homeYaw + math.pi) - math.pi * smooth((t - T.Back) / (walkOut0 - T.Back))
 			joints["Left Arm"] = CFrame.Angles(rad(-58), 0, rad(-10))
 			joints["Right Arm"] = CFrame.Angles(rad(-58), 0, rad(10))
-			-- (his head comes round first, his body follows)
-			headGoal = math.clamp(math.pi * (turnA - headA), -1.2, 0)
-			dip = -math.sin(math.pi * turnA) * 0.07 * s
+			state, fade = "Carry", 0.3
+		elseif t < walkOut1 and path then
+			local u = (t - walkOut0) / (walkOut1 - walkOut0)
+			local pos, dir = Motion.PathAt(path, path.Length * (1 - smooth(u)))
+			where = pos
+			yaw = near(yawOf(-dir), homeYaw)
+			walking(u)
+			joints["Left Arm"] = CFrame.Angles(rad(-58), 0, rad(-10))
+			joints["Right Arm"] = CFrame.Angles(rad(-58), 0, rad(10))
+			state, fade = "CarryWalk", 0.2
+		elseif t < T.Offer then
+			-- back at the counter, turning round to face you
+			local fromYaw = homeYaw
+			if path then
+				local _, firstDir = Motion.PathAt(path, 0)
+				fromYaw = near(yawOf(-firstDir), homeYaw)
+			end
+			yaw = fromYaw + (homeYaw - fromYaw) * smooth((t - walkOut1) / (T.Offer - walkOut1))
+			joints["Left Arm"] = CFrame.Angles(rad(-58), 0, rad(-10))
+			joints["Right Arm"] = CFrame.Angles(rad(-58), 0, rad(10))
+			state, fade = "Carry", 0.3
 		elseif t < release then
 			state, fade = "Offer", 0.4
 			joints["Left Arm"] = CFrame.Angles(rad(-84), 0, rad(-6))
@@ -980,7 +1413,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			headTilt = CFrame.Angles(rad(-4), 0, 0)
 			leanGoal = rad(-9)
 			if root then
-				headGoal = gaze(body, root.Position + Vector3.new(0, 1.5, 0), 0.5)
+				headGoal = gaze(baker.Home, root.Position + Vector3.new(0, 1.5, 0), 0.5)
 			end
 		elseif t < T.Run then
 			local startled = t < release + 0.6
@@ -989,7 +1422,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			joints["Right Arm"] = if startled then CFrame.Angles(rad(-128), 0, rad(28)) else CFrame.Angles(rad(-32), 0, rad(14))
 			headTilt = if startled then CFrame.Angles(rad(12), 0, 0) else CFrame.Angles(0, 0, rad(-6))
 			leanGoal = rad(4)
-			headGoal = gaze(body, domerHeadAt(), 1.1)
+			headGoal = gaze(baker.Home, domerHeadAt(), 1.1)
 		else
 			state, fade = "Angry", 0.25
 			local shake = math.sin(t * 2 * math.pi * 5.5)
@@ -997,7 +1430,10 @@ function Intro.Play(opts: { Speed: number? }?)
 			joints["Left Arm"] = CFrame.Angles(rad(-40), 0, rad(-12))
 			leanGoal = rad(-10)
 			dip = -math.abs(math.sin(t * 2 * math.pi * 2.75)) * 0.05 * s
-			headGoal = gaze(body, domerHeadAt(), 1.2)
+			headGoal = gaze(baker.Home, domerHeadAt(), 1.2)
+		end
+		if once("Reply", t, T.Reply) then
+			say(baker.Puppet.Model:FindFirstChild("Head") :: BasePart?, "Coming right up!", 3.5 * BAKER_S, nil, t)
 		end
 		if once("Recoil", t, release) then
 			Motion.Kick(bLean, 3.2)
@@ -1006,6 +1442,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		Motion.Step(bHead, headGoal, dt, 4, 0.85)
 		joints.Head = CFrame.Angles(0, bHead.X, 0) * headTilt
 		local breathe = math.sin(t * 1.7) * 0.025 * s
+		local body = CFrame.new(where) * CFrame.Angles(0, yaw, 0)
 		Puppet.Animate(baker.Anim, dt, body * CFrame.new(0, dip + breathe, 0) * CFrame.Angles(bLean.X, 0, 0), joints, state, fade)
 	end
 
@@ -1018,6 +1455,7 @@ function Intro.Play(opts: { Speed: number? }?)
 		if once("Zip", t, T.Zip) then
 			domer.Model.Parent = scene
 			sound("rbxasset://sounds/swordlunge.wav", 0.55, 0.9)
+			loop("DomerRun", true)
 			SpeedLines.Flash(0.55, 0.6)
 			local dustAt = stillPart("SkidDust", CFrame.new(domerAt), scene)
 			dustPart = dustAt
@@ -1100,6 +1538,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			dust.Rate = 90
 		end
 		if once("Land", t, T.Land) then
+			loop("DomerRun", false)
 			sound("rbxasset://sounds/action_jump_land.mp3", 0.6, 1)
 			local puff = stillPart("LandDust", CFrame.new(domerAt + Vector3.new(0, 1, 0)), scene)
 			AnimeFX.Fire(AnimeFX.Impact(puff, { rgb(255, 210, 120) }, 1.8))
@@ -1135,13 +1574,16 @@ function Intro.Play(opts: { Speed: number? }?)
 				twinkle.Enabled = true
 				twinkle:Emit(2)
 			end
-			sound("rbxasset://sounds/electronicpingshort.wav", 2, 0.6)
+			cue("Wink")
+		end
+		if once("Laugh", t, T.Grin + 0.45) then
+			cue("Laugh")
 		end
 	end
 
 	-- The box: appears in the baker's hands while his back is turned, flies to Domer's hand
 	local function updateBox(dt: number)
-		if once("Box", t, T.Turn - 0.25) then
+		if once("Box", t, T.Pick + 0.35) then
 			local b = BoxModel.Build("Basic", nil, { NoEffects = true })
 			for _, part in b:GetDescendants() do
 				if part:IsA("BasePart") then
@@ -1247,9 +1689,97 @@ function Intro.Play(opts: { Speed: number? }?)
 		end
 	end
 
+	-- Your treadmill lights up: a warm glow all round it, and a big cartoon star shining behind it
+	type Star = { Gui: BillboardGui, Scale: UIScale, Spin: { GuiObject }, Born: number }
+	local star: Star? = nil
+	local function shineTreadmill()
+		cue("Shine")
+		local model = plot and plot:FindFirstChild("Treadmill")
+		local center = treadAt
+		if model and model:IsA("Model") then
+			center = model:GetPivot().Position
+			local glow = Instance.new("Highlight")
+			glow.Name = "TreadmillGlow"
+			glow.Adornee = model
+			glow.FillColor = rgb(255, 225, 90)
+			glow.FillTransparency = 0.55
+			glow.OutlineColor = WHITE
+			glow.OutlineTransparency = 0
+			glow.DepthMode = Enum.HighlightDepthMode.Occluded
+			glow.Parent = scene
+		end
+		local away = Vector3.new(center.X - follow.X, 0, center.Z - follow.Z)
+		away = if away.Magnitude > 0.1 then away.Unit else into
+		local holder = stillPart("TreadmillStar", CFrame.new(center + away * 6 + Vector3.new(0, 6, 0)), scene)
+		local light = Instance.new("PointLight")
+		light.Color = rgb(255, 225, 140)
+		light.Range = 22
+		light.Brightness = 3
+		light.Parent = holder
+		local gui = Instance.new("BillboardGui")
+		gui.Name = "Star"
+		gui.Size = UDim2.fromScale(16, 16)
+		gui.LightInfluence = 0
+		gui.Parent = holder
+		local scale = Instance.new("UIScale")
+		scale.Scale = 0.1
+		scale.Parent = gui
+		local spin: { GuiObject } = {}
+		local function shape(name: string, size: number, color: Color3, rotation: number, round: boolean, z: number): Frame
+			local f = Instance.new("Frame")
+			f.Name = name
+			f.AnchorPoint = Vector2.new(0.5, 0.5)
+			f.Position = UDim2.fromScale(0.5, 0.5)
+			f.Size = UDim2.fromScale(size, size)
+			f.BackgroundColor3 = color
+			f.Rotation = rotation
+			f.ZIndex = z
+			f.BorderSizePixel = 0
+			if round then
+				local corner = Instance.new("UICorner")
+				corner.CornerRadius = UDim.new(0.5, 0)
+				corner.Parent = f
+			else
+				local stroke = Instance.new("UIStroke")
+				stroke.Thickness = 4
+				stroke.Color = rgb(255, 170, 40)
+				stroke.Parent = f
+			end
+			f.Parent = gui
+			return f
+		end
+		-- a soft round glow, rays turning one way, an eight-pointed star (two squares) the other
+		local halo = shape("Glow", 1, rgb(255, 240, 170), 0, true, 1)
+		halo.BackgroundTransparency = 0.6
+		for i = 0, 5 do
+			local ray = shape("Ray", 0.08, rgb(255, 245, 200), i * 30, false, 2)
+			ray.Size = UDim2.fromScale(0.07, 1.25)
+			ray.BackgroundTransparency = 0.35
+			table.insert(spin, ray)
+		end
+		table.insert(spin, shape("Point", 0.5, rgb(255, 215, 60), 0, false, 3))
+		table.insert(spin, shape("Point", 0.5, rgb(255, 215, 60), 45, false, 3))
+		shape("Middle", 0.28, rgb(255, 250, 225), 0, true, 4)
+		star = { Gui = gui, Scale = scale, Spin = spin, Born = t }
+	end
+	local function stepStar()
+		local st = star
+		if not st then
+			return
+		end
+		local age = t - st.Born
+		st.Scale.Scale = backOut(age / 0.45) * (1 + 0.06 * math.sin(age * 5))
+		for _, f in st.Spin do
+			local base = (f:GetAttribute("Base") :: number?) or f.Rotation
+			f:SetAttribute("Base", base)
+			f.Rotation = base + age * (if f.Name == "Ray" then 25 else -40)
+		end
+	end
+
 	local function update(dt: number)
 		local step = dt * speed
 		t += step
+		domerSeen = dPos
 		updateScreen()
 		if full and root and humanoid then
 			updateYou(step)
@@ -1259,6 +1789,10 @@ function Intro.Play(opts: { Speed: number? }?)
 			if domer and once("Run", t, T.Run) then
 				startRun()
 			end
+			if once("Shine", t, T.Shine) then
+				shineTreadmill()
+			end
+			stepStar()
 		end
 		-- the camera (and a shake when Domer lands)
 		if camera then
@@ -1376,15 +1910,17 @@ function Intro.Init()
 	if not Config.Intro.Enabled then
 		return
 	end
-	-- Brand-new players (or everyone, with EveryJoin): once the loading screen has gone. (The
-	-- attribute goes on straight away, so the Update Log knows to wait.)
+	-- Everyone who hasn't seen this version of it yet (brand-new players, and everyone once more
+	-- after Config.Intro.Version goes up), or everyone, with EveryJoin: once the loading screen has
+	-- gone. (The attribute goes on straight away, so the Update Log knows to wait.)
 	local checked = false
 	State.Changed:Connect(function(snapshot)
 		if checked then
 			return
 		end
 		checked = true
-		if snapshot.SeenTutorial == false or Config.Intro.EveryJoin then
+		local seen = if type(snapshot.IntroVersion) == "number" then snapshot.IntroVersion else 0
+		if seen < Config.Intro.Version or Config.Intro.EveryJoin then
 			player:SetAttribute("Intro", true)
 			task.spawn(function()
 				local waited = 0

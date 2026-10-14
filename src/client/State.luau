@@ -33,6 +33,7 @@ export type Snapshot = {
 	Donated: number?,
 	HiddenItems: { [string]: boolean }?, -- items taken off the hotbar
 	SeenTutorial: boolean?,
+	IntroVersion: number?, -- the newest opening cinematic (Config.Intro.Version) you've seen
 	SeenUpdate: number?,
 	NotesOnLogin: boolean?,
 	TutorialEggClaimed: boolean?,

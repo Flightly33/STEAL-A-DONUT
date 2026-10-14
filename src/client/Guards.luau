@@ -62,6 +62,8 @@ local CUSTOM_SNORE = Config.Guard.SnoreSoundId ~= ""
 -- SNORE_FAR - about as far as you can be from him and still reach one of his boxes)
 local SNORE_NEAR = 16
 local SNORE_FAR = Layout.BoxRadius + 22
+-- ...and it carries further than that, fading out by SNORE_HEAR (you, or your camera, that close)
+local SNORE_HEAR = Layout.BoxRadius + 55
 local Z_RANGE = 240 -- ...and see his Z's
 local BREATH = 3.8 -- seconds per breath (in 1.7 s, out 1.3 s, then a pause)
 local BREATH_IN = 1.7
@@ -115,7 +117,7 @@ end
 
 -- His snore: a slowed-down rumble with a fast flutter on it (the rattle), fading in and out with
 -- every breath (see breathe). A pasted Creator Store snore plays as it is instead.
-local function makeSnore(mouth: BasePart?): Sound?
+local function makeSnore(mouth: BasePart?, model: Model): Sound?
 	if not mouth then
 		return nil
 	end
@@ -146,7 +148,9 @@ local function makeSnore(mouth: BasePart?): Sound?
 		eq.HighGain = -16
 		eq.Parent = sound
 	end
-	sound.Parent = mouth
+	-- A pasted snore isn't placed in the world (its loudness is worked out from how far you are):
+	-- placed in his mouth it went silent with you or your camera right up against (or inside) him.
+	sound.Parent = if CUSTOM_SNORE then model else mouth
 	return sound
 end
 
@@ -207,7 +211,8 @@ end
 -- How loud the pasted snore is `distance` studs from him.
 local function snoreVolume(distance: number): number
 	local t = math.clamp((distance - SNORE_NEAR) / (SNORE_FAR - SNORE_NEAR), 0, 1)
-	return Config.Guard.SnoreVolume * (1 - t * 2 / 3)
+	local beyond = math.clamp((distance - SNORE_FAR) / (SNORE_HEAR - SNORE_FAR), 0, 1)
+	return Config.Guard.SnoreVolume * (1 - t * 2 / 3) * (1 - beyond)
 end
 
 -- The biomes with a box you're close enough to grab right now (within its prompt's reach).
@@ -337,7 +342,7 @@ local function buildSleeper(areaId: number)
 		Home = home,
 		Hidden = false,
 		Mouth = mouth,
-		Snore = makeSnore(mouth),
+		Snore = makeSnore(mouth, model),
 		Phase = math.random() * BREATH,
 		BreathingOut = false,
 		Snoring = false,
@@ -453,6 +458,113 @@ local function alertSign(model: Model, head: BasePart)
 	return board
 end
 
+-- Waking up, on your screen only: he sits up, springs to his feet throwing his arms up, then
+-- stomps and shakes his head, fists out, steaming. It's quick (Guards.WakeTime) and fits inside
+-- his wake delay, so it never changes your head start: the server starts the chase at exactly
+-- the same moment either way. Poses are angles in degrees for his R6 joints: Root/Neck pitch
+-- (+ = forward), arms and legs forward (+), arms out to the side (Out).
+Guards.WakeTime = 0.85
+type WakeKey = { T: number, Root: number, Neck: number, Arms: number, Out: number, RightLeg: number, LeftLeg: number }
+local WAKE_KEYS: { WakeKey } = {
+	{ T = 0, Root = -45, Neck = -20, Arms = -35, Out = 5, RightLeg = 75, LeftLeg = 75 }, -- sitting up
+	{ T = 0.22, Root = -10, Neck = -15, Arms = 150, Out = 15, RightLeg = 10, LeftLeg = 10 }, -- springing up
+	{ T = 0.38, Root = -6, Neck = -20, Arms = 170, Out = 20, RightLeg = 0, LeftLeg = 0 }, -- arms in the air
+	{ T = 0.52, Root = 16, Neck = 18, Arms = 25, Out = 38, RightLeg = 42, LeftLeg = 0 }, -- fists out, foot up
+	{ T = 0.62, Root = 20, Neck = 18, Arms = 15, Out = 40, RightLeg = -4, LeftLeg = 0 }, -- STOMP
+	{ T = 0.85, Root = 12, Neck = 12, Arms = 10, Out = 32, RightLeg = 0, LeftLeg = 0 },
+}
+
+-- His pose `t` seconds into waking up (joint name -> Motor6D.Transform).
+function Guards.WakePose(t: number): { [string]: CFrame }
+	local a, b = WAKE_KEYS[1], WAKE_KEYS[#WAKE_KEYS]
+	for i = 1, #WAKE_KEYS - 1 do
+		if t >= WAKE_KEYS[i].T and t <= WAKE_KEYS[i + 1].T then
+			a, b = WAKE_KEYS[i], WAKE_KEYS[i + 1]
+			break
+		end
+	end
+	local span = math.max(b.T - a.T, 1e-3)
+	local k = math.clamp((t - a.T) / span, 0, 1)
+	k = k * k * (3 - 2 * k)
+	local function mix(key: string): number
+		return math.rad((a :: any)[key] + ((b :: any)[key] - (a :: any)[key]) * k)
+	end
+	-- (shaking his head, furious, once he's up)
+	local shake = if t > 0.45 then math.rad(22) * math.sin(t * 38) * math.clamp((Guards.WakeTime - t) / 0.2, 0, 1) else 0
+	local out = mix("Out")
+	return {
+		RootJoint = CFrame.Angles(mix("Root"), 0, 0),
+		Neck = CFrame.Angles(mix("Neck"), 0, shake),
+		["Right Shoulder"] = CFrame.Angles(-out, 0, mix("Arms")),
+		["Left Shoulder"] = CFrame.Angles(-out, 0, -mix("Arms")),
+		["Right Hip"] = CFrame.Angles(0, 0, mix("RightLeg")),
+		["Left Hip"] = CFrame.Angles(0, 0, -mix("LeftLeg")),
+	}
+end
+
+local function steamPuff(head: BasePart)
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "AngrySteam"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 120, 110), Color3.fromRGB(255, 235, 230))
+	emitter.LightEmission = 0.2
+	emitter.Lifetime = NumberRange.new(0.4, 0.7)
+	emitter.Speed = NumberRange.new(10, 18)
+	emitter.SpreadAngle = Vector2.new(25, 25)
+	emitter.EmissionDirection = Enum.NormalId.Top
+	emitter.Drag = 4
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 3) })
+	emitter.Transparency = NumberSequence.new(0.15, 1)
+	emitter.Rate = 0
+	emitter.Parent = head
+	emitter:Emit(18)
+	task.delay(1.2, function()
+		emitter:Destroy()
+	end)
+end
+
+function Guards.WakeUp(model: Model)
+	local motors: { [string]: Motor6D } = {}
+	for _, d in model:GetDescendants() do
+		if d:IsA("Motor6D") then
+			motors[d.Name] = d
+		end
+	end
+	if not motors.RootJoint then
+		return
+	end
+	local head = model:FindFirstChild("Head")
+	local started = os.clock()
+	local stomped = false
+	local connections: { RBXScriptConnection } = {}
+	local function pose()
+		local t = os.clock() - started
+		local ok, state = pcall(model.GetAttribute, model, "State")
+		if t > Guards.WakeTime or not ok or not model.Parent or state ~= "Waking" then
+			for _, connection in connections do
+				connection:Disconnect()
+			end
+			return
+		end
+		for name, transform in Guards.WakePose(t) do
+			local motor = motors[name]
+			if motor then
+				motor.Transform = transform
+			end
+		end
+		if not stomped and t >= 0.6 then
+			stomped = true
+			if head and head:IsA("BasePart") then
+				steamPuff(head)
+			end
+			Guards.Poof(model:GetPivot().Position - Vector3.new(0, 2.5 * Config.Guard.Scale, 0), Color3.fromRGB(230, 210, 190))
+		end
+	end
+	-- (after his animations step, and again right before each frame: our pose wins)
+	table.insert(connections, RunService.Stepped:Connect(pose))
+	table.insert(connections, RunService.RenderStepped:Connect(pose))
+	pose()
+end
+
 local function hideForMe(model: Instance)
 	local function hide(d: Instance)
 		if d:IsA("BasePart") then
@@ -496,9 +608,15 @@ local function onGuardAdded(instance: Instance)
 		if head and head:IsA("BasePart") then
 			local sign: BasePart? = nil
 			local chase: DomerFX.Chase? = nil
+			local waking = false
 			local function update()
 				local state = instance:GetAttribute("State")
 				local alert = state == "Waking" or state == "Chasing"
+				-- he gets up, furious (each time he's woken)
+				if state == "Waking" and not waking then
+					Guards.WakeUp(instance)
+				end
+				waking = state == "Waking"
 				if alert and not (sign and sign.Parent) then
 					sign = alertSign(instance, head)
 				end
@@ -588,8 +706,11 @@ function Guards.Init()
 					moveSleeper(sleeper, now)
 				end
 				if CUSTOM_SNORE then
+					-- heard near him (you or your camera, even right up against him) or near his boxes
 					local fromYou = if at and not sleeper.Hidden then (sleeper.Home.Position - at).Magnitude else math.huge
-					breathe(sleeper, now, distance < Z_RANGE, reach[areaId] == true and not sleeper.Hidden, snoreVolume(fromYou))
+					local closest = math.min(fromYou, distance)
+					local near = closest < SNORE_HEAR or (reach[areaId] == true and not sleeper.Hidden)
+					breathe(sleeper, now, distance < Z_RANGE, near, snoreVolume(math.min(closest, SNORE_FAR)))
 				else
 					breathe(sleeper, now, distance < Z_RANGE, distance < SNORE_RANGE + 10, 0)
 				end

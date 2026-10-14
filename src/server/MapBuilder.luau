@@ -15,8 +15,7 @@
 
 	Biomes (Lane/AreaN) run one after another along +Z from the lobby. Each one has:
 	  * thick grassy walls (Config.Map.WallThickness) and a checker floor,
-	  * an arch at its entrance with its name and the Speed you need to escape its Domer (anyone
-	    can walk in: there are no speed gates),
+	  * an arch at its entrance (no title over the lane; anyone can walk in: no speed gates),
 	  * its Domer's spot in a back corner (GuardHome; the first biomes have his couch there) and
 	    the box spots around it (BoxSpots: BoxService puts the boxes on them),
 	  * its theme's decorations (Decor.luau) and lots of little props (DecorProps.luau: igloos,
@@ -30,8 +29,6 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Areas = require(Shared.Areas)
 local Layout = require(Shared.Layout)
-local Format = require(Shared.Format)
-local Economy = require(Shared.Economy)
 local Donuts = require(Shared.Donuts)
 local DonutModel = require(Shared.DonutModel)
 local BoxModel = require(Shared.BoxModel)
@@ -48,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 19
+local MAP_VERSION = 20
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -344,16 +341,6 @@ end
 --------------------------------------------------------------------------------
 -- Lane / biomes
 --------------------------------------------------------------------------------
--- Third line of a biome's arch sign. Rewritten on every start (refreshAreaSigns), so a saved map
--- never shows old speeds after a rebalance.
-local function speedText(area: Areas.Area): string
-	local need = Economy.EscapeSpeed(area.Id)
-	if need <= 0 then
-		return "No speed needed - start here!"
-	end
-	return Format.Number(need) .. " Speed to escape " .. Config.Guard.Name
-end
-
 local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 	local half = Layout.AreaHalfWidth(area.Id)
 	local arch = Instance.new("Model")
@@ -362,25 +349,6 @@ local function buildArch(parent: Instance, area: Areas.Area, zs: number)
 		Build.Part({ Parent = arch, Name = "ArchPillar", Size = Vector3.new(8, 38, 8), Position = Vector3.new(side * (half - 4), 19, zs + 4), Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.25), Material = area.WallMaterial })
 		Build.Part({ Parent = arch, Name = "ArchCap", Size = Vector3.new(9, 1.5, 9), Position = Vector3.new(side * (half - 4), 38.75, zs + 4), Color = area.Trim, Material = area.TrimMaterial })
 	end
-	local beam = Build.Part({
-		Parent = arch, Name = "ArchSign",
-		Size = Vector3.new(half * 2 - 6, 12, 4),
-		CFrame = CFrame.lookAt(Vector3.new(0, 45, zs + 4), Vector3.new(0, 45, zs - 10)),
-		Color = area.Wall[1]:Lerp(Color3.new(0, 0, 0), 0.4), Material = area.WallMaterial,
-	})
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 12
-	gui.LightInfluence = 0
-	gui.Parent = beam
-	local list = Instance.new("UIListLayout")
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Parent = gui
-	Build.Text(gui, "BIOME " .. area.Id, { Size = UDim2.fromScale(1, 0.22), TextColor3 = rgb(255, 255, 255), LayoutOrder = 1 })
-	Build.Text(gui, string.upper(area.Name), { Size = UDim2.fromScale(1, 0.46), TextColor3 = area.Trim:Lerp(Color3.new(1, 1, 1), 0.35), LayoutOrder = 2 })
-	Build.Text(gui, speedText(area), { Name = "SpeedInfo", Size = UDim2.fromScale(1, 0.26), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne, LayoutOrder = 3 })
 	arch.Parent = parent
 end
 
@@ -390,10 +358,9 @@ local function refreshAreaSigns(folder: Instance)
 		local biome = lane and lane:FindFirstChild("Area" .. area.Id)
 		local arch = biome and biome:FindFirstChild("Arch")
 		local sign = arch and arch:FindFirstChild("ArchSign")
-		local gui = sign and sign:FindFirstChildOfClass("SurfaceGui")
-		local label = gui and gui:FindFirstChild("SpeedInfo")
-		if label and label:IsA("TextLabel") then
-			label.Text = speedText(area)
+		-- (old saved maps: no titles over the lane any more)
+		if sign then
+			sign:Destroy()
 		end
 		-- (old saved maps: the speed gates are gone)
 		local gate = biome and biome:FindFirstChild("SpeedGate")
@@ -585,11 +552,11 @@ local function buildArea(parent: Instance, area: Areas.Area)
 		local inner, outer = math.min(half, beforeHalf), math.max(half, beforeHalf)
 		for _, side in { -1, 1 } do
 			local from = if side < 0 then -(outer + t) else inner
-			Build.CheckerWall(folder, Vector3.new(from, 0, zs + 2), Vector3.new(1, 0, 0), outer + t - inner, h, 4, area.Wall, area.WallMaterial, 20)
+			Build.CheckerWall(folder, Vector3.new(from, 0, zs + 2), Vector3.new(1, 0, 0), outer + t - inner, h, 4, area.Wall, area.WallMaterial, map.LaneWallSquare)
 		end
 	end
 	for _, side in { -1, 1 } do
-		Build.CheckerWall(folder, Vector3.new(side * (half + t / 2), 0, zs), Vector3.new(0, 0, 1), ze - zs, h, t, area.Wall, area.WallMaterial, 20)
+		Build.CheckerWall(folder, Vector3.new(side * (half + t / 2), 0, zs), Vector3.new(0, 0, 1), ze - zs, h, t, area.Wall, area.WallMaterial, map.LaneWallSquare)
 		Build.Part({ Parent = folder, Name = "WallTop", Size = Vector3.new(t + 1, 2, ze - zs), Position = Vector3.new(side * (half + t / 2), h + 1, (zs + ze) / 2), Color = area.Trim, Material = area.TrimMaterial })
 	end
 	-- Coloured line marking the start of the biome
@@ -611,7 +578,7 @@ local function buildArea(parent: Instance, area: Areas.Area)
 
 	-- Close the lane after the last biome
 	if area.Id == #Areas.List then
-		Build.CheckerWall(folder, Vector3.new(-half - t, 0, ze + 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, 4, area.Wall, area.WallMaterial, 20)
+		Build.CheckerWall(folder, Vector3.new(-half - t, 0, ze + 2), Vector3.new(1, 0, 0), half * 2 + t * 2, h, 4, area.Wall, area.WallMaterial, map.LaneWallSquare)
 	end
 end
 
