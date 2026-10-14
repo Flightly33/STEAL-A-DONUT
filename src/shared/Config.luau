@@ -323,6 +323,15 @@ Config.Boxes = {
 	DroppedLifetime = 120,
 	StealSeconds = 0.6, -- hold E this long to grab a box
 	MaxInventory = 60, -- boxes + donuts you can carry in your inventory
+	-- Growth: while a box waits in your pen, the donut inside grows (or shrinks) to a random size.
+	-- The box's label counts up (or down) from 1.00x to it as the timer runs. Most land close to
+	-- the box's own size (1x for a Small box, 1.3x Big, 1.65x Huge, 2.1x GIANT); every step further
+	-- out is rarer than the last. Spread sets how fast the odds fall: with 0.18 about 1 box in 7 is
+	-- 25% bigger (or 20% smaller) than its size, 1 in 90 is twice as big (or half), about 1 in
+	-- 15,000 is 5x (or a fifth), and 10x is about 1 in 700,000.
+	-- Bigger donuts earn more (x size ^ 2.6 - a 2x donut earns about 6x), smaller ones less
+	-- (x size ^ 1.5 - half size earns about a third).
+	Growth = { Spread = 0.18, Min = 0.1, Max = 20 },
 }
 
 --------------------------------------------------------------------------------

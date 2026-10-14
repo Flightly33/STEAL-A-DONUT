@@ -51,6 +51,7 @@ type Bobbing = { Model: Model, Parts: { BasePart }, Offsets: { CFrame }, Pivot: 
 type PenBox = {
 	Model: Model,
 	Timer: TextLabel,
+	Growth: TextLabel?,
 	Mine: boolean,
 	Skip: ProximityPrompt?,
 	Open: ProximityPrompt?,
@@ -163,9 +164,11 @@ local function addPenBox(model: Instance)
 				table.insert(offsets, pivot:ToObjectSpace(part.CFrame))
 			end
 		end
+		local growth = (info :: Instance):FindFirstChild("Growth")
 		penBoxes[model] = {
 			Model = model,
 			Timer = timer,
+			Growth = if growth and growth:IsA("TextLabel") then growth else nil,
 			Mine = mine,
 			Skip = if skip and skip:IsA("ProximityPrompt") then skip else nil,
 			Open = if open and open:IsA("ProximityPrompt") then open else nil,
@@ -208,6 +211,25 @@ local function updateTimers()
 		end
 		if entry.Timer.TextColor3 ~= color then
 			entry.Timer.TextColor3 = color
+		end
+		-- the donut inside growing (or shrinking) from 1.00x to its random size as the time runs out
+		local label = entry.Growth
+		local final = model:GetAttribute("Growth")
+		if label and type(final) == "number" then
+			local progress = 1
+			if not ready then
+				local hatchAt = model:GetAttribute("HatchAt")
+				local total = model:GetAttribute("HatchSeconds")
+				if type(hatchAt) == "number" and type(total) == "number" and total > 0 then
+					progress = 1 - (hatchAt - now) / total
+				end
+			end
+			local shown = Rarities.GrowthShown(final, progress)
+			local growthText = Rarities.GrowthLabel(shown)
+			if label.Text ~= growthText then
+				label.Text = growthText
+				label.TextColor3 = Rarities.GrowthColor(shown)
+			end
 		end
 	end
 end

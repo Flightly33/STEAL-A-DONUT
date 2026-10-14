@@ -58,7 +58,16 @@ local slotModels: { [Player]: { [number]: Model } } = {}
 local boxModels: { [Player]: { [number]: Model } } = {}
 local opening: { [Player]: { [number]: boolean } } = {} -- boxes playing their opening animation
 local rng = Random.new()
+
+-- The donut's random size (Config.Boxes.Growth), around the size the box promises.
+local function rollGrowth(boxSize: string): number
+	return Rarities.RollGrowth(rng, Rarities.Size(Boxes.Size(boxSize).DonutSize).Scale)
+end
+
 local baseIncome: { [Player]: number } = {}
+-- How far away the buttons on your pen donuts work. Your client only shows them on the donut your
+-- mouse is on (client/DonutHover), so they can reach further than walking up to it.
+local DONUT_REACH = 40
 
 local function notify(player: Player, text: string, kind: string?)
 	Remotes.Event("Notify"):FireClient(player, text, kind or "info")
@@ -545,7 +554,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	upgrade.KeyboardKeyCode = Enum.KeyCode.E
 	upgrade.GamepadKeyCode = Enum.KeyCode.ButtonX
 	upgrade.HoldDuration = 0
-	upgrade.MaxActivationDistance = 12
+	upgrade.MaxActivationDistance = DONUT_REACH
 	upgrade.RequiresLineOfSight = false
 	upgrade:SetAttribute("OwnerUserId", player.UserId)
 	upgrade.Parent = root
@@ -557,7 +566,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	pickUp.KeyboardKeyCode = Enum.KeyCode.F
 	pickUp.GamepadKeyCode = Enum.KeyCode.ButtonY
 	pickUp.HoldDuration = 0.3
-	pickUp.MaxActivationDistance = 12
+	pickUp.MaxActivationDistance = DONUT_REACH
 	pickUp.RequiresLineOfSight = false
 	pickUp.UIOffset = Vector2.new(0, 70)
 	pickUp:SetAttribute("OwnerUserId", player.UserId)
@@ -570,7 +579,7 @@ local function spawnSlotModel(player: Player, slotIndex: number)
 	favorite.KeyboardKeyCode = Enum.KeyCode.R
 	favorite.GamepadKeyCode = Enum.KeyCode.ButtonB
 	favorite.HoldDuration = 0
-	favorite.MaxActivationDistance = 12
+	favorite.MaxActivationDistance = DONUT_REACH
 	favorite.RequiresLineOfSight = false
 	favorite.UIOffset = Vector2.new(0, 140)
 	favorite:SetAttribute("OwnerUserId", player.UserId)
@@ -843,6 +852,9 @@ local function spawnBoxModel(player: Player, slotIndex: number)
 	local slots = PlotService.GetSlotCount(player)
 	local origin = Layout.PlotCFrame(playerPlots[player] or 1)
 	local home = Layout.SlotHome(slotIndex, slots)
+	if type(box.Growth) ~= "number" or box.Growth ~= box.Growth then
+		box.Growth = rollGrowth(box.Size) -- (boxes put down before growth existed)
+	end
 	local model = BoxModel.Build(box.Tier, box.Size, { Mutation = box.Mutation, Area = box.Area })
 	-- (facing the gate, so you read "DONUTS" from the front)
 	BoxModel.PlaceOn(model, origin * CFrame.new(home + Vector3.new(0, Layout.PlotFloorHeight, 0)) * CFrame.Angles(0, math.pi, 0))
@@ -850,22 +862,29 @@ local function spawnBoxModel(player: Player, slotIndex: number)
 	model:SetAttribute("HatchAt", box.HatchAt)
 	model:SetAttribute("OwnerUserId", player.UserId)
 	model:SetAttribute("Slot", slotIndex)
+	-- (clients count the growth label from 1.00x to this as the timer runs)
+	model:SetAttribute("Growth", box.Growth)
+	model:SetAttribute("HatchSeconds", Boxes.HatchSeconds(box.Tier, box.Size))
 	local root = model.PrimaryPart :: BasePart
 	-- Over the box: its name, and a timer (the time left, then "CLICK TO OPEN!") on a dark pill so
 	-- it's easy to read. The server writes the first value; clients count it down from HatchAt.
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "BoxInfo"
-	gui.Size = UDim2.fromScale(10, 3.4)
-	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 2.6, 0)
+	gui.Size = UDim2.fromScale(10, 4.6)
+	gui.StudsOffsetWorldSpace = Vector3.new(0, ((model:GetAttribute("Top") :: number?) or 3) + 3.1, 0)
 	gui.LightInfluence = 0
 	gui.MaxDistance = 140
 	gui.Parent = root
-	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.4), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
+	-- the donut inside growing: 1.00x when it goes down, its random size once it's ready (client/BoxFX)
+	local total = Boxes.HatchSeconds(box.Tier, box.Size)
+	local shown = Rarities.GrowthShown(box.Growth :: number, 1 - (box.HatchAt - os.time()) / math.max(total, 1))
+	Build.Text(gui, Rarities.GrowthLabel(shown), { Name = "Growth", Size = UDim2.fromScale(0.6, 0.27), Position = UDim2.fromScale(0.2, 0), TextColor3 = Rarities.GrowthColor(shown), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0, Font = Enum.Font.FredokaOne })
+	Build.Text(gui, Rarities.DisplayName(Boxes.DisplayName(box.Tier, box.Size), box.Mutation, nil), { Name = "BoxName", Size = UDim2.fromScale(1, 0.29), Position = UDim2.fromScale(0, 0.28), TextColor3 = Boxes.Tier(box.Tier).Color:Lerp(Color3.new(1, 1, 1), 0.3), TextStrokeColor3 = rgb(30, 20, 30), TextStrokeTransparency = 0 })
 	local pill = Instance.new("Frame")
 	pill.Name = "TimerPill"
 	pill.AnchorPoint = Vector2.new(0.5, 0)
-	pill.Position = UDim2.fromScale(0.5, 0.44)
-	pill.Size = UDim2.fromScale(0.66, 0.54)
+	pill.Position = UDim2.fromScale(0.5, 0.59)
+	pill.Size = UDim2.fromScale(0.66, 0.4)
 	pill.BackgroundColor3 = rgb(25, 15, 30)
 	pill.BackgroundTransparency = 0.25
 	pill.Parent = gui
@@ -956,6 +975,7 @@ function PlotService.AddBox(player: Player, tier: string, size: string, area: nu
 		Area = area,
 		Mutation = if mutation and mutation ~= "None" then mutation else nil,
 		HatchAt = os.time() + math.ceil(Boxes.HatchSeconds(tier, size)),
+		Growth = rollGrowth(size),
 	}
 	spawnBoxModel(player, slotIndex)
 	player:SetAttribute("BoxesPlaced", ((player:GetAttribute("BoxesPlaced") :: number?) or 0) + 1) -- (the tutorial watches this)
@@ -976,7 +996,7 @@ local function openBox(player: Player, slotIndex: number)
 	opening[player][slotIndex] = true
 	local donut = Donuts.Roll(box.Area, box.Tier, rng)
 	local mutation = box.Mutation or "None"
-	local size = Boxes.Size(box.Size).DonutSize
+	local size = Rarities.GrowthId(if type(box.Growth) == "number" then box.Growth else rollGrowth(box.Size))
 	PlotService.BoxOpened:Fire(player, donut.Id, mutation, size)
 	PlotService.RecordFind(player, donut.Id, mutation, size)
 	local model = boxModels[player] and boxModels[player][slotIndex]

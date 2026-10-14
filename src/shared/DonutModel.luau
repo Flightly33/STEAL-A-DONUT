@@ -1940,7 +1940,7 @@ function DonutModel.CreateBillboard(donut: Donut, income: number, level: number?
 	if hasTag then
 		local parts = {}
 		if size.Id ~= "Normal" then
-			table.insert(parts, string.upper(size.Id))
+			table.insert(parts, string.upper(Rarities.SizeLabel(size.Id)))
 		end
 		if mutation.Order > 0 then
 			table.insert(parts, string.upper(mutation.Id))

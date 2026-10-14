@@ -61,6 +61,22 @@ UpdateNotes.List = {
 		Decor = "Sparkles",
 		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
 		Sections = {
+			{ Title = "Growing Donuts", Tag = "NEW", Lines = {
+				"While a box waits in your pen, the donut inside grows - or shrinks! - to a random size",
+				"Watch the number over the box: it starts at 1.00x and creeps up (or down) as the timer runs, landing on the donut's size when it's ready",
+				"Most land close to 1x, but every step further out is rarer: twice as big is about 1 in 90, and 5x or 10x giants are once-in-a-lifetime",
+				"Bigger donuts earn a lot more (a 2x donut earns about 6x the money); tiny ones earn less but look adorable",
+				"Big, Huge and GIANT boxes grow their donuts around a bigger size to start with",
+			} },
+			{ Title = "Tidier Pens", Tag = "CHANGED", Lines = {
+				"The Upgrade, Pick up and Favorite buttons only show on the donut your mouse is over (with a glowing outline), so your pen isn't covered in buttons",
+				"On a phone or tablet, tap a donut to show its buttons",
+			} },
+			{ Title = "New Hotbar", Tag = "NEW Look", Lines = {
+				"Your items have a brand new bar: each one shows the real 3D donut or box, turning slowly, in its rarity's colour",
+				"Grown sizes and mutations are written on each tile, and the item you're holding lifts up with a gold rim",
+				"Press 1 - 9 or click a tile to hold it. Got more than nine? The last tile opens a bag with everything",
+			} },
 			{ Title = "Mythic Box Opening", Tag = "NEW", Lines = {
 				"Opening a MYTHIC donut box is a whole movie now, with black bars and dark edges like a film",
 				"You're inside your donut shop with the baker, and he hands you the glowing Mythic box: \"A MYTHIC box... just for you!\"",

@@ -141,6 +141,12 @@ local function makeTool(player: Player, item: DataService.InvItem): Tool
 	tool.ToolTip = if item.Kind == "Box" then "Click in your pen to put it down, then click it when its timer runs out" else "Click in your pen to put it down"
 	tool:SetAttribute("InvUid", item.Uid)
 	tool:SetAttribute("InvKind", item.Kind)
+	-- (what the hotbar draws: client/UI/Hotbar)
+	tool:SetAttribute("DonutId", item.Id)
+	tool:SetAttribute("Tier", item.Tier)
+	tool:SetAttribute("Size", item.Size)
+	tool:SetAttribute("Mutation", item.Mutation)
+	tool:SetAttribute("Level", item.Level)
 	local handle = handleFor(item)
 	handle.Parent = tool
 	tool.Grip = CFrame.new(0, -0.2, 0.6)

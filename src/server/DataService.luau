@@ -27,7 +27,8 @@ local DataService = {}
 
 export type SlotData = { Id: string, Level: number, Mutation: string?, Size: string? }
 -- A donut box waiting to open in the pen (it takes a slot, like a donut). HatchAt: os.time() it opens.
-export type PenBox = { Tier: string, Size: string, Area: number, Mutation: string?, HatchAt: number }
+-- Growth: the donut's random size, rolled when the box goes down (Config.Boxes.Growth)
+export type PenBox = { Tier: string, Size: string, Area: number, Mutation: string?, HatchAt: number, Growth: number? }
 -- Something in the inventory (a Tool in the backpack): a box to put in your pen, or a donut.
 export type InvItem = { Uid: string, Kind: string, Id: string?, Level: number?, Tier: string?, Size: string?, Area: number?, Mutation: string? }
 export type EggData = { Uid: string, Id: string, HatchAt: number } -- HatchAt: os.time() when it's ready

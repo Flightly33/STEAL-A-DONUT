@@ -65,6 +65,8 @@ export type Size = {
 	CarrySpeed: number, -- WalkSpeed multiplier while you carry it
 }
 
+local Config = require(script.Parent.Config)
+
 local Rarities = {}
 
 --------------------------------------------------------------------------------
@@ -135,8 +137,110 @@ function Rarities.Mutation(id: string?): Mutation
 	return Rarities.MutationById[id or "None"] or Rarities.Mutations[1]
 end
 
+--------------------------------------------------------------------------------
+-- Growth sizes: a donut from a box has its own random size ("x2.35" = 2.35 times as big; see
+-- Config.Boxes.Growth). Saves keep it as that string, so it travels everywhere a size id does.
+--------------------------------------------------------------------------------
+local growthSizes: { [string]: Size } = {}
+
+-- "x2.35" -> 2.35 (nil for the named sizes)
+function Rarities.GrowthOf(id: string?): number?
+	if type(id) ~= "string" or string.sub(id, 1, 1) ~= "x" then
+		return nil
+	end
+	local value = tonumber(string.sub(id, 2))
+	if not value or value ~= value or value <= 0 or value == math.huge then
+		return nil
+	end
+	return value
+end
+
+function Rarities.GrowthId(growth: number): string
+	local limits = Config.Boxes.Growth
+	local value = if growth == growth then math.clamp(growth, limits.Min, limits.Max) else 1
+	return string.format("x%.2f", value)
+end
+
+-- How big it looks: true to size up to 2.5x, then it keeps growing more slowly (a 10x donut is
+-- about 4.7 times as big, so it still fits on its stand in the pen).
+function Rarities.GrowthScale(growth: number): number
+	if growth <= 2.5 then
+		return math.max(growth, 0.2)
+	end
+	return 2.5 * (growth / 2.5) ^ 0.45
+end
+
+-- How much more (or less) it earns.
+function Rarities.GrowthMultiplier(growth: number): number
+	return if growth >= 1 then growth ^ 2.6 else growth ^ 1.5
+end
+
+-- "2.35x" (for names and labels)
+function Rarities.GrowthLabel(growth: number): string
+	return string.format("%.2fx", growth)
+end
+
+-- The growth label over a waiting box: 1.00x when it goes down, `growth` once it's ready
+-- (`progress` 0 -> 1), changing by the same factor every second.
+function Rarities.GrowthShown(growth: number, progress: number): number
+	local k = if progress == progress then math.clamp(progress, 0, 1) else 0
+	return math.exp(math.log(math.max(growth, 1e-3)) * k)
+end
+
+-- White at 1x, greener the bigger, bluer the smaller (gold from 3x).
+function Rarities.GrowthColor(growth: number): Color3
+	local white = Color3.new(1, 1, 1)
+	if growth >= 3 then
+		return Color3.fromRGB(255, 210, 60)
+	elseif growth >= 1 then
+		return white:Lerp(Color3.fromRGB(110, 255, 120), math.clamp((growth - 1) / 1.2, 0, 1))
+	end
+	return white:Lerp(Color3.fromRGB(110, 200, 255), math.clamp((1 - growth) / 0.6, 0, 1))
+end
+
+-- A random growth around `center` (the box size's donut scale). Equally likely to go up or down;
+-- the further from the centre, the rarer (exponential in log size). `luck` > 1 stretches the
+-- upward side (Luck Event).
+function Rarities.RollGrowth(rng: Random, center: number?, luck: number?): number
+	local spread = Config.Boxes.Growth.Spread
+	local up = rng:NextNumber() < 0.5
+	local stretch = if up then math.max(luck or 1, 1) ^ 0.25 else 1
+	local distance = -math.log(math.max(1 - rng:NextNumber(), 1e-12)) * spread * stretch
+	local growth = (center or 1) * math.exp(if up then distance else -distance)
+	local limits = Config.Boxes.Growth
+	return math.floor(math.clamp(growth, limits.Min, limits.Max) * 100 + 0.5) / 100
+end
+
 function Rarities.Size(id: string?): Size
-	return Rarities.SizeById[id or "Normal"] or Rarities.Sizes[2]
+	local named = Rarities.SizeById[id or "Normal"]
+	if named then
+		return named
+	end
+	local growth = Rarities.GrowthOf(id)
+	if not growth then
+		return Rarities.Sizes[2]
+	end
+	local key = id :: string
+	local cached = growthSizes[key]
+	if not cached then
+		cached = {
+			Id = key,
+			Order = 2,
+			Scale = Rarities.GrowthScale(growth),
+			Multiplier = Rarities.GrowthMultiplier(growth),
+			Weight = 0,
+			CarrySpeed = math.clamp(1 - 0.06 * (growth - 1), 0.7, 1),
+		}
+		growthSizes[key] = cached
+	end
+	return cached
+end
+
+-- What a size is called on labels and names: "GIANT"-style names for the old sizes, "2.35x" for
+-- grown ones.
+function Rarities.SizeLabel(id: string?): string
+	local growth = Rarities.GrowthOf(id)
+	return if growth then Rarities.GrowthLabel(growth) else (id or "Normal")
 end
 
 -- Roll a mutation. `luck` multiplies every chance and `boost` names one mutation that gets an extra
@@ -180,7 +284,7 @@ end
 function Rarities.DisplayName(baseName: string, mutationId: string?, sizeId: string?): string
 	local parts = {}
 	if sizeId and sizeId ~= "Normal" then
-		table.insert(parts, sizeId)
+		table.insert(parts, Rarities.SizeLabel(sizeId))
 	end
 	if mutationId and mutationId ~= "None" then
 		table.insert(parts, mutationId)

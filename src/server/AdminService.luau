@@ -206,7 +206,7 @@ function Commands.Donut(player: Player, profile: DataService.Profile, arg: any)
 		return
 	end
 	local mutation = if type(arg.Mutation) == "string" and Rarities.MutationById[arg.Mutation] then arg.Mutation else "None"
-	local size = if type(arg.Size) == "string" and Rarities.SizeById[arg.Size] then arg.Size else "Normal"
+	local size = if type(arg.Size) == "string" and (Rarities.SizeById[arg.Size] or Rarities.GrowthOf(arg.Size)) then arg.Size else "Normal"
 	if not PlotService.AddDonut(player, arg.DonutId, 1, mutation, size) then
 		-- (a full pen: it goes into your inventory instead)
 		InventoryService.AddDonut(player, arg.DonutId, 1, mutation, size)
