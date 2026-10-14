@@ -72,6 +72,9 @@ Admin.Init()
 CrateOpen.Init()
 Tutorial.Init()
 UpdateNotes.Init()
+Index.SetUpdatesOpener(function()
+	UpdateNotes.Open()
+end)
 PassOffer.Init()
 EventBanner.Init()
 ChatTags.Init()
@@ -87,9 +90,6 @@ HUD.Init({
 	OpenTeleport = Teleport.Open,
 	OpenBaseSize = BaseSize.Open,
 	OpenPets = PetsWindow.Open,
-	OpenUpdates = function()
-		UpdateNotes.Open()
-	end,
 	OpenAdmin = Admin.Open,
 	UnclaimedIndex = Index.UnclaimedCount,
 	TrailReady = Trails.IsReady,

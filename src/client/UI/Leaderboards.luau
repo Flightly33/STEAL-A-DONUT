@@ -113,7 +113,8 @@ local function buildWorldBoard(screen: BasePart, boardId: string)
 		Adornee = screen,
 		Face = Enum.NormalId.Front,
 		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud,
-		PixelsPerStud = 25,
+		-- (the same picture on a smaller board: a screen narrower than the full 28 studs gets more pixels per stud)
+		PixelsPerStud = 25 * 28 / math.max(screen.Size.X, 1),
 		LightInfluence = 0,
 		ResetOnSpawn = false,
 		Parent = Theme.PlayerGui(),

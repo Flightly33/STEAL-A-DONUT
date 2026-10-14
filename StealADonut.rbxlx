@@ -1868,7 +1868,7 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
 	HubHalfWidth = 194, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
-	HubDepth = 449, -- (2 bases down each side, the last 2 side by side at the back facing the lane; a little round plaza in the walkway; the leaderboards on the back wall between the back two)
+	HubDepth = 449, -- (2 bases down each side, the last 2 side by side at the back facing the lane; a little round plaza in the walkway; the leaderboards on the back wall either side of the back two)
 	HubWallHeight = 40,
 }
 
@@ -12353,19 +12353,22 @@ function Layout.AreaArrival(areaId: number): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where you land in the lobby (the middle of the plaza, facing the lane).
+-- Where you land in the lobby: the spawn, at the front of the walkway just behind the safe-zone
+-- line, facing the lane - a few steps from the first biome, so a new player is in the action
+-- within seconds of joining.
+Layout.SpawnBehindLine = 24
 function Layout.LobbyArrival(): CFrame
-	local z = map.SafeZoneZ - 40
+	local z = map.SafeZoneZ - Layout.SpawnBehindLine
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where the lobby's leaderboards stand: against the back wall, between the two back bases.
+-- Where the lobby's leaderboards stand: against the back wall, either side of the back two bases.
 function Layout.LeaderboardZ(): number
 	return map.SafeZoneZ - map.HubDepth + 1.5
 end
 
--- The little round plaza in the middle of the walkway (level with the middle bases): the spawn in
--- its middle, the sell stall and the Cosmic Forge either side of it.
+-- The little round plaza in the middle of the walkway (level with the middle bases): the sell
+-- stall and the Cosmic Forge either side of it.
 Layout.PlazaRadius = 44
 function Layout.PlazaCenter(): Vector3
 	return Vector3.new(0, 0, map.SafeZoneZ - Layout.PlotFirstRowZ - Layout.PlotRowSpacing * (Layout.SideRows - 1) / 2)
@@ -12407,11 +12410,54 @@ function Layout.BackRowZ(): number
 	return lastRow - Layout.PlotWidth / 2 - 4 - Layout.PlotDepth / 2
 end
 
+Layout.BackGap = 4 -- studs between the back two bases' pens at their biggest
+Layout.PenBorder = 2 -- the trim round a pen, outside its fence
+
+-- Half the width of a pen at its biggest (the last size, or the owner's admin size if that's
+-- bigger), trim included.
+function Layout.MaxPenHalfWidth(): number
+	local sizes = Config.Plots.Sizes
+	local most = math.max(sizes[#sizes].Slots, Config.Admin.MaxSlots)
+	local width = Layout.PenSize(most)
+	return width / 2 + Layout.PenBorder
+end
+
+-- X of the back two bases' middles (+/-): as close together as they go, BackGap apart at their
+-- biggest.
+function Layout.BackBaseX(): number
+	return Layout.MaxPenHalfWidth() + Layout.BackGap / 2
+end
+
+-- The leaderboards along the back wall, in the two strips beside the back bases (the first half on
+-- the left, the rest on the right): each board's middle X, and how big it is (1: full size, 33
+-- studs from one board to the next; smaller when that many don't fit in a strip).
+Layout.LeaderboardSpacing = 33
+function Layout.LeaderboardSpots(count: number): { { X: number, Scale: number } }
+	local inner = Layout.BackBaseX() + Layout.MaxPenHalfWidth() + 2
+	local outer = map.HubHalfWidth - 2
+	local middle, room = (inner + outer) / 2, outer - inner
+	local left = math.ceil(count / 2)
+	local spacing = math.min(Layout.LeaderboardSpacing, room / math.max(left, 1))
+	local spots = {}
+	for index = 1, count do
+		local side = if index <= left then -1 else 1
+		local n = if side < 0 then left else count - left
+		local k = if side < 0 then index else index - left
+		local x = middle + (k - (n + 1) / 2) * spacing
+		table.insert(spots, { X = side * x, Scale = spacing / Layout.LeaderboardSpacing })
+	end
+	-- (left to right along the wall: the left strip's boards were placed mirrored)
+	table.sort(spots, function(a, b)
+		return a.X < b.X
+	end)
+	return spots
+end
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
 	local side = if plotIndex % 2 == 1 then -1 else 1
 	if plotIndex > Layout.SideRows * 2 then
-		-- the back two, side by side against the back wall, facing the lane
-		local center = Vector3.new(side * (map.HubHalfWidth - Layout.PlotWidth / 2 - 4), 0, Layout.BackRowZ())
+		-- the back two, side by side in the middle of the back wall, facing the lane
+		local center = Vector3.new(side * Layout.BackBaseX(), 0, Layout.BackRowZ())
 		return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
 	end
 	-- down the left (odd) or right (even) wall, facing the walkway
@@ -17215,7 +17261,9 @@ UpdateNotes.List = {
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
 				"The Shop is one big page now: scroll down through Upgrades, Boosts, Crates, Skins, Trails and Donate, or jump straight to one with the big buttons down its right side",
 				"Boosts, Skins and Donate live in the Shop now, so the side of your screen is tidier",
-				"A smaller, tidier lobby: two bases down each side of a walkway and two side by side at the back facing the lane, with a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back, and the conveyor belts are gone: everything's a short walk now",
+				"A smaller, tidier lobby: two bases down each side of a walkway and two right next to each other at the back facing the lane, with a little round donut plaza in the middle with the sell stall and the Cosmic Forge. The leaderboards stand on the back wall either side of them, and the conveyor belts are gone: everything's a short walk now",
+				"You spawn right by the lane now, so you're stealing boxes a few seconds after you join",
+				"The Update Log is a tab in the Index now (the Updates button down its right side), and the Home button is gone",
 			} },
 			{ Title = "Anime Effects", Tag = "NEW", Lines = {
 				"Every single donut has its own effects now, and no two donuts look the same",
@@ -27238,7 +27286,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 23
+local MAP_VERSION = 24
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -27319,21 +27367,22 @@ local function buildLeaderboards(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Leaderboards"
 	folder.Parent = parent
-	local count = #Config.Leaderboards.Boards
+	-- (either side of the back two bases; smaller if they'd not fit full size)
+	local spots = Layout.LeaderboardSpots(#Config.Leaderboards.Boards)
 	for index, board in Config.Leaderboards.Boards do
-		local x = (index - (count + 1) / 2) * 33
+		local x, k = spots[index].X, spots[index].Scale
 		local z = Layout.LeaderboardZ()
 		local model = Instance.new("Model")
 		model.Name = "Board_" .. board.Id
-		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31, 40, 1.5), Position = Vector3.new(x, 21, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
+		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31 * k, 40 * k, 1.5), Position = Vector3.new(x, 1 + 20 * k, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
 		for _, side in { -1, 1 } do
-			Build.Part({ Parent = model, Name = "Leg", Size = Vector3.new(2, 2, 2), Position = Vector3.new(x + side * 12, 1, z - 0.6), Color = board.Color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.SmoothPlastic })
+			Build.Part({ Parent = model, Name = "Leg", Size = Vector3.new(2, 2, 2), Position = Vector3.new(x + side * 12 * k, 1, z - 0.6), Color = board.Color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.SmoothPlastic })
 		end
-		Build.Part({ Parent = model, Name = "Trim", Size = Vector3.new(32, 1, 2), Position = Vector3.new(x, 41.5, z - 0.6), Color = rgb(255, 255, 255), Material = Enum.Material.Neon })
+		Build.Part({ Parent = model, Name = "Trim", Size = Vector3.new(32 * k, 1, 2), Position = Vector3.new(x, 1.5 + 40 * k, z - 0.6), Color = rgb(255, 255, 255), Material = Enum.Material.Neon })
 		local screen = Build.Part({
 			Parent = model, Name = "Screen",
-			Size = Vector3.new(28, 37, 0.3),
-			CFrame = CFrame.lookAt(Vector3.new(x, 21, z + 0.3), Vector3.new(x, 21, z + 10)),
+			Size = Vector3.new(28 * k, 37 * k, 0.3),
+			CFrame = CFrame.lookAt(Vector3.new(x, 1 + 20 * k, z + 0.3), Vector3.new(x, 1 + 20 * k, z + 10)),
 			Color = rgb(20, 20, 30), Material = Enum.Material.SmoothPlastic,
 		})
 		screen:SetAttribute("BoardId", board.Id)
@@ -27457,8 +27506,8 @@ local function buildHub(parent: Folder)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
 
-	-- (in the middle of the plaza, facing the lane)
-	local spawnAt = Layout.PlazaCenter() + Vector3.new(0, 0.5, 0)
+	-- (at the front of the walkway, facing the lane: new players are a few steps from the first biome)
+	local spawnAt = Layout.LobbyArrival().Position * Vector3.new(1, 0, 1) + Vector3.new(0, 0.5, 0)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "HubSpawn"
 	spawn.Anchored = true
@@ -28101,11 +28150,19 @@ local function buildPlot(parent: Instance, plotIndex: number)
 	-- Anchors used by other services: the treadmill and incubator beside the pen, the podium on
 	-- the other side, the name sign above the shop (PlotService moves it as the pen grows).
 	local side = Layout.PlotWidth / 2 - 13
+	-- (treadmill and incubator on one side of the pen, the podium on the other; the back two bases
+	-- stand right next to each other, so theirs all go on the outer side, one behind another)
+	local treadX, incubatorX, podiumX, podiumZ, incubatorZ = -side, -side, side, 10, 34
+	if plotIndex > Layout.SideRows * 2 then
+		local outward = if plotIndex % 2 == 1 then -1 else 1
+		local outer = if cf:VectorToObjectSpace(Vector3.new(outward, 0, 0)).X > 0 then side else -side
+		treadX, incubatorX, podiumX, podiumZ, incubatorZ = outer, outer, outer, 20, 36
+	end
 	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, Layout.PenFront + 8), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 30, 30), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-side, 0, Layout.PenFront + 4) * CFrame.Angles(0, math.pi / 2, 0), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-side, 0, Layout.PenFront + 34), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(side, 0, Layout.PenFront + 10), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(treadX, 0, Layout.PenFront + 4) * CFrame.Angles(0, math.pi / 2, 0), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(incubatorX, 0, Layout.PenFront + incubatorZ), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(podiumX, 0, Layout.PenFront + podiumZ), Transparency = 1, CanCollide = false, CanQuery = false })
 
 	local skinFx = Instance.new("Folder")
 	skinFx.Name = "SkinFX"
@@ -33290,6 +33347,9 @@ Admin.Init()
 CrateOpen.Init()
 Tutorial.Init()
 UpdateNotes.Init()
+Index.SetUpdatesOpener(function()
+	UpdateNotes.Open()
+end)
 PassOffer.Init()
 EventBanner.Init()
 ChatTags.Init()
@@ -33305,9 +33365,6 @@ HUD.Init({
 	OpenTeleport = Teleport.Open,
 	OpenBaseSize = BaseSize.Open,
 	OpenPets = PetsWindow.Open,
-	OpenUpdates = function()
-		UpdateNotes.Open()
-	end,
 	OpenAdmin = Admin.Open,
 	UnclaimedIndex = Index.UnclaimedCount,
 	TrailReady = Trails.IsReady,
@@ -50470,8 +50527,8 @@ return EventBanner
 	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
 	           basket: upgrades, boosts, crates, skins, trails and tips all in one - UI/Shop), Index
 	           (a blue book), Pets (a pink paw), Daily (a present)
-	  right  - the same big drawn icons with their names: Home / Updates (+ Admin, + Base after the
-	           base code, + Teleport for Teleporter pass owners), centred on the right edge
+	  right  - the same big drawn icons with their names: Admin, + Base after the base code,
+	           + Teleport for Teleporter pass owners (the Update Log is a tab of the Index), centred on the right edge
 	  corner - Settings (music, run speed, Hide UI...): a gear in Roblox's top bar, top right (the
 	           top bar's free space, so Roblox's player list below it never covers it)
 	  stats  - "Friend Boost: +N%" (the money your friends here add) with a green + that opens
@@ -50510,7 +50567,6 @@ export type Callbacks = {
 	OpenTeleport: () -> (),
 	OpenBaseSize: () -> (),
 	OpenPets: () -> (),
-	OpenUpdates: () -> (),
 	OpenAdmin: () -> (),
 	UnclaimedIndex: () -> number,
 	TrailReady: () -> boolean,
@@ -50654,9 +50710,6 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	State.OnAttribute("SizeAccess", function(value)
 		baseSize.Visible = value == true
 	end)
-	button("Home", "houseRed", "Home", 1, function()
-		State.Action("TeleportHome")
-	end)
 	-- Teleporter pass owners: jump to any biome. Everyone else walks.
 	local teleport = button("Teleport", "globeBlue", "Teleport", 2, callbacks.OpenTeleport)
 	local function showTeleport()
@@ -50664,10 +50717,8 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end
 	State.Changed:Connect(showTeleport)
 	showTeleport()
-	-- (Boosts, Skins, Trails and Donate are sections of the Shop now: its buttons on its right side)
-	button("Updates", "newsYellow", "Updates", 6, function()
-		callbacks.OpenUpdates()
-	end)
+	-- (Boosts, Skins, Trails and Donate are sections of the Shop now: its buttons on its right side;
+	-- the Update Log is a tab of the Index)
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)
@@ -52586,6 +52637,9 @@ return Icons
 	(UI/IndexThemes).
 
 	A page is built the first time you look at it, and only the last two you looked at are kept.
+
+	Tabs down the window's right side: Donuts (this page) and Updates (the Update Log, which the
+	HUD used to have its own button for). Index.SetUpdatesOpener(fn) wires Updates up.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -52604,6 +52658,7 @@ local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
+local Icons = require(script.Parent.Icons)
 local IndexThemes = require(script.Parent.IndexThemes)
 local State = require(script.Parent.Parent.State)
 
@@ -53158,8 +53213,72 @@ function Index.Show(biome: number)
 	show(biome)
 end
 
+local openUpdates: (() -> ())? = nil
+
+-- What the Updates tab opens (init.client: the Update Log)
+function Index.SetUpdatesOpener(fn: () -> ())
+	openUpdates = fn
+end
+
+-- The tabs down the window's right side: a big drawn icon with its name under it, like the Shop's
+local function sideTabs()
+	local column = Theme.new("Frame", {
+		Name = "SideTabs",
+		BackgroundTransparency = 1,
+		Position = UDim2.new(1, 8, 0, 62),
+		Size = UDim2.fromOffset(100, 2 * 82),
+		Parent = modal.Frame,
+	}, {
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }),
+	})
+	local tabs = {
+		{ Name = "Donuts", Icon = "indexBook", Caption = "Donuts" },
+		{ Name = "Updates", Icon = "newsYellow", Caption = "Updates" },
+	}
+	for order, tab in tabs do
+		local button = Theme.new("TextButton", {
+			Name = tab.Name,
+			Text = "",
+			AutoButtonColor = false,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(100, 80),
+			LayoutOrder = order,
+			Parent = column,
+		}) :: TextButton
+		Icons.Draw(tab.Icon, button, nil, {
+			Size = UDim2.fromOffset(56, 56),
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.fromScale(0.5, 0),
+		})
+		Theme.Label({
+			Name = "Caption",
+			Text = tab.Caption,
+			-- (the page you're on: its name in gold)
+			TextColor3 = if tab.Name == "Donuts" then Theme.Colors.Gold else Theme.Colors.White,
+			Size = UDim2.new(1, 0, 0, 24),
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.fromScale(0.5, 1),
+			StrokeThickness = 3,
+			ZIndex = 3,
+			Parent = button,
+		})
+		button.MouseButton1Down:Connect(function()
+			Theme.Bounce(button)
+		end)
+		button.Activated:Connect(function()
+			if tab.Name == "Updates" and openUpdates then
+				modal:Close()
+				openUpdates()
+			end
+		end)
+	end
+end
+
 function Index.Init()
 	modal = Modal.new("Index", Theme.Colors.Orange, Vector2.new(WIDTH, HEIGHT))
+	-- (a little left of centre: the tabs stand down its right side)
+	modal.Frame.Position = UDim2.new(0.5, -54, 0.52, 0)
+	sideTabs()
 	summary = label({ Name = "Summary", Text = "", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -200, 0, 26), Position = UDim2.fromOffset(2, 4), StrokeThickness = 2, Parent = modal.Body })
 	claimAll = Theme.Button({ Name = "ClaimAll", Text = "Claim All", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(186, 34), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 0), Parent = modal.Body })
 	claimAll.Activated:Connect(function()
@@ -54235,7 +54354,8 @@ local function buildWorldBoard(screen: BasePart, boardId: string)
 		Adornee = screen,
 		Face = Enum.NormalId.Front,
 		SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud,
-		PixelsPerStud = 25,
+		-- (the same picture on a smaller board: a screen narrower than the full 28 studs gets more pixels per stud)
+		PixelsPerStud = 25 * 28 / math.max(screen.Size.X, 1),
 		LightInfluence = 0,
 		ResetOnSpawn = false,
 		Parent = Theme.PlayerGui(),

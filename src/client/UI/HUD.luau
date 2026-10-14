@@ -4,8 +4,8 @@
 	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
 	           basket: upgrades, boosts, crates, skins, trails and tips all in one - UI/Shop), Index
 	           (a blue book), Pets (a pink paw), Daily (a present)
-	  right  - the same big drawn icons with their names: Home / Updates (+ Admin, + Base after the
-	           base code, + Teleport for Teleporter pass owners), centred on the right edge
+	  right  - the same big drawn icons with their names: Admin, + Base after the base code,
+	           + Teleport for Teleporter pass owners (the Update Log is a tab of the Index), centred on the right edge
 	  corner - Settings (music, run speed, Hide UI...): a gear in Roblox's top bar, top right (the
 	           top bar's free space, so Roblox's player list below it never covers it)
 	  stats  - "Friend Boost: +N%" (the money your friends here add) with a green + that opens
@@ -44,7 +44,6 @@ export type Callbacks = {
 	OpenTeleport: () -> (),
 	OpenBaseSize: () -> (),
 	OpenPets: () -> (),
-	OpenUpdates: () -> (),
 	OpenAdmin: () -> (),
 	UnclaimedIndex: () -> number,
 	TrailReady: () -> boolean,
@@ -188,9 +187,6 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	State.OnAttribute("SizeAccess", function(value)
 		baseSize.Visible = value == true
 	end)
-	button("Home", "houseRed", "Home", 1, function()
-		State.Action("TeleportHome")
-	end)
 	-- Teleporter pass owners: jump to any biome. Everyone else walks.
 	local teleport = button("Teleport", "globeBlue", "Teleport", 2, callbacks.OpenTeleport)
 	local function showTeleport()
@@ -198,10 +194,8 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end
 	State.Changed:Connect(showTeleport)
 	showTeleport()
-	-- (Boosts, Skins, Trails and Donate are sections of the Shop now: its buttons on its right side)
-	button("Updates", "newsYellow", "Updates", 6, function()
-		callbacks.OpenUpdates()
-	end)
+	-- (Boosts, Skins, Trails and Donate are sections of the Shop now: its buttons on its right side;
+	-- the Update Log is a tab of the Index)
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)

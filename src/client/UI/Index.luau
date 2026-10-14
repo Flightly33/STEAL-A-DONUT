@@ -23,6 +23,9 @@
 	(UI/IndexThemes).
 
 	A page is built the first time you look at it, and only the last two you looked at are kept.
+
+	Tabs down the window's right side: Donuts (this page) and Updates (the Update Log, which the
+	HUD used to have its own button for). Index.SetUpdatesOpener(fn) wires Updates up.
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -41,6 +44,7 @@ local Remotes = require(Shared.Remotes)
 
 local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
+local Icons = require(script.Parent.Icons)
 local IndexThemes = require(script.Parent.IndexThemes)
 local State = require(script.Parent.Parent.State)
 
@@ -595,8 +599,72 @@ function Index.Show(biome: number)
 	show(biome)
 end
 
+local openUpdates: (() -> ())? = nil
+
+-- What the Updates tab opens (init.client: the Update Log)
+function Index.SetUpdatesOpener(fn: () -> ())
+	openUpdates = fn
+end
+
+-- The tabs down the window's right side: a big drawn icon with its name under it, like the Shop's
+local function sideTabs()
+	local column = Theme.new("Frame", {
+		Name = "SideTabs",
+		BackgroundTransparency = 1,
+		Position = UDim2.new(1, 8, 0, 62),
+		Size = UDim2.fromOffset(100, 2 * 82),
+		Parent = modal.Frame,
+	}, {
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }),
+	})
+	local tabs = {
+		{ Name = "Donuts", Icon = "indexBook", Caption = "Donuts" },
+		{ Name = "Updates", Icon = "newsYellow", Caption = "Updates" },
+	}
+	for order, tab in tabs do
+		local button = Theme.new("TextButton", {
+			Name = tab.Name,
+			Text = "",
+			AutoButtonColor = false,
+			BackgroundTransparency = 1,
+			Size = UDim2.fromOffset(100, 80),
+			LayoutOrder = order,
+			Parent = column,
+		}) :: TextButton
+		Icons.Draw(tab.Icon, button, nil, {
+			Size = UDim2.fromOffset(56, 56),
+			AnchorPoint = Vector2.new(0.5, 0),
+			Position = UDim2.fromScale(0.5, 0),
+		})
+		Theme.Label({
+			Name = "Caption",
+			Text = tab.Caption,
+			-- (the page you're on: its name in gold)
+			TextColor3 = if tab.Name == "Donuts" then Theme.Colors.Gold else Theme.Colors.White,
+			Size = UDim2.new(1, 0, 0, 24),
+			AnchorPoint = Vector2.new(0.5, 1),
+			Position = UDim2.fromScale(0.5, 1),
+			StrokeThickness = 3,
+			ZIndex = 3,
+			Parent = button,
+		})
+		button.MouseButton1Down:Connect(function()
+			Theme.Bounce(button)
+		end)
+		button.Activated:Connect(function()
+			if tab.Name == "Updates" and openUpdates then
+				modal:Close()
+				openUpdates()
+			end
+		end)
+	end
+end
+
 function Index.Init()
 	modal = Modal.new("Index", Theme.Colors.Orange, Vector2.new(WIDTH, HEIGHT))
+	-- (a little left of centre: the tabs stand down its right side)
+	modal.Frame.Position = UDim2.new(0.5, -54, 0.52, 0)
+	sideTabs()
 	summary = label({ Name = "Summary", Text = "", TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -200, 0, 26), Position = UDim2.fromOffset(2, 4), StrokeThickness = 2, Parent = modal.Body })
 	claimAll = Theme.Button({ Name = "ClaimAll", Text = "Claim All", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(186, 34), AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 0), Parent = modal.Body })
 	claimAll.Activated:Connect(function()

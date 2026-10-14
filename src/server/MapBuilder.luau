@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 23
+local MAP_VERSION = 24
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -126,21 +126,22 @@ local function buildLeaderboards(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Leaderboards"
 	folder.Parent = parent
-	local count = #Config.Leaderboards.Boards
+	-- (either side of the back two bases; smaller if they'd not fit full size)
+	local spots = Layout.LeaderboardSpots(#Config.Leaderboards.Boards)
 	for index, board in Config.Leaderboards.Boards do
-		local x = (index - (count + 1) / 2) * 33
+		local x, k = spots[index].X, spots[index].Scale
 		local z = Layout.LeaderboardZ()
 		local model = Instance.new("Model")
 		model.Name = "Board_" .. board.Id
-		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31, 40, 1.5), Position = Vector3.new(x, 21, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
+		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31 * k, 40 * k, 1.5), Position = Vector3.new(x, 1 + 20 * k, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
 		for _, side in { -1, 1 } do
-			Build.Part({ Parent = model, Name = "Leg", Size = Vector3.new(2, 2, 2), Position = Vector3.new(x + side * 12, 1, z - 0.6), Color = board.Color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.SmoothPlastic })
+			Build.Part({ Parent = model, Name = "Leg", Size = Vector3.new(2, 2, 2), Position = Vector3.new(x + side * 12 * k, 1, z - 0.6), Color = board.Color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.SmoothPlastic })
 		end
-		Build.Part({ Parent = model, Name = "Trim", Size = Vector3.new(32, 1, 2), Position = Vector3.new(x, 41.5, z - 0.6), Color = rgb(255, 255, 255), Material = Enum.Material.Neon })
+		Build.Part({ Parent = model, Name = "Trim", Size = Vector3.new(32 * k, 1, 2), Position = Vector3.new(x, 1.5 + 40 * k, z - 0.6), Color = rgb(255, 255, 255), Material = Enum.Material.Neon })
 		local screen = Build.Part({
 			Parent = model, Name = "Screen",
-			Size = Vector3.new(28, 37, 0.3),
-			CFrame = CFrame.lookAt(Vector3.new(x, 21, z + 0.3), Vector3.new(x, 21, z + 10)),
+			Size = Vector3.new(28 * k, 37 * k, 0.3),
+			CFrame = CFrame.lookAt(Vector3.new(x, 1 + 20 * k, z + 0.3), Vector3.new(x, 1 + 20 * k, z + 10)),
 			Color = rgb(20, 20, 30), Material = Enum.Material.SmoothPlastic,
 		})
 		screen:SetAttribute("BoardId", board.Id)
@@ -264,8 +265,8 @@ local function buildHub(parent: Folder)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
 
-	-- (in the middle of the plaza, facing the lane)
-	local spawnAt = Layout.PlazaCenter() + Vector3.new(0, 0.5, 0)
+	-- (at the front of the walkway, facing the lane: new players are a few steps from the first biome)
+	local spawnAt = Layout.LobbyArrival().Position * Vector3.new(1, 0, 1) + Vector3.new(0, 0.5, 0)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "HubSpawn"
 	spawn.Anchored = true
@@ -908,11 +909,19 @@ local function buildPlot(parent: Instance, plotIndex: number)
 	-- Anchors used by other services: the treadmill and incubator beside the pen, the podium on
 	-- the other side, the name sign above the shop (PlotService moves it as the pen grows).
 	local side = Layout.PlotWidth / 2 - 13
+	-- (treadmill and incubator on one side of the pen, the podium on the other; the back two bases
+	-- stand right next to each other, so theirs all go on the outer side, one behind another)
+	local treadX, incubatorX, podiumX, podiumZ, incubatorZ = -side, -side, side, 10, 34
+	if plotIndex > Layout.SideRows * 2 then
+		local outward = if plotIndex % 2 == 1 then -1 else 1
+		local outer = if cf:VectorToObjectSpace(Vector3.new(outward, 0, 0)).X > 0 then side else -side
+		treadX, incubatorX, podiumX, podiumZ, incubatorZ = outer, outer, outer, 20, 36
+	end
 	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, Layout.PenFront + 8), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 30, 30), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-side, 0, Layout.PenFront + 4) * CFrame.Angles(0, math.pi / 2, 0), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(-side, 0, Layout.PenFront + 34), Transparency = 1, CanCollide = false, CanQuery = false })
-	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(side, 0, Layout.PenFront + 10), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(treadX, 0, Layout.PenFront + 4) * CFrame.Angles(0, math.pi / 2, 0), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "IncubatorAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(incubatorX, 0, Layout.PenFront + incubatorZ), Transparency = 1, CanCollide = false, CanQuery = false })
+	Build.Part({ Parent = plot, Name = "PodiumAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(podiumX, 0, Layout.PenFront + podiumZ), Transparency = 1, CanCollide = false, CanQuery = false })
 
 	local skinFx = Instance.new("Folder")
 	skinFx.Name = "SkinFX"

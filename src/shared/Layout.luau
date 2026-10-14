@@ -122,19 +122,22 @@ function Layout.AreaArrival(areaId: number): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where you land in the lobby (the middle of the plaza, facing the lane).
+-- Where you land in the lobby: the spawn, at the front of the walkway just behind the safe-zone
+-- line, facing the lane - a few steps from the first biome, so a new player is in the action
+-- within seconds of joining.
+Layout.SpawnBehindLine = 24
 function Layout.LobbyArrival(): CFrame
-	local z = map.SafeZoneZ - 40
+	local z = map.SafeZoneZ - Layout.SpawnBehindLine
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where the lobby's leaderboards stand: against the back wall, between the two back bases.
+-- Where the lobby's leaderboards stand: against the back wall, either side of the back two bases.
 function Layout.LeaderboardZ(): number
 	return map.SafeZoneZ - map.HubDepth + 1.5
 end
 
--- The little round plaza in the middle of the walkway (level with the middle bases): the spawn in
--- its middle, the sell stall and the Cosmic Forge either side of it.
+-- The little round plaza in the middle of the walkway (level with the middle bases): the sell
+-- stall and the Cosmic Forge either side of it.
 Layout.PlazaRadius = 44
 function Layout.PlazaCenter(): Vector3
 	return Vector3.new(0, 0, map.SafeZoneZ - Layout.PlotFirstRowZ - Layout.PlotRowSpacing * (Layout.SideRows - 1) / 2)
@@ -176,11 +179,54 @@ function Layout.BackRowZ(): number
 	return lastRow - Layout.PlotWidth / 2 - 4 - Layout.PlotDepth / 2
 end
 
+Layout.BackGap = 4 -- studs between the back two bases' pens at their biggest
+Layout.PenBorder = 2 -- the trim round a pen, outside its fence
+
+-- Half the width of a pen at its biggest (the last size, or the owner's admin size if that's
+-- bigger), trim included.
+function Layout.MaxPenHalfWidth(): number
+	local sizes = Config.Plots.Sizes
+	local most = math.max(sizes[#sizes].Slots, Config.Admin.MaxSlots)
+	local width = Layout.PenSize(most)
+	return width / 2 + Layout.PenBorder
+end
+
+-- X of the back two bases' middles (+/-): as close together as they go, BackGap apart at their
+-- biggest.
+function Layout.BackBaseX(): number
+	return Layout.MaxPenHalfWidth() + Layout.BackGap / 2
+end
+
+-- The leaderboards along the back wall, in the two strips beside the back bases (the first half on
+-- the left, the rest on the right): each board's middle X, and how big it is (1: full size, 33
+-- studs from one board to the next; smaller when that many don't fit in a strip).
+Layout.LeaderboardSpacing = 33
+function Layout.LeaderboardSpots(count: number): { { X: number, Scale: number } }
+	local inner = Layout.BackBaseX() + Layout.MaxPenHalfWidth() + 2
+	local outer = map.HubHalfWidth - 2
+	local middle, room = (inner + outer) / 2, outer - inner
+	local left = math.ceil(count / 2)
+	local spacing = math.min(Layout.LeaderboardSpacing, room / math.max(left, 1))
+	local spots = {}
+	for index = 1, count do
+		local side = if index <= left then -1 else 1
+		local n = if side < 0 then left else count - left
+		local k = if side < 0 then index else index - left
+		local x = middle + (k - (n + 1) / 2) * spacing
+		table.insert(spots, { X = side * x, Scale = spacing / Layout.LeaderboardSpacing })
+	end
+	-- (left to right along the wall: the left strip's boards were placed mirrored)
+	table.sort(spots, function(a, b)
+		return a.X < b.X
+	end)
+	return spots
+end
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
 	local side = if plotIndex % 2 == 1 then -1 else 1
 	if plotIndex > Layout.SideRows * 2 then
-		-- the back two, side by side against the back wall, facing the lane
-		local center = Vector3.new(side * (map.HubHalfWidth - Layout.PlotWidth / 2 - 4), 0, Layout.BackRowZ())
+		-- the back two, side by side in the middle of the back wall, facing the lane
+		local center = Vector3.new(side * Layout.BackBaseX(), 0, Layout.BackRowZ())
 		return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
 	end
 	-- down the left (odd) or right (even) wall, facing the walkway
