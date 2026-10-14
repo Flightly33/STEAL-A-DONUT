@@ -27,7 +27,7 @@ DonutHover.WalkUp = 12 -- studs: gamepads (no pointer) walk up to a donut, like 
 DonutHover.Grace = 0.5 -- seconds the buttons stay after the pointer slips off the donut
 DonutHover.TapHold = 6 -- seconds a tapped donut keeps its buttons
 
-type Entry = { Model: Model, Prompts: { ProximityPrompt }, Checked: number }
+type Entry = { Model: Model, Prompts: { ProximityPrompt }, Checked: number, Radius: number?, Lift: number? }
 
 local donuts: { [Model]: Entry } = {}
 local current: Model? = nil
@@ -81,7 +81,24 @@ function DonutHover.Mode(): string
 	return "Pointer"
 end
 
--- Your pen donut at a spot on the screen (nil: none of yours there).
+-- Your pen donut at a spot on the screen (nil: none of yours there). Donut parts don't take
+-- raycasts (CanQuery off, to keep the game light), so the pointer's ray is tested against a ball
+-- round each of your donuts instead; the nearest one it passes through wins.
+local function sizeOf(entry: Entry): (number, number)
+	if not entry.Radius then
+		local ok, cf, size = pcall(function()
+			return entry.Model:GetBoundingBox()
+		end)
+		if ok and cf and size then
+			entry.Radius = math.max(size.X, size.Y, size.Z) / 2
+			entry.Lift = (cf.Position - entry.Model:GetPivot().Position).Y
+		else
+			entry.Radius, entry.Lift = 2, 1
+		end
+	end
+	return entry.Radius :: number, entry.Lift :: number
+end
+
 local function donutAt(screen: Vector2): Model?
 	local camera = workspace.CurrentCamera
 	if not camera then
@@ -90,17 +107,22 @@ local function donutAt(screen: Vector2): Model?
 	local found: Model? = nil
 	pcall(function()
 		local ray = camera:ViewportPointToRay(screen.X, screen.Y)
-		local params = RaycastParams.new()
-		params.FilterType = Enum.RaycastFilterType.Exclude
-		params.FilterDescendantsInstances = if player.Character then { player.Character :: Instance } else {}
-		local hit = workspace:Raycast(ray.Origin, ray.Direction * 400, params)
-		local part: Instance? = hit and hit.Instance
-		while part and part ~= workspace do
-			if part:IsA("Model") and donuts[part] then
-				found = part
-				return
+		local origin, direction = ray.Origin, ray.Direction.Unit
+		local best = math.huge
+		for model, entry in donuts do
+			if not model.Parent or not mine(model) then
+				continue
 			end
-			part = part.Parent
+			local radius, lift = sizeOf(entry)
+			local center = model:GetPivot().Position + Vector3.new(0, lift, 0)
+			local along = (center - origin):Dot(direction)
+			if along > 0 and along < 400 and along < best then
+				local miss = (origin + direction * along - center).Magnitude
+				if miss <= radius then
+					best = along
+					found = model
+				end
+			end
 		end
 	end)
 	return found
