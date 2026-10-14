@@ -68,19 +68,13 @@ local function buildEntranceGate(parent: Instance)
 	for _, side in { -1, 1 } do
 		Build.Part({ Parent = gate, Name = "GatePillar", Size = Vector3.new(8, 44, 8), Position = Vector3.new(side * (half + 7), 22, map.SafeZoneZ + 2), Color = rgb(215, 120, 170), Material = Enum.Material.Plastic })
 	end
-	local beam = Build.Part({
+	-- (a plain beam: no name sign over the lane)
+	Build.Part({
 		Parent = gate, Name = "GateBeam",
 		Size = Vector3.new(half * 2 + 22, 8, 8),
 		CFrame = CFrame.lookAt(Vector3.new(0, 48, map.SafeZoneZ + 2), Vector3.new(0, 48, map.SafeZoneZ - 10)),
 		Color = rgb(200, 95, 155), Material = Enum.Material.Plastic,
 	})
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 12
-	gui.LightInfluence = 0
-	gui.Parent = beam
-	Build.Text(gui, string.upper(Config.GameName), { TextColor3 = rgb(255, 240, 80), TextStrokeColor3 = rgb(120, 30, 80) })
 	Decor.GiantDonut(gate, CFrame.new(0, 64, map.SafeZoneZ + 2), 8, 7, rgb(222, 165, 95), rgb(255, 150, 200), { rgb(255, 60, 60), rgb(255, 230, 60), rgb(60, 200, 255), rgb(255, 255, 255) })
 	gate.Parent = parent
 end
