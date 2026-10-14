@@ -152,8 +152,8 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 280, -- a compact lobby, so nothing is far away
-	HubDepth = 480, -- the bases make a C round the plaza (open to the lane): 2 down each side, 2 along the back, the leaderboards between the back two
+	HubHalfWidth = 224, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
+	HubDepth = 482, -- (the walkway has a little round plaza in the middle and the leaderboards at the back)
 	HubWallHeight = 40,
 }
 
@@ -166,7 +166,7 @@ Config.Conveyors = {
 	Gap = 4, -- between the two belts
 	BaseGap = 8, -- each pair of belts sits this far in front of the bases (on the plaza side of them)
 	Front = 24, -- they end this far behind the safe-zone line, by the lane's entrance
-	Back = 20, -- and stop this far in front of the back row of bases (where the sides of the C end)
+	Back = 20, -- and stop this far in front of the leaderboards at the back
 	ArrowSpacing = 18, -- the glowing arrows sliding along them
 }
 

@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 20
+local MAP_VERSION = 21
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -287,24 +287,61 @@ local function buildConveyors(hub: Instance)
 	end
 end
 
+-- The little round plaza in the middle of the walkway, made like a donut seen from above: a ring
+-- of golden dough paving, pink icing round its middle with sprinkles, the spawn in the hole, and
+-- four lamp posts round the edge. The sell stall and the Cosmic Forge stand on it (Layout).
+local function buildPlaza(hub: Instance)
+	local center = Layout.PlazaCenter()
+	local r = Layout.PlazaRadius
+	local plaza = Instance.new("Model")
+	plaza.Name = "Plaza"
+	local flat = CFrame.Angles(0, 0, math.pi / 2) -- (a cylinder's round faces up)
+	local function disc(name: string, radius: number, y: number, color: Color3)
+		Build.Decor({ Parent = plaza, Name = name, Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, radius * 2, radius * 2), CFrame = CFrame.new(center + Vector3.new(0, y, 0)) * flat, Color = color, Material = Enum.Material.Plastic })
+	end
+	disc("Edge", r + 2.5, 0.06, rgb(150, 100, 60))
+	disc("Paving", r, 0.12, rgb(232, 190, 120))
+	disc("Icing", r * 0.62, 0.18, rgb(255, 160, 205))
+	disc("Hole", r * 0.3, 0.24, rgb(238, 210, 160))
+	-- sprinkles on the icing ring
+	local rng = Random.new(7)
+	local sprinkleColors = { rgb(255, 70, 70), rgb(255, 230, 60), rgb(70, 200, 255), rgb(255, 255, 255), rgb(120, 230, 110) }
+	for i = 1, 28 do
+		local angle = (i / 28) * math.pi * 2 + rng:NextNumber(-0.08, 0.08)
+		local radius = rng:NextNumber(r * 0.36, r * 0.58)
+		local at = center + Vector3.new(math.cos(angle) * radius, 0.36, math.sin(angle) * radius)
+		Build.Decor({ Parent = plaza, Name = "Sprinkle", Size = Vector3.new(0.7, 0.25, 2.2), CFrame = CFrame.new(at) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color = sprinkleColors[(i % #sprinkleColors) + 1], Material = Enum.Material.SmoothPlastic })
+	end
+	-- lamp posts on the four diagonals
+	for i = 0, 3 do
+		local angle = math.pi / 4 + i * math.pi / 2
+		local base = center + Vector3.new(math.cos(angle) * (r - 3), 0, math.sin(angle) * (r - 3))
+		Build.Part({ Parent = plaza, Name = "LampPost", Size = Vector3.new(1, 12, 1), CFrame = CFrame.new(base + Vector3.new(0, 6, 0)), Color = rgb(70, 60, 80), Material = Enum.Material.Metal })
+		Build.Decor({ Parent = plaza, Name = "Lamp", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.6, CFrame = CFrame.new(base + Vector3.new(0, 13, 0)), Color = rgb(255, 230, 160), Material = Enum.Material.Neon })
+	end
+	plaza.Parent = hub
+end
+
 local function buildHub(parent: Folder)
 	local hub = Instance.new("Folder")
 	hub.Name = "Hub"
 	hub.Parent = parent
-	local z0 = map.SafeZoneZ
 	buildHubGround(hub)
 	buildRidge(hub)
 
 	buildSafeZoneLine(hub)
+	buildPlaza(hub)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
 	buildConveyors(hub)
 
+	-- (in the middle of the plaza, facing the lane)
+	local spawnAt = Layout.PlazaCenter() + Vector3.new(0, 0.5, 0)
 	local spawn = Instance.new("SpawnLocation")
 	spawn.Name = "HubSpawn"
 	spawn.Anchored = true
 	spawn.Size = Vector3.new(14, 1, 14)
-	spawn.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, z0 - 170), Vector3.new(0, 0.5, z0))
+	spawn.CFrame = CFrame.lookAt(spawnAt, spawnAt + Vector3.new(0, 0, 1))
 	spawn.Neutral = true
 	spawn.Duration = 0
 	spawn.Color = rgb(120, 200, 255)
