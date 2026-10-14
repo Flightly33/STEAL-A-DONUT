@@ -153,7 +153,7 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
 	HubHalfWidth = 194, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
-	HubDepth = 482, -- (the walkway has a little round plaza in the middle and the leaderboards at the back)
+	HubDepth = 449, -- (2 bases down each side, the last 2 side by side at the back facing the lane; a little round plaza in the walkway; the leaderboards on the back wall between the back two)
 	HubWallHeight = 40,
 }
 

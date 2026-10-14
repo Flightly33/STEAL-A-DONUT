@@ -1868,7 +1868,7 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
 	HubHalfWidth = 194, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
-	HubDepth = 482, -- (the walkway has a little round plaza in the middle and the leaderboards at the back)
+	HubDepth = 449, -- (2 bases down each side, the last 2 side by side at the back facing the lane; a little round plaza in the walkway; the leaderboards on the back wall between the back two)
 	HubWallHeight = 40,
 }
 
@@ -12235,10 +12235,10 @@ return ItemModel
 	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
 	  -----|-----------  Z = SafeZoneZ  (safe zone line, the lobby is open to the lane)
-	  [1] |       | [2]       three bases down each side, facing a walkway down the middle
+	  [1] |       | [2]       two bases down each side, facing a walkway down the middle
 	  [3] |  (o)  | [4]       (o): a little round plaza in the middle - the spawn, the sell stall
-	  [5] |       | [6]            and the Cosmic Forge
-	      [boards]            the leaderboards in a strip at the back
+	  [5] boards  [6]              and the Cosmic Forge; the last two side by side at the back,
+	                               facing the lane, the leaderboards on the wall between them
 
 	Each biome's Domer sleeps in a back corner (GuardHome) with the biome's donut boxes around him
 	(BoxSpots). A biome's entrance (AreaStart) has a speed gate: players slower than its
@@ -12359,9 +12359,9 @@ function Layout.LobbyArrival(): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where the lobby's leaderboards stand: in a strip along the back wall, at the end of the walkway.
+-- Where the lobby's leaderboards stand: against the back wall, between the two back bases.
 function Layout.LeaderboardZ(): number
-	return map.SafeZoneZ - map.HubDepth + 10
+	return map.SafeZoneZ - map.HubDepth + 1.5
 end
 
 -- The little round plaza in the middle of the walkway (level with the middle bases): the spawn in
@@ -12384,8 +12384,8 @@ function Layout.SellStallCFrame(): CFrame
 end
 
 --------------------------------------------------------------------------------
--- Plots: three down each side of the walkway (odd on the left (-X), even on the right (+X), row 0
--- nearest the lane), each facing the walkway.
+-- Plots: 1-4 down each side of the walkway (odd on the left (-X), even on the right (+X), row 0
+-- nearest the lane), facing the walkway; 5-6 side by side at the back (left, right), facing the lane.
 --
 -- A base is a donut shop with an open pen in front of it (like Steal an Egg): a fenced patch of
 -- ground with a low gate at the front, where the donuts roam and boxes wait to open. The pen grows
@@ -12396,15 +12396,26 @@ Layout.PlotWidth = 150 -- plot space X (sideways)
 Layout.PlotDepth = 130 -- plot space Z (front, by the plaza, to back)
 Layout.PlotRowSpacing = 156 -- bases down a side are this far apart (centre to centre)
 Layout.PlotFirstRowZ = 80 -- the first row's centre, this far behind the safe-zone line
-Layout.SideRows = 3 -- bases down each side of the walkway
+Layout.SideRows = 2 -- bases down each side of the walkway (the back two come after them)
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
 
+-- Z of the middle of the back two bases: right behind the last row down the sides.
+function Layout.BackRowZ(): number
+	local lastRow = map.SafeZoneZ - Layout.PlotFirstRowZ - (Layout.SideRows - 1) * Layout.PlotRowSpacing
+	return lastRow - Layout.PlotWidth / 2 - 4 - Layout.PlotDepth / 2
+end
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
-	-- down the left (odd) or right (even) wall, facing the walkway
 	local side = if plotIndex % 2 == 1 then -1 else 1
-	local row = math.min((plotIndex - 1) // 2, Layout.SideRows - 1)
+	if plotIndex > Layout.SideRows * 2 then
+		-- the back two, side by side against the back wall, facing the lane
+		local center = Vector3.new(side * (map.HubHalfWidth - Layout.PlotWidth / 2 - 4), 0, Layout.BackRowZ())
+		return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
+	end
+	-- down the left (odd) or right (even) wall, facing the walkway
+	local row = (plotIndex - 1) // 2
 	local x = side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 4)
 	local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
 	local center = Vector3.new(x, 0, z)
@@ -17204,7 +17215,7 @@ UpdateNotes.List = {
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
 				"The Shop is one big page now: scroll down through Upgrades, Boosts, Crates, Skins, Trails and Donate, or jump straight to one with the big buttons down its right side",
 				"Boosts, Skins and Donate live in the Shop now, so the side of your screen is tidier",
-				"A smaller, tidier lobby: three bases down each side of a walkway, and a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back, and the conveyor belts are gone: everything's a short walk now",
+				"A smaller, tidier lobby: two bases down each side of a walkway and two side by side at the back facing the lane, with a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back, and the conveyor belts are gone: everything's a short walk now",
 			} },
 			{ Title = "Anime Effects", Tag = "NEW", Lines = {
 				"Every single donut has its own effects now, and no two donuts look the same",
@@ -27227,7 +27238,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 22
+local MAP_VERSION = 23
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -34925,6 +34936,36 @@ function Cinematic.Play(shot: Shot): boolean
 	return true
 end
 
+-- Never under the floor: a shot that dips low (looking up at something) from a camera that was
+-- already near the ground is lifted back up to stand a little above it. (The floor's height is
+-- taken under your character, which is always standing on it.)
+local CLEARANCE = 3
+local function keepAboveGround(cf: CFrame): CFrame
+	local ok, lifted = pcall(function(): CFrame?
+		local character = player and player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return nil
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		local ignore: { Instance } = {}
+		for _, other in Players:GetPlayers() do
+			if other.Character then
+				table.insert(ignore, other.Character)
+			end
+		end
+		params.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(root.Position, Vector3.new(0, -60, 0), params)
+		local floor = if hit then hit.Position.Y else root.Position.Y - 3
+		if cf.Position.Y < floor + CLEARANCE then
+			return cf + Vector3.new(0, floor + CLEARANCE - cf.Position.Y, 0)
+		end
+		return nil
+	end)
+	return if ok and lifted then lifted else cf
+end
+
 -- Every frame, after the normal camera (and before the screen shakes, so they shake the shot too)
 local function step()
 	local shot = playing
@@ -34947,7 +34988,7 @@ local function step()
 	end
 	local ok, target = pcall(shot.Frame, t, base)
 	if ok then
-		camera.CFrame = base:Lerp(target, weight)
+		camera.CFrame = keepAboveGround(base:Lerp(target, weight))
 		lastBase, lastWritten = base, camera.CFrame
 	end
 	if shot.Fov then

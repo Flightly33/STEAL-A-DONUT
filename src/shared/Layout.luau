@@ -4,10 +4,10 @@
 	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
 	  -----|-----------  Z = SafeZoneZ  (safe zone line, the lobby is open to the lane)
-	  [1] |       | [2]       three bases down each side, facing a walkway down the middle
+	  [1] |       | [2]       two bases down each side, facing a walkway down the middle
 	  [3] |  (o)  | [4]       (o): a little round plaza in the middle - the spawn, the sell stall
-	  [5] |       | [6]            and the Cosmic Forge
-	      [boards]            the leaderboards in a strip at the back
+	  [5] boards  [6]              and the Cosmic Forge; the last two side by side at the back,
+	                               facing the lane, the leaderboards on the wall between them
 
 	Each biome's Domer sleeps in a back corner (GuardHome) with the biome's donut boxes around him
 	(BoxSpots). A biome's entrance (AreaStart) has a speed gate: players slower than its
@@ -128,9 +128,9 @@ function Layout.LobbyArrival(): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where the lobby's leaderboards stand: in a strip along the back wall, at the end of the walkway.
+-- Where the lobby's leaderboards stand: against the back wall, between the two back bases.
 function Layout.LeaderboardZ(): number
-	return map.SafeZoneZ - map.HubDepth + 10
+	return map.SafeZoneZ - map.HubDepth + 1.5
 end
 
 -- The little round plaza in the middle of the walkway (level with the middle bases): the spawn in
@@ -153,8 +153,8 @@ function Layout.SellStallCFrame(): CFrame
 end
 
 --------------------------------------------------------------------------------
--- Plots: three down each side of the walkway (odd on the left (-X), even on the right (+X), row 0
--- nearest the lane), each facing the walkway.
+-- Plots: 1-4 down each side of the walkway (odd on the left (-X), even on the right (+X), row 0
+-- nearest the lane), facing the walkway; 5-6 side by side at the back (left, right), facing the lane.
 --
 -- A base is a donut shop with an open pen in front of it (like Steal an Egg): a fenced patch of
 -- ground with a low gate at the front, where the donuts roam and boxes wait to open. The pen grows
@@ -165,15 +165,26 @@ Layout.PlotWidth = 150 -- plot space X (sideways)
 Layout.PlotDepth = 130 -- plot space Z (front, by the plaza, to back)
 Layout.PlotRowSpacing = 156 -- bases down a side are this far apart (centre to centre)
 Layout.PlotFirstRowZ = 80 -- the first row's centre, this far behind the safe-zone line
-Layout.SideRows = 3 -- bases down each side of the walkway
+Layout.SideRows = 2 -- bases down each side of the walkway (the back two come after them)
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
 
+-- Z of the middle of the back two bases: right behind the last row down the sides.
+function Layout.BackRowZ(): number
+	local lastRow = map.SafeZoneZ - Layout.PlotFirstRowZ - (Layout.SideRows - 1) * Layout.PlotRowSpacing
+	return lastRow - Layout.PlotWidth / 2 - 4 - Layout.PlotDepth / 2
+end
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
-	-- down the left (odd) or right (even) wall, facing the walkway
 	local side = if plotIndex % 2 == 1 then -1 else 1
-	local row = math.min((plotIndex - 1) // 2, Layout.SideRows - 1)
+	if plotIndex > Layout.SideRows * 2 then
+		-- the back two, side by side against the back wall, facing the lane
+		local center = Vector3.new(side * (map.HubHalfWidth - Layout.PlotWidth / 2 - 4), 0, Layout.BackRowZ())
+		return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
+	end
+	-- down the left (odd) or right (even) wall, facing the walkway
+	local row = (plotIndex - 1) // 2
 	local x = side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 4)
 	local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
 	local center = Vector3.new(x, 0, z)
