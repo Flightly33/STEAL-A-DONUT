@@ -2,8 +2,8 @@
 	DonutHover: the buttons on your own pen donuts (Upgrade / Pick up / Favorite) only show for the
 	donut you point at, so a pen full of donuts isn't a wall of buttons.
 
-	  * Mouse: hover a donut and a soft outline goes round it and its buttons appear (E / F / R or
-	    click them). They stay a moment after the pointer slips off (donuts walk around), and while
+	  * Mouse: hover a donut and a soft outline goes round it and its menu pops up over it
+	    (UI/DonutMenu: press E / F / R or click its buttons). They stay a moment after the pointer slips off (donuts walk around), and while
 	    you're holding one.
 	  * Phones and tablets: tap a donut to show its buttons for a few seconds; tap anywhere else to
 	    hide them.
@@ -16,6 +16,8 @@ local Players = game:GetService("Players")
 local ProximityPromptService = game:GetService("ProximityPromptService")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
+
+local DonutMenu = require(script.Parent.UI.DonutMenu)
 
 local DonutHover = {}
 
@@ -218,6 +220,31 @@ function DonutHover.Step()
 		end
 	end
 	setOutline(if mode ~= "Gamepad" then current else nil)
+	-- the menu over it (a gamepad has no pointer: Roblox's own prompts, walking up to it)
+	local style = if mode == "Gamepad" then Enum.ProximityPromptStyle.Default else Enum.ProximityPromptStyle.Custom
+	for _, entry in donuts do
+		for _, prompt in entry.Prompts do
+			if prompt.Style ~= style then
+				prompt.Style = style
+			end
+		end
+	end
+	local model = if mode ~= "Gamepad" then current else nil
+	local entry = model and donuts[model]
+	if model and entry then
+		local byName: { [string]: ProximityPrompt } = {}
+		for _, prompt in promptsOf(entry) do
+			byName[prompt.Name] = prompt
+		end
+		local radius, lift = sizeOf(entry)
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		local near = root ~= nil and (root.CFrame.Position - model:GetPivot().Position).Magnitude <= DonutHover.Reach
+		DonutMenu.Show(model, byName, near, lift + radius + 1)
+	else
+		DonutMenu.Show(nil, {}, false, 0)
+	end
+	DonutMenu.SetHeld(if holding() then held else nil, heldSince)
 end
 
 function DonutHover.Init()

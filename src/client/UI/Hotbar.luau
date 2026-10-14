@@ -2,8 +2,9 @@
 	Hotbar: our own inventory bar along the bottom of the screen (Roblox's plain grey one is off).
 
 	  * A row of rounded tiles, one per item: the real 3D donut or box spinning slowly inside, the
-	    tile tinted its rarity's colour (a box: its tier's), a number key in the corner, and a
-	    little tag along the bottom (a grown donut's size like "2.35x", a mutation, a box's size).
+	    tile tinted its rarity's colour (a box: its tier's), a number key in the corner, its name
+	    written along the bottom ("Glazino", "Rare Box") so you can tell them apart at a glance,
+	    and a little tag at the top (a grown donut's size like "2.35x", a mutation, a box's size).
 	  * Click or tap a tile (or press its number, 1 - 9) to hold that item; again to put it away.
 	    The one in your hand lifts up with a gold rim.
 	  * More than nine items: the last tile is a bag ("+12") that opens every item in a grid.
@@ -32,7 +33,7 @@ local player = Players.LocalPlayer :: Player
 local rgb = Color3.fromRGB
 
 local SLOTS = 9 -- tiles on the bar (the 9th becomes the bag when there are more items)
-local TILE = 66
+local TILE = 76
 local GAP = 8
 local GOLD = rgb(255, 214, 92)
 -- (number keys by name: 1 - 9)
@@ -45,6 +46,7 @@ type Tile = {
 	Gradient: UIGradient,
 	Key: TextLabel,
 	Tag: TextLabel,
+	Title: TextLabel,
 	View: ViewportFrame,
 	Tool: Tool?,
 	Look: string?,
@@ -68,8 +70,8 @@ local lastRefresh = 0
 --------------------------------------------------------------------------------
 -- What an item is
 --------------------------------------------------------------------------------
--- (its tint, its tag along the bottom, and what its 3D icon is: "Donut|id|mutation|size" ...)
-local function describe(tool: Tool): (Color3, string, string)
+-- (its tint, its tag, what its 3D icon is: "Donut|id|mutation|size" ..., and its short name)
+local function describe(tool: Tool): (Color3, string, string, string)
 	local kind = tool:GetAttribute("InvKind")
 	local mutation = tool:GetAttribute("Mutation")
 	local size = tool:GetAttribute("Size")
@@ -80,15 +82,15 @@ local function describe(tool: Tool): (Color3, string, string)
 		local color = if donut then Rarities.Get(donut.Rarity).Color else rgb(255, 170, 205)
 		local sizeText = if type(size) == "string" and size ~= "Normal" then string.upper(Rarities.SizeLabel(size)) else ""
 		local tag = if mutationText ~= "" and sizeText ~= "" then `{sizeText} {mutationText}` else sizeText .. mutationText
-		return color, tag, `Donut|{id}|{mutation}|{size}`
+		return color, tag, `Donut|{id}|{mutation}|{size}`, if donut then donut.Name else "Donut"
 	elseif kind == "Box" then
 		local tier = tool:GetAttribute("Tier")
 		local boxSize = Boxes.Size(if type(size) == "string" then size else nil)
-		local color = Boxes.Tier(if type(tier) == "string" then tier else nil).Color
+		local tierDef = Boxes.Tier(if type(tier) == "string" then tier else nil)
 		local tag = if boxSize.Id ~= "Small" then string.upper(boxSize.Name) else mutationText
-		return color, tag, `Box|{tier}|{size}|{mutation}`
+		return tierDef.Color, tag, `Box|{tier}|{size}|{mutation}`, `{tierDef.Name} Box`
 	end
-	return rgb(170, 175, 190), "", `Tool|{tool.Name}`
+	return rgb(170, 175, 190), "", `Tool|{tool.Name}`, tool.Name
 end
 
 -- The 3D model inside a tile (the item's own tool for anything else, like the bat).
@@ -173,7 +175,7 @@ local function newTile(parent: Instance, index: number?): Tile
 	}, { Theme.Corner(11) })
 	local view = Theme.new("ViewportFrame", {
 		Name = "Icon",
-		Size = UDim2.new(1, -6, 1, -6),
+		Size = UDim2.new(1, -6, 1, -24),
 		Position = UDim2.fromOffset(3, 3),
 		BackgroundTransparency = 1,
 		Ambient = rgb(190, 190, 190),
@@ -191,15 +193,38 @@ local function newTile(parent: Instance, index: number?): Tile
 		ZIndex = 4,
 		Parent = lift,
 	})
+	-- (its size / mutation, top right)
 	local tag = Theme.Label({
 		Name = "Tag",
 		Text = "",
-		Size = UDim2.new(1, -6, 0, 15),
-		Position = UDim2.new(0, 3, 1, -17),
+		Size = UDim2.new(1, -24, 0, 13),
+		Position = UDim2.fromOffset(20, 4),
+		TextXAlignment = Enum.TextXAlignment.Right,
+		StrokeThickness = 1.5,
 		ZIndex = 4,
 		Parent = lift,
 	})
-	return { Button = button, Lift = lift, Stroke = stroke, Gradient = gradient, Key = key, Tag = tag, View = view, Tool = nil, Look = nil, Model = nil }
+	-- its name, on a dark strip along the bottom
+	local strip = Theme.new("Frame", {
+		Name = "NameStrip",
+		Size = UDim2.new(1, 0, 0, 22),
+		Position = UDim2.new(0, 0, 1, -22),
+		BackgroundColor3 = rgb(10, 8, 16),
+		BackgroundTransparency = 0.35,
+		ZIndex = 4,
+		Parent = lift,
+	}, { Theme.Corner(14) }) :: Frame
+	local title = Theme.Label({
+		Name = "ItemName",
+		Text = "",
+		Size = UDim2.new(1, -8, 1, -4),
+		Position = UDim2.fromOffset(4, 2),
+		TextWrapped = true,
+		StrokeThickness = 1.5,
+		ZIndex = 5,
+		Parent = strip,
+	})
+	return { Button = button, Lift = lift, Stroke = stroke, Gradient = gradient, Key = key, Tag = tag, Title = title, View = view, Tool = nil, Look = nil, Model = nil }
 end
 
 local function humanoid(): Humanoid?
@@ -231,7 +256,8 @@ local function showTool(tile: Tile, tool: Tool?)
 	if not tool then
 		return
 	end
-	local color, tagText, look = describe(tool)
+	local color, tagText, look, name = describe(tool)
+	tile.Title.Text = name
 	tile.Gradient.Color = ColorSequence.new(color:Lerp(rgb(255, 255, 255), 0.15), color:Lerp(rgb(20, 18, 28), 0.55))
 	tile.Tag.Text = tagText
 	local mutation = tool:GetAttribute("Mutation")
@@ -348,6 +374,7 @@ function Hotbar.Refresh()
 			tile.Stroke.Transparency = 0.2
 			tile.Lift.Position = UDim2.fromOffset(0, 0)
 			tile.Tag.Text = `+{#items - onBar}`
+			tile.Title.Text = "ALL ITEMS"
 			tile.Tag.TextColor3 = rgb(255, 255, 255)
 		else
 			showTool(tile, items[i])

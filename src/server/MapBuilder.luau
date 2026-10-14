@@ -61,24 +61,6 @@ end
 --------------------------------------------------------------------------------
 -- Lobby
 --------------------------------------------------------------------------------
-local function buildEntranceGate(parent: Instance)
-	local gate = Instance.new("Model")
-	gate.Name = "EntranceGate"
-	local half = map.LaneHalfWidth
-	for _, side in { -1, 1 } do
-		Build.Part({ Parent = gate, Name = "GatePillar", Size = Vector3.new(8, 44, 8), Position = Vector3.new(side * (half + 7), 22, map.SafeZoneZ + 2), Color = rgb(215, 120, 170), Material = Enum.Material.Plastic })
-	end
-	-- (a plain beam: no name sign over the lane)
-	Build.Part({
-		Parent = gate, Name = "GateBeam",
-		Size = Vector3.new(half * 2 + 22, 8, 8),
-		CFrame = CFrame.lookAt(Vector3.new(0, 48, map.SafeZoneZ + 2), Vector3.new(0, 48, map.SafeZoneZ - 10)),
-		Color = rgb(200, 95, 155), Material = Enum.Material.Plastic,
-	})
-	Decor.GiantDonut(gate, CFrame.new(0, 64, map.SafeZoneZ + 2), 8, 7, rgb(222, 165, 95), rgb(255, 150, 200), { rgb(255, 60, 60), rgb(255, 230, 60), rgb(60, 200, 255), rgb(255, 255, 255) })
-	gate.Parent = parent
-end
-
 local function buildSafeZoneLine(parent: Instance)
 	local half = map.LaneHalfWidth
 	Build.Part({ Parent = parent, Name = "SafeZoneLine", Size = Vector3.new(half * 2, 0.2, 1.5), Position = Vector3.new(0, 0.1, map.SafeZoneZ - 0.75), Color = rgb(255, 50, 50), Material = Enum.Material.Neon, CanCollide = false })
@@ -314,7 +296,6 @@ local function buildHub(parent: Folder)
 	buildRidge(hub)
 
 	buildSafeZoneLine(hub)
-	buildEntranceGate(hub)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
 	buildConveyors(hub)
