@@ -9,7 +9,7 @@
 	  0.0  black bars slide in; the STEAL A DONUT title pops up over an aerial view of the map
 	  3.4  the camera glides down to your base
 	  6.0  you walk through your pen up to the donut shop's window (the baker watching you come)...
-	  9.2  ...and ask him: "One Donut Box Please" - "Coming right up!"
+	  9.2  ...and ask him, with a friendly open hand: "One Donut Box Please" - "Coming right up!"
 	 10.6  he turns round, walks over to the shelves at the back, takes a box down, turns back,
 	       walks back to the counter and holds it out to you
 	 15.9  WHOOSH: Domer zips in from the side and skids to a stop beside you (dust, a little shake)
@@ -21,8 +21,8 @@
 	 21.2  you run after him... and run out of puff: bent over, hands on your knees, sweating and
 	       panting
 	 25.0  the camera comes round in front of you as you stand up straight...
-	 26.0  ...and over your right shoulder as you turn to look at your treadmill - glowing, a big
-	       cartoon star shining behind it
+	 26.0  ...and over your right shoulder as you turn to look at your treadmill (and point at it) -
+	       softly glowing, a cartoon star twinkling behind it
 	 28.8  the camera settles behind you into the normal view, the bars slide away, and the game
 	       starts (the tutorial, for new players)
 
@@ -30,7 +30,10 @@
 	Domer and the baker lean, recoil and settle on springs (Motion.Spring), Domer's feet stay on
 	the ground as he runs, and the camera glides through all its shots on one smooth curve
 	(Motion.Curve) with a little hand-held drift, ending exactly where the normal camera takes
-	over. Everything runs on the scene's own clock, so it plays the same at any frame rate.
+	over. Your own character's moves (asking, furious, yelling, out of puff, standing up, pointing)
+	are keyframed in Blender and played on every joint of your avatar (client/PlayerAnims). The
+	talking sound plays only while a bubble's words are typing out. Everything runs on the scene's
+	own clock, so it plays the same at any frame rate.
 
 	A SKIP button ends it at any time. The UI is hidden while it plays (HideUI, quietly) and your
 	controls are off; both come back when it ends. While it's on, the player has the attribute
@@ -58,6 +61,7 @@ local HideUI = require(script.Parent.UI.HideUI)
 local State = require(script.Parent.State)
 local Bases = require(script.Parent.Bases)
 local Bakers = require(script.Parent.Bakers)
+local PlayerAnims = require(script.Parent.PlayerAnims)
 local SpeedLines = require(script.Parent.SpeedLines)
 local DonutTitle = require(script.Parent.UI.DonutTitle)
 
@@ -81,7 +85,7 @@ local T = {
 	Fly = 3.4,
 	Walk = 6.0,
 	Arrive = 9.2,
-	Reply = 10.0,
+	Reply = 10.15,
 	Turn = 10.6,
 	Fetch = 11.1,
 	Pick = 12.7,
@@ -198,9 +202,14 @@ local function stillPart(name: string, cf: CFrame, parent: Instance): Part
 end
 
 -- A speech bubble over `head` (white, rounded, with a tail). It pops up, types its words out, bobs
--- gently and shrinks away when it's done - all on the scene's clock (stepBubble).
-type Bubble = { Gui: BillboardGui, Label: TextLabel, Scale: UIScale, Height: number, Born: number, Dying: number?, Count: number }
-local function makeBubble(head: BasePart, text: string, height: number, color: Color3?, now: number, parent: Instance): Bubble
+-- gently and shrinks away when it's done - all on the scene's clock (stepBubble). With `talk`, the
+-- talking sound plays while the words type out, from the first letter to the last (at least
+-- TALK_MIN seconds), so it's only ever heard while someone is "speaking".
+type Bubble = { Gui: BillboardGui, Label: TextLabel, Scale: UIScale, Height: number, Born: number, Dying: number?, Count: number, Talk: boolean, Voice: Sound?, Spoke: boolean }
+local TYPE_START = 0.12 -- seconds after it pops up that the first letter shows
+local TYPE_EACH = 0.035 -- seconds a letter
+local TALK_MIN = 0.3
+local function makeBubble(head: BasePart, text: string, height: number, color: Color3?, now: number, parent: Instance, talk: boolean): Bubble
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "SpeechBubble"
 	gui.Adornee = head
@@ -249,8 +258,18 @@ local function makeBubble(head: BasePart, text: string, height: number, color: C
 	label.MaxVisibleGraphemes = 0
 	label.Parent = box
 	gui.Parent = parent
-	cue("Talk") -- (someone's talking)
-	return { Gui = gui, Label = label, Scale = scale, Height = height, Born = now, Dying = nil, Count = utf8.len(text) or #text }
+	return { Gui = gui, Label = label, Scale = scale, Height = height, Born = now, Dying = nil, Count = utf8.len(text) or #text, Talk = talk, Voice = nil, Spoke = false }
+end
+
+local function hush(b: Bubble)
+	local voice = b.Voice
+	b.Voice = nil
+	if voice then
+		pcall(function()
+			voice:Stop()
+			voice:Destroy()
+		end)
+	end
 end
 
 -- false once it has gone
@@ -260,14 +279,24 @@ local function stepBubble(b: Bubble, now: number): boolean
 	if b.Dying then
 		local k = (now - b.Dying) / 0.14
 		if k >= 1 then
+			hush(b)
 			b.Gui:Destroy()
 			return false
 		end
 		size *= 1 - smooth(k)
 	end
 	b.Scale.Scale = math.max(size, 0)
-	local shown = math.floor(age / 0.025)
+	local typing = age - TYPE_START
+	local shown = if typing < 0 then 0 else math.floor(typing / TYPE_EACH) + 1
 	b.Label.MaxVisibleGraphemes = if shown >= b.Count then -1 else shown
+	-- talking from the first letter until the last one is out
+	if b.Talk and not b.Spoke and typing >= 0 and not b.Dying then
+		b.Spoke = true
+		b.Voice = cue("Talk", true)
+	end
+	if b.Voice and (b.Dying or typing >= math.max(b.Count * TYPE_EACH, TALK_MIN)) then
+		hush(b)
+	end
 	b.Gui.StudsOffsetWorldSpace = Vector3.new(0, b.Height + math.sin(age * 3) * 0.08, 0)
 	return true
 end
@@ -747,12 +776,13 @@ function Intro.Play(opts: { Speed: number? }?)
 		return false
 	end
 
-	local function say(head: BasePart?, text: string, height: number, color: Color3?, now: number)
+	-- (talk = false: no talking sound - a gasp, or a yell that has its own sound)
+	local function say(head: BasePart?, text: string, height: number, color: Color3?, now: number, talk: boolean?)
 		for _, b in bubbles do
 			b.Dying = b.Dying or now
 		end
 		if head then
-			table.insert(bubbles, makeBubble(head, text, height, color, now, scene))
+			table.insert(bubbles, makeBubble(head, text, height, color, now, scene, talk ~= false))
 		end
 	end
 
@@ -831,102 +861,17 @@ function Intro.Play(opts: { Speed: number? }?)
 		return lastDomerHead
 	end
 
-	-- Your own body, posed (furious, yelling, bent over out of breath): your animations pause
-	-- meanwhile, and your shoulders, hips and knees are turned every frame after them (R6 or R15).
-	-- (In your body's own space: X turns a limb up in front of you, Z swings it in or out.)
-	local poseMotors: { [string]: Motor6D } = {}
-	local poseGoal: { [string]: CFrame } = {}
-	local poseNow: { [string]: CFrame } = {}
-	local posing = false
-	local animate: BaseScript? = nil
-	local animateWas = true
-	local poseConnections: { RBXScriptConnection } = {}
-	local poseSpeed = 10
-	local function findLimbs(model: Model): { [string]: Motor6D }
-		local found: { [string]: Motor6D } = {}
-		local torso = model:FindFirstChild("Torso")
-		for _, joint in {
-			{ Key = "LeftArm", R6 = "Left Shoulder", Part = "LeftUpperArm", R15 = "LeftShoulder" },
-			{ Key = "RightArm", R6 = "Right Shoulder", Part = "RightUpperArm", R15 = "RightShoulder" },
-			{ Key = "LeftLeg", R6 = "Left Hip", Part = "LeftUpperLeg", R15 = "LeftHip" },
-			{ Key = "RightLeg", R6 = "Right Hip", Part = "RightUpperLeg", R15 = "RightHip" },
-			{ Key = "LeftKnee", R6 = "", Part = "LeftLowerLeg", R15 = "LeftKnee" },
-			{ Key = "RightKnee", R6 = "", Part = "RightLowerLeg", R15 = "RightKnee" },
-		} do
-			local motor = if torso and joint.R6 ~= "" then torso:FindFirstChild(joint.R6) else nil
-			if not motor then
-				local part = model:FindFirstChild(joint.Part)
-				motor = part and part:FindFirstChild(joint.R15)
-			end
-			if motor and motor:IsA("Motor6D") then
-				found[joint.Key] = motor
-			end
-		end
-		return found
-	end
-	local function poseStep(dt: number)
-		for key, motor in poseMotors do
-			poseNow[key] = (poseNow[key] or CFrame.identity):Lerp(poseGoal[key] or CFrame.identity, math.min(1, dt * poseSpeed))
-			local q = motor.C0.Rotation
-			motor.Transform = q:Inverse() * poseNow[key] * q
+	-- Your own body: hand-made moves (client/PlayerAnims, keyframed in Blender: every joint) - asking
+	-- for the box, furious, yelling after him, out of breath, standing up, spotting your treadmill
+	local function move(name: string, fade: number?, after: string?)
+		if character then
+			PlayerAnims.Play(character :: Model, name, { Fade = fade, Then = after })
 		end
 	end
-	local function bodyStart()
-		if posing or not (character and humanoid) then
-			return
+	local function moveStop(fade: number?)
+		if character then
+			PlayerAnims.Stop(character :: Model, fade)
 		end
-		posing = true
-		poseMotors = findLimbs(character :: Model)
-		local a = (character :: Model):FindFirstChild("Animate")
-		if a and a:IsA("BaseScript") then
-			animate = a
-			pcall(function()
-				animateWas = a.Enabled
-			end)
-			a.Enabled = false
-		end
-		pcall(function()
-			local animator = (humanoid :: Humanoid):FindFirstChildOfClass("Animator")
-			if animator then
-				for _, track in animator:GetPlayingAnimationTracks() do
-					track:Stop(0.15)
-				end
-			end
-		end)
-		table.insert(poseConnections, RunService.Stepped:Connect(function(_, dt: number)
-			poseStep(dt)
-		end))
-		table.insert(poseConnections, RunService.RenderStepped:Connect(function()
-			poseStep(0)
-		end))
-	end
-	local function bodyStop()
-		if not posing then
-			return
-		end
-		posing = false
-		for _, c in poseConnections do
-			c:Disconnect()
-		end
-		table.clear(poseConnections)
-		pcall(function()
-			for _, motor in poseMotors do
-				motor.Transform = CFrame.identity
-			end
-		end)
-		table.clear(poseNow)
-		table.clear(poseGoal)
-		local a = animate
-		if a then
-			pcall(function()
-				a.Enabled = animateWas
-			end)
-			animate = nil
-		end
-	end
-	local function limb(key: string, forward: number, inward: number)
-		local left = string.sub(key, 1, 4) == "Left"
-		poseGoal[key] = CFrame.Angles(rad(forward), 0, rad(if left then inward else -inward))
 	end
 	-- steam out of your ears, sweat flying off you
 	local function headPart(): BasePart?
@@ -1011,6 +956,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			connection:Disconnect()
 		end
 		for _, b in bubbles do
+			hush(b)
 			b.Gui:Destroy()
 		end
 		table.clear(bubbles)
@@ -1018,7 +964,7 @@ function Intro.Play(opts: { Speed: number? }?)
 			humanoid.WalkSpeed = walkSpeed
 		end
 		-- your body back to you: your animations on, free to move
-		bodyStop()
+		moveStop(0.25)
 		sweating(false)
 		if root and kneelBase then
 			(root :: BasePart).Anchored = false
@@ -1205,37 +1151,30 @@ function Intro.Play(opts: { Speed: number? }?)
 			end
 			turnGoal = into
 			say(character and character:FindFirstChild("Head") :: BasePart?, Config.Intro.Bubble, 3.2, nil, t)
+			move("Ask", 0.25, "Release")
 		end
 		if once("BubbleOff", t, T.Zip) then
 			for _, b in bubbles do
 				b.Dying = b.Dying or t
 			end
 		end
-		-- furious: fists clenched, glaring after him, steam coming out of your ears
+		-- furious: fists clenched, stamping, glaring after him, steam coming out of your ears
 		if t >= T.Angry and t < T.Chase then
 			if once("Angry", t, T.Angry) then
-				bodyStart()
-				poseSpeed = 12
+				move("Angry", 0.15)
 				steam()
 			end
 			turnGoal = (domerSeen - r.Position) * Vector3.new(1, 0, 1)
-			local tremble = math.sin(t * 34) * 4
-			if t < T.Yell then
-				limb("LeftArm", 12 + tremble, -24)
-				limb("RightArm", 12 - tremble, -24)
-			else
-				-- shaking your fist at him, yelling
-				limb("RightArm", 160 + math.sin(t * 22) * 14, 6)
-				limb("LeftArm", 18, -28)
-			end
 		end
 		if once("Yell", t, T.Yell) then
-			say(character and character:FindFirstChild("Head") :: BasePart?, "HEY! GIVE THAT BACK!", 3.2, rgb(255, 235, 120), t)
+			-- shaking your fist at him, yelling
+			move("Yell", 0.12)
+			say(character and character:FindFirstChild("Head") :: BasePart?, "HEY! GIVE THAT BACK!", 3.2, rgb(255, 235, 120), t, false)
 			cue("Scream")
 			steam()
 		end
 		if once("Chase", t, T.Chase) then
-			bodyStop()
+			moveStop(0.15)
 			turnGoal = nil
 			walkSpeed = h.WalkSpeed
 			h.WalkSpeed = 24
@@ -1258,18 +1197,23 @@ function Intro.Play(opts: { Speed: number? }?)
 			facing = if facing.Magnitude > 0.1 then facing.Unit else out
 			kneelBase = CFrame.lookAt(r.Position, r.Position + facing)
 			r.Anchored = true
-			bodyStart()
-			poseSpeed = 7
+			move("Pant", 0.35)
 			sweating(true)
 			loop("Panting", true)
 		end
+		if once("StandUp", t, T.StandUp) then
+			move("StandUp", 0.2)
+		end
+		if once("Look", t, T.Look) then
+			-- a little start, then pointing at it
+			move("Look", 0.15)
+		end
 		local base = kneelBase
 		if base and t >= T.Kneel then
-			local r15 = h.RigType == Enum.HumanoidRigType.R15
-			-- 1 bent over (panting) ... 0 standing up straight
-			local bent = smooth((t - T.Kneel) / 0.35) * (1 - smooth((t - T.StandUp) / 0.8))
-			local pant = math.sin(t * 2 * math.pi * 1.6) * 3 * bent
-			local lean = 34 * bent + pant
+			-- 1 bent over (panting) ... 0 standing up straight: a little lower while your knees are
+			-- bent (an R6 avatar bends at its middle, which lifts its legs more)
+			local bent = smooth((t - T.Kneel) / 0.35) * (1 - smooth((t - T.StandUp) / 0.6))
+			local drop = if h.RigType == Enum.HumanoidRigType.R15 then 0.1 else 0.3
 			-- turning to look at your treadmill
 			local yaw = 0
 			if t >= T.Look then
@@ -1279,13 +1223,7 @@ function Intro.Play(opts: { Speed: number? }?)
 					yaw = (want - yawOf(base.LookVector)) * smooth((t - T.Look) / 0.8)
 				end
 			end
-			r.CFrame = base * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -0.5 * bent, -0.3 * bent) * CFrame.Angles(rad(-lean), 0, 0)
-			limb("LeftArm", 62 * bent, 6 * bent)
-			limb("RightArm", 62 * bent, 6 * bent)
-			limb("LeftLeg", (lean + (if r15 then 18 else 6) * bent), 0)
-			limb("RightLeg", (lean + (if r15 then 18 else 6) * bent), 0)
-			limb("LeftKnee", -24 * bent, 0)
-			limb("RightKnee", -24 * bent, 0)
+			r.CFrame = base * CFrame.Angles(0, yaw, 0) * CFrame.new(0, -drop * bent, 0)
 			if once("Recovered", t, T.StandUp + 0.3) then
 				loop("Panting", false)
 				sweating(false)
@@ -1554,7 +1492,7 @@ function Intro.Play(opts: { Speed: number? }?)
 						part.Transparency = 0
 					end
 				end
-				say(baker.Puppet.Model:FindFirstChild("Head") :: BasePart?, "!", 3.5 * BAKER_S, rgb(255, 235, 120), t)
+				say(baker.Puppet.Model:FindFirstChild("Head") :: BasePart?, "!", 3.5 * BAKER_S, rgb(255, 235, 120), t, false)
 			end
 		end
 		if once("Grin", t, T.Grin + 0.25) then
@@ -1690,35 +1628,38 @@ function Intro.Play(opts: { Speed: number? }?)
 	end
 
 	-- Your treadmill lights up: a warm glow all round it, and a big cartoon star shining behind it
-	type Star = { Gui: BillboardGui, Scale: UIScale, Spin: { GuiObject }, Born: number }
+	type Star = { Gui: BillboardGui, Scale: UIScale, Spin: { GuiObject }, Born: number, Glow: Highlight?, Light: PointLight }
 	local star: Star? = nil
 	local function shineTreadmill()
 		cue("Shine")
 		local model = plot and plot:FindFirstChild("Treadmill")
 		local center = treadAt
+		local glow: Highlight? = nil
 		if model and model:IsA("Model") then
 			center = model:GetPivot().Position
-			local glow = Instance.new("Highlight")
-			glow.Name = "TreadmillGlow"
-			glow.Adornee = model
-			glow.FillColor = rgb(255, 225, 90)
-			glow.FillTransparency = 0.55
-			glow.OutlineColor = WHITE
-			glow.OutlineTransparency = 0
-			glow.DepthMode = Enum.HighlightDepthMode.Occluded
-			glow.Parent = scene
+			-- (a soft warm sheen that fades in and gently pulses - see stepStar)
+			local g = Instance.new("Highlight")
+			g.Name = "TreadmillGlow"
+			g.Adornee = model
+			g.FillColor = rgb(255, 225, 120)
+			g.FillTransparency = 1
+			g.OutlineColor = rgb(255, 240, 190)
+			g.OutlineTransparency = 1
+			g.DepthMode = Enum.HighlightDepthMode.Occluded
+			g.Parent = scene
+			glow = g
 		end
 		local away = Vector3.new(center.X - follow.X, 0, center.Z - follow.Z)
 		away = if away.Magnitude > 0.1 then away.Unit else into
-		local holder = stillPart("TreadmillStar", CFrame.new(center + away * 6 + Vector3.new(0, 6, 0)), scene)
+		local holder = stillPart("TreadmillStar", CFrame.new(center + away * 6 + Vector3.new(0, 5.5, 0)), scene)
 		local light = Instance.new("PointLight")
-		light.Color = rgb(255, 225, 140)
-		light.Range = 22
-		light.Brightness = 3
+		light.Color = rgb(255, 225, 160)
+		light.Range = 12
+		light.Brightness = 0
 		light.Parent = holder
 		local gui = Instance.new("BillboardGui")
 		gui.Name = "Star"
-		gui.Size = UDim2.fromScale(16, 16)
+		gui.Size = UDim2.fromScale(10, 10)
 		gui.LightInfluence = 0
 		gui.Parent = holder
 		local scale = Instance.new("UIScale")
@@ -1749,18 +1690,21 @@ function Intro.Play(opts: { Speed: number? }?)
 			return f
 		end
 		-- a soft round glow, rays turning one way, an eight-pointed star (two squares) the other
-		local halo = shape("Glow", 1, rgb(255, 240, 170), 0, true, 1)
-		halo.BackgroundTransparency = 0.6
+		local halo = shape("Glow", 1, rgb(255, 240, 190), 0, true, 1)
+		halo.BackgroundTransparency = 0.85
 		for i = 0, 5 do
-			local ray = shape("Ray", 0.08, rgb(255, 245, 200), i * 30, false, 2)
-			ray.Size = UDim2.fromScale(0.07, 1.25)
-			ray.BackgroundTransparency = 0.35
+			local ray = shape("Ray", 0.08, rgb(255, 245, 215), i * 30, false, 2)
+			ray.Size = UDim2.fromScale(0.06, 1.1)
+			ray.BackgroundTransparency = 0.7
 			table.insert(spin, ray)
 		end
-		table.insert(spin, shape("Point", 0.5, rgb(255, 215, 60), 0, false, 3))
-		table.insert(spin, shape("Point", 0.5, rgb(255, 215, 60), 45, false, 3))
-		shape("Middle", 0.28, rgb(255, 250, 225), 0, true, 4)
-		star = { Gui = gui, Scale = scale, Spin = spin, Born = t }
+		for _, turn in { 0, 45 } do
+			local point = shape("Point", 0.46, rgb(255, 220, 90), turn, false, 3)
+			point.BackgroundTransparency = 0.2
+			table.insert(spin, point)
+		end
+		shape("Middle", 0.24, rgb(255, 248, 225), 0, true, 4).BackgroundTransparency = 0.15
+		star = { Gui = gui, Scale = scale, Spin = spin, Born = t, Glow = glow, Light = light }
 	end
 	local function stepStar()
 		local st = star
@@ -1768,7 +1712,16 @@ function Intro.Play(opts: { Speed: number? }?)
 			return
 		end
 		local age = t - st.Born
-		st.Scale.Scale = backOut(age / 0.45) * (1 + 0.06 * math.sin(age * 5))
+		st.Scale.Scale = backOut(age / 0.45) * (1 + 0.05 * math.sin(age * 5))
+		-- the treadmill's sheen: fades in, then breathes softly
+		local on = smooth(age / 0.6)
+		local pulse = 0.5 + 0.5 * math.sin(age * 4)
+		local glow = st.Glow
+		if glow then
+			glow.FillTransparency = 1 - on * (0.14 + 0.06 * pulse)
+			glow.OutlineTransparency = 1 - on * 0.45
+		end
+		st.Light.Brightness = on * (0.7 + 0.2 * pulse)
 		for _, f in st.Spin do
 			local base = (f:GetAttribute("Base") :: number?) or f.Rotation
 			f:SetAttribute("Base", base)

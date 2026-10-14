@@ -899,6 +899,16 @@ Config.MythicOpening = {
 	},
 }
 
+-- Your character's moves in the cutscenes (the intro and the Mythic box film): keyframed in Blender
+-- (art/player_anims), played on every joint by client/PlayerAnims. As they are, only you see them
+-- (the cutscenes are yours alone anyway). Publish them and paste each one's ID here
+-- ("rbxassetid://..." or just the number) and they play as normal Roblox animations instead - see
+-- shared/PlayerAnimRig for how. An empty ID: played straight from the keyframes.
+Config.PlayerAnimations = {
+	R15 = { Ask = "", Angry = "", Yell = "", Pant = "", StandUp = "", Look = "", Watch = "", Reach = "", Shield = "", Fall = "", Sit = "" },
+	R6 = { Ask = "", Angry = "", Yell = "", Pant = "", StandUp = "", Look = "", Watch = "", Reach = "", Shield = "", Fall = "", Sit = "" },
+} :: { [string]: { [string]: string } }
+
 -- Daily Rewards (shared/DailyRewards, server/DailyService, UI/DailyRewards): one reward a day, Day 1
 -- to Day 7, then round again from Day 1. A new day starts at midnight on the same clock as the
 -- Eternal Storm (Config.EternalStorm.Schedule: US Pacific). Miss a few days and nothing is lost:

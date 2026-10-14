@@ -13,9 +13,9 @@
 	  9.3  it fades out, and you're back where you were
 
 	Sounds: Config.MythicOpening.Sounds. Your real character is used: moved next to the box (and
-	back after), held still, its own animations paused, and its arms and legs posed by turning its
-	shoulder and hip joints every frame (R6 or R15). SKIP ends it any time; if anything breaks, it
-	ends and puts everything back. The donut is already yours (the server gave it when the box
+	back after), held still, and moving with hand-made moves keyframed in Blender - leaning in to
+	watch, reaching, shielding your eyes, falling back, sitting (client/PlayerAnims: every joint, R6
+	or R15). SKIP ends it any time; if anything breaks, it ends and puts everything back. The donut is already yours (the server gave it when the box
 	opened): this is only the show.
 
 	  MythicOpening.CanPlay()           not during another scene, the loading screen or a shot, or
@@ -41,6 +41,7 @@ local Rarities = require(Shared.Rarities)
 
 local Cinematic = require(script.Parent.Cinematic)
 local HideUI = require(script.Parent.UI.HideUI)
+local PlayerAnims = require(script.Parent.PlayerAnims)
 local Theme = require(script.Parent.UI.Theme)
 local Treadmill = require(script.Parent.Treadmill)
 
@@ -99,29 +100,6 @@ end
 
 function MythicOpening.IsPlaying(): boolean
 	return playing
-end
-
--- Your character's shoulder and hip joints (R6: in the Torso; R15: in each upper arm and leg)
-local function limbs(character: Model): { [string]: Motor6D }
-	local found: { [string]: Motor6D } = {}
-	local torso = character:FindFirstChild("Torso")
-	local joints: { { Key: string, R6: string, Part: string, R15: string } } = {
-		{ Key = "LeftArm", R6 = "Left Shoulder", Part = "LeftUpperArm", R15 = "LeftShoulder" },
-		{ Key = "RightArm", R6 = "Right Shoulder", Part = "RightUpperArm", R15 = "RightShoulder" },
-		{ Key = "LeftLeg", R6 = "Left Hip", Part = "LeftUpperLeg", R15 = "LeftHip" },
-		{ Key = "RightLeg", R6 = "Right Hip", Part = "RightUpperLeg", R15 = "RightHip" },
-	}
-	for _, joint in joints do
-		local motor = torso and torso:FindFirstChild(joint.R6)
-		if not motor then
-			local upper = character:FindFirstChild(joint.Part)
-			motor = upper and upper:FindFirstChild(joint.R15)
-		end
-		if motor and motor:IsA("Motor6D") then
-			found[joint.Key] = motor
-		end
-	end
-	return found
 end
 
 local function anchorAll(model: Model)
@@ -232,10 +210,7 @@ function MythicOpening.Play(info: Info): boolean
 	local soundFolder = Instance.new("Folder")
 	soundFolder.Name = "MythicOpeningSounds"
 	local connections: { RBXScriptConnection } = {}
-	local motors: { [string]: Motor6D } = {}
 	local done = false
-	local animate: BaseScript? = nil
-	local animateWasEnabled = true
 	-- (the room's light as it was, and what we last set it to: only our own changes are undone)
 	local lightingBefore: { [string]: any } = {}
 	local lightingSet: { [string]: any } = {}
@@ -250,12 +225,8 @@ function MythicOpening.Play(info: Info): boolean
 		for _, c in connections do
 			c:Disconnect()
 		end
-		-- (the next animation frame puts your joints back by themselves)
-		pcall(function()
-			for _, motor in motors do
-				motor.Transform = CFrame.identity
-			end
-		end)
+		-- your own animations back (under the black screen)
+		pcall(PlayerAnims.Stop, character :: Model, 0)
 		pcall(function()
 			local gui = player:FindFirstChild("PlayerGui")
 			local screen = gui and gui:FindFirstChild("MythicOpening")
@@ -283,12 +254,7 @@ function MythicOpening.Play(info: Info): boolean
 		if not wasHidden then
 			pcall(HideUI.Set, false)
 		end
-		-- your animations back on, and the room's light as it was (unless something else changed it since)
-		pcall(function()
-			if animate then
-				animate.Enabled = animateWasEnabled
-			end
-		end)
+		-- the room's light as it was (unless something else changed it since)
 		for key, value in lightingBefore do
 			pcall(function()
 				if (Lighting :: any)[key] == lightingSet[key] then
@@ -340,58 +306,17 @@ function MythicOpening.Play(info: Info): boolean
 			end
 		end)
 		local stand = CFrame.lookAt(Vector3.new(spot.X, ground + hip, spot.Z), Vector3.new(boxPos.X, ground + hip, boxPos.Z))
-		-- sitting on the ground after the fall: further back, low, leaning back on your hands
-		local sitHeight = if humanoid.RigType == Enum.HumanoidRigType.R15 then 1.05 else 1.5
+		-- sitting on the ground after the fall: further back, low (the Sit move leans you back on
+		-- your hands)
+		local sitHeight = if humanoid.RigType == Enum.HumanoidRigType.R15 then 1.05 else 1.45
 		local sitFlat = stand * CFrame.new(0, sitHeight - hip, 2.2)
-		local sit = sitFlat * CFrame.Angles(math.rad(20), 0, 0)
 		root.Anchored = true
 		root.CFrame = stand
 
-		-- Your arms and legs: turned at the shoulders and hips every frame, after your animations.
-		-- (In your body's own space: X turns a limb up in front of you, Z swings it in or out.)
-		motors = limbs(character)
-		local limbGoal: { [string]: CFrame } = {}
-		local limbNow: { [string]: CFrame } = {}
-		for key in motors do
-			limbGoal[key], limbNow[key] = CFrame.identity, CFrame.identity
+		-- Your moves (client/PlayerAnims: keyframed in Blender, played on every joint)
+		local function move(name: string, fade: number, after: string?)
+			PlayerAnims.Play(character :: Model, name, { Fade = fade, Then = after })
 		end
-		local snap = 9
-		local function poseLimbs(dt: number)
-			for key, motor in motors do
-				limbNow[key] = limbNow[key]:Lerp(limbGoal[key], math.min(1, dt * snap))
-				local q = motor.C0.Rotation
-				motor.Transform = q:Inverse() * limbNow[key] * q
-			end
-		end
-		table.insert(connections, RunService.Stepped:Connect(function(_, dt: number)
-			poseLimbs(dt)
-		end))
-		table.insert(connections, RunService.RenderStepped:Connect(function()
-			poseLimbs(0)
-		end))
-		local function limb(key: string, forward: number, inward: number)
-			if motors[key] then
-				local left = string.sub(key, 1, 4) == "Left"
-				limbGoal[key] = CFrame.Angles(math.rad(forward), 0, math.rad(if left then inward else -inward))
-			end
-		end
-		-- Your own animations would keep putting your arms back down, so they pause for the film
-		local animateScript = character:FindFirstChild("Animate")
-		if animateScript and animateScript:IsA("BaseScript") then
-			animate = animateScript
-			pcall(function()
-				animateWasEnabled = animateScript.Enabled
-			end)
-			animateScript.Enabled = false
-		end
-		pcall(function()
-			local animator = humanoid:FindFirstChildOfClass("Animator")
-			if animator then
-				for _, track in animator:GetPlayingAnimationTracks() do
-					track:Stop(0.15)
-				end
-			end
-		end)
 
 		-- Sounds (Config.MythicOpening.Sounds)
 		local cues = Config.MythicOpening.Sounds
@@ -551,37 +476,26 @@ function MythicOpening.Play(info: Info): boolean
 
 			dimRoom(smooth((t - T.Open) / 2.5))
 
-			-- You: waiting, then reaching for the lid, flinching from the light, then falling back
-			-- onto the ground and sitting there, propped up on your hands
+			-- You: leaning in to watch it rattle, reaching for the lid, flinching from the light, then
+			-- knocked back onto the ground as the donut leaps out, and sitting there, propped up on
+			-- your hands
+			if once("MoveWatch", 0) then
+				move("Watch", 0.3)
+			end
+			if once("MoveReach", T.Reach) then
+				move("Reach", 0.2)
+			end
+			if once("MoveShield", T.Open) then
+				move("Shield", 0.12)
+			end
+			if once("MoveFall", T.Fall) then
+				move("Fall", 0.08, "Sit")
+			end
 			local body = stand
-			if t < T.Reach then
-				limb("LeftArm", 15, 6)
-				limb("RightArm", 15, 6)
-			elseif t < T.Open then
-				local k = smooth((t - T.Reach) / 0.3)
-				body = stand * CFrame.Angles(math.rad(-18) * k, 0, 0)
-				limb("LeftArm", 55, 12)
-				limb("RightArm", 55, 12)
-			elseif t < T.Fall then
-				local k = 1 - smooth((t - T.Open) / 0.4)
-				body = stand * CFrame.Angles(math.rad(-18) * k + math.rad(6) * (1 - k), 0, 0)
-				limb("LeftArm", 115, 28)
-				limb("RightArm", 115, 28)
-			else
-				local k = smooth((t - T.Fall) / 0.45)
+			if t >= T.Fall then
+				local k = smooth((t - T.Fall) / 0.5)
 				local hop = math.sin(math.min(k, 1) * math.pi) * 0.9
-				body = stand:Lerp(sit, k) * CFrame.new(0, hop, 0)
-				if k < 0.6 then
-					snap = 16
-					limb("LeftArm", 150, -30)
-					limb("RightArm", 150, -30)
-				else
-					snap = 7
-					limb("LeftArm", -38, -14)
-					limb("RightArm", -38, -14)
-				end
-				limb("LeftLeg", 85 * k, -6 * k)
-				limb("RightLeg", 85 * k, -6 * k)
+				body = stand:Lerp(sitFlat, k) * CFrame.new(0, hop, 0)
 			end
 			root.CFrame = body
 

@@ -61,6 +61,12 @@ UpdateNotes.List = {
 		Decor = "Sparkles",
 		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
 		Sections = {
+			{ Title = "Real Moves", Tag = "NEW", Lines = {
+				"In the opening movie and the Mythic box opening your character really moves now: hand-animated on every joint - elbows, wrists, knees, ankles, waist and neck, not just stiff arms and legs",
+				"Ask the baker with a friendly open hand, stamp your feet at Domer, shake your fist as you yell after him, bend over with your hands on your knees to catch your breath, then straighten up and point at your treadmill",
+				"Opening a Mythic box: lean in to watch it rattle, reach for the lid, throw your arms up against the light, get knocked flying and land sitting on the ground, leaning back on your hands",
+				"Works on every avatar, R6 or R15",
+			} },
 			{ Title = "Growing Donuts", Tag = "NEW", Lines = {
 				"While a box waits in your pen, the donut inside grows - or shrinks! - to a random size",
 				"Watch the number over the box: it starts at 1.00x and creeps up (or down) as the timer runs, landing on the donut's size when it's ready",
@@ -94,8 +100,8 @@ UpdateNotes.List = {
 				"Everyone gets to see the new opening movie once, the first time they play after this update: it opens out of black through a circle, and the game's name slams in letter by letter like the logo",
 				"Then fly over the map, walk up to your own donut shop and ask for a box - the baker turns round, fetches one off the shelves at the back and brings it over",
 				"Just as he hands it over, Domer zips in out of nowhere, grabs it, winks and laughs at you... and runs off with it, waving back at you over his shoulder!",
-				"You yell after him, chase him until you're out of breath, then catch sight of your treadmill shining - and the game starts",
-				"With its own song and sounds: talking, footsteps, Domer's wink and laugh, you yelling and panting",
+				"You yell after him, chase him until you're out of breath, then catch sight of your treadmill glowing softly - and the game starts",
+				"With its own song and sounds: footsteps, Domer's wink and laugh, you yelling and panting, and talking that plays only while the words are coming up",
 				"Want to see it again? Press WATCH INTRO in Settings (from the lobby). SKIP ends it any time",
 				"Behind the baker the shop is stocked: shelves full of donut boxes in every rarity, bats, speed sneakers, a tray of fresh donuts and his table where he kneads the dough",
 			} },
