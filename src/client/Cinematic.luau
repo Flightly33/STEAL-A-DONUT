@@ -16,10 +16,14 @@
 	  Cinematic.CanPlay()   not while you're carrying something (a Domer might be after you), in the
 	                        opening scene or the loading screen, or while another shot is playing
 	  Cinematic.IsPlaying()
+	  Cinematic.Skip()      straight to the end: the camera eases back to you (the SKIP button that
+	                        pops up on the bottom bar when you click or tap does this)
 ]]
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+
+local SkipButton = require(script.Parent.UI.SkipButton)
 
 local Cinematic = {}
 
@@ -98,6 +102,9 @@ local function buildScreen(): ScreenGui
 		f.Parent = screen
 		table.insert(edges, f)
 	end
+	SkipButton.Attach(screen, function()
+		Cinematic.Skip()
+	end)
 	screen.Parent = player:WaitForChild("PlayerGui")
 	return screen
 end
@@ -112,6 +119,18 @@ local function finish()
 	if gui then
 		gui:Destroy()
 		gui = nil
+	end
+end
+
+function Cinematic.Skip()
+	local shot = playing
+	if not shot then
+		return
+	end
+	-- (jump to where it starts easing back out)
+	local outAt = shot.Duration - (shot.BlendOut or 0.9)
+	if os.clock() - started < outAt then
+		started = os.clock() - outAt
 	end
 end
 

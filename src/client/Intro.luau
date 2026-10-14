@@ -64,6 +64,7 @@ local Bakers = require(script.Parent.Bakers)
 local PlayerAnims = require(script.Parent.PlayerAnims)
 local SpeedLines = require(script.Parent.SpeedLines)
 local DonutTitle = require(script.Parent.UI.DonutTitle)
+local SkipButton = require(script.Parent.UI.SkipButton)
 
 local Intro = {}
 
@@ -366,16 +367,8 @@ local function buildScreen(): Screen
 	local title = DonutTitle.new(gui)
 	-- (over the iris: the first letters slam in over the black as the scene opens behind them)
 	title.Frame.ZIndex = 5
-	local skip = Theme.Button({
-		Name = "Skip",
-		Text = "SKIP",
-		Color = Theme.Colors.Gray,
-		Size = UDim2.fromOffset(120, 42),
-		AnchorPoint = Vector2.new(1, 1),
-		Position = UDim2.new(1, -18, 1, -18),
-		Parent = gui,
-	})
-	skip.ZIndex = 5
+	-- (hidden until you click or tap: then it pops up on the bottom bar - UI/SkipButton)
+	local skip = SkipButton.Attach(gui, function() end)
 	return { Gui = gui, Title = title, Top = top, Bottom = bottom, Skip = skip, Iris = iris, Edges = edges }
 end
 

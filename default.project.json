@@ -25,9 +25,6 @@
     "Workspace": {
       "$properties": {
         "StreamingEnabled": false
-      },
-      "Map": {
-        "$path": "map/Map.model.json"
       }
     },
     "Lighting": {

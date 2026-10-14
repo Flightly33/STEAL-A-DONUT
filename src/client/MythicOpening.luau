@@ -43,6 +43,7 @@ local Cinematic = require(script.Parent.Cinematic)
 local HideUI = require(script.Parent.UI.HideUI)
 local PlayerAnims = require(script.Parent.PlayerAnims)
 local Theme = require(script.Parent.UI.Theme)
+local SkipButton = require(script.Parent.UI.SkipButton)
 local Treadmill = require(script.Parent.Treadmill)
 
 local MythicOpening = {}
@@ -179,8 +180,8 @@ local function buildScreen(): Screen
 	gradient.Parent = title
 	local name = Theme.Label({ Name = "DonutName", Text = "", TextColor3 = WHITE, Position = UDim2.fromScale(0, 0.52), Size = UDim2.new(1, 0, 0.42, 0), StrokeThickness = 4, Parent = card })
 	name.ZIndex = 5
-	local skip = Theme.Button({ Name = "Skip", Text = "SKIP", Color = Theme.Colors.Gray, Size = UDim2.fromOffset(120, 42), AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -18, 1, -18), Parent = gui })
-	skip.ZIndex = 7
+	-- (hidden until you click or tap: then it pops up on the bottom bar - UI/SkipButton)
+	local skip = SkipButton.Attach(gui, function() end)
 	return { Gui = gui, Bars = bars, Edges = edges, Fade = fade, Card = card, CardScale = cardScale, Title = title, Name = name, Skip = skip }
 end
 

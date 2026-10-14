@@ -295,8 +295,20 @@ local function breathe(sleeper: Sleeper, now: number, seen: boolean, heard: bool
 	end
 end
 
+-- The game's map once the server has built it (a lane in it). (An old copy of the map can be in
+-- the world for a moment while the server replaces it: never wait on that one.)
+local function currentMap(): Instance
+	while true do
+		local map = workspace:FindFirstChild("Map")
+		if map and map:FindFirstChild("Lane") then
+			return map
+		end
+		task.wait(0.2)
+	end
+end
+
 local function buildSleeper(areaId: number)
-	local map = workspace:WaitForChild("Map")
+	local map = currentMap()
 	local lane = map:WaitForChild("Lane")
 	local area = lane:WaitForChild("Area" .. areaId, 30)
 	local marker = area and area:FindFirstChild("GuardHome", true)
