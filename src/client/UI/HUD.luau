@@ -2,10 +2,10 @@
 	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
 	(chat top-left, player list top-right, hotbar bottom-centre):
 	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
-	           basket), Index (a blue book), Pets (a pink paw), Daily (a present)
-	  right  - the same big drawn icons with their names, two columns: Home / Boosts / Skins (and
-	           Trails, a tab next to them) / Donate / Updates (+ Admin, + Base after the base code,
-	           + Teleport for Teleporter pass owners), centred on the right edge
+	           basket: upgrades, boosts, crates, skins, trails and tips all in one - UI/Shop), Index
+	           (a blue book), Pets (a pink paw), Daily (a present)
+	  right  - the same big drawn icons with their names: Home / Updates (+ Admin, + Base after the
+	           base code, + Teleport for Teleporter pass owners), centred on the right edge
 	  corner - Settings (music, run speed, Hide UI...): a gear in Roblox's top bar, top right (the
 	           top bar's free space, so Roblox's player list below it never covers it)
 	  stats  - "Friend Boost: +N%" (the money your friends here add) with a green + that opens
@@ -44,7 +44,6 @@ export type Callbacks = {
 	OpenTeleport: () -> (),
 	OpenBaseSize: () -> (),
 	OpenPets: () -> (),
-	OpenDonate: () -> (),
 	OpenUpdates: () -> (),
 	OpenAdmin: () -> (),
 	UnclaimedIndex: () -> number,
@@ -118,17 +117,20 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local pets = iconButton(left, "Pets", "pawPink", "Pets", 3)
 	local daily = iconButton(left, "Daily", "gift", "Daily", 4)
 	shop.Activated:Connect(function()
-		callbacks.OpenShop("Upgrades")
+		callbacks.OpenShop(if callbacks.TrailReady() then "Trails" else "Upgrades")
 	end)
 	pets.Activated:Connect(callbacks.OpenPets)
 	index.Activated:Connect(callbacks.OpenIndex)
 	daily.Activated:Connect(callbacks.OpenDaily)
 
-	-- Badges: unclaimed Index rewards, eggs ready to hatch, a daily reward waiting
+	-- Badges: unclaimed Index rewards, eggs ready to hatch, a daily reward waiting, a trail unlocked
+	-- but not worn (the Shop's Trails)
 	local indexBadge = badge(index)
 	local petsBadge = badge(pets)
 	local dailyBadge = badge(daily)
-	for _, bubble in { indexBadge, petsBadge, dailyBadge } do
+	local shopBadge = badge(shop)
+	shopBadge.Text = "!"
+	for _, bubble in { indexBadge, petsBadge, dailyBadge, shopBadge } do
 		bubble.Position = UDim2.new(0.5, 30, 0, 8) -- (the icon's top-right corner)
 	end
 	local function updateBadges()
@@ -140,9 +142,10 @@ local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 		petsBadge.Text = tostring(ready)
 		dailyBadge.Visible = callbacks.DailyReady()
 		dailyBadge.Text = "!"
+		shopBadge.Visible = callbacks.TrailReady()
 	end
 	State.Changed:Connect(updateBadges)
-	for _, name in { "Money", "Speed" } do -- (and every 2 seconds below: a new day)
+	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do -- (and every 2 seconds below: a new day)
 		State.OnAttribute(name, updateBadges)
 	end
 	task.spawn(function()
@@ -195,24 +198,7 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	end
 	State.Changed:Connect(showTeleport)
 	showTeleport()
-	button("Boosts", "rocket", "Boosts", 3, function()
-		callbacks.OpenShop("Passes")
-	end)
-	-- Skins: base skins, and trails in the tab next to them. A "!" when a trail is unlocked but you
-	-- wear none (the button then opens Trails).
-	local skins = button("Skins", "paletteWood", "Skins", 4, function()
-		callbacks.OpenShop(if callbacks.TrailReady() then "Trails" else "Skins")
-	end)
-	local trailBadge = badge(skins)
-	trailBadge.Position = UDim2.new(0.5, 30, 0, 8)
-	trailBadge.Text = "!"
-	local function updateTrailBadge()
-		trailBadge.Visible = callbacks.TrailReady()
-	end
-	State.Changed:Connect(updateTrailBadge)
-	State.OnAttribute("BestSpeed", updateTrailBadge)
-	State.OnAttribute("Trail", updateTrailBadge)
-	button("Donate", "heart", "Donate", 5, callbacks.OpenDonate)
+	-- (Boosts, Skins, Trails and Donate are sections of the Shop now: its buttons on its right side)
 	button("Updates", "newsYellow", "Updates", 6, function()
 		callbacks.OpenUpdates()
 	end)
@@ -287,7 +273,7 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 		return label
 	end
 	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 34)
-	-- (the +: the Boosts page, which starts with the money passes)
+	-- (the +: the Shop's Boosts, which start with the money passes)
 	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 88, function()
 		callbacks.OpenShop("Passes")
 	end)

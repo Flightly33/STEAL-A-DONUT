@@ -1,6 +1,6 @@
 --[[
-	Trails: the Trails tab of the Shop, right next to Skins (the Skins button on the HUD opens it,
-	straight to Trails when one is unlocked but you wear none). Every trail, what it looks like,
+	Trails: the Trails section of the Shop, right after Skins (its button on the Shop's side shows a
+	"!" when one is unlocked but you wear none, and so does the HUD's Shop button). Every trail, what it looks like,
 	and how to get it. Locked trails show how much Speed they still need; unlocked ones can be put
 	on and taken off. The effects themselves are drawn by client/TrailFX. The server checks every press.
 ]]
@@ -19,14 +19,14 @@ local Trails = {}
 
 type Card = { Button: TextButton, Status: TextLabel, Fill: Frame, Bar: Frame }
 
-local page: ScrollingFrame
+local page: GuiObject
 local cards: { [string]: Card } = {}
 
 local function unlocked(trail: TrailList.Trail): boolean
 	return TrailList.IsUnlocked(trail, State.Data.OwnedTrails, State.Number("BestSpeed"))
 end
 
--- True when a trail is unlocked but you wear none (the HUD shows a "!" on the Skins button).
+-- True when a trail is unlocked but you wear none (a "!" on the Shop button and its Trails button).
 function Trails.IsReady(): boolean
 	if State.Get("Trail") ~= nil then
 		return false
@@ -140,9 +140,9 @@ local function refresh()
 	end
 end
 
--- Fills the Shop's Trails page (a scrolling list) and returns its refresh, which the Shop runs
--- whenever the tab is picked.
-function Trails.Build(list: ScrollingFrame): () -> ()
+-- Fills the Shop's Trails section (a list) and returns its refresh, which the Shop runs whenever
+-- it opens.
+function Trails.Build(list: GuiObject): () -> ()
 	page = list
 	Theme.Label({
 		Name = "About", LayoutOrder = 0,

@@ -19,7 +19,6 @@ local Teleport = require(UI.Teleport)
 local Sell = require(UI.Sell)
 local BaseSize = require(UI.BaseSize)
 local PetsWindow = require(UI.PetsWindow)
-local Donate = require(UI.Donate)
 local SkipOdds = require(UI.SkipOdds)
 local Admin = require(UI.Admin)
 local CrateOpen = require(UI.CrateOpen)
@@ -69,7 +68,6 @@ Teleport.Init()
 Sell.Init()
 BaseSize.Init()
 PetsWindow.Init()
-Donate.Init()
 SkipOdds.Init()
 Admin.Init()
 CrateOpen.Init()
@@ -90,7 +88,6 @@ HUD.Init({
 	OpenTeleport = Teleport.Open,
 	OpenBaseSize = BaseSize.Open,
 	OpenPets = PetsWindow.Open,
-	OpenDonate = Donate.Open,
 	OpenUpdates = function()
 		UpdateNotes.Open()
 	end,

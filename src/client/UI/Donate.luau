@@ -1,7 +1,11 @@
 --[[
-	Donate window: tip buttons (Robux developer products, Config.Donations) and the Luck Event.
+	Donate: the tips section at the bottom of the Shop (Robux developer products, Config.Donations).
 	Tips go on the TOP DONATORS leaderboard (the board in the hub) and each one gives a title shown
-	above your head and in chat (your biggest tip's title is the one you keep).
+	above your head and in chat (your biggest tip's title is the one you keep). (The Luck Event is
+	in the Shop's Boosts.)
+
+	  Donate.Build(section) -> refresh   fills the Shop's Donate section
+	  Donate.Open()                       opens the Shop at it
 ]]
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -11,23 +15,30 @@ local Config = require(Shared.Config)
 local Format = require(Shared.Format)
 
 local Theme = require(script.Parent.Theme)
-local Modal = require(script.Parent.Modal)
 local State = require(script.Parent.Parent.State)
 
 local Donate = {}
 
-local modal: Modal.Modal
+local opener: (() -> ())? = nil
 
-function Donate.Open()
-	modal:Open()
+function Donate.SetOpener(open: () -> ())
+	opener = open
 end
 
-function Donate.Init()
-	modal = Modal.new("Support the Game", Theme.Colors.Pink, Vector2.new(560, 430))
-	local body = modal.Body
-	local total = Theme.Label({ Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, 0, 0, 44), StrokeThickness = 1.5, Parent = body })
+function Donate.Open()
+	if opener then
+		opener()
+	end
+end
 
-	local grid = Theme.new("Frame", { BackgroundTransparency = 1, Position = UDim2.fromOffset(0, 50), Size = UDim2.new(1, 0, 0, 140), Parent = body }, {
+function Donate.Build(section: Frame): () -> ()
+	local about = Theme.Card(section, 1, Theme.Colors.Pink)
+	about.Size = UDim2.new(1, -10, 0, 70)
+	local total = Theme.Label({ Name = "Total", Text = "", Font = Theme.Font, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 1, -16), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = about })
+
+	local count = #Config.Donations.Products
+	local rows = math.ceil(count / 3)
+	local grid = Theme.new("Frame", { Name = "Tips", BackgroundTransparency = 1, Size = UDim2.new(1, -10, 0, rows * 74), LayoutOrder = 2, Parent = section }, {
 		Theme.new("UIGridLayout", { CellSize = UDim2.new(1 / 3, -8, 0, 66), CellPadding = UDim2.fromOffset(8, 8), SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	for order, product in Config.Donations.Products do
@@ -42,40 +53,15 @@ function Donate.Init()
 		end)
 	end
 
-	-- Luck Event
-	local luck = Theme.Card(body, 0, Color3.fromRGB(60, 200, 90))
-	luck.Position = UDim2.fromOffset(0, 196)
-	luck.Size = UDim2.new(1, 0, 0, 150)
-	Theme.Label({ Text = "LUCK EVENT", TextColor3 = Color3.fromRGB(130, 255, 150), TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 32), Position = UDim2.fromOffset(10, 8), Parent = luck })
-	Theme.Label({
-		Text = `For {Format.Duration(Config.LuckEvent.Duration)}, for everyone in this server: every box but each biome's most common one x{Config.LuckEvent.RarityLuck} as likely, mutations x{Config.LuckEvent.MutationLuck}, bigger boxes x{Config.LuckEvent.BigSizeLuck}, eggs x2. The Index shows the boosted odds.`,
-		Font = Theme.Font, TextXAlignment = Enum.TextXAlignment.Left, Size = UDim2.new(1, -20, 0, 50), Position = UDim2.fromOffset(10, 42), StrokeThickness = 1.2, Parent = luck,
-	})
-	local buy = Theme.Button({ Text = `START IT! R$ {Config.LuckEvent.SuggestedPrice}`, Color = Theme.Colors.Green, Size = UDim2.new(1, -20, 0, 44), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Parent = luck })
-	buy.Activated:Connect(function()
-		State.Action("BuyLuck")
-	end)
-
 	local function refresh()
 		local donated = State.Number("Donated")
 		local title = game:GetService("Players").LocalPlayer:GetAttribute("DonorTitle")
 		local titleText = if type(title) == "string" then `  •  Your title: <b>{title}</b>` else "  •  Every tip gives a title!"
 		total.Text = `Tips are a thank-you to the developer: you get the title and a spot on the <b>TOP DONATORS</b> board, nothing else.\nYou've tipped <font color="#ff8ad0"><b>R$ {Format.Commas(donated)}</b></font>{titleText}`
-		local endsAt = workspace:GetAttribute("LuckEndsAt")
-		local left = if type(endsAt) == "number" then endsAt - workspace:GetServerTimeNow() else 0
-		Theme.SetButtonText(buy, if left > 0 then `ADD 10 MIN! R$ {Config.LuckEvent.SuggestedPrice} ({Format.Duration(left)} left)` else `START IT! R$ {Config.LuckEvent.SuggestedPrice}`)
 	end
-	modal.OnOpen = refresh
-	State.OnAttribute("Donated", function()
-		if modal:IsOpen() then
-			refresh()
-		end
-	end)
-	workspace:GetAttributeChangedSignal("LuckEndsAt"):Connect(function()
-		if modal:IsOpen() then
-			refresh()
-		end
-	end)
+	State.OnAttribute("Donated", refresh)
+	refresh()
+	return refresh
 end
 
 return Donate

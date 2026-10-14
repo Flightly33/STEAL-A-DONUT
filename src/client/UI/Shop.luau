@@ -1,12 +1,16 @@
 --[[
-	Shop window with five tabs:
+	Shop: one long page you scroll down through, section after section, each under its own big
+	coloured heading ("-- BOOSTS --"), like the simulator games' shops:
 	  Upgrades  - Speed Multiplier, Treadmill tiers, a Bigger Base and Incubator upgrades (money)
 	  Boosts    - 1.5x / 2x / 3x / 4x / 5x / 10x Money, 2x Speed, Teleporter and the Luck Event (Robux)
 	  Crates    - Common / Rare / Epic / Legendary crates (Robux). Every outcome and its exact chance
 	              is shown on the card, and "All odds" lists the pets inside every egg too (Roblox's
 	              paid random items rules). Hidden purchase for players whose region blocks them.
 	  Skins     - base skins (paid with your Speed stat), equip the ones you own
-	  Trails    - trails behind you while you run (UI/Trails); the HUD's Skins button opens Skins or this
+	  Trails    - trails behind you while you run (UI/Trails)
+	  Donate    - tips for the developer (UI/Donate)
+	A column of big icons down the right side of the window jumps to each section (the one you're
+	looking at has a gold name). Shop.Open(section) opens it scrolled to that section.
 ]]
 
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -22,17 +26,36 @@ local Crates = require(Shared.Crates)
 local CrateModel = require(Shared.CrateModel)
 local Pets = require(Shared.Pets)
 
+local TweenService = game:GetService("TweenService")
+
 local Theme = require(script.Parent.Theme)
 local Icons = require(script.Parent.Icons)
 local Modal = require(script.Parent.Modal)
 local Trails = require(script.Parent.Trails)
+local Donate = require(script.Parent.Donate)
 local State = require(script.Parent.Parent.State)
 
 local Shop = {}
 
+local rgb = Color3.fromRGB
+
+-- The sections, top to bottom: Name (what Shop.Open takes), its heading, colour, and its button
+type Section = { Name: string, Title: string, Color: Color3, Icon: string, Caption: string }
+local SECTIONS: { Section } = {
+	{ Name = "Upgrades", Title = "UPGRADES", Color = rgb(205, 165, 255), Icon = "bolt", Caption = "Upgrades" },
+	{ Name = "Passes", Title = "BOOSTS", Color = rgb(255, 200, 70), Icon = "rocket", Caption = "Boosts" },
+	{ Name = "Crates", Title = "CRATES", Color = rgb(255, 225, 90), Icon = "gift", Caption = "Crates" },
+	{ Name = "Skins", Title = "SKINS", Color = rgb(255, 130, 200), Icon = "paletteWood", Caption = "Skins" },
+	{ Name = "Trails", Title = "TRAILS", Color = rgb(120, 205, 255), Icon = "cycle", Caption = "Trails" },
+	{ Name = "Donate", Title = "DONATE", Color = rgb(255, 120, 170), Icon = "heart", Caption = "Donate" },
+}
+local ALIASES: { [string]: string } = { Boosts = "Passes" }
+
 local modal: Modal.Modal
-local pages: { [string]: ScrollingFrame } = {}
-local selectTab: (string) -> ()
+local scroller: ScrollingFrame
+local pages: { [string]: Frame } = {}
+local headers: { [string]: TextLabel } = {}
+local navButtons: { [string]: TextButton } = {}
 local refreshers: { () -> () } = {}
 local robuxPrices: { [number]: number } = {}
 local priceFailed: { [number]: boolean } = {}
@@ -43,21 +66,25 @@ local function refreshAll()
 	end
 end
 
--- A tab's scrolling page: a grid of `columns` cards `cardHeight` tall, or (columns = 0) a list of
--- whatever sizes the cards are
-local function newPage(name: string, parent: Instance, columns: number, cardHeight: number): ScrollingFrame
-	local page = Theme.new("ScrollingFrame", {
-		Name = name,
+-- A section of the page: its big heading, then a grid of `columns` cards `cardHeight` tall, or
+-- (columns = 0) a list of whatever sizes the cards are. It grows to fit its cards.
+local function newSection(def: Section, order: number, columns: number, cardHeight: number): Frame
+	headers[def.Name] = Theme.Label({
+		Name = def.Name .. "Heading",
+		Text = `-- {def.Title} --`,
+		TextColor3 = def.Color,
+		Size = UDim2.new(1, -40, 0, 46),
+		LayoutOrder = order * 2 - 1,
+		StrokeThickness = 3.5,
+		Parent = scroller,
+	})
+	local section = Theme.new("Frame", {
+		Name = def.Name,
 		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Position = UDim2.fromOffset(0, 54),
-		Size = UDim2.new(1, 0, 1, -54),
-		CanvasSize = UDim2.new(),
-		AutomaticCanvasSize = Enum.AutomaticSize.Y,
-		ScrollBarThickness = 8,
-		ScrollingDirection = Enum.ScrollingDirection.Y,
-		Visible = false,
-		Parent = parent,
+		Size = UDim2.new(1, 0, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		LayoutOrder = order * 2,
+		Parent = scroller,
 	}, {
 		if columns > 0
 			then Theme.new("UIGridLayout", {
@@ -66,10 +93,10 @@ local function newPage(name: string, parent: Instance, columns: number, cardHeig
 				SortOrder = Enum.SortOrder.LayoutOrder,
 			})
 			else Theme.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
-		Theme.new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 12), PaddingBottom = UDim.new(0, 8) }),
-	})
-	pages[name] = page
-	return page
+		Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 4), PaddingBottom = UDim.new(0, 14) }),
+	}) :: Frame
+	pages[def.Name] = section
+	return section
 end
 
 local function card(parent: Instance, order: number, color: Color3): Frame
@@ -79,7 +106,7 @@ end
 --------------------------------------------------------------------------------
 -- Upgrades
 --------------------------------------------------------------------------------
-local function buildUpgrades(page: ScrollingFrame)
+local function buildUpgrades(page: Frame)
 	-- Speed multiplier
 	local multCard = card(page, 1, Theme.Colors.Purple)
 	Theme.Label({ Text = "SPEED MULTIPLIER", TextColor3 = Color3.fromRGB(200, 160, 255), Size = UDim2.new(1, -20, 0, 34), Position = UDim2.fromOffset(10, 8), Parent = multCard })
@@ -254,7 +281,7 @@ local function ownsPass(pass: Config.GamePass): boolean
 	return false
 end
 
-local function buildPasses(page: ScrollingFrame)
+local function buildPasses(page: Frame)
 	for order, pass in Config.GamePasses do
 		if pass.SameAs then
 			continue -- (the same as another pass: only that one is sold)
@@ -332,13 +359,12 @@ local function outcomeText(outcome: Crates.Outcome): string
 	return reward.Kind
 end
 
-local function buildCrates(page: ScrollingFrame, body: Instance)
+local function buildCrates(page: Frame, body: Instance)
 	-- "All odds" panel (on top of the shop): every outcome, and the pets inside every egg
 	local details = Theme.new("Frame", {
 		Name = "CrateOdds",
 		BackgroundColor3 = Theme.Colors.Panel,
-		Size = UDim2.new(1, 0, 1, -54),
-		Position = UDim2.fromOffset(0, 54),
+		Size = UDim2.fromScale(1, 1),
 		Visible = false,
 		ZIndex = 20,
 		Parent = body,
@@ -434,7 +460,7 @@ local function buildCrates(page: ScrollingFrame, body: Instance)
 	local note = card(page, 10, Theme.Colors.Orange)
 	Theme.Label({ Text = "Crates also show up for free in the lane now and then - hold E to open one! Eggs go straight into your incubator.", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	RunService.RenderStepped:Connect(function()
-		if not page.Visible then
+		if not modal:IsOpen() then
 			return
 		end
 		local angle = os.clock() * 0.8
@@ -448,7 +474,7 @@ end
 --------------------------------------------------------------------------------
 -- Skins
 --------------------------------------------------------------------------------
-local function buildSkins(page: ScrollingFrame)
+local function buildSkins(page: Frame)
 	local note = card(page, 0, Theme.Colors.Purple)
 	Theme.Label({ Text = "Skins are bought with SPEED (you'll be slower until you train it back). They're yours forever!", Font = Theme.Font, Size = UDim2.new(1, -20, 1, -20), Position = UDim2.fromOffset(10, 10), StrokeThickness = 1.5, Parent = note })
 	for order, skin in Config.Skins do
@@ -492,36 +518,179 @@ local function buildSkins(page: ScrollingFrame)
 	end
 end
 
-function Shop.Open(tab: string?)
-	modal:Open()
-	selectTab(tab or "Upgrades")
-	-- (from the top: Boosts starts with the money passes, which the + next to your money opens)
-	local page = pages[tab or "Upgrades"]
-	if page then
-		page.CanvasPosition = Vector2.zero
+-- Where a section starts on the page (its heading at the top of the window), in canvas pixels
+local function sectionTop(name: string): number
+	local heading = headers[name]
+	if not heading then
+		return 0
+	end
+	-- (positions on screen are scaled with the window; the canvas isn't)
+	local ok, top = pcall(function(): number
+		local holder = modal.Frame
+		local k = if holder.Size.Y.Offset > 0 then holder.AbsoluteSize.Y / holder.Size.Y.Offset else 1
+		if k <= 0 then
+			k = 1
+		end
+		return (heading.AbsolutePosition.Y - scroller.AbsolutePosition.Y) / k + scroller.CanvasPosition.Y - 4
+	end)
+	return if ok then math.max(0, top) else 0
+end
+
+-- The section you're looking at gets a gold name on its button
+local function highlight()
+	local seen = SECTIONS[1].Name
+	local y = scroller.CanvasPosition.Y + 40
+	for _, def in SECTIONS do
+		if sectionTop(def.Name) <= y then
+			seen = def.Name
+		end
+	end
+	for name, button in navButtons do
+		local caption = button:FindFirstChild("Caption") :: TextLabel?
+		if caption then
+			caption.TextColor3 = if name == seen then Theme.Colors.Gold else Theme.Colors.White
+		end
 	end
 end
 
-function Shop.Init()
-	modal = Modal.new("Shop", Theme.Colors.Green, Vector2.new(740, 490))
-	local body = modal.Body
-	selectTab = Modal.Tabs(body, {
-		{ Name = "Upgrades", Text = "Upgrades", Color = Theme.Colors.Purple },
-		{ Name = "Passes", Text = "Boosts", Color = Theme.Colors.Orange },
-		{ Name = "Crates", Text = "Crates", Color = Theme.Colors.Yellow },
-		{ Name = "Skins", Text = "Skins", Color = Theme.Colors.Pink },
-		{ Name = "Trails", Text = "Trails", Color = Theme.Colors.Blue },
-	}, function(name)
-		for pageName, page in pages do
-			page.Visible = pageName == name
+-- Scroll to a section: gliding there (a button on the side), or straight there (opening the shop)
+local lastSection = SECTIONS[1].Name
+function Shop.ScrollTo(name: string, instant: boolean?)
+	name = ALIASES[name] or name
+	if not headers[name] then
+		name = SECTIONS[1].Name
+	end
+	lastSection = name
+	local function go(smooth: boolean)
+		local target = Vector2.new(0, sectionTop(name))
+		if smooth then
+			TweenService:Create(scroller, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { CanvasPosition = target }):Play()
+		else
+			scroller.CanvasPosition = target
 		end
-		refreshAll()
+	end
+	go(not instant)
+	if instant then
+		-- (again once the page has laid itself out: the very first time it opens it hasn't yet)
+		task.delay(0.05, function()
+			go(false)
+		end)
+	end
+end
+
+-- The section it last went to (for the tests)
+function Shop.Section(): string
+	return lastSection
+end
+
+function Shop.Open(tab: string?)
+	modal:Open()
+	refreshAll()
+	Shop.ScrollTo(tab or SECTIONS[1].Name, true)
+end
+
+-- A big drawn icon with its name under it, for a section (the same look as the HUD's buttons)
+local function navButton(parent: Instance, def: Section, order: number): TextButton
+	local button = Theme.new("TextButton", {
+		Name = def.Name,
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundTransparency = 1,
+		Size = UDim2.fromOffset(100, 80),
+		LayoutOrder = order,
+		Parent = parent,
+	}) :: TextButton
+	Icons.Draw(def.Icon, button, nil, {
+		Size = UDim2.fromOffset(56, 56),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.fromScale(0.5, 0),
+	})
+	Theme.Label({ Name = "Caption", Text = def.Caption, Size = UDim2.new(1, 0, 0, 24), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), StrokeThickness = 3, ZIndex = 3, Parent = button })
+	button.MouseButton1Down:Connect(function()
+		Theme.Bounce(button)
 	end)
-	buildUpgrades(newPage("Upgrades", body, 2, 190))
-	buildPasses(newPage("Passes", body, 2, 160))
-	buildCrates(newPage("Crates", body, 2, 290), body)
-	buildSkins(newPage("Skins", body, 3, 180))
-	table.insert(refreshers, Trails.Build(newPage("Trails", body, 0, 0)))
+	button.Activated:Connect(function()
+		Shop.ScrollTo(def.Name)
+	end)
+	navButtons[def.Name] = button
+	return button
+end
+
+function Shop.Init()
+	modal = Modal.new("Shop", Theme.Colors.Green, Vector2.new(760, 500))
+	-- (a little left of centre: the section buttons stand down its right side)
+	modal.Frame.Position = UDim2.new(0.5, -54, 0.52, 0)
+	local body = modal.Body
+	scroller = Theme.new("ScrollingFrame", {
+		Name = "Sections",
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Size = UDim2.fromScale(1, 1),
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollBarThickness = 8,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		Parent = body,
+	}, {
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }),
+		Theme.new("UIPadding", { PaddingTop = UDim.new(0, 2), PaddingRight = UDim.new(0, 12), PaddingBottom = UDim.new(0, 20) }),
+	}) :: ScrollingFrame
+	local columns: { [string]: { number } } = {
+		Upgrades = { 2, 190 },
+		Passes = { 2, 160 },
+		Crates = { 2, 290 },
+		Skins = { 3, 180 },
+		Trails = { 0, 0 },
+		Donate = { 0, 0 },
+	}
+	local sections: { [string]: Frame } = {}
+	for order, def in SECTIONS do
+		local layout = columns[def.Name]
+		sections[def.Name] = newSection(def, order, layout[1], layout[2])
+	end
+	buildUpgrades(sections.Upgrades)
+	buildPasses(sections.Passes)
+	buildCrates(sections.Crates, body)
+	buildSkins(sections.Skins)
+	table.insert(refreshers, Trails.Build(sections.Trails))
+	table.insert(refreshers, Donate.Build(sections.Donate))
+	Donate.SetOpener(function()
+		Shop.Open("Donate")
+	end)
+
+	-- the section buttons, down the right side of the window
+	local nav = Theme.new("Frame", {
+		Name = "SectionButtons",
+		BackgroundTransparency = 1,
+		Position = UDim2.new(1, 8, 0, 62),
+		Size = UDim2.fromOffset(100, #SECTIONS * 82),
+		Parent = modal.Frame,
+	}, {
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center }),
+	})
+	for order, def in SECTIONS do
+		navButton(nav, def, order)
+	end
+	-- (a "!" on Trails when you've unlocked one but wear none)
+	local trailBadge = Theme.Label({
+		Name = "Badge",
+		Text = "!",
+		BackgroundTransparency = 0,
+		BackgroundColor3 = Theme.Colors.Red,
+		Size = UDim2.fromOffset(24, 24),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, 28, 0, 6),
+		StrokeThickness = 1.5,
+		ZIndex = 5,
+		Visible = false,
+		Parent = navButtons.Trails,
+	})
+	Theme.new("UICorner", { CornerRadius = UDim.new(1, 0), Parent = trailBadge })
+	table.insert(refreshers, function()
+		trailBadge.Visible = Trails.IsReady()
+	end)
+	scroller:GetPropertyChangedSignal("CanvasPosition"):Connect(highlight)
+	highlight()
 
 	for _, name in { "Money", "Speed", "SpeedMultLevel", "TreadmillLevel", "SpeedPassMultiplier", "Income", "BaseLevel", "IndexBonus", "IncubatorSpeed", "IncubatorSize" } do
 		State.OnAttribute(name, function()

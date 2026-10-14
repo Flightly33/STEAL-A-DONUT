@@ -129,7 +129,8 @@ UpdateNotes.List = {
 				"Every icon is chunkier now, with a thick outline and a 3D edge",
 				"A new loading screen: the bandit donut in 3D, built from bricks, with little donuts in every rarity colour floating round it",
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
-				"Trails moved into the Shop, right next to Skins: press Skins and pick the Trails tab",
+				"The Shop is one big page now: scroll down through Upgrades, Boosts, Crates, Skins, Trails and Donate, or jump straight to one with the big buttons down its right side",
+				"Boosts, Skins and Donate live in the Shop now, so the side of your screen is tidier",
 			} },
 			{ Title = "Anime Effects", Tag = "NEW", Lines = {
 				"Every single donut has its own effects now, and no two donuts look the same",
