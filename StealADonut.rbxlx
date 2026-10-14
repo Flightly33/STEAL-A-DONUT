@@ -1867,22 +1867,9 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 224, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
+	HubHalfWidth = 194, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
 	HubDepth = 482, -- (the walkway has a little round plaza in the middle and the leaderboards at the back)
 	HubWallHeight = 40,
-}
-
--- Two conveyor belts side by side on EACH side of the lobby, just in front of the bases: one
--- carries you from the back (the leaderboards) to the front (the lane), the other back again. Anyone standing on
--- one rides along at Speed studs a second on top of their own running.
-Config.Conveyors = {
-	Speed = 50,
-	Width = 12, -- each belt
-	Gap = 4, -- between the two belts
-	BaseGap = 8, -- each pair of belts sits this far in front of the bases (on the plaza side of them)
-	Front = 24, -- they end this far behind the safe-zone line, by the lane's entrance
-	Back = 20, -- and stop this far in front of the leaderboards at the back
-	ArrowSpacing = 18, -- the glowing arrows sliding along them
 }
 
 --------------------------------------------------------------------------------
@@ -12248,10 +12235,10 @@ return ItemModel
 	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
 	  -----|-----------  Z = SafeZoneZ  (safe zone line, the lobby is open to the lane)
-	  [1] |  ||   ||  | [2]       three bases down each side, facing a walkway down the middle
-	  [3] | || (o) || | [4]       (o): a little round plaza in the middle - the spawn, the sell
-	  [5] |  ||   ||  | [6]            stall and the Cosmic Forge; || the conveyor belts
-	      [ boards ]              the leaderboards in a strip at the back of the walkway
+	  [1] |       | [2]       three bases down each side, facing a walkway down the middle
+	  [3] |  (o)  | [4]       (o): a little round plaza in the middle - the spawn, the sell stall
+	  [5] |       | [6]            and the Cosmic Forge
+	      [boards]            the leaderboards in a strip at the back
 
 	Each biome's Domer sleeps in a back corner (GuardHome) with the biome's donut boxes around him
 	(BoxSpots). A biome's entrance (AreaStart) has a speed gate: players slower than its
@@ -12370,31 +12357,6 @@ end
 function Layout.LobbyArrival(): CFrame
 	local z = map.SafeZoneZ - 40
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
-end
-
--- The lobby's conveyor belts (Config.Conveyors): a pair down each side of the walkway, just in front
--- of the bases, so they're right there when you step out of your base. In
--- each pair the belt nearest the bases carries you to the front (+Z, towards the lane) and the
--- other to the back. Center is the middle of the belt's top.
-export type Conveyor = { Name: string, Center: Vector3, Length: number, Direction: Vector3 }
-function Layout.Conveyors(): { Conveyor }
-	local c = Config.Conveyors
-	local front = map.SafeZoneZ - c.Front
-	-- (they run along the walkway and stop just before the leaderboards at the back)
-	local back = Layout.LeaderboardZ() + c.Back
-	local z = (front + back) / 2
-	local length = front - back
-	-- where the bases end (their open side, towards the plaza), then back off by BaseGap
-	local baseFront = map.HubHalfWidth - Layout.PlotDepth - 4
-	local middle = baseFront - c.BaseGap - (c.Width + c.Gap / 2) -- the middle of a pair of belts
-	local offset = (c.Width + c.Gap) / 2
-	local belts: { Conveyor } = {}
-	for _, side in { -1, 1 } do
-		local suffix = if side == -1 then "Left" else "Right"
-		table.insert(belts, { Name = "ToFront" .. suffix, Center = Vector3.new(side * (middle + offset), 0, z), Length = length, Direction = Vector3.new(0, 0, 1) })
-		table.insert(belts, { Name = "ToBack" .. suffix, Center = Vector3.new(side * (middle - offset), 0, z), Length = length, Direction = Vector3.new(0, 0, -1) })
-	end
-	return belts
 end
 
 -- Where the lobby's leaderboards stand: in a strip along the back wall, at the end of the walkway.
@@ -17242,7 +17204,7 @@ UpdateNotes.List = {
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
 				"The Shop is one big page now: scroll down through Upgrades, Boosts, Crates, Skins, Trails and Donate, or jump straight to one with the big buttons down its right side",
 				"Boosts, Skins and Donate live in the Shop now, so the side of your screen is tidier",
-				"A smaller, tidier lobby: three bases down each side of a walkway, and a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back",
+				"A smaller, tidier lobby: three bases down each side of a walkway, and a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back, and the conveyor belts are gone: everything's a short walk now",
 			} },
 			{ Title = "Anime Effects", Tag = "NEW", Lines = {
 				"Every single donut has its own effects now, and no two donuts look the same",
@@ -27265,7 +27227,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 21
+local MAP_VERSION = 22
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -27437,76 +27399,6 @@ local function buildRidge(hub: Instance)
 	ridge.Parent = hub
 end
 
--- The conveyor belts in front of the bases on each side of the lobby (Layout.Conveyors): a dark metal belt that
--- carries whoever stands on it (its velocity: Config.Conveyors.Speed), low glowing rails, arrows
--- the clients slide along it (client/Conveyors) and a sign over the end you get on at.
-local function setConveyorSpeed(belt: BasePart)
-	local direction = belt:GetAttribute("Direction")
-	if typeof(direction) == "Vector3" then
-		belt.AssemblyLinearVelocity = direction * Config.Conveyors.Speed
-	end
-end
-
-local function refreshConveyors(hub: Instance)
-	local conveyors = hub:FindFirstChild("Conveyors")
-	if conveyors then
-		for _, belt in conveyors:GetDescendants() do
-			if belt:IsA("BasePart") and belt.Name == "Belt" then
-				setConveyorSpeed(belt)
-			end
-		end
-	end
-end
-
-local function buildConveyors(hub: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "Conveyors"
-	folder.Parent = hub
-	local c = Config.Conveyors
-	for _, info in Layout.Conveyors() do
-		local model = Instance.new("Model")
-		model.Name = info.Name
-		local toFront = info.Direction.Z > 0
-		local color = if toFront then rgb(80, 235, 120) else rgb(90, 175, 255)
-		-- (in `cf`, -Z is the way the belt goes; you get on at +Length / 2)
-		local cf = CFrame.lookAt(info.Center, info.Center + info.Direction)
-		local function at(x: number, y: number, z: number): CFrame
-			return cf * CFrame.new(x, y, z)
-		end
-		local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(c.Width, 0.6, info.Length), CFrame = at(0, 0.3, 0), Color = rgb(48, 48, 58), Material = Enum.Material.DiamondPlate })
-		belt:SetAttribute("Direction", info.Direction)
-		setConveyorSpeed(belt)
-		for _, side in { -1, 1 } do
-			Build.Part({ Parent = model, Name = "Rail", Size = Vector3.new(0.8, 1, info.Length), CFrame = at(side * (c.Width / 2 + 0.4), 0.5, 0), Color = color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.Metal })
-			Build.Decor({ Parent = model, Name = "RailGlow", Size = Vector3.new(0.3, 0.2, info.Length), CFrame = at(side * (c.Width / 2 + 0.4), 1.05, 0), Color = color, Material = Enum.Material.Neon })
-		end
-		-- arrows: a V of two glowing strips, pointing the way it goes
-		local count = math.floor(info.Length / c.ArrowSpacing) - 1
-		local angle = math.rad(38)
-		for i = 0, count - 1 do
-			local tipZ = info.Length / 2 - c.ArrowSpacing * (i + 0.5)
-			for _, side in { -1, 1 } do
-				local along = Vector3.new(side * math.sin(angle), 0, math.cos(angle))
-				local mid = Vector3.new(0, 0.66, tipZ) + along * 2.4
-				local arrow = Build.Decor({ Parent = model, Name = "Arrow", Size = Vector3.new(0.7, 0.1, 4.8), CFrame = cf * CFrame.lookAt(mid, mid + along), Color = color, Material = Enum.Material.Neon })
-				arrow:SetAttribute("ConveyorArrow", true)
-			end
-		end
-		-- where you get on: a glowing line across the belt, and a sign
-		Build.Decor({ Parent = model, Name = "Boarding", Size = Vector3.new(c.Width, 0.1, 1.2), CFrame = at(0, 0.66, info.Length / 2 - 0.8), Color = color, Material = Enum.Material.Neon })
-		local signPart = Build.Decor({ Parent = model, Name = "Sign", Size = Vector3.new(1, 1, 1), CFrame = at(0, 10, info.Length / 2 - 3), Transparency = 1 })
-		local sign = Instance.new("BillboardGui")
-		sign.Name = "SignGui"
-		sign.Size = UDim2.fromScale(16, 3.4)
-		sign.LightInfluence = 0
-		sign.MaxDistance = 220
-		sign.Parent = signPart
-		Build.Text(sign, if toFront then "TO THE BIOMES" else "TO THE BASES", { TextColor3 = color, TextStrokeColor3 = color:Lerp(Color3.new(0, 0, 0), 0.75) })
-		model.PrimaryPart = belt
-		model.Parent = folder
-	end
-end
-
 -- The little round plaza in the middle of the walkway, made like a donut seen from above: a ring
 -- of golden dough paving, pink icing round its middle with sprinkles, the spawn in the hole, and
 -- four lamp posts round the edge. The sell stall and the Cosmic Forge stand on it (Layout).
@@ -27553,7 +27445,6 @@ local function buildHub(parent: Folder)
 	buildPlaza(hub)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
-	buildConveyors(hub)
 
 	-- (in the middle of the plaza, facing the lane)
 	local spawnAt = Layout.PlazaCenter() + Vector3.new(0, 0.5, 0)
@@ -28388,8 +28279,10 @@ function MapBuilder.Build(): Folder
 				buildLeaderboards(hub)
 			end
 		end
-		if hub then
-			refreshConveyors(hub)
+		-- (the conveyor belts are gone)
+		local belts = hub and hub:FindFirstChild("Conveyors")
+		if belts then
+			belts:Destroy()
 		end
 		refreshAreaSigns(existing)
 		buildLane(existing) -- adds any biomes that are missing
@@ -33360,7 +33253,6 @@ local DonutIdle = require(script.DonutIdle)
 local HellChainsFX = require(script.HellChainsFX)
 local DonutFX = require(script.DonutFX)
 local DonutGlow = require(script.DonutGlow)
-local Conveyors = require(script.Conveyors)
 local Followers = require(script.Followers)
 local Carried = require(script.Carried)
 local TrailFX = require(script.TrailFX)
@@ -33415,7 +33307,6 @@ HUD.Init({
 Effects.Init()
 DonutFX.Init() -- right after Effects, so it sees every donut in its resting spot
 DonutGlow.Init()
-Conveyors.Init()
 BlackHoleFX.Init()
 Treadmill.Init()
 Guards.Init()
@@ -35098,98 +34989,6 @@ return Cinematic
         </Item>
         <Item class="ModuleScript" referent="92">
           <Properties>
-            <string name="Name">Conveyors</string>
-            <string name="Source"><![CDATA[--[[
-	Conveyors: slides the glowing arrows along the lobby's two conveyor belts (MapBuilder), at the
-	belts' own speed, so you can see which way each one goes. The belts themselves carry you (the
-	server gives them their velocity); this is only the look, on this player's screen.
-
-	Every arrow moves forward by the same amount and jumps back one gap when it has gone a whole
-	gap, so the row of arrows looks like one endless moving belt.
-]]
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
-
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
-
-local Conveyors = {}
-
-local RANGE = 900 -- studs from the camera to a belt's middle: further away its arrows stand still
-
-type Belt = { Parts: { BasePart }, Bases: { CFrame }, Direction: Vector3, Center: Vector3 }
-
-local belts: { Belt } = {}
-
-local function collect(folder: Instance)
-	for _, model in folder:GetChildren() do
-		local belt = model:FindFirstChild("Belt")
-		local direction = belt and belt:GetAttribute("Direction")
-		if belt and belt:IsA("BasePart") and typeof(direction) == "Vector3" then
-			local parts, bases = {}, {}
-			for _, part in model:GetChildren() do
-				if part:IsA("BasePart") and part:GetAttribute("ConveyorArrow") then
-					table.insert(parts, part)
-					table.insert(bases, part.CFrame)
-				end
-			end
-			table.insert(belts, { Parts = parts, Bases = bases, Direction = direction, Center = belt.Position })
-		end
-	end
-end
-
-function Conveyors.Init()
-	task.spawn(function()
-		local map = workspace:WaitForChild("Map", 60)
-		local hub = map and map:WaitForChild("Hub", 30)
-		local folder = hub and hub:WaitForChild("Conveyors", 30)
-		if not folder then
-			return
-		end
-		task.wait(1) -- (let every arrow arrive)
-		collect(folder)
-		local spacing = Config.Conveyors.ArrowSpacing
-		local speed = Config.Conveyors.Speed
-		local clock = 0
-		local bulkMove = true
-		RunService.RenderStepped:Connect(function(dt: number)
-			clock += dt
-			local camera = workspace.CurrentCamera
-			if not camera then
-				return
-			end
-			local offset = (clock * speed) % spacing
-			for _, belt in belts do
-				if (camera.CFrame.Position - belt.Center).Magnitude > RANGE then
-					continue
-				end
-				local shift = belt.Direction * offset
-				local frames = table.create(#belt.Parts)
-				for i, base in belt.Bases do
-					frames[i] = base + shift
-				end
-				if bulkMove then
-					bulkMove = pcall(function()
-						workspace:BulkMoveTo(belt.Parts, frames, Enum.BulkMoveMode.FireCFrameChanged)
-					end)
-				end
-				if not bulkMove then
-					for i, part in belt.Parts do
-						part.CFrame = frames[i]
-					end
-				end
-			end
-		end)
-	end)
-end
-
-return Conveyors
-]]></string>
-          </Properties>
-        </Item>
-        <Item class="ModuleScript" referent="93">
-          <Properties>
             <string name="Name">Culling</string>
             <string name="Source"><![CDATA[--[[
 	Culling: hides what's far away, on this player's screen only. Nothing moves out of its folder
@@ -35536,7 +35335,7 @@ return Culling
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="94">
+        <Item class="ModuleScript" referent="93">
           <Properties>
             <string name="Name">DomerFX</string>
             <string name="Source"><![CDATA[--[[
@@ -35773,7 +35572,7 @@ return DomerFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="95">
+        <Item class="ModuleScript" referent="94">
           <Properties>
             <string name="Name">DonutFX</string>
             <string name="Source"><![CDATA[--[[
@@ -36758,7 +36557,7 @@ return DonutFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="96">
+        <Item class="ModuleScript" referent="95">
           <Properties>
             <string name="Name">DonutGlow</string>
             <string name="Source"><![CDATA[--[[
@@ -36855,7 +36654,7 @@ return DonutGlow
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="97">
+        <Item class="ModuleScript" referent="96">
           <Properties>
             <string name="Name">DonutHover</string>
             <string name="Source"><![CDATA[--[[
@@ -37141,7 +36940,7 @@ return DonutHover
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="98">
+        <Item class="ModuleScript" referent="97">
           <Properties>
             <string name="Name">DonutIdle</string>
             <string name="Source"><![CDATA[--[[
@@ -38029,7 +37828,7 @@ return DonutIdle
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="99">
+        <Item class="ModuleScript" referent="98">
           <Properties>
             <string name="Name">Effects</string>
             <string name="Source"><![CDATA[--[[
@@ -38410,7 +38209,7 @@ return Effects
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="100">
+        <Item class="ModuleScript" referent="99">
           <Properties>
             <string name="Name">Flight</string>
             <string name="Source"><![CDATA[--[[
@@ -38638,7 +38437,7 @@ return Flight
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="101">
+        <Item class="ModuleScript" referent="100">
           <Properties>
             <string name="Name">Followers</string>
             <string name="Source"><![CDATA[--[[
@@ -38921,7 +38720,7 @@ return Followers
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="102">
+        <Item class="ModuleScript" referent="101">
           <Properties>
             <string name="Name">GiantFX</string>
             <string name="Source"><![CDATA[--[[
@@ -40401,7 +40200,7 @@ return GiantFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="103">
+        <Item class="ModuleScript" referent="102">
           <Properties>
             <string name="Name">Guards</string>
             <string name="Source"><![CDATA[--[[
@@ -41141,7 +40940,7 @@ return Guards
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="104">
+        <Item class="ModuleScript" referent="103">
           <Properties>
             <string name="Name">HellChainsFX</string>
             <string name="Source"><![CDATA[--[[
@@ -41278,7 +41077,7 @@ return HellChainsFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="105">
+        <Item class="ModuleScript" referent="104">
           <Properties>
             <string name="Name">Intro</string>
             <string name="Source"><![CDATA[--[[
@@ -43168,7 +42967,7 @@ return Intro
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="106">
+        <Item class="ModuleScript" referent="105">
           <Properties>
             <string name="Name">MeteorFX</string>
             <string name="Source"><![CDATA[--[[
@@ -43954,7 +43753,7 @@ return MeteorFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="107">
+        <Item class="ModuleScript" referent="106">
           <Properties>
             <string name="Name">MythicOpening</string>
             <string name="Source"><![CDATA[--[[
@@ -44721,7 +44520,7 @@ return MythicOpening
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="108">
+        <Item class="ModuleScript" referent="107">
           <Properties>
             <string name="Name">ParticleBudget</string>
             <string name="Source"><![CDATA[--[[
@@ -44783,7 +44582,7 @@ return ParticleBudget
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="109">
+        <Item class="ModuleScript" referent="108">
           <Properties>
             <string name="Name">PetFX</string>
             <string name="Source"><![CDATA[--[[
@@ -44918,7 +44717,7 @@ return PetFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="110">
+        <Item class="ModuleScript" referent="109">
           <Properties>
             <string name="Name">PlayerAnims</string>
             <string name="Source"><![CDATA[--[[
@@ -45321,7 +45120,7 @@ return PlayerAnims
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="111">
+        <Item class="ModuleScript" referent="110">
           <Properties>
             <string name="Name">SpeedLines</string>
             <string name="Source"><![CDATA[--[[
@@ -45449,7 +45248,7 @@ return SpeedLines
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="112">
+        <Item class="ModuleScript" referent="111">
           <Properties>
             <string name="Name">State</string>
             <string name="Source"><![CDATA[--[[
@@ -45544,7 +45343,7 @@ return State
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="113">
+        <Item class="ModuleScript" referent="112">
           <Properties>
             <string name="Name">StormFX</string>
             <string name="Source"><![CDATA[--[[
@@ -46420,7 +46219,7 @@ return StormFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="114">
+        <Item class="ModuleScript" referent="113">
           <Properties>
             <string name="Name">StormSky</string>
             <string name="Source"><![CDATA[--[[
@@ -46729,7 +46528,7 @@ return StormSky
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="115">
+        <Item class="ModuleScript" referent="114">
           <Properties>
             <string name="Name">TrailFX</string>
             <string name="Source"><![CDATA[--[[
@@ -47268,7 +47067,7 @@ return TrailFX
 ]]></string>
           </Properties>
         </Item>
-        <Item class="ModuleScript" referent="116">
+        <Item class="ModuleScript" referent="115">
           <Properties>
             <string name="Name">Treadmill</string>
             <string name="Source"><![CDATA[--[[
@@ -47734,11 +47533,11 @@ return Treadmill
 ]]></string>
           </Properties>
         </Item>
-        <Item class="Folder" referent="117">
+        <Item class="Folder" referent="116">
           <Properties>
             <string name="Name">UI</string>
           </Properties>
-          <Item class="ModuleScript" referent="118">
+          <Item class="ModuleScript" referent="117">
             <Properties>
               <string name="Name">Admin</string>
               <string name="Source"><![CDATA[--[[
@@ -48213,7 +48012,7 @@ return Admin
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="119">
+          <Item class="ModuleScript" referent="118">
             <Properties>
               <string name="Name">BaseSize</string>
               <string name="Source"><![CDATA[--[[
@@ -48289,7 +48088,7 @@ return BaseSize
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="120">
+          <Item class="ModuleScript" referent="119">
             <Properties>
               <string name="Name">Chase</string>
               <string name="Source"><![CDATA[--[[
@@ -48762,7 +48561,7 @@ return Chase
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="121">
+          <Item class="ModuleScript" referent="120">
             <Properties>
               <string name="Name">CosmicForge</string>
               <string name="Source"><![CDATA[--[[
@@ -48998,7 +48797,7 @@ return CosmicForge
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="122">
+          <Item class="ModuleScript" referent="121">
             <Properties>
               <string name="Name">CrateOpen</string>
               <string name="Source"><![CDATA[--[[
@@ -49181,7 +48980,7 @@ return CrateOpen
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="123">
+          <Item class="ModuleScript" referent="122">
             <Properties>
               <string name="Name">DailyRewards</string>
               <string name="Source"><![CDATA[--[[
@@ -49604,7 +49403,7 @@ return DailyRewards
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="124">
+          <Item class="ModuleScript" referent="123">
             <Properties>
               <string name="Name">Donate</string>
               <string name="Source"><![CDATA[--[[
@@ -49677,7 +49476,7 @@ return Donate
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="125">
+          <Item class="ModuleScript" referent="124">
             <Properties>
               <string name="Name">DonutMenu</string>
               <string name="Source"><![CDATA[--[[
@@ -49963,7 +49762,7 @@ return DonutMenu
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="126">
+          <Item class="ModuleScript" referent="125">
             <Properties>
               <string name="Name">DonutTitle</string>
               <string name="Source"><![CDATA[--[[
@@ -50454,7 +50253,7 @@ return DonutTitle
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="127">
+          <Item class="ModuleScript" referent="126">
             <Properties>
               <string name="Name">EventBanner</string>
               <string name="Source"><![CDATA[--[[
@@ -50621,7 +50420,7 @@ return EventBanner
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="128">
+          <Item class="ModuleScript" referent="127">
             <Properties>
               <string name="Name">HUD</string>
               <string name="Source"><![CDATA[--[[
@@ -51115,7 +50914,7 @@ return HUD
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="129">
+          <Item class="ModuleScript" referent="128">
             <Properties>
               <string name="Name">HideUI</string>
               <string name="Source"><![CDATA[--[[
@@ -51293,7 +51092,7 @@ return HideUI
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="130">
+          <Item class="ModuleScript" referent="129">
             <Properties>
               <string name="Name">Hotbar</string>
               <string name="Source"><![CDATA[--[[
@@ -51890,7 +51689,7 @@ return Hotbar
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="131">
+          <Item class="ModuleScript" referent="130">
             <Properties>
               <string name="Name">Icons</string>
               <string name="Source"><![CDATA[--[[
@@ -52718,7 +52517,7 @@ return Icons
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="132">
+          <Item class="ModuleScript" referent="131">
             <Properties>
               <string name="Name">Index</string>
               <string name="Source"><![CDATA[--[[
@@ -53394,7 +53193,7 @@ return Index
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="133">
+          <Item class="ModuleScript" referent="132">
             <Properties>
               <string name="Name">IndexThemes</string>
               <string name="Source"><![CDATA[--[[
@@ -53737,7 +53536,7 @@ return IndexThemes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="134">
+          <Item class="ModuleScript" referent="133">
             <Properties>
               <string name="Name">ItemCard</string>
               <string name="Source"><![CDATA[--[[
@@ -54277,7 +54076,7 @@ return ItemCard
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="135">
+          <Item class="ModuleScript" referent="134">
             <Properties>
               <string name="Name">Leaderboards</string>
               <string name="Source"><![CDATA[--[[
@@ -54513,7 +54312,7 @@ return Leaderboards
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="136">
+          <Item class="ModuleScript" referent="135">
             <Properties>
               <string name="Name">Modal</string>
               <string name="Source"><![CDATA[--[[
@@ -54757,7 +54556,7 @@ return Modal
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="137">
+          <Item class="ModuleScript" referent="136">
             <Properties>
               <string name="Name">Notifications</string>
               <string name="Source"><![CDATA[--[[
@@ -55058,7 +54857,7 @@ return Notifications
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="138">
+          <Item class="ModuleScript" referent="137">
             <Properties>
               <string name="Name">PassOffer</string>
               <string name="Source"><![CDATA[--[[
@@ -55152,7 +54951,7 @@ return PassOffer
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="139">
+          <Item class="ModuleScript" referent="138">
             <Properties>
               <string name="Name">PetsWindow</string>
               <string name="Source"><![CDATA[--[[
@@ -55998,7 +55797,7 @@ return PetsWindow
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="140">
+          <Item class="ModuleScript" referent="139">
             <Properties>
               <string name="Name">Sell</string>
               <string name="Source"><![CDATA[--[[
@@ -56263,7 +56062,7 @@ return Sell
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="141">
+          <Item class="ModuleScript" referent="140">
             <Properties>
               <string name="Name">Settings</string>
               <string name="Source"><![CDATA[--[[
@@ -56623,7 +56422,7 @@ return Settings
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="142">
+          <Item class="ModuleScript" referent="141">
             <Properties>
               <string name="Name">Shop</string>
               <string name="Source"><![CDATA[--[[
@@ -57386,7 +57185,7 @@ return Shop
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="143">
+          <Item class="ModuleScript" referent="142">
             <Properties>
               <string name="Name">SkipButton</string>
               <string name="Source"><![CDATA[--[[
@@ -57472,7 +57271,7 @@ return SkipButton
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="144">
+          <Item class="ModuleScript" referent="143">
             <Properties>
               <string name="Name">SkipOdds</string>
               <string name="Source"><![CDATA[--[[
@@ -57558,7 +57357,7 @@ return SkipOdds
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="145">
+          <Item class="ModuleScript" referent="144">
             <Properties>
               <string name="Name">StormMusic</string>
               <string name="Source"><![CDATA[--[[
@@ -57866,7 +57665,7 @@ return StormMusic
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="146">
+          <Item class="ModuleScript" referent="145">
             <Properties>
               <string name="Name">Teleport</string>
               <string name="Source"><![CDATA[--[[
@@ -57967,7 +57766,7 @@ return Teleport
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="147">
+          <Item class="ModuleScript" referent="146">
             <Properties>
               <string name="Name">Theme</string>
               <string name="Source"><![CDATA[--[[
@@ -58561,7 +58360,7 @@ return Theme
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="148">
+          <Item class="ModuleScript" referent="147">
             <Properties>
               <string name="Name">Trails</string>
               <string name="Source"><![CDATA[--[[
@@ -58733,7 +58532,7 @@ return Trails
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="149">
+          <Item class="ModuleScript" referent="148">
             <Properties>
               <string name="Name">Tutorial</string>
               <string name="Source"><![CDATA[--[[
@@ -59092,7 +58891,7 @@ return Tutorial
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="150">
+          <Item class="ModuleScript" referent="149">
             <Properties>
               <string name="Name">UpdateDecor</string>
               <string name="Source"><![CDATA[--[[
@@ -59600,7 +59399,7 @@ return UpdateDecor
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="151">
+          <Item class="ModuleScript" referent="150">
             <Properties>
               <string name="Name">UpdateNotes</string>
               <string name="Source"><![CDATA[--[[
@@ -60088,7 +59887,7 @@ return UpdateNotes
 ]]></string>
             </Properties>
           </Item>
-          <Item class="ModuleScript" referent="152">
+          <Item class="ModuleScript" referent="151">
             <Properties>
               <string name="Name">VirtualList</string>
               <string name="Source"><![CDATA[--[[
@@ -60168,7 +59967,7 @@ return VirtualList
             </Properties>
           </Item>
         </Item>
-        <Item class="ModuleScript" referent="153">
+        <Item class="ModuleScript" referent="152">
           <Properties>
             <string name="Name">Weather</string>
             <string name="Source"><![CDATA[--[[
@@ -60336,7 +60135,7 @@ return Weather
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="154">
+  <Item class="Workspace" referent="153">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

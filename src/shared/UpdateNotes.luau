@@ -131,7 +131,7 @@ UpdateNotes.List = {
 				"Settings is now the gear at the top right of the screen, and the Hide UI button lives inside it (X on a keyboard still works)",
 				"The Shop is one big page now: scroll down through Upgrades, Boosts, Crates, Skins, Trails and Donate, or jump straight to one with the big buttons down its right side",
 				"Boosts, Skins and Donate live in the Shop now, so the side of your screen is tidier",
-				"A smaller, tidier lobby: three bases down each side of a walkway, and a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back",
+				"A smaller, tidier lobby: three bases down each side of a walkway, and a little round donut plaza in the middle with the spawn, the sell stall and the Cosmic Forge. The leaderboards stand at the back, and the conveyor belts are gone: everything's a short walk now",
 			} },
 			{ Title = "Anime Effects", Tag = "NEW", Lines = {
 				"Every single donut has its own effects now, and no two donuts look the same",

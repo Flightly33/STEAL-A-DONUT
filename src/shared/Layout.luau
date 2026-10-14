@@ -4,10 +4,10 @@
 	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
 	  -----|-----------  Z = SafeZoneZ  (safe zone line, the lobby is open to the lane)
-	  [1] |  ||   ||  | [2]       three bases down each side, facing a walkway down the middle
-	  [3] | || (o) || | [4]       (o): a little round plaza in the middle - the spawn, the sell
-	  [5] |  ||   ||  | [6]            stall and the Cosmic Forge; || the conveyor belts
-	      [ boards ]              the leaderboards in a strip at the back of the walkway
+	  [1] |       | [2]       three bases down each side, facing a walkway down the middle
+	  [3] |  (o)  | [4]       (o): a little round plaza in the middle - the spawn, the sell stall
+	  [5] |       | [6]            and the Cosmic Forge
+	      [boards]            the leaderboards in a strip at the back
 
 	Each biome's Domer sleeps in a back corner (GuardHome) with the biome's donut boxes around him
 	(BoxSpots). A biome's entrance (AreaStart) has a speed gate: players slower than its
@@ -126,31 +126,6 @@ end
 function Layout.LobbyArrival(): CFrame
 	local z = map.SafeZoneZ - 40
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
-end
-
--- The lobby's conveyor belts (Config.Conveyors): a pair down each side of the walkway, just in front
--- of the bases, so they're right there when you step out of your base. In
--- each pair the belt nearest the bases carries you to the front (+Z, towards the lane) and the
--- other to the back. Center is the middle of the belt's top.
-export type Conveyor = { Name: string, Center: Vector3, Length: number, Direction: Vector3 }
-function Layout.Conveyors(): { Conveyor }
-	local c = Config.Conveyors
-	local front = map.SafeZoneZ - c.Front
-	-- (they run along the walkway and stop just before the leaderboards at the back)
-	local back = Layout.LeaderboardZ() + c.Back
-	local z = (front + back) / 2
-	local length = front - back
-	-- where the bases end (their open side, towards the plaza), then back off by BaseGap
-	local baseFront = map.HubHalfWidth - Layout.PlotDepth - 4
-	local middle = baseFront - c.BaseGap - (c.Width + c.Gap / 2) -- the middle of a pair of belts
-	local offset = (c.Width + c.Gap) / 2
-	local belts: { Conveyor } = {}
-	for _, side in { -1, 1 } do
-		local suffix = if side == -1 then "Left" else "Right"
-		table.insert(belts, { Name = "ToFront" .. suffix, Center = Vector3.new(side * (middle + offset), 0, z), Length = length, Direction = Vector3.new(0, 0, 1) })
-		table.insert(belts, { Name = "ToBack" .. suffix, Center = Vector3.new(side * (middle - offset), 0, z), Length = length, Direction = Vector3.new(0, 0, -1) })
-	end
-	return belts
 end
 
 -- Where the lobby's leaderboards stand: in a strip along the back wall, at the end of the walkway.
