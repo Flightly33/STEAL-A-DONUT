@@ -149,6 +149,36 @@ function Cinematic.Play(shot: Shot): boolean
 	return true
 end
 
+-- Never under the floor: a shot that dips low (looking up at something) from a camera that was
+-- already near the ground is lifted back up to stand a little above it. (The floor's height is
+-- taken under your character, which is always standing on it.)
+local CLEARANCE = 3
+local function keepAboveGround(cf: CFrame): CFrame
+	local ok, lifted = pcall(function(): CFrame?
+		local character = player and player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart") :: BasePart?
+		if not root then
+			return nil
+		end
+		local params = RaycastParams.new()
+		params.FilterType = Enum.RaycastFilterType.Exclude
+		local ignore: { Instance } = {}
+		for _, other in Players:GetPlayers() do
+			if other.Character then
+				table.insert(ignore, other.Character)
+			end
+		end
+		params.FilterDescendantsInstances = ignore
+		local hit = workspace:Raycast(root.Position, Vector3.new(0, -60, 0), params)
+		local floor = if hit then hit.Position.Y else root.Position.Y - 3
+		if cf.Position.Y < floor + CLEARANCE then
+			return cf + Vector3.new(0, floor + CLEARANCE - cf.Position.Y, 0)
+		end
+		return nil
+	end)
+	return if ok and lifted then lifted else cf
+end
+
 -- Every frame, after the normal camera (and before the screen shakes, so they shake the shot too)
 local function step()
 	local shot = playing
@@ -171,7 +201,7 @@ local function step()
 	end
 	local ok, target = pcall(shot.Frame, t, base)
 	if ok then
-		camera.CFrame = base:Lerp(target, weight)
+		camera.CFrame = keepAboveGround(base:Lerp(target, weight))
 		lastBase, lastWritten = base, camera.CFrame
 	end
 	if shot.Fov then
