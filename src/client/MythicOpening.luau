@@ -317,6 +317,8 @@ function MythicOpening.Play(info: Info): boolean
 		local function move(name: string, fade: number, after: string?)
 			PlayerAnims.Play(character :: Model, name, { Fade = fade, Then = after })
 		end
+		-- (from the very start, under the black: your own animations would keep putting your arms down)
+		move("Watch", 0.3)
 
 		-- Sounds (Config.MythicOpening.Sounds)
 		local cues = Config.MythicOpening.Sounds
@@ -479,9 +481,6 @@ function MythicOpening.Play(info: Info): boolean
 			-- You: leaning in to watch it rattle, reaching for the lid, flinching from the light, then
 			-- knocked back onto the ground as the donut leaps out, and sitting there, propped up on
 			-- your hands
-			if once("MoveWatch", 0) then
-				move("Watch", 0.3)
-			end
 			if once("MoveReach", T.Reach) then
 				move("Reach", 0.2)
 			end
