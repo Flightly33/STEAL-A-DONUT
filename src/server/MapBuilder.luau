@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 25
+local MAP_VERSION = 26
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -825,10 +825,11 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 			look(skinned("Fence", { Parent = fence, Name = "Rail", Size = Vector3.new(0.45, 0.6, length), CFrame = cf * line * CFrame.new(0, fh + y, 0), Color = classic.Fence, Material = classic.FenceMaterial }))
 		end
 		look(skinned("Trim", { Parent = fence, Name = "RailCap", Size = Vector3.new(0.7, 0.3, length), CFrame = cf * line * CFrame.new(0, fh + height + 0.45, 0), Color = classic.Trim, Material = classic.TrimMaterial }))
-		-- (what you bump into: as tall as the fence, thick enough that nothing runs through it)
+		-- (what you bump into: as tall as the fence, and thick enough that even running flat out
+		-- you can't go through it between one physics step and the next)
 		local wall = Build.Part({
 			Parent = fence, Name = "FenceWall",
-			Size = Vector3.new(1.6, height + 0.6, length + 1.1),
+			Size = Vector3.new(3, height + 0.6, length + 1.1),
 			CFrame = cf * line * CFrame.new(0, fh + (height + 0.6) / 2, 0),
 			Transparency = 1,
 			CastShadow = false,

@@ -80,6 +80,7 @@ UpdateNotes.List = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
 				"Fences are smooth to bump into now (you used to be able to climb them by accident, which shot you up at high speeds)",
 				"Getting caught by Domer, hit by a rock or a bat still sends you flying, just like before",
+				"Running feels the same as always: you still build up speed and swing round corners - bouncing off things is the only thing that's gone",
 			} },
 			{ Title = "Real Moves", Tag = "NEW", Lines = {
 				"In the opening movie and the Mythic box opening your character really moves now: hand-animated on every joint - elbows, wrists, knees, ankles, waist and neck, not just stiff arms and legs",

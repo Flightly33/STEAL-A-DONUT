@@ -20674,6 +20674,7 @@ UpdateNotes.List = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
 				"Fences are smooth to bump into now (you used to be able to climb them by accident, which shot you up at high speeds)",
 				"Getting caught by Domer, hit by a rock or a bat still sends you flying, just like before",
+				"Running feels the same as always: you still build up speed and swing round corners - bouncing off things is the only thing that's gone",
 			} },
 			{ Title = "Real Moves", Tag = "NEW", Lines = {
 				"In the opening movie and the Mythic box opening your character really moves now: hand-animated on every joint - elbows, wrists, knees, ankles, waist and neck, not just stiff arms and legs",
@@ -30777,7 +30778,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 25
+local MAP_VERSION = 26
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -31557,10 +31558,11 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 			look(skinned("Fence", { Parent = fence, Name = "Rail", Size = Vector3.new(0.45, 0.6, length), CFrame = cf * line * CFrame.new(0, fh + y, 0), Color = classic.Fence, Material = classic.FenceMaterial }))
 		end
 		look(skinned("Trim", { Parent = fence, Name = "RailCap", Size = Vector3.new(0.7, 0.3, length), CFrame = cf * line * CFrame.new(0, fh + height + 0.45, 0), Color = classic.Trim, Material = classic.TrimMaterial }))
-		-- (what you bump into: as tall as the fence, thick enough that nothing runs through it)
+		-- (what you bump into: as tall as the fence, and thick enough that even running flat out
+		-- you can't go through it between one physics step and the next)
 		local wall = Build.Part({
 			Parent = fence, Name = "FenceWall",
-			Size = Vector3.new(1.6, height + 0.6, length + 1.1),
+			Size = Vector3.new(3, height + 0.6, length + 1.1),
 			CFrame = cf * line * CFrame.new(0, fh + (height + 0.6) / 2, 0),
 			Transparency = 1,
 			CastShadow = false,
@@ -37468,9 +37470,15 @@ require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild
 
 	  * no climbing (nothing in the game is a ladder) and no tripping over (FallingDown, Ragdoll)
 	  * no bounce: every body part has zero elasticity, and it wins over whatever you bump into
-	  * after the physics every frame (Heartbeat): going up faster than your highest jump, or on the
-	    ground and sliding a different way from where you're steering, or tumbling - put back to
-	    what running allows (steering where you're steering, at your walk speed)
+	  * after the physics every frame (Heartbeat) it only ever takes speed away, never adds or steers
+	    any, so Roblox's own running is untouched: you still build up speed, carry momentum
+	    through turns and stop at walls the way you always did. It steps in when:
+	      - you shoot up faster than your highest jump (a bump, not a jump): a little hop at most
+	      - you're going sideways much faster than you can run: slowed to your run speed, the way
+	        you were already going
+	      - you bounce back off something (going the other way, fast, from one frame to the next):
+	        you just stop there instead
+	      - you tumble over: back on your feet
 
 	The game's own flings (Domer catching you, a storm rock, a bat, the Cosmic Domer's slam: all
 	through UI/Chase) call AntiFling.Allow first: for that long you fly through the air and tumble
@@ -37578,15 +37586,16 @@ local function jumpVelocity(humanoid: Humanoid): number
 	return if ok and type(value) == "number" and value > 0 then value else 50
 end
 
-local GROUNDED: { [Enum.HumanoidStateType]: boolean } = {
-	[Enum.HumanoidStateType.Running] = true,
-	[Enum.HumanoidStateType.RunningNoPhysics] = true,
-	[Enum.HumanoidStateType.Landed] = true,
-}
+-- Your sideways velocity last check (to spot a bounce: a sudden turn-around in one frame)
+local last: Vector3? = nil
+local lastAt = 0
 
 -- One check. Returns what it did: "fixed", "fine", or why it left you alone.
 function AntiFling.Step(): string
-	if os.clock() < allowUntil then
+	local now = os.clock()
+	local previous = if now - lastAt < 0.1 then last else nil
+	last = nil
+	if now < allowUntil then
 		return "allowed"
 	end
 	if player:GetAttribute("FlyMode") then
@@ -37623,27 +37632,21 @@ function AntiFling.Step(): string
 	local flat = Vector3.new(v.X, 0, v.Z)
 	local y = v.Y
 	local fixed = false
+	-- (everything below only ever slows you down: your own running - building up speed, turning,
+	-- stopping - is Roblox's, untouched)
 	-- shot upwards faster than any jump: a bump, not a jump (a little hop at most)
 	if y > jump * 1.1 + 2 then
 		y = jump * 0.5
 		fixed = true
 	end
-	-- sideways: never much faster than you run; on the ground, the way you're steering
-	local steer = Vector3.zero
-	pcall(function()
-		steer = humanoid.MoveDirection * Vector3.new(1, 0, 1)
-	end)
-	local wanted = if steer.Magnitude > 0.01 then steer.Unit * walk * math.min(steer.Magnitude, 1) else Vector3.zero
-	local state: Enum.HumanoidStateType? = nil
-	pcall(function()
-		state = humanoid:GetState()
-	end)
+	-- sideways far faster than you can run: slowed to your run speed, still the way you were going
 	if flat.Magnitude > walk * 1.35 + 12 then
-		flat = if wanted.Magnitude > 0 then wanted else flat.Unit * math.min(flat.Magnitude, walk)
+		flat = flat.Unit * walk
 		fixed = true
-	elseif state and GROUNDED[state] and (flat - wanted).Magnitude > walk * 0.75 + 20 then
-		-- (pushed back or sideways off a wall while running along: running steers you, not the bump)
-		flat = wanted
+	elseif previous and previous.Magnitude > 8 and flat:Dot(previous) < 0 and (flat - previous).Magnitude > math.max(60, walk * 0.6) then
+		-- bounced back off something (going the other way, fast, from one frame to the next): you
+		-- just stop there
+		flat = Vector3.zero
 		fixed = true
 	end
 	if fixed then
@@ -37652,6 +37655,7 @@ function AntiFling.Step(): string
 			root.AssemblyLinearVelocity = Vector3.new(flat.X, y, flat.Z)
 		end)
 	end
+	last, lastAt = flat, now
 	-- tumbling over (spinning round anything but straight up): stand back up
 	pcall(function()
 		local w = root.AssemblyAngularVelocity
