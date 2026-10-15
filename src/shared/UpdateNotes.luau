@@ -76,11 +76,10 @@ UpdateNotes.List = {
 				"The best ones are epic: a power-up aura round you while you run, a black hole sucking in light, a dragon that flaps its wings and breathes fire, a bursting supernova, rays of light from the sky and falling feathers",
 				"Everything goes all out while you run, and settles down when you step off",
 			} },
-			{ Title = "New Lobby", Tag = "CHANGED", Lines = {
-				"A brighter, more open lobby: studded green grass, low sandstone walls, wooden fences, grass and bushes all over",
-				"Three bases down each side of an open walkway - no more bases squeezed in at the back",
+			{ Title = "New Lobby Layout", Tag = "CHANGED", Lines = {
+				"7 bases now: a row of five side by side facing the lane, and one either side of the lane's entrance",
 				"Wider entrances to every base: 24 studs across, easy to run straight in",
-				"The leaderboards stand side by side at the end of the walkway",
+				"The leaderboards hang side by side high up in the middle of the back wall",
 			} },
 			{ Title = "No More Flinging", Tag = "FIXED", Lines = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",

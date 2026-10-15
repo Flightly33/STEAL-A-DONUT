@@ -1867,16 +1867,16 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 194, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
-	HubDepth = 472, -- (3 bases down each side of an open walkway, a little round plaza in the middle, the leaderboards against the back wall)
-	HubWallHeight = 24, -- low tan walls, so the lobby feels open
+	HubHalfWidth = 394, -- wide and shallow: a row of 5 bases across the back, facing the lane
+	HubDepth = 308, -- (one base either side of the lane's entrance, the row of 5 behind, the leaderboards high on the back wall)
+	HubWallHeight = 40,
 }
 
 --------------------------------------------------------------------------------
 -- Player bases (plots)
 --------------------------------------------------------------------------------
 Config.Plots = {
-	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
+	Count = 7, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
 	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
 	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
 	-- and the pen grows a little each time.
@@ -2372,9 +2372,9 @@ Config.Favorite = {
 Config.Skins = {
 	{
 		Id = "Classic", Name = "Classic Farm", SpeedCost = 0,
-		Floor = Color3.fromRGB(104, 222, 100), FloorAlt = Color3.fromRGB(90, 206, 88), FloorMaterial = Enum.Material.Plastic,
-		Fence = Color3.fromRGB(214, 168, 108), FenceMaterial = Enum.Material.WoodPlanks,
-		Trim = Color3.fromRGB(186, 138, 84), TrimMaterial = Enum.Material.Wood,
+		Floor = Color3.fromRGB(120, 205, 60), FloorAlt = Color3.fromRGB(106, 190, 50), FloorMaterial = Enum.Material.Plastic,
+		Fence = Color3.fromRGB(140, 86, 48), FenceMaterial = Enum.Material.WoodPlanks,
+		Trim = Color3.fromRGB(110, 65, 35), TrimMaterial = Enum.Material.Wood,
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
 	},
 	{
@@ -12245,10 +12245,10 @@ return ItemModel
 	      +Z  (the lane: biome 1 .. the last biome, The Black Hole)
 	       ^
 	  -----|-----------  Z = SafeZoneZ  (safe zone line, the lobby is open to the lane)
-	  [1] |       | [2]       three bases down each side, facing an open walkway down the middle
-	  [3] |  (o)  | [4]       (o): a little round plaza in the middle - the spawn, the sell stall
-	  [5] |       | [6]            and the Cosmic Forge
-	     [boards]             the leaderboards side by side against the back wall
+	  [6] [ base ]  |      |  [ base ] [7]   one base either side of the lane's entrance, facing in
+	                  (o)                     (o): the round plaza - spawn, sell stall, Cosmic Forge
+	  [3]  [4]  [1]  [2]  [5]                 a row of 5 bases side by side, facing the lane
+	  ======== boards ========                the leaderboards high on the back wall
 
 	Each biome's Domer sleeps in a back corner (GuardHome) with the biome's donut boxes around him
 	(BoxSpots). A biome's entrance (AreaStart) has a speed gate: players slower than its
@@ -12372,17 +12372,17 @@ function Layout.LobbyArrival(): CFrame
 	return CFrame.lookAt(Vector3.new(0, 3.5, z), Vector3.new(0, 3.5, z + 10))
 end
 
--- Where the lobby's leaderboards stand: against the back wall, at the end of the walkway.
+-- Where the lobby's leaderboards hang: on the back wall, up above the row of bases' shops.
 function Layout.LeaderboardZ(): number
 	return map.SafeZoneZ - map.HubDepth + 1.5
 end
-Layout.LeaderboardBottom = 2.5 -- the bottom of the boards (they stand on a low plinth)
+Layout.LeaderboardBottom = 22 -- how high the bottom of the boards is (clear of the shops' roofs)
 
--- The little round plaza in the middle of the walkway (level with the middle bases): the sell
+-- The little round plaza just inside the lane's entrance, between the two front bases: the sell
 -- stall and the Cosmic Forge either side of it.
 Layout.PlazaRadius = 44
 function Layout.PlazaCenter(): Vector3
-	return Vector3.new(0, 0, map.SafeZoneZ - Layout.PlotFirstRowZ - Layout.PlotRowSpacing * (Layout.SideRows - 1) / 2)
+	return Vector3.new(0, 0, map.SafeZoneZ - 70)
 end
 
 -- The Cosmic Forge (Config.CosmicDonut): on the plaza, left of the spawn, facing it.
@@ -12398,19 +12398,20 @@ function Layout.SellStallCFrame(): CFrame
 end
 
 --------------------------------------------------------------------------------
--- Plots: three down each side of the walkway (odd on the left (-X), even on the right (+X), row 0
--- nearest the lane), facing the walkway.
+-- Plots: 7 bases. Two (1 and 2) either side of the lane's entrance, facing into the lobby; behind
+-- them a row of five side by side across the lobby (3 in the middle, then 4 / 5, then 6 / 7 at the
+-- ends), facing the lane. (New players get the lowest free number: the ones nearest the lane.)
 --
 -- A base is a donut shop with an open pen in front of it (like Steal an Egg): a fenced patch of
 -- ground with a low gate at the front, where the donuts roam and boxes wait to open. The pen grows
--- a little with every base upgrade (Config.Plots.Sizes): its front stays by the plaza and it grows
--- sideways and backwards, with the shop moving back behind it.
+-- a little with every base upgrade (Config.Plots.Sizes): its front stays put and it grows sideways
+-- and backwards, with the shop moving back behind it.
 --------------------------------------------------------------------------------
 Layout.PlotWidth = 150 -- plot space X (sideways)
-Layout.PlotDepth = 130 -- plot space Z (front, by the plaza, to back)
-Layout.PlotRowSpacing = 156 -- bases down a side are this far apart (centre to centre)
-Layout.PlotFirstRowZ = 80 -- the first row's centre, this far behind the safe-zone line
-Layout.SideRows = 3 -- bases down each side of the walkway
+Layout.PlotDepth = 130 -- plot space Z (front to back)
+Layout.PlotSpacing = 156 -- the row's bases are this far apart (centre to centre)
+Layout.FrontBaseGap = 6 -- the two front bases stand this far from the lane's walls
+Layout.RowFrontZ = 174 -- the row's front edge, this far behind the safe-zone line
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
@@ -12421,9 +12422,10 @@ Layout.GateHalfWidth = 12 -- the gap in the pen's front fence (24 studs: plenty 
 Layout.TreadmillReach = 10.2
 Layout.SideItemsX = Layout.PlotWidth / 2 - 9
 Layout.PenBorder = 2 -- the trim round a pen, outside its fence
+Layout.RowCount = 5
 
--- The leaderboards: a row edge to edge in the middle of the back wall, at the end of the walkway.
--- Each board's middle X, left to right, and its size (1: full size, 31 wide).
+-- The leaderboards: a row edge to edge in the middle of the back wall (high up, above the row of
+-- bases' shops). Each board's middle X, left to right, and its size (1: full size, 31 wide).
 Layout.LeaderboardSpacing = 31
 function Layout.LeaderboardSpots(count: number): { { X: number, Scale: number } }
 	local room = (map.HubHalfWidth - 4) * 2
@@ -12435,15 +12437,34 @@ function Layout.LeaderboardSpots(count: number): { { X: number, Scale: number } 
 	return spots
 end
 
+-- (plot space) How far back a base's things reach at its biggest (the owner's too): the back of
+-- the donut shop's roof behind the biggest pen.
+function Layout.PlotBackReach(): number
+	local most = math.max(Config.Plots.Sizes[#Config.Plots.Sizes].Slots, Config.Admin.MaxSlots)
+	local _, depth = Layout.PenSize(most)
+	return Layout.PenFront + depth + 3 + Layout.ShopDepth + 1.5
+end
+
+-- Z of the middle of the row of five.
+function Layout.RowZ(): number
+	return map.SafeZoneZ - Layout.RowFrontZ - Layout.PlotDepth / 2
+end
+
+-- Which slot in the row (1 = far left .. 5 = far right) a row base stands in.
+local ROW_SLOT = { [3] = 3, [4] = 2, [5] = 4, [6] = 1, [7] = 5 }
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
-	local side = if plotIndex % 2 == 1 then -1 else 1
-	-- down the left (odd) or right (even) wall, facing the walkway
-	local row = (plotIndex - 1) // 2
-	local x = side * (map.HubHalfWidth - Layout.PlotDepth / 2 - 4)
-	local z = map.SafeZoneZ - Layout.PlotFirstRowZ - row * Layout.PlotRowSpacing
-	local center = Vector3.new(x, 0, z)
-	-- LookVector points out of the plot's open side, towards the walkway.
-	return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
+	if plotIndex <= 2 then
+		-- either side of the lane's entrance, right by its walls, facing into the lobby (-Z)
+		local side = if plotIndex == 1 then -1 else 1
+		local x = side * (map.LaneHalfWidth + 4 + Layout.FrontBaseGap + Layout.PlotWidth / 2)
+		local center = Vector3.new(x, 0, map.SafeZoneZ - 4 - Layout.PlotDepth / 2)
+		return CFrame.lookAt(center, center + Vector3.new(0, 0, -1))
+	end
+	-- the row, side by side, facing the lane (+Z)
+	local slot = ROW_SLOT[plotIndex] or 3
+	local center = Vector3.new((slot - (Layout.RowCount + 1) / 2) * Layout.PlotSpacing, 0, Layout.RowZ())
+	return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
 end
 
 -- The pen for a base with room for `slots` donuts: about CellSize x CellSize per donut, a little
@@ -20632,11 +20653,10 @@ UpdateNotes.List = {
 				"The best ones are epic: a power-up aura round you while you run, a black hole sucking in light, a dragon that flaps its wings and breathes fire, a bursting supernova, rays of light from the sky and falling feathers",
 				"Everything goes all out while you run, and settles down when you step off",
 			} },
-			{ Title = "New Lobby", Tag = "CHANGED", Lines = {
-				"A brighter, more open lobby: studded green grass, low sandstone walls, wooden fences, grass and bushes all over",
-				"Three bases down each side of an open walkway - no more bases squeezed in at the back",
+			{ Title = "New Lobby Layout", Tag = "CHANGED", Lines = {
+				"7 bases now: a row of five side by side facing the lane, and one either side of the lane's entrance",
 				"Wider entrances to every base: 24 studs across, easy to run straight in",
-				"The leaderboards stand side by side at the end of the walkway",
+				"The leaderboards hang side by side high up in the middle of the back wall",
 			} },
 			{ Title = "No More Flinging", Tag = "FIXED", Lines = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
@@ -30742,12 +30762,11 @@ local MapBuilder = {}
 
 local rgb = Color3.fromRGB
 local map = Config.Map
-local HUB_GREEN = { rgb(92, 226, 96), rgb(80, 212, 86) } -- bright studded grass
-local WALL_TAN = { rgb(204, 174, 130), rgb(188, 158, 116) } -- low checkered sandstone walls
-local WALL_CAP = rgb(170, 140, 100)
+local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
+local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 28
+local MAP_VERSION = 29
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -30828,7 +30847,8 @@ local function buildLeaderboards(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Leaderboards"
 	folder.Parent = parent
-	-- (edge to edge against the middle of the back wall, at the end of the walkway, on a low plinth)
+	-- (edge to edge in the middle of the back wall, high up above the row of bases' shops, so
+	-- everyone in the lobby can read them)
 	local spots = Layout.LeaderboardSpots(#Config.Leaderboards.Boards)
 	local z = Layout.LeaderboardZ()
 	local bottom = Layout.LeaderboardBottom
@@ -30849,11 +30869,17 @@ local function buildLeaderboards(parent: Instance)
 		model.PrimaryPart = frame
 		model.Parent = folder
 	end
-	-- the plinth they stand on
+	-- the ledge they stand on, and a bracket under each join
 	local first, last = spots[1], spots[#spots]
 	local width = (last.X - first.X) + 31 * last.Scale + 2
-	local plinth = Build.Part({ Parent = folder, Name = "Plinth", Size = Vector3.new(width, bottom, 4), Position = Vector3.new((first.X + last.X) / 2, bottom / 2, z + 0.4), Color = WALL_CAP, Material = Enum.Material.Plastic })
-	plinth.TopSurface = Enum.SurfaceType.Studs
+	Build.Part({ Parent = folder, Name = "Ledge", Size = Vector3.new(width, 1.2, 3.5), Position = Vector3.new((first.X + last.X) / 2, bottom - 0.6, z + 0.4), Color = rgb(90, 60, 40), Material = Enum.Material.WoodPlanks })
+	local joins = { first.X - 15.5 * first.Scale }
+	for _, spot in spots do
+		table.insert(joins, spot.X + 15.5 * spot.Scale)
+	end
+	for _, x in joins do
+		Build.Part({ Parent = folder, Name = "Bracket", Size = Vector3.new(1.2, 3, 2.5), Position = Vector3.new(x, bottom - 2.7, z), Color = rgb(70, 46, 30), Material = Enum.Material.WoodPlanks })
+	end
 end
 
 -- The hub's floor and outer walls (sized by Config.Map.HubHalfWidth / HubDepth).
@@ -30865,102 +30891,63 @@ local function buildHubGround(hub: Instance)
 	local walls = Instance.new("Folder")
 	walls.Name = "Walls"
 	walls.Parent = hub
-	local block = 8 -- (small checker blocks, like a sandstone brick wall)
-	Build.CheckerWall(walls, Vector3.new(-hw - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_TAN, Enum.Material.Plastic, block)
-	Build.CheckerWall(walls, Vector3.new(hw + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_TAN, Enum.Material.Plastic, block)
-	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), hw * 2 + t * 2, h, t, WALL_TAN, Enum.Material.Plastic, block)
+	Build.CheckerWall(walls, Vector3.new(-hw - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
+	Build.CheckerWall(walls, Vector3.new(hw + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
+	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), hw * 2 + t * 2, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
 	local laneOuter = map.LaneHalfWidth + t
-	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_TAN, Enum.Material.Plastic, block)
-	Build.CheckerWall(walls, Vector3.new(laneOuter, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_TAN, Enum.Material.Plastic, block)
-	-- a studded cap along the top, stepping up into taller sections now and then
-	local function cap(from: Vector3, to: Vector3)
-		local length = (to - from).Magnitude
-		local dir = (to - from).Unit
-		local d, i = 0, 0
-		while d < length - 0.01 do
-			local seg = math.min(48, length - d)
-			local tall = i % 3 == 1
-			local rise = if tall then 6 else 0
-			local mid = from + dir * (d + seg / 2)
-			local size = if math.abs(dir.X) > 0.5 then Vector3.new(seg, 1.5 + rise, t + 1) else Vector3.new(t + 1, 1.5 + rise, seg)
-			local part = Build.Part({ Parent = walls, Name = "WallTop", Position = mid + Vector3.new(0, h + (1.5 + rise) / 2, 0), Size = size, Color = if tall then WALL_TAN[1] else WALL_CAP, Material = Enum.Material.Plastic })
-			part.TopSurface = Enum.SurfaceType.Studs
-			d += seg
-			i += 1
-		end
+	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
+	Build.CheckerWall(walls, Vector3.new(laneOuter, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
+	-- Grass strip along the top of the hub walls
+	for _, info in {
+		{ Vector3.new(-hw - t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
+		{ Vector3.new(hw + t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
+		{ Vector3.new(0, h + 1, z0 - depth - t / 2), Vector3.new(hw * 2 + t * 2, 2, t + 1) },
+	} do
+		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(100, 200, 60), Material = Enum.Material.Grass })
 	end
-	cap(Vector3.new(-hw - t / 2, 0, z0 - depth - t), Vector3.new(-hw - t / 2, 0, z0 + t))
-	cap(Vector3.new(hw + t / 2, 0, z0 - depth - t), Vector3.new(hw + t / 2, 0, z0 + t))
-	cap(Vector3.new(-hw - t, 0, z0 - depth - t / 2), Vector3.new(hw + t, 0, z0 - depth - t / 2))
-	cap(Vector3.new(-hw - t, 0, z0 + t / 2), Vector3.new(-laneOuter, 0, z0 + t / 2))
-	cap(Vector3.new(laneOuter, 0, z0 + t / 2), Vector3.new(hw + t, 0, z0 + t / 2))
 end
 
--- Grass tufts and little blocky bushes dotted over the walkway and along the walls (seeded, so
--- every server's lobby looks the same). All just to look at: nothing to trip over.
-local function buildLobbyGreenery(hub: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "Greenery"
-	folder.Parent = hub
-	local rng = Random.new(77)
-	local hw, depth, z0 = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ
-	local walkway = hw - Layout.PlotDepth - 6 -- (half the walkway's width, inside the bases' edge)
-	local plaza = Layout.PlazaCenter()
-	local spawnAt = Layout.LobbyArrival().Position
-	local boardsHalf = #Config.Leaderboards.Boards * 31 / 2 + 4
-	local bushGreens = { rgb(58, 170, 70), rgb(70, 186, 80), rgb(48, 150, 60) }
-	local function clear(p: Vector3): boolean
-		if (Vector3.new(p.X, 0, p.Z) - Vector3.new(plaza.X, 0, plaza.Z)).Magnitude < Layout.PlazaRadius + 6 then
-			return false
-		end
-		if (Vector3.new(p.X, 0, p.Z) - Vector3.new(spawnAt.X, 0, spawnAt.Z)).Magnitude < 16 then
-			return false
-		end
-		if p.Z < z0 - depth + 8 and math.abs(p.X) < boardsHalf then
-			return false
-		end
-		return true
+-- Rocky hills along the tops of the hub's outer walls, in the lobby's own green and brown, so
+-- you look at grassy rocks instead of the empty sky past the walls. Two rows of chunky, tilted
+-- boulders with grass on top, the outer row taller; seeded, so every server builds the same ridge.
+local function buildRidge(hub: Instance)
+	local hw, depth, z0, h, t = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ, map.HubWallHeight, 4
+	local ridge = Instance.new("Model")
+	ridge.Name = "Ridge"
+	local rng = Random.new(2024)
+	local rockColors = { WALL_BROWN[1], WALL_BROWN[2], rgb(178, 112, 62), rgb(214, 148, 92) }
+	local function boulder(at: Vector3, size: Vector3)
+		local tilt = CFrame.Angles(rng:NextNumber(-0.18, 0.18), rng:NextNumber(0, math.pi * 2), rng:NextNumber(-0.18, 0.18))
+		local cf = CFrame.new(at) * tilt
+		Build.Part({ Parent = ridge, Name = "Rock", Size = size, CFrame = cf, Color = rockColors[rng:NextInteger(1, #rockColors)], Material = Enum.Material.Slate })
+		-- grass on top (a slab sitting on the rock's top face, a little smaller)
+		local grass = Vector3.new(size.X * 0.92, 1.6, size.Z * 0.92)
+		Build.Part({ Parent = ridge, Name = "Grass", Size = grass, CFrame = cf * CFrame.new(0, size.Y / 2 + 0.6, 0), Color = HUB_GREEN[rng:NextInteger(1, 2)], Material = Enum.Material.Plastic })
 	end
-	local function tuft(at: Vector3)
-		local turn = rng:NextNumber(0, math.pi * 2)
-		for i = 1, 3 do
-			local lean = CFrame.Angles(0, turn + i * 2.1, 0) * CFrame.Angles(math.rad(rng:NextNumber(12, 26)), 0, 0)
-			local blade = rng:NextNumber(1.6, 2.6)
-			Build.Decor({ Parent = folder, Name = "Tuft", Size = Vector3.new(0.25, blade, 0.25), CFrame = CFrame.new(at) * lean * CFrame.new(0, blade / 2, 0), Color = rgb(60, 190, 70), Material = Enum.Material.SmoothPlastic })
-		end
-	end
-	local function bush(at: Vector3)
-		local count = rng:NextInteger(2, 4)
-		for _ = 1, count do
-			local size = Vector3.new(rng:NextNumber(3, 5.5), rng:NextNumber(2.2, 3.6), rng:NextNumber(3, 5.5))
-			local offset = Vector3.new(rng:NextNumber(-2.2, 2.2), 0, rng:NextNumber(-2.2, 2.2))
-			local part = Build.Decor({ Parent = folder, Name = "Bush", Size = size, CFrame = CFrame.new(at + offset + Vector3.new(0, size.Y / 2, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color = bushGreens[rng:NextInteger(1, #bushGreens)], Material = Enum.Material.Plastic })
-			part.TopSurface = Enum.SurfaceType.Studs
+	-- `from` -> `to` along the top of a wall; `outward` points away from the hub
+	local function line(from: Vector3, to: Vector3, outward: Vector3)
+		local length = (to - from).Magnitude
+		local dir = (to - from).Unit
+		local d = 0
+		while d < length do
+			local base = from + dir * d
+			-- inner row: low, right on the wall top
+			local inner = Vector3.new(rng:NextNumber(14, 22), rng:NextNumber(12, 20), rng:NextNumber(14, 22))
+			boulder(base + outward * rng:NextNumber(6, 10) + Vector3.new(0, h + inner.Y * 0.18, 0), inner)
+			-- outer row: tall peaks
+			local outer = Vector3.new(rng:NextNumber(18, 30), rng:NextNumber(26, 46), rng:NextNumber(18, 30))
+			boulder(base + dir * rng:NextNumber(-4, 4) + outward * rng:NextNumber(20, 30) + Vector3.new(0, h + outer.Y * 0.2, 0), outer)
+			d += rng:NextNumber(13, 19)
 		end
 	end
-	-- tufts all over the walkway
-	local placed = 0
-	while placed < 60 do
-		local p = Vector3.new(rng:NextNumber(-walkway, walkway), 0, rng:NextNumber(z0 - depth + 4, z0 - 6))
-		if clear(p) then
-			tuft(p)
-			placed += 1
-		end
-	end
-	-- bushes along the back wall either side of the leaderboards, and here and there in the walkway
-	for _, side in { -1, 1 } do
-		for i = 0, 2 do
-			bush(Vector3.new(side * (boardsHalf + 6 + i * 14), 0, z0 - depth + 5))
-		end
-	end
-	placed = 0
-	while placed < 8 do
-		local p = Vector3.new((if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(walkway - 14, walkway - 4), 0, rng:NextNumber(z0 - depth + 20, z0 - 30))
-		if clear(p) then
-			bush(p)
-			placed += 1
-		end
-	end
+	local laneOuter = map.LaneHalfWidth + t
+	line(Vector3.new(-hw - t, 0, z0 - depth - t), Vector3.new(-hw - t, 0, z0 + t), Vector3.new(-1, 0, 0)) -- left
+	line(Vector3.new(hw + t, 0, z0 - depth - t), Vector3.new(hw + t, 0, z0 + t), Vector3.new(1, 0, 0)) -- right
+	line(Vector3.new(-hw - t, 0, z0 - depth - t), Vector3.new(hw + t, 0, z0 - depth - t), Vector3.new(0, 0, -1)) -- back
+	-- the front walls either side of the lane (the rocks lean back over the lane's own walls' side)
+	line(Vector3.new(-hw - t, 0, z0 + t), Vector3.new(-laneOuter - 30, 0, z0 + t), Vector3.new(0, 0, 1))
+	line(Vector3.new(laneOuter + 30, 0, z0 + t), Vector3.new(hw + t, 0, z0 + t), Vector3.new(0, 0, 1))
+	ridge.Parent = hub
 end
 
 -- The little round plaza in the middle of the walkway, made like a donut seen from above: a ring
@@ -31003,7 +30990,7 @@ local function buildHub(parent: Folder)
 	hub.Name = "Hub"
 	hub.Parent = parent
 	buildHubGround(hub)
-	buildLobbyGreenery(hub)
+	buildRidge(hub)
 
 	buildSafeZoneLine(hub)
 	buildPlaza(hub)

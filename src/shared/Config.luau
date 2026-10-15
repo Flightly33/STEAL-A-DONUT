@@ -152,16 +152,16 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 194, -- a compact lobby, so nothing is far away: 3 bases down each side of a walkway
-	HubDepth = 472, -- (3 bases down each side of an open walkway, a little round plaza in the middle, the leaderboards against the back wall)
-	HubWallHeight = 24, -- low tan walls, so the lobby feels open
+	HubHalfWidth = 394, -- wide and shallow: a row of 5 bases across the back, facing the lane
+	HubDepth = 308, -- (one base either side of the lane's entrance, the row of 5 behind, the leaderboards high on the back wall)
+	HubWallHeight = 40,
 }
 
 --------------------------------------------------------------------------------
 -- Player bases (plots)
 --------------------------------------------------------------------------------
 Config.Plots = {
-	Count = 6, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
+	Count = 7, -- bases per server: set the game's Max Players to this too (Game Settings > Places > Server Size)
 	-- Your base is a donut shop with an open pen in front (like Steal an Egg) where your donuts roam.
 	-- Upgrade it at the sign by its gate: every size holds Slots donuts (and boxes waiting to open)
 	-- and the pen grows a little each time.
@@ -657,9 +657,9 @@ Config.Favorite = {
 Config.Skins = {
 	{
 		Id = "Classic", Name = "Classic Farm", SpeedCost = 0,
-		Floor = Color3.fromRGB(104, 222, 100), FloorAlt = Color3.fromRGB(90, 206, 88), FloorMaterial = Enum.Material.Plastic,
-		Fence = Color3.fromRGB(214, 168, 108), FenceMaterial = Enum.Material.WoodPlanks,
-		Trim = Color3.fromRGB(186, 138, 84), TrimMaterial = Enum.Material.Wood,
+		Floor = Color3.fromRGB(120, 205, 60), FloorAlt = Color3.fromRGB(106, 190, 50), FloorMaterial = Enum.Material.Plastic,
+		Fence = Color3.fromRGB(140, 86, 48), FenceMaterial = Enum.Material.WoodPlanks,
+		Trim = Color3.fromRGB(110, 65, 35), TrimMaterial = Enum.Material.Wood,
 		Pedestal = Color3.fromRGB(200, 200, 200), PedestalMaterial = Enum.Material.SmoothPlastic,
 	},
 	{
