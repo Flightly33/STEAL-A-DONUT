@@ -30772,7 +30772,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 30
+local MAP_VERSION = 31
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -31531,10 +31531,8 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 		skinned("Trim", { Parent = floor, Name = "Border", Size = Vector3.new(width, fh + 0.6, border), CFrame = at(0, (fh - 0.4) / 2, if side < 0 then front - border / 2 else front + depth + border / 2), Color = classic.Trim, Material = classic.TrimMaterial })
 	end
 
-	-- Fence: posts and two rails all the way round, a gap for the gate at the front. The posts and
-	-- rails are only to look at: what you bump into is one smooth invisible wall along each side
-	-- ("FenceWall"), so running into the fence just stops you - no edges to snag on, and no rungs
-	-- for your character to climb (climbing at a high walk speed used to fling you into the sky).
+	-- Fence: posts and two rails all the way round, a gap for the gate at the front. All of it is
+	-- only to look at: you walk straight through it (nothing to snag on or get flung by).
 	local fence = Instance.new("Folder")
 	fence.Name = "Fence"
 	fence.Parent = pen
@@ -31563,17 +31561,6 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 			look(skinned("Fence", { Parent = fence, Name = "Rail", Size = Vector3.new(0.45, 0.6, length), CFrame = cf * line * CFrame.new(0, fh + y, 0), Color = classic.Fence, Material = classic.FenceMaterial }))
 		end
 		look(skinned("Trim", { Parent = fence, Name = "RailCap", Size = Vector3.new(0.7, 0.3, length), CFrame = cf * line * CFrame.new(0, fh + height + 0.45, 0), Color = classic.Trim, Material = classic.TrimMaterial }))
-		-- (what you bump into: as tall as the fence, and thick enough that even running flat out
-		-- you can't go through it between one physics step and the next)
-		local wall = Build.Part({
-			Parent = fence, Name = "FenceWall",
-			Size = Vector3.new(3, height + 0.6, length + 1.1),
-			CFrame = cf * line * CFrame.new(0, fh + (height + 0.6) / 2, 0),
-			Transparency = 1,
-			CastShadow = false,
-		})
-		wall.CanQuery = false
-		wall.CanTouch = false
 	end
 	local hw, z0, z1 = width / 2 + border, front - border, front + depth + border
 	fenceLine(Vector3.new(-hw, 0, z1), Vector3.new(hw, 0, z1)) -- back
@@ -31584,12 +31571,12 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	-- Corner posts with round caps, and two low gate posts
 	for _, x in { -hw, hw } do
 		for _, z in { z0, z1 } do
-			skinned("Trim", { Parent = fence, Name = "CornerPost", Size = Vector3.new(1.8, height + 1.4, 1.8), CFrame = at(x, fh + (height + 1.4) / 2, z), Color = classic.Trim, Material = classic.TrimMaterial })
+			look(skinned("Trim", { Parent = fence, Name = "CornerPost", Size = Vector3.new(1.8, height + 1.4, 1.8), CFrame = at(x, fh + (height + 1.4) / 2, z), Color = classic.Trim, Material = classic.TrimMaterial }))
 			look(skinned("Pedestal", { Parent = fence, Name = "CornerCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.2, CFrame = at(x, fh + height + 1.9, z), Color = classic.Pedestal, Material = classic.PedestalMaterial }))
 		end
 	end
 	for _, side in { -1, 1 } do
-		skinned("Trim", { Parent = fence, Name = "GatePost", Size = Vector3.new(2, height + 2.5, 2), CFrame = at(side * gate, fh + (height + 2.5) / 2, z0), Color = classic.Trim, Material = classic.TrimMaterial })
+		look(skinned("Trim", { Parent = fence, Name = "GatePost", Size = Vector3.new(2, height + 2.5, 2), CFrame = at(side * gate, fh + (height + 2.5) / 2, z0), Color = classic.Trim, Material = classic.TrimMaterial }))
 		look(skinned("Pedestal", { Parent = fence, Name = "GateCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.6, CFrame = at(side * gate, fh + height + 3.2, z0), Color = classic.Pedestal, Material = classic.PedestalMaterial }))
 	end
 
