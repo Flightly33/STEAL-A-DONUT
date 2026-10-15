@@ -13,8 +13,8 @@
 	    any, so Roblox's own running is untouched: you still build up speed, carry momentum
 	    through turns and stop at walls the way you always did. It steps in when:
 	      - you shoot up faster than your highest jump (a bump, not a jump): a little hop at most
-	      - you're going sideways much faster than you can run (on a conveyor belt, plus its
-	        speed): slowed to your run speed, the way you were already going
+	      - you're going sideways much faster than you can run: slowed to your run speed, the way
+	        you were already going
 	      - you bounce back off something (going the other way, fast, from one frame to the next):
 	        you just stop there instead
 	      - you tumble over: back on your feet
@@ -32,12 +32,7 @@
 ]]
 
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(Shared.Config)
-local Layout = require(Shared.Layout)
 
 local AntiFling = {}
 
@@ -172,10 +167,6 @@ function AntiFling.Step(): string
 		return "no velocity"
 	end
 	local walk = math.max(humanoid.WalkSpeed, 16)
-	-- (riding a conveyor belt: it adds its own speed on top of your running)
-	if Layout.ConveyorAt(root.Position) then
-		walk += Config.Conveyors.Speed
-	end
 	local jump = jumpVelocity(humanoid)
 	local flat = Vector3.new(v.X, 0, v.Z)
 	local y = v.Y

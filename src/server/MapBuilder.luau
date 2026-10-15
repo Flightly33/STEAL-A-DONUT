@@ -41,11 +41,12 @@ local MapBuilder = {}
 
 local rgb = Color3.fromRGB
 local map = Config.Map
-local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
-local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
+local HUB_GREEN = { rgb(92, 226, 96), rgb(80, 212, 86) } -- bright studded grass
+local WALL_TAN = { rgb(204, 174, 130), rgb(188, 158, 116) } -- low checkered sandstone walls
+local WALL_CAP = rgb(170, 140, 100)
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 27
+local MAP_VERSION = 28
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -126,8 +127,7 @@ local function buildLeaderboards(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Leaderboards"
 	folder.Parent = parent
-	-- (edge to edge in the middle of the back wall, high up above the back two bases' shops, so
-	-- everyone in the lobby can read them)
+	-- (edge to edge against the middle of the back wall, at the end of the walkway, on a low plinth)
 	local spots = Layout.LeaderboardSpots(#Config.Leaderboards.Boards)
 	local z = Layout.LeaderboardZ()
 	local bottom = Layout.LeaderboardBottom
@@ -148,86 +148,11 @@ local function buildLeaderboards(parent: Instance)
 		model.PrimaryPart = frame
 		model.Parent = folder
 	end
-	-- the ledge they stand on, and a bracket under each join
+	-- the plinth they stand on
 	local first, last = spots[1], spots[#spots]
 	local width = (last.X - first.X) + 31 * last.Scale + 2
-	Build.Part({ Parent = folder, Name = "Ledge", Size = Vector3.new(width, 1.2, 3.5), Position = Vector3.new((first.X + last.X) / 2, bottom - 0.6, z + 0.4), Color = rgb(90, 60, 40), Material = Enum.Material.WoodPlanks })
-	local joins = { first.X - 15.5 * first.Scale }
-	for _, spot in spots do
-		table.insert(joins, spot.X + 15.5 * spot.Scale)
-	end
-	for _, x in joins do
-		Build.Part({ Parent = folder, Name = "Bracket", Size = Vector3.new(1.2, 3, 2.5), Position = Vector3.new(x, bottom - 2.7, z), Color = rgb(70, 46, 30), Material = Enum.Material.WoodPlanks })
-	end
-end
-
--- The conveyor belts down the walkway (Layout.Conveyors): a dark metal belt that carries whoever
--- stands on it (its velocity: Config.Conveyors.Speed), low glowing rails, arrows the clients slide
--- along it (client/Conveyors) and a sign over the end you get on at.
-local function setConveyorSpeed(belt: BasePart)
-	local direction = belt:GetAttribute("Direction")
-	if typeof(direction) == "Vector3" then
-		belt.AssemblyLinearVelocity = direction * Config.Conveyors.Speed
-	end
-end
-
-local function refreshConveyors(hub: Instance)
-	local conveyors = hub:FindFirstChild("Conveyors")
-	if conveyors then
-		for _, belt in conveyors:GetDescendants() do
-			if belt:IsA("BasePart") and belt.Name == "Belt" then
-				setConveyorSpeed(belt)
-			end
-		end
-	end
-end
-
-local function buildConveyors(hub: Instance)
-	local folder = Instance.new("Folder")
-	folder.Name = "Conveyors"
-	folder.Parent = hub
-	local c = Config.Conveyors
-	for _, info in Layout.Conveyors() do
-		local model = Instance.new("Model")
-		model.Name = info.Name
-		local toFront = info.Direction.Z > 0
-		local color = if toFront then rgb(80, 235, 120) else rgb(90, 175, 255)
-		-- (in `cf`, -Z is the way the belt goes; you get on at +Length / 2)
-		local cf = CFrame.lookAt(info.Center, info.Center + info.Direction)
-		local function at(x: number, y: number, z: number): CFrame
-			return cf * CFrame.new(x, y, z)
-		end
-		local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(c.Width, 0.6, info.Length), CFrame = at(0, 0.3, 0), Color = rgb(48, 48, 58), Material = Enum.Material.DiamondPlate })
-		belt:SetAttribute("Direction", info.Direction)
-		setConveyorSpeed(belt)
-		for _, side in { -1, 1 } do
-			Build.Decor({ Parent = model, Name = "RailGlow", Size = Vector3.new(0.3, 0.2, info.Length), CFrame = at(side * (c.Width / 2 - 0.2), 0.66, 0), Color = color, Material = Enum.Material.Neon })
-		end
-		-- arrows: a V of two glowing strips, pointing the way it goes
-		local count = math.floor(info.Length / c.ArrowSpacing) - 1
-		local angle = math.rad(38)
-		for i = 0, count - 1 do
-			local tipZ = info.Length / 2 - c.ArrowSpacing * (i + 0.5)
-			for _, side in { -1, 1 } do
-				local along = Vector3.new(side * math.sin(angle), 0, math.cos(angle))
-				local mid = Vector3.new(0, 0.66, tipZ) + along * 1.6
-				local arrow = Build.Decor({ Parent = model, Name = "Arrow", Size = Vector3.new(0.6, 0.1, 3.2), CFrame = cf * CFrame.lookAt(mid, mid + along), Color = color, Material = Enum.Material.Neon })
-				arrow:SetAttribute("ConveyorArrow", true)
-			end
-		end
-		-- where you get on: a glowing line across the belt, and a sign
-		Build.Decor({ Parent = model, Name = "Boarding", Size = Vector3.new(c.Width, 0.1, 1.2), CFrame = at(0, 0.66, info.Length / 2 - 0.8), Color = color, Material = Enum.Material.Neon })
-		local signPart = Build.Decor({ Parent = model, Name = "Sign", Size = Vector3.new(1, 1, 1), CFrame = at(0, 9, info.Length / 2 - 3), Transparency = 1 })
-		local sign = Instance.new("BillboardGui")
-		sign.Name = "SignGui"
-		sign.Size = UDim2.fromScale(14, 3)
-		sign.LightInfluence = 0
-		sign.MaxDistance = 220
-		sign.Parent = signPart
-		Build.Text(sign, if toFront then "TO THE LANE" else "TO THE BACK BASES", { TextColor3 = color, TextStrokeColor3 = color:Lerp(Color3.new(0, 0, 0), 0.75) })
-		model.PrimaryPart = belt
-		model.Parent = folder
-	end
+	local plinth = Build.Part({ Parent = folder, Name = "Plinth", Size = Vector3.new(width, bottom, 4), Position = Vector3.new((first.X + last.X) / 2, bottom / 2, z + 0.4), Color = WALL_CAP, Material = Enum.Material.Plastic })
+	plinth.TopSurface = Enum.SurfaceType.Studs
 end
 
 -- The hub's floor and outer walls (sized by Config.Map.HubHalfWidth / HubDepth).
@@ -239,63 +164,102 @@ local function buildHubGround(hub: Instance)
 	local walls = Instance.new("Folder")
 	walls.Name = "Walls"
 	walls.Parent = hub
-	Build.CheckerWall(walls, Vector3.new(-hw - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
-	Build.CheckerWall(walls, Vector3.new(hw + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
-	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), hw * 2 + t * 2, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
+	local block = 8 -- (small checker blocks, like a sandstone brick wall)
+	Build.CheckerWall(walls, Vector3.new(-hw - t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_TAN, Enum.Material.Plastic, block)
+	Build.CheckerWall(walls, Vector3.new(hw + t / 2, 0, z0 - depth - t), Vector3.new(0, 0, 1), depth + t, h, t, WALL_TAN, Enum.Material.Plastic, block)
+	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 - depth - t / 2), Vector3.new(1, 0, 0), hw * 2 + t * 2, h, t, WALL_TAN, Enum.Material.Plastic, block)
 	local laneOuter = map.LaneHalfWidth + t
-	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
-	Build.CheckerWall(walls, Vector3.new(laneOuter, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_BROWN, Enum.Material.Plastic, 20)
-	-- Grass strip along the top of the hub walls
-	for _, info in {
-		{ Vector3.new(-hw - t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
-		{ Vector3.new(hw + t / 2, h + 1, z0 - depth / 2 - t / 2), Vector3.new(t + 1, 2, depth + t) },
-		{ Vector3.new(0, h + 1, z0 - depth - t / 2), Vector3.new(hw * 2 + t * 2, 2, t + 1) },
-	} do
-		Build.Part({ Parent = walls, Name = "WallTop", Position = info[1], Size = info[2], Color = rgb(100, 200, 60), Material = Enum.Material.Grass })
-	end
-end
-
--- Rocky hills along the tops of the hub's outer walls, in the lobby's own green and brown, so
--- you look at grassy rocks instead of the empty sky past the walls. Two rows of chunky, tilted
--- boulders with grass on top, the outer row taller; seeded, so every server builds the same ridge.
-local function buildRidge(hub: Instance)
-	local hw, depth, z0, h, t = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ, map.HubWallHeight, 4
-	local ridge = Instance.new("Model")
-	ridge.Name = "Ridge"
-	local rng = Random.new(2024)
-	local rockColors = { WALL_BROWN[1], WALL_BROWN[2], rgb(178, 112, 62), rgb(214, 148, 92) }
-	local function boulder(at: Vector3, size: Vector3)
-		local tilt = CFrame.Angles(rng:NextNumber(-0.18, 0.18), rng:NextNumber(0, math.pi * 2), rng:NextNumber(-0.18, 0.18))
-		local cf = CFrame.new(at) * tilt
-		Build.Part({ Parent = ridge, Name = "Rock", Size = size, CFrame = cf, Color = rockColors[rng:NextInteger(1, #rockColors)], Material = Enum.Material.Slate })
-		-- grass on top (a slab sitting on the rock's top face, a little smaller)
-		local grass = Vector3.new(size.X * 0.92, 1.6, size.Z * 0.92)
-		Build.Part({ Parent = ridge, Name = "Grass", Size = grass, CFrame = cf * CFrame.new(0, size.Y / 2 + 0.6, 0), Color = HUB_GREEN[rng:NextInteger(1, 2)], Material = Enum.Material.Plastic })
-	end
-	-- `from` -> `to` along the top of a wall; `outward` points away from the hub
-	local function line(from: Vector3, to: Vector3, outward: Vector3)
+	Build.CheckerWall(walls, Vector3.new(-hw - t, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_TAN, Enum.Material.Plastic, block)
+	Build.CheckerWall(walls, Vector3.new(laneOuter, 0, z0 + t / 2), Vector3.new(1, 0, 0), hw + t - laneOuter, h, t, WALL_TAN, Enum.Material.Plastic, block)
+	-- a studded cap along the top, stepping up into taller sections now and then
+	local function cap(from: Vector3, to: Vector3)
 		local length = (to - from).Magnitude
 		local dir = (to - from).Unit
-		local d = 0
-		while d < length do
-			local base = from + dir * d
-			-- inner row: low, right on the wall top
-			local inner = Vector3.new(rng:NextNumber(14, 22), rng:NextNumber(12, 20), rng:NextNumber(14, 22))
-			boulder(base + outward * rng:NextNumber(6, 10) + Vector3.new(0, h + inner.Y * 0.18, 0), inner)
-			-- outer row: tall peaks
-			local outer = Vector3.new(rng:NextNumber(18, 30), rng:NextNumber(26, 46), rng:NextNumber(18, 30))
-			boulder(base + dir * rng:NextNumber(-4, 4) + outward * rng:NextNumber(20, 30) + Vector3.new(0, h + outer.Y * 0.2, 0), outer)
-			d += rng:NextNumber(13, 19)
+		local d, i = 0, 0
+		while d < length - 0.01 do
+			local seg = math.min(48, length - d)
+			local tall = i % 3 == 1
+			local rise = if tall then 6 else 0
+			local mid = from + dir * (d + seg / 2)
+			local size = if math.abs(dir.X) > 0.5 then Vector3.new(seg, 1.5 + rise, t + 1) else Vector3.new(t + 1, 1.5 + rise, seg)
+			local part = Build.Part({ Parent = walls, Name = "WallTop", Position = mid + Vector3.new(0, h + (1.5 + rise) / 2, 0), Size = size, Color = if tall then WALL_TAN[1] else WALL_CAP, Material = Enum.Material.Plastic })
+			part.TopSurface = Enum.SurfaceType.Studs
+			d += seg
+			i += 1
 		end
 	end
-	local laneOuter = map.LaneHalfWidth + t
-	line(Vector3.new(-hw - t, 0, z0 - depth - t), Vector3.new(-hw - t, 0, z0 + t), Vector3.new(-1, 0, 0)) -- left
-	line(Vector3.new(hw + t, 0, z0 - depth - t), Vector3.new(hw + t, 0, z0 + t), Vector3.new(1, 0, 0)) -- right
-	line(Vector3.new(-hw - t, 0, z0 - depth - t), Vector3.new(hw + t, 0, z0 - depth - t), Vector3.new(0, 0, -1)) -- back
-	-- the front walls either side of the lane (the rocks lean back over the lane's own walls' side)
-	line(Vector3.new(-hw - t, 0, z0 + t), Vector3.new(-laneOuter - 30, 0, z0 + t), Vector3.new(0, 0, 1))
-	line(Vector3.new(laneOuter + 30, 0, z0 + t), Vector3.new(hw + t, 0, z0 + t), Vector3.new(0, 0, 1))
-	ridge.Parent = hub
+	cap(Vector3.new(-hw - t / 2, 0, z0 - depth - t), Vector3.new(-hw - t / 2, 0, z0 + t))
+	cap(Vector3.new(hw + t / 2, 0, z0 - depth - t), Vector3.new(hw + t / 2, 0, z0 + t))
+	cap(Vector3.new(-hw - t, 0, z0 - depth - t / 2), Vector3.new(hw + t, 0, z0 - depth - t / 2))
+	cap(Vector3.new(-hw - t, 0, z0 + t / 2), Vector3.new(-laneOuter, 0, z0 + t / 2))
+	cap(Vector3.new(laneOuter, 0, z0 + t / 2), Vector3.new(hw + t, 0, z0 + t / 2))
+end
+
+-- Grass tufts and little blocky bushes dotted over the walkway and along the walls (seeded, so
+-- every server's lobby looks the same). All just to look at: nothing to trip over.
+local function buildLobbyGreenery(hub: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Greenery"
+	folder.Parent = hub
+	local rng = Random.new(77)
+	local hw, depth, z0 = map.HubHalfWidth, map.HubDepth, map.SafeZoneZ
+	local walkway = hw - Layout.PlotDepth - 6 -- (half the walkway's width, inside the bases' edge)
+	local plaza = Layout.PlazaCenter()
+	local spawnAt = Layout.LobbyArrival().Position
+	local boardsHalf = #Config.Leaderboards.Boards * 31 / 2 + 4
+	local bushGreens = { rgb(58, 170, 70), rgb(70, 186, 80), rgb(48, 150, 60) }
+	local function clear(p: Vector3): boolean
+		if (Vector3.new(p.X, 0, p.Z) - Vector3.new(plaza.X, 0, plaza.Z)).Magnitude < Layout.PlazaRadius + 6 then
+			return false
+		end
+		if (Vector3.new(p.X, 0, p.Z) - Vector3.new(spawnAt.X, 0, spawnAt.Z)).Magnitude < 16 then
+			return false
+		end
+		if p.Z < z0 - depth + 8 and math.abs(p.X) < boardsHalf then
+			return false
+		end
+		return true
+	end
+	local function tuft(at: Vector3)
+		local turn = rng:NextNumber(0, math.pi * 2)
+		for i = 1, 3 do
+			local lean = CFrame.Angles(0, turn + i * 2.1, 0) * CFrame.Angles(math.rad(rng:NextNumber(12, 26)), 0, 0)
+			local blade = rng:NextNumber(1.6, 2.6)
+			Build.Decor({ Parent = folder, Name = "Tuft", Size = Vector3.new(0.25, blade, 0.25), CFrame = CFrame.new(at) * lean * CFrame.new(0, blade / 2, 0), Color = rgb(60, 190, 70), Material = Enum.Material.SmoothPlastic })
+		end
+	end
+	local function bush(at: Vector3)
+		local count = rng:NextInteger(2, 4)
+		for _ = 1, count do
+			local size = Vector3.new(rng:NextNumber(3, 5.5), rng:NextNumber(2.2, 3.6), rng:NextNumber(3, 5.5))
+			local offset = Vector3.new(rng:NextNumber(-2.2, 2.2), 0, rng:NextNumber(-2.2, 2.2))
+			local part = Build.Decor({ Parent = folder, Name = "Bush", Size = size, CFrame = CFrame.new(at + offset + Vector3.new(0, size.Y / 2, 0)) * CFrame.Angles(0, rng:NextNumber(0, math.pi), 0), Color = bushGreens[rng:NextInteger(1, #bushGreens)], Material = Enum.Material.Plastic })
+			part.TopSurface = Enum.SurfaceType.Studs
+		end
+	end
+	-- tufts all over the walkway
+	local placed = 0
+	while placed < 60 do
+		local p = Vector3.new(rng:NextNumber(-walkway, walkway), 0, rng:NextNumber(z0 - depth + 4, z0 - 6))
+		if clear(p) then
+			tuft(p)
+			placed += 1
+		end
+	end
+	-- bushes along the back wall either side of the leaderboards, and here and there in the walkway
+	for _, side in { -1, 1 } do
+		for i = 0, 2 do
+			bush(Vector3.new(side * (boardsHalf + 6 + i * 14), 0, z0 - depth + 5))
+		end
+	end
+	placed = 0
+	while placed < 8 do
+		local p = Vector3.new((if rng:NextNumber() < 0.5 then -1 else 1) * rng:NextNumber(walkway - 14, walkway - 4), 0, rng:NextNumber(z0 - depth + 20, z0 - 30))
+		if clear(p) then
+			bush(p)
+			placed += 1
+		end
+	end
 end
 
 -- The little round plaza in the middle of the walkway, made like a donut seen from above: a ring
@@ -338,13 +302,12 @@ local function buildHub(parent: Folder)
 	hub.Name = "Hub"
 	hub.Parent = parent
 	buildHubGround(hub)
-	buildRidge(hub)
+	buildLobbyGreenery(hub)
 
 	buildSafeZoneLine(hub)
 	buildPlaza(hub)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
-	buildConveyors(hub)
 
 	-- (at the front of the walkway, facing the lane: new players are a few steps from the first biome)
 	local spawnAt = Layout.LobbyArrival().Position * Vector3.new(1, 0, 1) + Vector3.new(0, 0.5, 0)
@@ -1010,14 +973,8 @@ local function buildPlot(parent: Instance, plotIndex: number)
 	-- Anchors used by other services: the treadmill and incubator beside the pen, the podium on
 	-- the other side, the name sign above the shop (PlotService moves it as the pen grows).
 	local side = Layout.SideItemsX
-	-- (treadmill and incubator on one side of the pen, the podium on the other; the back two bases
-	-- stand right next to each other, so theirs all go on the outer side, one behind another)
+	-- (treadmill and incubator on one side of the pen, the podium on the other)
 	local treadX, incubatorX, podiumX, podiumZ, incubatorZ = -side, -side, side, 10, 34
-	if plotIndex > Layout.SideRows * 2 then
-		local outward = if plotIndex % 2 == 1 then -1 else 1
-		local outer = if cf:VectorToObjectSpace(Vector3.new(outward, 0, 0)).X > 0 then side else -side
-		treadX, incubatorX, podiumX, podiumZ, incubatorZ = outer, outer, outer, 20, 36
-	end
 	Build.Part({ Parent = plot, Name = "Spawn", Size = Vector3.new(4, 1, 4), CFrame = at(0, fh + 0.5, Layout.PenFront + 8), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "SignAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(0, fh + 30, 30), Transparency = 1, CanCollide = false, CanQuery = false })
 	Build.Part({ Parent = plot, Name = "TreadmillAnchor", Size = Vector3.new(1, 1, 1), CFrame = at(treadX, 0, Layout.PenFront + 4) * CFrame.Angles(0, math.pi / 2, 0), Transparency = 1, CanCollide = false, CanQuery = false })
@@ -1207,9 +1164,10 @@ function MapBuilder.Build(): Folder
 				buildLeaderboards(hub)
 			end
 		end
-		-- (a saved belt loses its speed: give it back)
-		if hub then
-			refreshConveyors(hub)
+		-- (the conveyor belts are gone)
+		local belts = hub and hub:FindFirstChild("Conveyors")
+		if belts then
+			belts:Destroy()
 		end
 		refreshAreaSigns(existing)
 		buildLane(existing) -- adds any biomes that are missing
