@@ -1868,7 +1868,7 @@ Config.Map = {
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
 	HubHalfWidth = 394, -- wide and shallow: a row of 5 bases across the back, facing the lane
-	HubDepth = 308, -- (one base either side of the lane's entrance, the row of 5 behind, the leaderboards high on the back wall)
+	HubDepth = 344, -- (one base either side of the lane's entrance, the row of 5 behind, the leaderboards high on the back wall)
 	HubWallHeight = 40,
 }
 
@@ -12411,7 +12411,7 @@ Layout.PlotWidth = 150 -- plot space X (sideways)
 Layout.PlotDepth = 130 -- plot space Z (front to back)
 Layout.PlotSpacing = 156 -- the row's bases are this far apart (centre to centre)
 Layout.FrontBaseGap = 6 -- the two front bases stand this far from the lane's walls
-Layout.RowFrontZ = 174 -- the row's front edge, this far behind the safe-zone line
+Layout.RowFrontZ = 190 -- the row's front edge, this far behind the safe-zone line
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
@@ -12447,24 +12447,30 @@ end
 
 -- Z of the middle of the row of five.
 function Layout.RowZ(): number
-	return map.SafeZoneZ - Layout.RowFrontZ - Layout.PlotDepth / 2
+	return map.SafeZoneZ - Layout.RowFrontZ - Layout.PlotWidth / 2
 end
 
 -- Which slot in the row (1 = far left .. 5 = far right) a row base stands in.
 local ROW_SLOT = { [3] = 3, [4] = 2, [5] = 4, [6] = 1, [7] = 5 }
 
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
+	-- every base's entrance faces the middle of the lobby: the ones off to the sides turn sideways
+	-- (their plot's depth runs along X then, its width along Z)
 	if plotIndex <= 2 then
-		-- either side of the lane's entrance, right by its walls, facing into the lobby (-Z)
+		-- either side of the lane's entrance, right by its walls, facing in towards the plaza
 		local side = if plotIndex == 1 then -1 else 1
-		local x = side * (map.LaneHalfWidth + 4 + Layout.FrontBaseGap + Layout.PlotWidth / 2)
-		local center = Vector3.new(x, 0, map.SafeZoneZ - 4 - Layout.PlotDepth / 2)
-		return CFrame.lookAt(center, center + Vector3.new(0, 0, -1))
+		local x = side * (map.LaneHalfWidth + 4 + Layout.FrontBaseGap + Layout.PlotDepth / 2)
+		local center = Vector3.new(x, 0, map.SafeZoneZ - 4 - Layout.PlotWidth / 2)
+		return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
 	end
-	-- the row, side by side, facing the lane (+Z)
+	-- the row, side by side: the middle one faces the lane, the rest face the middle
 	local slot = ROW_SLOT[plotIndex] or 3
-	local center = Vector3.new((slot - (Layout.RowCount + 1) / 2) * Layout.PlotSpacing, 0, Layout.RowZ())
-	return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
+	local x = (slot - (Layout.RowCount + 1) / 2) * Layout.PlotSpacing
+	local center = Vector3.new(x, 0, Layout.RowZ())
+	if math.abs(x) < 1e-6 then
+		return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
+	end
+	return CFrame.lookAt(center, center + Vector3.new(-math.sign(x), 0, 0))
 end
 
 -- The pen for a base with room for `slots` donuts: about CellSize x CellSize per donut, a little
@@ -30766,7 +30772,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 29
+local MAP_VERSION = 30
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
