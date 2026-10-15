@@ -5,8 +5,10 @@
 	lines streak across the screen, a trail in your treadmill's colour follows you, and every time
 	you gain a whole point of WalkSpeed (every Config.Speed.SpeedPerWalk Speed) a "+1 WALK SPEED!"
 	burst pops up.
-	Every treadmill's LED strips, spinning parts and electric arcs are animated here too (faster while
-	someone runs on it).
+	Every treadmill's moving parts and effects are animated here too (harder while someone runs on
+	it): LED strips, fans, turbines and planets spinning, wings flapping, a junk console rattling,
+	lightning crackling and striking, power-up bursts and rings of light going off on a beat, and
+	broken bulbs flickering.
 
 	The server decides how much speed you actually get (TreadmillService); this only handles the
 	feel.
@@ -21,6 +23,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
 
 local Shared = ReplicatedStorage:WaitForChild("Shared")
+local AnimeFX = require(Shared.AnimeFX)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
 
@@ -169,59 +172,170 @@ end
 
 -- LED strips chase along every treadmill, its spinning parts turn (a fan, turbines, planets, halos -
 -- all faster while someone runs on it), and the electric arcs flicker
+-- How long `treadmill`'s owner has been running on it (nil: nobody's on it)
+local runStart: { [Instance]: number } = setmetatable({}, { __mode = "k" }) :: any
+local function runningFor(treadmill: Instance?, t: number): number?
+	if treadmill and treadmill:GetAttribute("Running") == true then
+		local since = runStart[treadmill]
+		if not since then
+			since = t
+			runStart[treadmill] = t
+		end
+		return t - since
+	end
+	if treadmill then
+		runStart[treadmill] = nil
+	end
+	return nil
+end
+
+local function treadmillOf(instance: Instance): Instance?
+	return instance:FindFirstAncestor("Treadmill")
+end
+
 local function startTreadmillAnimations()
-	type LED = { Part: BasePart, Index: number, Model: Instance }
-	type Spinner = { Model: Model, Base: CFrame, Axis: string, Idle: number, Run: number, Angle: number }
+	type LED = { Part: BasePart, Index: number, Model: Instance? }
+	type Spinner = {
+		Model: Model,
+		Base: CFrame,
+		Axis: string,
+		Idle: number,
+		Run: number,
+		Mode: string,
+		Amp: number,
+		Dir: number,
+		Angle: number,
+		Shown: number,
+		Seed: number,
+	}
+	type Flicker = { Part: BasePart?, Light: Light?, Base: number }
+	type Arc = { Holder: BasePart, Points: { Attachment }, Homes: { Vector3 }, Beams: { Beam }, Strike: boolean, Every: number, Length: number, Side: Vector3, Up: Vector3, Clock: number }
+	type Burst = { Holder: BasePart, Emitters: { ParticleEmitter }, Every: number?, EveryIdle: number?, Phase: number, Mode: string, Count: number }
 	local leds: { [Instance]: LED } = {}
 	local spinners: { [Instance]: Spinner } = {}
-	local flickers: { [Instance]: BasePart } = {}
+	local flickers: { [Instance]: Flicker } = {}
+	local arcs: { [Instance]: Arc } = {}
+	local bursts: { [Instance]: Burst } = {}
 	local function addLED(instance: Instance)
 		if instance:IsA("BasePart") then
-			leds[instance] = { Part = instance, Index = (instance:GetAttribute("LEDIndex") :: number?) or 0, Model = instance.Parent :: Instance }
+			leds[instance] = { Part = instance, Index = (instance:GetAttribute("LEDIndex") :: number?) or 0, Model = treadmillOf(instance) }
 		end
+	end
+	local function number(instance: Instance, name: string, default: number): number
+		local value = instance:GetAttribute(name)
+		return if type(value) == "number" then value else default
 	end
 	local function addSpinner(instance: Instance)
 		if instance:IsA("Model") and instance.PrimaryPart then
 			local axis = instance:GetAttribute("Axis")
+			local mode = instance:GetAttribute("Mode")
 			spinners[instance] = {
 				Model = instance,
 				Base = instance:GetPivot(),
 				Axis = if type(axis) == "string" then axis else "Y",
-				Idle = (instance:GetAttribute("Idle") :: number?) or 0.5,
-				Run = (instance:GetAttribute("Run") :: number?) or 2,
+				Idle = number(instance, "Idle", 0.5),
+				Run = number(instance, "Run", 2),
+				Mode = if type(mode) == "string" then mode else "Spin",
+				Amp = math.rad(number(instance, "Amp", 10)),
+				Dir = number(instance, "Dir", 1),
 				Angle = 0,
+				Shown = 0,
+				Seed = math.random() * 100,
 			}
 		end
 	end
 	local function addFlicker(instance: Instance)
 		if instance:IsA("BasePart") then
-			flickers[instance] = instance
+			flickers[instance] = { Part = instance, Base = instance.Transparency }
+		elseif instance:IsA("Light") then
+			flickers[instance] = { Light = instance, Base = instance.Brightness }
 		end
 	end
-	for _, led in CollectionService:GetTagged("TreadmillLED") do
-		addLED(led)
+	local function addArc(instance: Instance)
+		if not instance:IsA("BasePart") then
+			return
+		end
+		local points: { Attachment } = {}
+		local homes: { Vector3 } = {}
+		for i = 0, 31 do
+			local point = instance:FindFirstChild("P" .. i)
+			if not (point and point:IsA("Attachment")) then
+				break
+			end
+			local home = point:GetAttribute("Home")
+			table.insert(points, point)
+			table.insert(homes, if typeof(home) == "Vector3" then home else point.Position)
+		end
+		if #points < 2 then
+			return
+		end
+		local beams: { Beam } = {}
+		for _, child in instance:GetChildren() do
+			if child:IsA("Beam") then
+				table.insert(beams, child)
+			end
+		end
+		local along = homes[#homes] - homes[1]
+		local dir = if along.Magnitude > 0.01 then along.Unit else Vector3.yAxis
+		local side = dir:Cross(if math.abs(dir.Y) > 0.9 then Vector3.xAxis else Vector3.yAxis).Unit
+		arcs[instance] = {
+			Holder = instance,
+			Points = points,
+			Homes = homes,
+			Beams = beams,
+			Strike = instance:GetAttribute("Style") == "Strike",
+			Every = math.max(number(instance, "Every", 2), 0.3),
+			Length = number(instance, "Length", along.Magnitude),
+			Side = side,
+			Up = dir:Cross(side).Unit,
+			Clock = 0,
+		}
 	end
-	for _, spinner in CollectionService:GetTagged("TreadmillSpin") do
-		addSpinner(spinner)
+	local function addBurst(instance: Instance)
+		if not instance:IsA("BasePart") then
+			return
+		end
+		local every, everyIdle = instance:GetAttribute("Every"), instance:GetAttribute("EveryIdle")
+		bursts[instance] = {
+			Holder = instance,
+			Emitters = AnimeFX.Find(instance),
+			Every = if type(every) == "number" and every > 0 then every else nil,
+			EveryIdle = if type(everyIdle) == "number" and everyIdle > 0 then everyIdle else nil,
+			Phase = number(instance, "Phase", 0),
+			Mode = "",
+			Count = 0,
+		}
 	end
-	for _, part in CollectionService:GetTagged("TreadmillFlicker") do
-		addFlicker(part)
+	-- (the bigger ones wait a moment for their parts to replicate)
+	local function later(add: (Instance) -> ()): (Instance) -> ()
+		return function(instance: Instance)
+			task.delay(0.2, function()
+				if instance.Parent then
+					add(instance)
+				end
+			end)
+		end
 	end
-	CollectionService:GetInstanceAddedSignal("TreadmillLED"):Connect(addLED)
-	CollectionService:GetInstanceAddedSignal("TreadmillSpin"):Connect(function(instance)
-		task.wait(0.2) -- (let its parts replicate)
-		addSpinner(instance)
-	end)
-	CollectionService:GetInstanceAddedSignal("TreadmillFlicker"):Connect(addFlicker)
-	CollectionService:GetInstanceRemovedSignal("TreadmillLED"):Connect(function(instance)
-		leds[instance] = nil
-	end)
-	CollectionService:GetInstanceRemovedSignal("TreadmillSpin"):Connect(function(instance)
-		spinners[instance] = nil
-	end)
-	CollectionService:GetInstanceRemovedSignal("TreadmillFlicker"):Connect(function(instance)
-		flickers[instance] = nil
-	end)
+	local tracked: { [string]: { add: (Instance) -> (), list: { [Instance]: any }, wait: boolean } } = {
+		TreadmillLED = { add = addLED, list = leds, wait = false },
+		TreadmillSpin = { add = addSpinner, list = spinners, wait = true },
+		TreadmillFlicker = { add = addFlicker, list = flickers, wait = false },
+		TreadmillArc = { add = addArc, list = arcs, wait = true },
+		TreadmillBurst = { add = addBurst, list = bursts, wait = true },
+	}
+	for tag, info in tracked do
+		for _, instance in CollectionService:GetTagged(tag) do
+			info.add(instance)
+		end
+		CollectionService:GetInstanceAddedSignal(tag):Connect(if info.wait then later(info.add) else info.add)
+		CollectionService:GetInstanceRemovedSignal(tag):Connect(function(instance)
+			info.list[instance] = nil
+		end)
+	end
+
+	local function turn(axis: string, a: number): CFrame
+		return if axis == "X" then CFrame.Angles(a, 0, 0) elseif axis == "Z" then CFrame.Angles(0, 0, a) else CFrame.Angles(0, a, 0)
+	end
 	local flickerClock = 0
 	RunService.RenderStepped:Connect(function(dt: number)
 		local t = os.clock()
@@ -233,35 +347,120 @@ local function startTreadmillAnimations()
 				continue
 			end
 			if (led.Part.Position - cam).Magnitude < 120 then
-				local running = led.Model:GetAttribute("Running") == true
+				local running = led.Model ~= nil and led.Model:GetAttribute("Running") == true
 				local speed = if running then 14 else 3
 				local wave = math.sin(t * speed - led.Index * 0.8)
 				led.Part.Transparency = if running then 0.5 - wave * 0.5 else 0.35 - wave * 0.3
 			end
 		end
+		-- spinning (fans, turbines, planets, halos), swinging (wings) and rattling (a junk console)
 		for instance, spinner in spinners do
 			local treadmill = instance.Parent
 			if not treadmill then
 				spinners[instance] = nil
 				continue
 			end
-			if (spinner.Base.Position - cam).Magnitude < 120 then
-				local running = treadmill:GetAttribute("Running") == true
-				spinner.Angle += dt * (if running then spinner.Run else spinner.Idle)
-				local a = spinner.Angle
-				local turn = if spinner.Axis == "X" then CFrame.Angles(a, 0, 0) elseif spinner.Axis == "Z" then CFrame.Angles(0, 0, a) else CFrame.Angles(0, a, 0)
-				spinner.Model:PivotTo(spinner.Base * turn)
+			if (spinner.Base.Position - cam).Magnitude >= 120 then
+				continue
+			end
+			local running = treadmill:GetAttribute("Running") == true
+			local speed = if running then spinner.Run else spinner.Idle
+			spinner.Angle += dt * speed
+			local a = spinner.Angle
+			if spinner.Mode == "Swing" then
+				a = math.sin(spinner.Angle) * spinner.Amp * spinner.Dir
+			elseif spinner.Mode == "Wobble" then
+				a = if speed > 0 then math.clamp(math.noise(spinner.Angle, spinner.Seed) * 2.2, -1, 1) * spinner.Amp else 0
+			end
+			if a ~= spinner.Shown then
+				spinner.Shown = a
+				spinner.Model:PivotTo(spinner.Base * turn(spinner.Axis, a))
 			end
 		end
-		-- (arcs of electricity: on and off a few times a second)
+		-- lightning: the middle of each bolt jolts about; a strike flashes on as the beat comes round
+		for instance, arc in arcs do
+			if not instance.Parent then
+				arcs[instance] = nil
+				continue
+			end
+			if (arc.Holder.Position - cam).Magnitude >= 150 then
+				continue
+			end
+			local runFor = runningFor(treadmillOf(instance), t)
+			local on = if arc.Strike then runFor ~= nil and runFor % arc.Every < 0.24 else true
+			arc.Clock += dt
+			local wait = if runFor then 0.045 else 0.09
+			if not on then
+				if arc.Beams[1] and arc.Beams[1].Enabled then
+					for _, b in arc.Beams do
+						b.Enabled = false
+					end
+				end
+			elseif arc.Clock >= wait then
+				arc.Clock = 0
+				local n = #arc.Points
+				local reach = arc.Length * (if arc.Strike then 0.11 else 0.08)
+				for i = 2, n - 1 do
+					local middle = math.sin(math.pi * (i - 1) / (n - 1))
+					local jolt = arc.Side * (math.random() * 2 - 1) + arc.Up * (math.random() * 2 - 1)
+					arc.Points[i].Position = arc.Homes[i] + jolt * reach * middle
+				end
+				-- (now and then it cuts out for a moment)
+				local shown = arc.Strike or math.random() > 0.12
+				for _, b in arc.Beams do
+					b.Enabled = shown
+				end
+			end
+		end
+		-- bursts: power-ups, impact frames, rings of light, on a beat (everyone sees them at once:
+		-- from when the owner stepped on while they run, from the clock while it stands)
+		for instance, burst in bursts do
+			if not instance.Parent then
+				bursts[instance] = nil
+				continue
+			end
+			local runFor = runningFor(treadmillOf(instance), t)
+			local mode, n = "off", 0
+			if runFor and burst.Every then
+				mode, n = "run", math.floor((runFor - burst.Phase) / burst.Every)
+			elseif not runFor and burst.EveryIdle then
+				mode, n = "idle", math.floor((t - burst.Phase) / burst.EveryIdle)
+			end
+			if mode ~= burst.Mode then
+				-- (stepping on sets the first one off straight away)
+				burst.Mode = mode
+				burst.Count = if mode == "run" then -1 else n
+			end
+			if mode ~= "off" and n > burst.Count then
+				burst.Count = n
+				if (burst.Holder.Position - cam).Magnitude < 150 then
+					if #burst.Emitters == 0 then
+						burst.Emitters = AnimeFX.Find(instance)
+					end
+					AnimeFX.Fire(burst.Emitters)
+				end
+			end
+		end
+		-- a broken bulb, a glitching part: on and off a few times a second
 		flickerClock += dt
 		if flickerClock >= 0.07 then
 			flickerClock = 0
-			for instance, part in flickers do
+			for instance, flicker in flickers do
 				if not instance.Parent then
 					flickers[instance] = nil
-				elseif (part.Position - cam).Magnitude < 120 then
-					part.Transparency = if math.random() < 0.3 then 0.85 else 0
+					continue
+				end
+				local part, light = flicker.Part, flicker.Light
+				if part then
+					if (part.Position - cam).Magnitude < 120 then
+						part.Transparency = if math.random() < 0.3 then flicker.Base + (1 - flicker.Base) * 0.85 else flicker.Base
+					end
+				elseif light then
+					local treadmill = treadmillOf(instance)
+					local running = treadmill ~= nil and treadmill:GetAttribute("Running") == true
+					local full = number(light, if running then "RunBrightness" else "IdleBrightness", flicker.Base)
+					local roll = math.random()
+					light.Brightness = full * (if roll < 0.2 then 0.05 elseif roll < 0.35 then 0.4 else 0.8 + math.random() * 0.2)
 				end
 			end
 		end

@@ -2,6 +2,7 @@
 #
 #   python3 treadmills.py <sheet.png | closeups-folder/ | -> [export.luau] [names, comma separated]
 #   e.g. python3 treadmills.py renders/ ../../src/shared/TreadmillModels.luau   (renders/sheet.png: preview.jpg)
+#   (VFX=0: without the effects; RENDER=0 with a sheet name: just save treadmills.blend)
 #
 # Each treadmill is built from the same kinds of pieces Roblox parts are (blocks, cylinders, balls
 # and wedges), so the export IS the model: src/shared/TreadmillModels.luau is written from here,
@@ -101,7 +102,7 @@ class Model:
         self.name = name
         self.parts = []
         self.groups = {}
-        self.fx = []
+        self.effects = []  # effects (particles, beams, lights, pulses): see vfx()
         self.group = None  # parts added now go in this spinning group
         self.frame = CF()  # ...and are placed in this frame
 
@@ -170,15 +171,50 @@ class Model:
             a = i / count * math.pi * 2
             self.add("Ball", center_cf * CF((math.cos(a) * radius, 0, math.sin(a) * radius)), (d, d, d), col, mat, **kw)
 
-    def spin(self, name, pivot, axis="Y", idle=0.5, run=2.0):
-        self.groups[name] = dict(pivot=pivot, axis=axis, idle=idle, run=run)
+    def spin(self, name, pivot, axis="Y", idle=0.5, run=2.0, mode="Spin", amp=0, dir=1):
+        # a group of parts the client moves round `pivot`'s axis: Spin turns (idle / run: radians a
+        # second), Swing rocks to and fro (amp degrees; idle / run: how fast), Wobble rattles
+        self.groups[name] = dict(pivot=pivot, axis=axis, idle=idle, run=run, mode=mode, amp=amp, dir=dir)
         self.group = name
+
+    def join(self, name):
+        self.group = name  # (add more parts to a group made earlier)
 
     def done(self):
         self.group = None
 
-    def effect(self, kind, pos, col=(255, 255, 255), size=1.0, rng=12, brightness=1.5):
-        self.fx.append(dict(kind=kind, pos=pos, col=col, size=size, range=rng, brightness=brightness))
+    # ---- effects. idle / run: how strong standing still and while the owner runs (0 = off) ----
+    def vfx(self, kind, **kw):
+        kw["kind"] = kind
+        if "group" not in kw:
+            kw["group"] = self.group
+        self.effects.append(kw)
+        return kw
+
+    def emit(self, preset, pos, area=(1, 1, 1), colors=((255, 255, 255),), size=1.0, idle=0.0, run=0.0, dir="Top",
+             shape="Box", every=None, every_idle=None, boost=False):
+        # particles (a preset: TreadmillFX.Presets in the game) from a box (or sphere) `area` at `pos`
+        return self.vfx("Emit", preset=preset, pos=tuple(pos), area=tuple(area), colors=[tuple(int(x) for x in c) for c in colors],
+                        size=size, idle=idle, run=run, dir=dir, shape=shape, every=every, every_idle=every_idle, boost=boost)
+
+    def beam(self, a, b, colors, width=0.3, width1=None, style="Ray", alpha=0.0, every=None):
+        # Ray: a soft shaft of light; Arc: crackling electricity; Strike: a lightning bolt now and then
+        return self.vfx("Beam", a=tuple(a), b=tuple(b), colors=[tuple(int(x) for x in c) for c in colors], width=width,
+                        width1=width if width1 is None else width1, style=style, alpha=alpha, every=every)
+
+    def light(self, pos, col, rng=12, idle=1.0, run=None, flicker=False, spot=False, angle=45):
+        return self.vfx("Light", pos=tuple(pos), col=tuple(int(x) for x in col), range=rng, idle=idle, run=idle if run is None else run,
+                        flicker=flicker, spot=spot, angle=angle)
+
+    def pulse(self, pos, col, radius=8, idle=2.0, run=0.8, phase=0.0):
+        # a ring of light spreading out over the ground and fading (idle / run: seconds each; 0 = off)
+        return self.vfx("Pulse", pos=tuple(pos), col=tuple(int(x) for x in col), radius=radius, idle=idle, run=run, phase=phase)
+
+    def fire(self, pos, col, idle=2.0, run=None):
+        return self.vfx("Fire", pos=tuple(pos), col=tuple(int(x) for x in col), idle=idle, run=idle if run is None else run)
+
+    def sparkles(self, pos, col):
+        return self.vfx("Sparkles", pos=tuple(pos), col=tuple(int(x) for x in col))
 
 
 def mix(a, b, t):
@@ -212,6 +248,8 @@ def chassis(m, t):
     hd, hdm = t.get("hood", t["frame"])
     tr, trm = t.get("trim", (CHROME, "Metal"))
     ac = t["accent"]
+    glow = t.get("glow", True)
+    leds = t.get("leds", "on")  # on: glowing strips that chase; dead: plain dull bulbs
     # what you stand on and bump into: one smooth invisible deck (nothing to snag on)
     m.box((0, 0.75, 0.5), (8, 1.5, 15.4), (128, 128, 128), alpha=1, name="Base", collide=True)
     m.box((0, 1.35, 0.5), (6, 0.3, 13), t.get("belt", RUBBER), "Rubber", name="Belt", collide=True, tag="Belt")
@@ -223,12 +261,15 @@ def chassis(m, t):
         x = side * 3.6
         m.box((x, 0.92, 0.5), (1.2, 1.3, 14.8), sd, sdm, name="DeckSide")
         m.box((x, 1.62, 0.6), (1.04, 0.14, 13.4), st, stm, name="Step")
-        m.box((side * 4.22, 0.92, 0.5), (0.06, 0.5, 13.8), ac, "Neon" if t.get("glow", True) else trm, name="SideLine")
+        m.box((side * 4.22, 0.92, 0.5), (0.06, 0.5, 13.8), ac if glow else dark(tr, 0.2), "Neon" if glow else trm, name="SideLine")
         # trim along the deck's top outer edge
         m.box((side * 4.16, 1.6, 0.5), (0.16, 0.16, 14.8), tr, trm)
         for k in range(10):
             z = -5.0 + k * (12.2 / 9)
-            m.box((side * 3.16, 1.7, z), (0.16, 0.06, 0.85), t.get("led", ac), "Neon", name="LED", tag="LED", index=k)
+            if leds == "on":
+                m.box((side * 3.16, 1.7, z), (0.16, 0.06, 0.85), t.get("led", ac), "Neon", name="LED", tag="LED", index=k)
+            elif k % 3 != 2:  # (dead ones: dull, and some missing)
+                m.box((side * 3.16, 1.68, z), (0.16, 0.05, 0.85), t.get("led", (70, 70, 68)), "SmoothPlastic", name="DeadLED")
         # bolts down each side
         for k in range(5):
             m.ball((side * 4.21, 1.25, -5.2 + k * 2.9), 0.24, tr, trm)
@@ -240,7 +281,7 @@ def chassis(m, t):
     # rear end cap and bumper
     m.box((0, 0.85, 7.75), (7.6, 1.1, 0.5), sd, sdm)
     m.box((0, 0.62, 8.05), (7.0, 0.36, 0.25), BLACK, "Rubber")
-    m.box((0, 1.15, 8.03), (5.5, 0.12, 0.08), ac, "Neon")
+    m.box((0, 1.15, 8.03), (5.5, 0.12, 0.08), ac if glow else dark(tr, 0.2), "Neon" if glow else trm)
     # feet
     for x in (-3.3, 3.3):
         for z in (-7.9, 7.5):
@@ -250,8 +291,8 @@ def chassis(m, t):
     m.wedge((0, 2.15, -7.75), (7.8, 0.8, 2.6), hd, hdm, r=(0, 180, 0))
     m.box((0, 1.0, -9.07), (6.2, 0.9, 0.06), dark(hd, 0.6), "SmoothPlastic")  # vent panel
     for k in range(5):
-        m.box((0, 0.68 + k * 0.16, -9.11), (5.8, 0.05, 0.04), ac if t.get("glow", True) else tr, "Neon" if t.get("glow", True) else trm)
-    m.box((0, 1.95, -9.06), (2.4, 0.5, 0.08), ac, "Neon" if t.get("glow", True) else trm, name="Badge")
+        m.box((0, 0.68 + k * 0.16, -9.11), (5.8, 0.05, 0.04), ac if glow else dark(tr, 0.3), "Neon" if glow else trm)
+    m.box((0, 1.95, -9.06), (2.4, 0.5, 0.08), ac if glow else tr, "Neon" if glow else trm, name="Badge")
     # uprights (leaning back a little), handlebars with grips, a cross bar
     for side in (-1, 1):
         x = side * 3.45
@@ -263,32 +304,53 @@ def chassis(m, t):
         m.box((x, 4.75, -5.6), (0.5, 0.5, 1.0), CHROME, "Metal")
     m.rod((-3.45, 5.25, -6.85), (3.45, 5.25, -6.85), 0.36, tr, trm, round_=True)
     # the console: body, screen (the game writes on it), bezel, buttons, speakers, a strip of light
+    # (a junk one rattles while you run: its parts are a group)
+    if t.get("rattle"):
+        m.spin("Console", CF((0, 5.0, -6.9)), axis="Z", idle=0, run=17, mode="Wobble", amp=2.5)
     cs, csm = t.get("console", (fr, frm))
     m.box(CONSOLE, (7.6, 3.0, 0.7), cs, csm, name="ConsoleBody")
     m.box(CONSOLE * T(0, 0, -0.4), (7.2, 2.6, 0.2), dark(cs, 0.4), csm)
     m.box(CONSOLE * T(0, 0.3, 0.37), (5.6, 2.05, 0.06), BLACK, "SmoothPlastic")
     m.box(CONSOLE * T(0, 0.3, 0.42), (5.0, 1.75, 0.06), t.get("screen", (15, 15, 20)), "SmoothPlastic", name="Screen", tag="Screen")
-    m.box(CONSOLE * T(0, 1.42, 0.3), (6.4, 0.12, 0.2), ac, "Neon" if t.get("glow", True) else trm)
+    m.box(CONSOLE * T(0, 1.42, 0.3), (6.4, 0.12, 0.2), ac if glow else tr, "Neon" if glow else trm)
     colors = t.get("buttons", [(70, 210, 90), (255, 200, 40), (90, 160, 255), (255, 80, 80)])
     for i, col in enumerate(colors):
         x = -1.5 + i * (3.0 / max(len(colors) - 1, 1))
-        m.cyl(CONSOLE * T(x, -1.05, 0.4) * CF.angles(0, 90, 0), 0.12, 0.42, col, "Neon")
+        m.cyl(CONSOLE * T(x, -1.05, 0.4) * CF.angles(0, 90, 0), 0.12, 0.42, col, "Neon" if glow else "SmoothPlastic")
     for side in (-1, 1):
         m.cyl(CONSOLE * T(side * 3.3, 0.3, 0.37) * CF.angles(0, 90, 0), 0.08, 0.95, BLACK, "Fabric")
         m.cyl(CONSOLE * T(side * 3.3, 0.3, 0.36) * CF.angles(0, 90, 0), 0.06, 1.15, tr, trm)
+    m.done()
     # the fan under the console, in its ring (spins; faster while someone runs)
     hub = (0, 3.35, -6.95)
     m.cyl(hub, 0.5, 3.3, t.get("fanring", (dark(fr, 0.2), frm))[0], t.get("fanring", (dark(fr, 0.2), frm))[1], axis="z")
     m.cyl((0, 3.35, -6.7), 0.06, 2.9, BLACK, "SmoothPlastic", axis="z")
-    m.spin("Fan", CF(hub), axis="Z", idle=3, run=22)
-    m.cyl(hub, 0.6, 0.7, ac, "Neon", axis="z")
-    for i in range(5):
+    fan_idle, fan_run = t.get("fan", (3, 22))
+    m.spin("Fan", CF(hub), axis="Z", idle=fan_idle, run=fan_run)
+    m.cyl(hub, 0.6, 0.7, ac if glow else tr, "Neon" if glow else trm, axis="z")
+    for i in t.get("blades", (0, 1, 2, 3, 4)):
         m.box(CF(hub) * CF.angles(0, 0, i * 72) * T(0, 0.75, 0.15), (0.5, 1.2, 0.08), light(fr, 0.5), "Metal", r=None)
     m.done()
 
 
-def screen_glow(m, t):
-    m.effect("Light", CONSOLE * (0, 0.3, 0.6), t["accent"], rng=12, brightness=1.4)
+def screen_glow(m, t, idle=1.2, run=1.6, rng=12):
+    m.light(CONSOLE * (0, 0.3, 0.6), t["accent"], rng=rng, idle=idle, run=run)
+
+
+# Where things come out, in treadmill space
+MOTOR = (0, 1.05, -9.35)  # the vent at the front of the hood
+REAR = (0, 0.95, 7.6)  # the back roller, where the belt comes round
+FEET = (0, 1.62, 0.5)  # under the runner's feet (an aura round them)
+
+
+def runner_aura(m, colors, size, rate):
+    # the runner powers up while they run: an aura of flames round them
+    m.emit("Ki", FEET, area=(2.6, 0.2, 2.6), colors=colors, size=size, idle=0, run=rate, boost=True)
+
+
+def streaks(m, colors, rate, size=1.0):
+    # speed lines flying off the back of the belt while they run
+    m.emit("Streaks", (0, 2.6, 8.0), area=(5.0, 3.0, 0.2), colors=colors, size=size, idle=0, run=rate, dir="Back")
 
 
 # ---- themes ------------------------------------------------------------------------------------
@@ -303,19 +365,37 @@ def theme(name, **t):
 
 
 @theme("Rusty", frame=((124, 76, 50), "CorrodedMetal"), side=((92, 108, 100), "CorrodedMetal"), step=((128, 88, 54), "WoodPlanks"),
-       hood=((150, 138, 112), "CorrodedMetal"), trim=((140, 134, 120), "CorrodedMetal"), belt=(44, 40, 36), slat=(78, 70, 60),
-       console=((206, 194, 160), "SmoothPlastic"), screen=(30, 70, 34), accent=(255, 170, 60), led=(255, 160, 60), glow=False,
-       grip=((70, 66, 60), "Fabric"), buttons=[(150, 60, 50), (150, 140, 60), (90, 90, 90)])
+       hood=((150, 138, 112), "CorrodedMetal"), trim=((140, 134, 120), "CorrodedMetal"),
+       console=((206, 194, 160), "SmoothPlastic"), screen=(30, 70, 34), accent=(255, 170, 60), led=(64, 60, 54), glow=False,
+       leds="dead", rattle=True, fan=(0.4, 3.5), blades=(0, 1, 3), belt=(52, 44, 36), slat=(96, 84, 66),
+       grip=((70, 66, 60), "Fabric"), buttons=[(110, 50, 44), (110, 104, 56), (80, 80, 80)])
 def rusty(m, t):
-    # an old CRT box of a console, with rabbit-ear antennas
+    # an old CRT box of a console, with rabbit-ear antennas (it all rattles while you run)
+    m.join("Console")
     m.box(CONSOLE * T(0, 0, -0.95), (6.6, 2.7, 1.4), (190, 178, 146), "SmoothPlastic")
-    m.box(CONSOLE * T(0, 0.3, 0.47), (4.6, 1.6, 0.06), (60, 140, 64), "Neon", alpha=0.35)
+    m.box(CONSOLE * T(0, 0.3, 0.47), (4.6, 1.6, 0.06), (52, 110, 56), "SmoothPlastic", alpha=0.35)
+    # (the screen's cracked)
+    for (x, y, l, a) in ((-0.9, 0.6, 1.6, 35), (-0.3, 0.1, 1.1, -50), (0.5, 0.35, 1.3, 15), (1.2, -0.1, 0.9, -70)):
+        m.box(CONSOLE * T(x, y, 0.51) * CF.angles(0, 0, a), (0.05, l, 0.02), (200, 205, 200), "SmoothPlastic")
     for side in (-1, 1):
         a = CONSOLE * (side * 0.6, 1.5, -0.6)
-        b = CONSOLE * (side * 2.2, 3.6, -1.0)
+        b = CONSOLE * (side * 2.2 - (0.9 if side > 0 else 0), 3.6 - (1.1 if side > 0 else 0), -1.0)  # (one's bent)
         m.rod(a, b, 0.1, (170, 170, 175), "Metal", round_=True)
         m.ball(b, 0.26, (170, 170, 175), "Metal")
     m.ball(CONSOLE * (2.6, 1.55, 0.0), 0.4, (255, 190, 90), "Neon", tag="Flicker")
+    m.done()
+    # grime: dark smudges all over, a cobweb in the corner, a puddle of oil under the motor
+    import random
+    rng = random.Random(5)
+    for side in (-1, 1):
+        for k in range(5):
+            z = rng.uniform(-6, 7)
+            m.box((side * 4.24, rng.uniform(0.5, 1.3), z), (0.04, rng.uniform(0.3, 0.7), rng.uniform(0.6, 1.6)), (40, 34, 28), "SmoothPlastic", alpha=0.35)
+    for k in range(4):
+        m.box((rng.uniform(-3, 3), rng.uniform(0.5, 1.6), -9.13), (rng.uniform(0.5, 1.2), rng.uniform(0.3, 0.6), 0.03), (40, 34, 28), "SmoothPlastic", alpha=0.3)
+    for (a, b) in (((-3.45, 3.1, -7.4), (-2.2, 1.9, -7.2)), ((-3.45, 2.6, -7.45), (-2.6, 1.9, -7.0)), ((-2.9, 2.6, -7.35), (-2.4, 2.0, -7.1))):
+        m.rod(a, b, 0.03, (235, 235, 230), "SmoothPlastic", alpha=0.4)
+    m.cyl((0.8, 0.02, -9.0), 0.04, 2.2, (24, 20, 18), "Glass", axis="y", alpha=0.2)
     # duct tape round the left upright and the right grip, patches bolted on, a brick for a foot
     for k in range(3):
         y = 2.6 + k * 0.42
@@ -335,12 +415,17 @@ def rusty(m, t):
         m.box((x, 0.95, -9.12), (0.25, 0.9, 0.04), (150, 70, 40), "CorrodedMetal")
     for k in range(5):
         m.cyl((-2.6, 2.75 + k * 0.14, -7.2), 0.06, 0.5, (150, 150, 150), "Metal", axis="y")
-    m.effect("Light", CONSOLE * (2.6, 1.55, 0.3), (255, 180, 90), rng=8, brightness=0.8)
+    # effects: it sputters black smoke, grinds sparks out the back, coughs dust - and the bulb flickers
+    m.emit("Smoke", MOTOR, area=(3, 0.6, 0.3), colors=[(70, 64, 58), (35, 32, 30)], size=2.4, idle=1.0, run=11)
+    m.emit("Smoke", (-2.6, 3.5, -7.2), area=(0.4, 0.2, 0.4), colors=[(90, 85, 80), (50, 48, 46)], size=1.0, idle=0.5, run=5)
+    m.emit("Sparks", REAR, area=(5.5, 0.2, 0.3), colors=[(255, 240, 180), (255, 140, 40)], size=1.0, idle=0, run=18, dir="Back")
+    m.emit("Dust", (0, 0.4, 8.0), area=(6, 0.2, 0.4), colors=[(150, 135, 115)], size=1.3, idle=0, run=5, dir="Back")
+    m.light(CONSOLE * (2.6, 1.55, 0.3), (255, 180, 90), rng=8, idle=0.7, run=0.9, flicker=True)
 
 
 @theme("Basic", frame=((236, 236, 240), "SmoothPlastic"), side=((70, 72, 80), "SmoothPlastic"), step=((52, 54, 60), "Rubber"),
        hood=((236, 236, 240), "SmoothPlastic"), trim=((190, 192, 200), "Metal"), console=((240, 240, 244), "SmoothPlastic"),
-       screen=(18, 30, 52), accent=(80, 170, 255), led=(150, 210, 255))
+       screen=(18, 30, 52), accent=(80, 170, 255), led=(200, 205, 212), glow=False, leds="dead", fan=(1.5, 10))
 def basic(m, t):
     # a cup holder with a water bottle, a towel over the left handlebar, a red stop button and key
     m.cyl((3.45, 4.75, -2.0), 0.9, 1.0, (70, 72, 80), "SmoothPlastic", axis="y")
@@ -355,7 +440,9 @@ def basic(m, t):
     m.rod(CONSOLE * (-2.7, -1.05, 0.55), (-2.9, 4.2, -5.6), 0.06, (230, 40, 40), round_=True)
     # a blue stripe round the hood
     m.box((0, 1.6, -9.08), (7.7, 0.18, 0.05), (80, 170, 255), "SmoothPlastic")
-    screen_glow(m, t)
+    # effects: just a puff of dust off the belt while you run
+    m.emit("Dust", (0, 0.5, 8.0), area=(6, 0.2, 0.4), colors=[(205, 205, 200)], size=0.9, idle=0, run=4, dir="Back")
+    screen_glow(m, t, idle=0.5, run=0.6, rng=8)
 
 
 @theme("Sporty", frame=((214, 30, 36), "SmoothPlastic"), side=((214, 30, 36), "SmoothPlastic"), step=((40, 40, 46), "DiamondPlate"),
@@ -387,6 +474,14 @@ def sporty(m, t):
             m.box((-3.3 + i * 0.6, 0.55 + j * 0.3, -9.12), (0.6, 0.3, 0.04), WHITE if (i + j) % 2 == 0 else BLACK, "SmoothPlastic")
     m.cyl(CONSOLE * T(0, 1.75, -0.1) * CF.angles(0, 90, 0), 0.3, 1.6, WHITE, "SmoothPlastic")
     m.box(CONSOLE * T(0.25, 1.85, 0.08) * CF.angles(0, 0, -50), (0.08, 0.7, 0.05), (230, 30, 30), "Neon")
+    # red tail lights on the back
+    for side in (-1, 1):
+        m.box((side * 2.9, 0.95, 8.03), (1.1, 0.35, 0.1), (255, 40, 40), "Neon")
+    # effects: exhaust puffing from the chrome pipes, speed lines when you run
+    for side in (-1, 1):
+        m.emit("Exhaust", (side * 1.7, 0.62, 8.75), area=(0.3, 0.3, 0.1), colors=[(190, 190, 195), (120, 120, 125)], size=0.7, idle=0.8, run=6, dir="Back")
+    streaks(m, [(255, 255, 255)], 10)
+    m.light((0, 1.2, 8.4), (255, 50, 50), rng=8, idle=0.8, run=1.4)
     screen_glow(m, t)
 
 
@@ -407,6 +502,12 @@ def pro(m, t):
             m.box((side * 4.24, 0.62 + k * 0.28, 0.5), (0.05, 0.08, 14.0), ac, "Neon")
     m.box((0, 0.06, 0.5), (8.4, 0.1, 15.8), ac, "Neon", alpha=0.6)
     m.box((0, 2.2, -7.75), (5.0, 0.08, 0.9), ac, "Neon", r=(17.1, 0, 0))
+    # effects: cyan wind streaming down both sides and off the back when you run
+    for side in (-1, 1):
+        m.emit("Streaks", (side * 4.5, 1.3, 0.5), area=(0.2, 0.9, 12), colors=[ac, (255, 255, 255)], size=0.6, idle=0, run=8, dir="Back")
+    streaks(m, [ac, (255, 255, 255)], 12)
+    m.emit("Kira", (0, 1.1, 0.5), area=(8.6, 0.6, 15), colors=[ac], size=0.6, idle=1.5, run=4)
+    m.light((0, 0.6, 0.5), ac, rng=14, idle=1.0, run=1.6)
     screen_glow(m, t)
 
 
@@ -432,7 +533,12 @@ def turbo(m, t):
         for i in range(8):
             m.box(CF((x, 2.2, 4.22)) * CF.angles(0, 0, i * 45) * T(0, 0.62, 0) * CF.angles(0, 25, 0), (0.42, 0.9, 0.06), (200, 200, 205), "Metal")
         m.done()
-        m.effect("Fire", (x, 2.2, 8.5), (255, 140, 30), size=2.2)
+        nozzle = (x, 2.2, 8.5)
+        m.emit("Flame", nozzle, area=(1.3, 1.3, 0.2), colors=[(255, 245, 170), (255, 150, 30), (200, 60, 10)], size=1.4, idle=4, run=20, dir="Back", boost=True)
+        m.emit("Exhaust", (x, 2.2, 9.2), area=(1.0, 1.0, 0.2), colors=[(110, 105, 100), (60, 58, 56)], size=1.4, idle=0, run=7, dir="Back")
+        m.emit("Sparks", nozzle, area=(1.0, 1.0, 0.2), colors=[(255, 230, 150), (255, 120, 20)], size=0.8, idle=0, run=10, dir="Back")
+        m.fire(nozzle, (255, 140, 30), idle=2, run=5)
+        m.light(nozzle, (255, 140, 40), rng=10, idle=0.8, run=2.2, flicker=True)
     # a roll bar over the back and a turbo snail on the hood
     for side in (-1, 1):
         m.rod((side * 3.9, 1.6, 6.6), (side * 3.0, 5.4, 6.6), 0.36, (40, 40, 44), "Metal", round_=True)
@@ -440,6 +546,14 @@ def turbo(m, t):
     m.box((0, 5.4, 6.6), (4.4, 0.5, 0.2), (255, 230, 0), "Neon")
     m.cyl((2.2, 2.9, -7.9), 1.0, 1.5, CHROME, "Metal")
     m.cyl((2.2, 2.9, -7.9), 1.1, 0.7, (40, 40, 44), "Metal")
+    # a hazard beacon on the roll bar: its lamp turns, sweeping light round
+    m.cyl((0, 5.72, 6.6), 0.18, 0.9, (40, 40, 44), "Metal", axis="y")
+    m.spin("Beacon", CF((0, 6.1, 6.6)), axis="Y", idle=3, run=9)
+    m.ball((0, 6.1, 6.6), 0.75, (255, 160, 0), "Neon", alpha=0.25)
+    m.box((0, 6.1, 6.6), (0.6, 0.3, 0.12), (255, 255, 200), "Neon")
+    m.light((0, 6.1, 6.25), (255, 170, 30), rng=18, idle=1.2, run=2.5, spot=True, angle=50)
+    m.done()
+    streaks(m, [(255, 230, 0), (255, 140, 0)], 12)
     screen_glow(m, t)
 
 
@@ -471,7 +585,14 @@ def neon(m, t):
     for i in range(3):
         m.rod(pts[i], pts[(i + 1) % 3], 0.16, p if i == 0 else g, "Neon")
     m.done()
-    m.effect("Light", (0, 2, 0.5), g, rng=16, brightness=1.6)
+    # effects: rings of light ripple out over the grid; beams shoot up from the corners
+    m.pulse((0, 0.12, 0.5), g, radius=9, idle=2.2, run=0.9)
+    m.pulse((0, 0.14, 0.5), p, radius=9, idle=2.2, run=0.9, phase=0.5)
+    for (x, z, col) in ((-4.3, -7.6, p), (4.3, -7.6, g), (-4.3, 8.0, g), (4.3, 8.0, p)):
+        m.beam((x, 0.3, z), (x, 16, z), [col], width=0.6, width1=0.2, style="Ray", alpha=0.35)
+    streaks(m, [g, p], 14)
+    m.emit("Kira", (0, 3, 0.5), area=(9, 5, 16), colors=[g, p], size=0.7, idle=2, run=6)
+    m.light((0, 2, 0.5), g, rng=16, idle=1.4, run=2.2)
 
 
 def bolt(m, cf, size, col, mat="Neon", **kw):
@@ -503,21 +624,23 @@ def thunder(m, t):
         m.ball((x, 6.4, 7.0), 1.6, CHROME, "Metal")
         m.cyl((x, 6.3, 7.0), 0.25, 2.3, (180, 180, 190), "Metal", axis="y")
         tops.append((x, 6.4, 7.0))
-        m.effect("Sparkles", (x, 6.4, 7.0), (140, 210, 255))
-    # the arc between them (it flickers)
-    pts = [tops[0]]
-    for k in range(1, 7):
-        f = k / 7
-        pts.append((tops[0][0] + (tops[1][0] - tops[0][0]) * f, 6.4 + (0.5 if k % 2 else -0.4), 7.0 + (0.3 if k % 3 == 0 else -0.2)))
-    pts.append(tops[1])
-    for i in range(len(pts) - 1):
-        m.rod(pts[i], pts[i + 1], 0.14, (170, 225, 255), "Neon", tag="Flicker")
+        m.sparkles((x, 6.4, 7.0), (140, 210, 255))
+    # electricity crackling between them (two arcs, flickering), and round the balls
+    for k in range(2):
+        m.beam(tops[0], tops[1], [(190, 235, 255), (120, 190, 255)], width=0.28 - k * 0.1, style="Arc")
+    for top in tops:
+        m.emit("Zaps", top, area=(2.4, 2.4, 2.4), shape="Sphere", colors=[(170, 225, 255)], size=1.2, idle=3, run=12, boost=True)
     # a storm cloud over the console, with a bolt hanging from it
     c = CONSOLE * (0, 3.2, -0.6)
     for (dx, dy, dz, d) in ((0, 0, 0, 1.8), (-1.1, -0.2, 0.1, 1.4), (1.1, -0.15, -0.1, 1.5), (-0.5, 0.5, -0.2, 1.3), (0.6, 0.45, 0.2, 1.2), (-1.9, -0.35, 0, 0.9), (1.9, -0.3, 0, 0.95)):
         m.ball((c[0] + dx, c[1] + dy, c[2] + dz), d, (90, 96, 120) if dy < 0.3 else (120, 126, 150), "SmoothPlastic")
     bolt(m, CF((c[0] + 0.3, c[1] - 1.4, c[2] + 0.4)), 1.0, y, tag="Flicker")
-    m.effect("Light", (0, 4, 4), (150, 210, 255), rng=16, brightness=1.6)
+    # rain from the cloud; while you run, lightning strikes the treadmill every couple of seconds
+    m.emit("Rain", (c[0], c[1] - 0.9, c[2]), area=(4.2, 0.2, 1.6), colors=[(170, 200, 255)], size=0.6, idle=8, run=18, dir="Bottom")
+    m.beam((c[0], c[1] - 0.6, c[2]), (0, 1.7, 2.5), [(255, 250, 200), (200, 230, 255)], width=0.45, style="Strike", every=2.2)
+    m.emit("Impact", (0, 1.8, 2.5), colors=[(255, 240, 120)], size=0.9, every=2.2)
+    streaks(m, [(255, 225, 40), (190, 235, 255)], 14)
+    m.light((0, 4, 4), (150, 210, 255), rng=16, idle=1.2, run=2.0, flicker=True)
 
 
 def crystal(m, base, height, width, col, tilt=(0, 0, 0), mat="Glass", alpha=0.25, tip=True):
@@ -555,8 +678,17 @@ def diamond(m, t):
     m.box(CF(c) * CF.angles(45, 45, 0), (1.4, 1.4, 1.4), (240, 252, 255), "Neon", alpha=0.35)
     m.ring(CF(c), 2.0, 10, 0.22, (200, 245, 255))
     m.done()
-    m.effect("Sparkles", c, (200, 245, 255))
-    m.effect("Light", c, (170, 230, 255), rng=14, brightness=1.6)
+    # effects: twinkles flashing on every crystal, icy mist rolling round the bottom, rainbow rays
+    for side in (-1, 1):
+        m.emit("Kira", (side * 3.4, 3.4, -8.0), area=(2.6, 3.2, 1.8), shape="Sphere", colors=[(255, 255, 255), (170, 230, 255)], size=0.9, idle=3, run=8, boost=True)
+        m.emit("Kira", (side * 4.5, 2.0, 7.5), area=(2.4, 4.0, 2.4), shape="Sphere", colors=[(255, 255, 255), (255, 200, 240)], size=0.9, idle=3, run=8, boost=True)
+    m.emit("Mist", (0, 0.3, 0.5), area=(9.5, 0.3, 16), colors=[(225, 245, 255)], size=2.6, idle=3, run=5)
+    for k, col in enumerate(((255, 160, 200), (255, 230, 150), (160, 255, 200), (150, 210, 255), (210, 170, 255))):
+        a = k / 5 * math.pi * 2
+        m.beam(c, (math.cos(a) * 6.5, 0.2, 0.5 + math.sin(a) * 8.5), [col], width=0.3, width1=1.6, style="Ray", alpha=0.45)
+    m.sparkles(c, (200, 245, 255))
+    streaks(m, [(255, 255, 255), (170, 230, 255)], 12)
+    m.light(c, (170, 230, 255), rng=16, idle=1.4, run=2.2)
 
 
 @theme("Magma", frame=((46, 36, 34), "Basalt"), side=((60, 40, 32), "CrackedLava"), step=((40, 32, 30), "Basalt"),
@@ -589,7 +721,7 @@ def magma(m, t):
         for k in range(4):
             m.box((x, 0.5 + k * 0.95, -8.2 + (k % 2) * 0.15), (1.5 - k * 0.2, 1.0, 1.5 - k * 0.2), (56 - k * 4, 44, 40), "Basalt", r=(k * 8, k * 25, -k * 6))
         m.cyl((x, 4.15, -8.1), 0.18, 0.8, lava, "Neon", axis="y")
-        m.effect("Fire", (x, 4.4, -8.1), lava, size=1.0)
+        m.fire((x, 4.4, -8.1), lava, idle=2, run=4)
     # obsidian spikes along the hood, rocky lumps on the uprights
     for i, x in enumerate((-3.2, -1.6, 0, 1.6, 3.2)):
         h = 1.4 + (i % 2) * 0.6
@@ -603,14 +735,22 @@ def magma(m, t):
         m.cyl((-2.2, 2.6 + k * 0.36, -8.0), 0.38, 2.4 - k * 0.42, (56, 44, 40) if k < 4 else lava, "Basalt" if k < 4 else "Neon", axis="y")
     for k in range(3):
         m.rod((-2.2 + (k - 1) * 0.5, 4.2, -8.0 + (k - 1) * 0.3), (-2.2 + (k - 1) * 0.75, 2.6, -9.0 + k * 0.4), 0.16, lava, "Neon")
-    m.effect("Fire", (-2.2, 4.3, -8.0), lava, size=1.8)
-    m.effect("Smoke", (-2.2, 5.0, -8.0), (60, 50, 50), size=1.4)
+    # the volcano: flames, smoke, and an eruption every few seconds while you run
+    vent = (-2.2, 4.4, -8.0)
+    m.emit("Flame", vent, area=(0.7, 0.2, 0.7), colors=[(255, 230, 120), (255, 110, 20), (160, 30, 10)], size=1.4, idle=5, run=14, boost=True)
+    m.emit("Wisps", (-2.2, 5.2, -8.0), area=(0.6, 0.2, 0.6), colors=[(70, 58, 56)], size=1.5, idle=2, run=5)
+    m.emit("Burst", vent, colors=[(255, 220, 120), (255, 90, 20)], size=1.3, every=2.8)
+    m.emit("Embers", vent, area=(0.6, 0.2, 0.6), colors=[(255, 220, 120), (255, 90, 20)], size=0.6, idle=0, run=10, boost=True)
     # a lava pool behind the belt
     for side in (-1, 1):
         m.cyl((side * 5.0, 0.08, 6.6), 0.16, 2.2, lava, "Neon", axis="y")
         m.cyl((side * 5.0, 0.05, 6.6), 0.1, 2.9, (40, 30, 28), "Basalt", axis="y")
-        m.effect("Fire", (side * 5.0, 0.5, 6.6), lava, size=2.0)
-    m.effect("Light", (0, 2, 0.5), lava, rng=16, brightness=1.8)
+        m.emit("Bubbles", (side * 5.0, 0.2, 6.6), area=(1.6, 0.1, 1.6), colors=[(255, 200, 80), (255, 90, 20)], size=0.7, idle=3, run=6)
+        m.fire((side * 5.0, 0.5, 6.6), lava, idle=2.5, run=5)
+    # embers rising off everything, hotter while you run
+    m.emit("Embers", (0, 1.0, 0.5), area=(9, 0.5, 15), colors=[(255, 220, 120), (255, 110, 20), (180, 40, 10)], size=0.5, idle=6, run=18, boost=True)
+    streaks(m, [(255, 160, 40), (255, 80, 20)], 12)
+    m.light((0, 2, 0.5), lava, rng=18, idle=1.6, run=2.6, flicker=True)
 
 
 @theme("Plasma", frame=((56, 12, 86), "SmoothPlastic"), side=((40, 8, 60), "SmoothPlastic"), step=((70, 30, 100), "DiamondPlate"),
@@ -638,8 +778,17 @@ def plasma(m, t):
     m.ring(CF(c) * CF.angles(90, 0, 0), 1.45, 14, 0.24, p)
     m.ring(CF(c) * CF.angles(90, 60, 0), 1.6, 14, 0.2, (255, 140, 255))
     m.done()
-    m.effect("Sparkles", c, (230, 140, 255))
-    m.effect("Light", c, p, rng=16, brightness=1.8)
+    # effects: an aura of plasma licking round the orb, sparks crackling on it, energy tethered to
+    # the coils on the uprights; while you run, you power up in a purple aura of your own
+    m.emit("Ki", (c[0], c[1] - 1.0, c[2]), area=(1.6, 0.2, 1.6), colors=[(255, 160, 255), (200, 60, 255), (90, 20, 160)], size=2.2, idle=10, run=22, boost=True)
+    m.emit("Zaps", c, area=(2.4, 2.4, 2.4), shape="Sphere", colors=[(255, 180, 255)], size=1.0, idle=4, run=12, boost=True)
+    for side in (-1, 1):
+        m.beam(c, (side * 3.45, 4.0, -7.2), [(255, 160, 255), (200, 60, 255)], width=0.22, style="Arc")
+    m.emit("Impact", c, colors=[(230, 120, 255)], size=1.2, every=3.0)
+    runner_aura(m, [(255, 160, 255), (200, 60, 255), (90, 20, 160)], 3.0, 18)
+    m.pulse((0, 0.12, 0.5), p, radius=9, idle=0, run=1.2)
+    streaks(m, [(255, 160, 255), (200, 60, 255)], 14)
+    m.light(c, p, rng=18, idle=1.6, run=2.6)
 
 
 RAINBOW = [(255, 60, 60), (255, 170, 0), (255, 240, 0), (60, 230, 90), (0, 200, 255), (130, 90, 255), (255, 80, 220)]
@@ -678,8 +827,16 @@ def quantum(m, t):
     for k in range(4):
         m.box(holo * T(-1.2 + k * 0.8, -0.2 + (k % 2) * 0.3, 0.03), (0.5, 0.5 + (k % 2) * 0.4, 0.03), RAINBOW[k + 2], "Neon", alpha=0.3)
     m.rod(CONSOLE * (0, 1.5, 0.1), holo * (0, -0.75, 0), 0.08, (0, 230, 255), "Neon", alpha=0.5)
-    m.effect("Sparkles", c, (255, 120, 220))
-    m.effect("Light", (0, 3, 0), (255, 0, 170), rng=16, brightness=1.6)
+    # effects: glitching squares flicker round it, twinkles round the atom, a rainbow aura and
+    # rainbow speed lines while you run
+    m.emit("Glitch", (0, 6.5, -6.4), area=(8, 5, 2), colors=RAINBOW, size=0.7, idle=6, run=16, boost=True)
+    m.emit("Kira", c, area=(3.6, 3.6, 3.6), shape="Sphere", colors=[(255, 255, 255), (0, 220, 255)], size=0.8, idle=4, run=10, boost=True)
+    m.beam(c, (0, 18, -8.2), [(0, 230, 255), (255, 80, 220)], width=0.6, width1=0.15, style="Ray", alpha=0.3)
+    m.emit("Impact", c, colors=[(0, 220, 255)], size=1.2, every=3.0)
+    runner_aura(m, [(255, 80, 220), (0, 200, 255), (130, 90, 255)], 3.1, 18)
+    m.pulse((0, 0.12, 0.5), (255, 0, 170), radius=9.5, idle=0, run=1.0)
+    streaks(m, RAINBOW, 16, 1.2)
+    m.light((0, 3, 0), (255, 0, 170), rng=18, idle=1.4, run=2.6)
 
 
 @theme("Cosmic", frame=((44, 22, 96), "Glass"), side=((30, 14, 70), "SmoothPlastic"), step=((60, 40, 120), "SmoothPlastic"),
@@ -709,8 +866,17 @@ def cosmic(m, t):
     # nebula clouds behind the console
     for (dx, dy, d, col) in ((-2.4, 1.6, 2.8, (255, 90, 200)), (2.2, 1.9, 3.2, (90, 160, 255)), (0, 2.8, 2.4, (170, 90, 255))):
         m.ball(CONSOLE * (dx, dy - 0.4, -0.5), d * 0.85, col, "Neon", alpha=0.82)
-    m.effect("Sparkles", c, (200, 220, 255))
-    m.effect("Light", c, (150, 190, 255), rng=16, brightness=1.6)
+    # effects: a field of twinkling stars all round it, shooting stars, drifting nebula clouds, and
+    # a galaxy swirling under your feet while you run
+    m.emit("Stars", (0, 6, 0.5), area=(14, 10, 18), colors=[(255, 255, 255), (190, 210, 255)], size=0.5, idle=10, run=18, boost=True)
+    m.emit("Shooting", (0, 13, 0.5), area=(14, 0.5, 16), colors=[(255, 255, 255), (120, 200, 255)], size=1.0, idle=0.6, run=2.5, dir="Bottom")
+    m.emit("Nebula", (0, 8.5, -5.5), area=(8, 3, 4), colors=[(255, 90, 200), (90, 160, 255), (170, 90, 255)], size=3.0, idle=2, run=3)
+    m.emit("Vortex", (0, 0.25, 0.5), area=(1, 0.1, 1), colors=[(150, 120, 255), (90, 200, 255)], size=10, idle=0.4, run=1.5)
+    m.emit("Burst", c, colors=[(255, 255, 255), (150, 190, 255)], size=2.0, every=3.0, every_idle=7)
+    m.pulse((0, 0.12, 0.5), (150, 190, 255), radius=10, idle=2.6, run=1.0)
+    runner_aura(m, [(150, 190, 255), (120, 90, 255), (40, 20, 120)], 3.2, 18)
+    streaks(m, [(255, 255, 255), (150, 190, 255)], 14)
+    m.light(c, (150, 190, 255), rng=18, idle=1.4, run=2.6)
 
 
 @theme("Void", frame=((6, 6, 12), "Glass"), side=((6, 6, 12), "SmoothPlastic"), step=((20, 14, 34), "SmoothPlastic"),
@@ -738,8 +904,19 @@ def void(m, t):
         m.box((math.cos(a) * 5.4, 3.2 + math.sin(i * 1.7) * 1.2, 0.5 + math.sin(a) * 7.6), (0.7, 0.55, 0.6), (36, 30, 46), "Slate", r=(i * 30, i * 50, i * 20))
         m.ball((math.cos(a) * 5.4, 3.2 + math.sin(i * 1.7) * 1.2 + 0.35, 0.5 + math.sin(a) * 7.6), 0.2, v, "Neon")
     m.done()
-    m.effect("Sparkles", c, (190, 140, 255))
-    m.effect("Light", c, v, rng=18, brightness=2)
+    # effects: everything gets pulled into the black hole (sparks sucked inwards from all round),
+    # dark flames lick round it, and while you run it sends out a shockwave every few seconds
+    m.emit("Suck", c, area=(9, 9, 9), shape="Sphere", colors=[(220, 180, 255), (150, 90, 255)], size=0.8, idle=12, run=24, boost=True)
+    m.emit("DarkFlame", (c[0], c[1] - 1.2, c[2]), area=(2.4, 0.2, 2.4), colors=[(190, 120, 255), (70, 20, 140)], size=2.0, idle=6, run=14, boost=True)
+    m.emit("Impact", c, colors=[(190, 120, 255)], size=1.4, every=2.5)
+    m.emit("Vortex", (0, 0.25, 0.5), area=(1, 0.1, 1), colors=[(150, 90, 255), (40, 10, 80)], size=11, idle=0.8, run=1.6)
+    for (x, y, z) in ((-8, 1, 8), (8, 1, 8), (-8, 14, -2), (8, 14, -2)):
+        m.beam((x, y, z), c, [(90, 40, 180), (220, 180, 255)], width=2.2, width1=0.2, style="Ray", alpha=0.45)
+    m.emit("Burst", c, colors=[(220, 180, 255), (110, 50, 220)], size=2.0, every=2.5, every_idle=6)
+    runner_aura(m, [(190, 120, 255), (110, 50, 220), (30, 10, 60)], 3.3, 20)
+    m.pulse((0, 0.12, 0.5), v, radius=10, idle=2.5, run=1.0)
+    streaks(m, [(220, 180, 255), (150, 90, 255)], 16)
+    m.light(c, v, rng=20, idle=2.0, run=3.0)
 
 
 @theme("Dragon", frame=((24, 120, 72), "SmoothPlastic"), side=((18, 96, 58), "SmoothPlastic"), step=((40, 70, 50), "Slate"),
@@ -769,7 +946,7 @@ def dragon(m, t):
         m.rod(h * (side * 1.0, 0.7, 0.4), h * (side * 1.6, 2.0, 1.6), 0.38, gold, "Foil")
         m.rod(h * (side * 1.6, 2.0, 1.6), h * (side * 1.7, 2.5, 2.6), 0.24, gold, "Foil")
         m.box(h * T(side * 1.55, 0.1, 0.2), (0.12, 0.9, 1.2), gd, "SmoothPlastic", r=(0, 0, side * 25))
-        m.effect("Smoke", h * (side * 0.5, 0.0, -1.9), (200, 200, 200), size=0.5)
+        m.emit("Wisps", h * (side * 0.5, 0.0, -1.95), area=(0.2, 0.2, 0.2), colors=[(200, 200, 200)], size=0.6, idle=1.5, run=3)
     for k in range(4):
         m.wedge(h * T(0, 0.95, 0.6 - k * 0.55), (0.12, 0.5 - k * 0.07, 0.5), gold, "Foil", r=(0, 180, 0))
     # wings spread up and out: a gold arm, finger bones, and membranes stretched between them
@@ -777,6 +954,7 @@ def dragon(m, t):
     for side in (-1, 1):
         root = (side * 4.25, 2.2, 0.8)
         elbow = (side * 6.0, 5.6, 0.2)
+        m.spin("Wing%s" % ("L" if side < 0 else "R"), CF(root), axis="Z", idle=1.6, run=5, mode="Swing", amp=14, dir=side)
         tips = [(side * 7.0, 8.0, -1.6), (side * 8.4, 6.4, 0.6), (side * 8.2, 4.2, 2.6), (side * 6.6, 2.4, 4.2)]
         m.rod(root, elbow, 0.42, gold, "Foil")
         m.ball(elbow, 0.55, gold, "Foil")
@@ -788,6 +966,7 @@ def dragon(m, t):
             m.tri(elbow, tips[i], tips[i + 1], 0.12, membrane if i % 2 == 0 else (40, 160, 90), "SmoothPlastic", alpha=0.15)
         m.tri(elbow, tips[-1], root, 0.12, (40, 160, 90), "SmoothPlastic", alpha=0.15)
         m.tri(elbow, root, tips[0], 0.12, (40, 160, 90), "SmoothPlastic", alpha=0.15)
+        m.done()
         # spikes along its back (the top of the deck sides)
         for k in range(6):
             m.wedge((side * 4.0, 1.95, -5.2 + k * 2.4), (0.18, 0.55, 0.9), gold, "Foil")
@@ -802,8 +981,18 @@ def dragon(m, t):
         for z in (-7.9, 7.5):
             for dx in (-0.35, 0, 0.35):
                 m.wedge((x + dx, 0.15, z - 0.75), (0.22, 0.3, 0.5), gold, "Foil")
-    m.effect("Fire", h * (0, -0.4, -1.9), (255, 140, 40), size=1.2)
-    m.effect("Light", (0, 3, -8), (255, 190, 80), rng=14, brightness=1.6)
+    # effects: little flames at its mouth - and while you run it breathes a jet of fire; embers swirl
+    # all round, and you power up in a fiery aura
+    mouth = h * (0, -0.45, -1.95)
+    m.emit("Breath", mouth, area=(0.7, 0.4, 0.2), colors=[(255, 250, 190), (255, 150, 30), (210, 40, 10)], size=1.6, idle=2, run=26, dir="Front", boost=True)
+    m.fire(mouth, (255, 140, 40), idle=1.2, run=3)
+    m.emit("Embers", (0, 2.0, 0.5), area=(11, 1, 15), colors=[(255, 220, 120), (255, 120, 30)], size=0.45, idle=5, run=14, boost=True)
+    m.emit("Burst", mouth, colors=[(255, 230, 120), (255, 110, 20)], size=1.8, every=2.4)
+    m.emit("Impact", (0, 1.8, 0.5), colors=[(255, 150, 40)], size=1.5, every=4.8)
+    runner_aura(m, [(255, 210, 90), (255, 120, 30), (150, 40, 10)], 3.3, 20)
+    m.pulse((0, 0.12, 0.5), (255, 160, 40), radius=10, idle=0, run=1.1)
+    streaks(m, [(255, 210, 90), (255, 120, 30)], 16)
+    m.light((0, 3, -8), (255, 190, 80), rng=18, idle=1.6, run=2.8, flicker=True)
 
 
 @theme("Supernova", frame=((255, 248, 236), "SmoothPlastic"), side=((255, 150, 40), "SmoothPlastic"), step=((255, 230, 190), "SmoothPlastic"),
@@ -835,8 +1024,23 @@ def supernova(m, t):
         # gold sunburst panels down the sides
         for k in range(5):
             m.cyl((side * 4.24, 1.0, -5.0 + k * 2.9), 0.06, 0.9, (255, 200, 70), "Foil")
-    m.effect("Sparkles", c, (255, 230, 150))
-    m.effect("Light", c, (255, 190, 90), rng=20, brightness=2.4)
+    # effects: the star blazes - an aura of fire, flares bursting off it, a power-up burst every
+    # couple of seconds (and a shockwave while you run), rays of light shining out, rings of light
+    # rolling over the ground, and a golden aura round you as you run
+    m.emit("Ki", (c[0], c[1] - 1.2, c[2]), area=(2.6, 0.2, 2.6), colors=[(255, 250, 220), (255, 190, 60), (255, 110, 20)], size=3.0, idle=12, run=24, boost=True)
+    m.emit("Flame", c, area=(3, 3, 3), shape="Sphere", colors=[(255, 240, 160), (255, 140, 30), (200, 60, 10)], size=1.3, idle=6, run=14, boost=True)
+    m.emit("Burst", c, colors=[(255, 250, 220), (255, 170, 40)], size=2.2, every=1.8, every_idle=5)
+    m.emit("Impact", c, colors=[(255, 220, 120)], size=1.6, every=3.6)
+    for k in range(8):
+        a = k / 8 * math.pi * 2
+        m.beam(c, (c[0] + math.cos(a) * 8.5, c[1] + math.sin(a) * 4.5 - 1.5, c[2] + 1.5), [(255, 240, 180), (255, 170, 60)], width=0.5, width1=2.4, style="Ray", alpha=0.5)
+    m.emit("Kira", (0, 5, 0.5), area=(10, 8, 16), colors=[(255, 240, 160), (255, 200, 80)], size=1.0, idle=6, run=12, boost=True)
+    m.pulse((0, 0.12, 0.5), (255, 190, 70), radius=11, idle=2.0, run=0.7)
+    m.pulse((0, 0.14, 0.5), (255, 250, 220), radius=11, idle=2.0, run=0.7, phase=0.5)
+    runner_aura(m, [(255, 250, 220), (255, 200, 80), (255, 120, 30)], 3.4, 22)
+    streaks(m, [(255, 250, 220), (255, 190, 70)], 18)
+    m.sparkles(c, (255, 230, 150))
+    m.light(c, (255, 190, 90), rng=28, idle=2.5, run=3.5)
 
 
 @theme("Heavenly", frame=((255, 252, 244), "Marble"), side=((255, 252, 244), "Marble"), step=((255, 236, 170), "Foil"),
@@ -859,6 +1063,7 @@ def heavenly(m, t):
     # big feathered wings behind the console
     for side in (-1, 1):
         base = CONSOLE * (side * 3.0, 0.4, -0.9)
+        m.spin("Wing%s" % ("L" if side < 0 else "R"), CF(base), axis="Z", idle=1.0, run=3, mode="Swing", amp=9, dir=side)
         # three rows of feathers, longest at the back; each feather a long flat point
         for row, (n, length, width, col) in enumerate(((9, 5.4, 1.25, WHITE), (8, 3.8, 1.05, (255, 246, 225)), (7, 2.4, 0.9, (255, 228, 160)))):
             for f in range(n):
@@ -877,13 +1082,27 @@ def heavenly(m, t):
                 m.tri(a1, b2, a2, 0.14, col, "SmoothPlastic")
                 m.tri(b1, end, b2, 0.14, col, "SmoothPlastic")
         m.rod(base, (base[0] + side * 0.6, base[1] + 0.3, base[2]), 0.9, gold, "Foil")
+        m.done()
     # a golden halo turning over it, and a column of light
     m.spin("Halo", CF((0, 10.2, 0.5)), axis="Y", idle=0.4, run=1.5)
     m.ring(CF((0, 10.2, 0.5)), 4.0, 18, 0.8, gold)
     m.done()
-    m.cyl((0, 31, 0.5), 60, 7, (255, 245, 200), "Neon", axis="y", alpha=0.85, name="LightColumn")
-    m.effect("Sparkles", (0, 6, 0.5), (255, 240, 180))
-    m.effect("Light", (0, 8, 0.5), (255, 240, 190), rng=26, brightness=2.5)
+    m.cyl((0, 31, 0.5), 60, 7, (255, 245, 200), "Neon", axis="y", alpha=0.9, name="LightColumn")
+    # effects: rays of light from the sky, white feathers drifting down, golden twinkles everywhere;
+    # while you run a holy aura surrounds you and light bursts out every couple of seconds
+    for (x, z, w) in ((-6, -4, 5), (5, 3, 6), (0, 9, 4.5)):
+        m.beam((x, 46, z), (0, 1.0, 0.5), [(255, 250, 225), (255, 225, 150)], width=w * 0.6, width1=w * 1.3, style="Ray", alpha=0.72)
+    m.emit("Feathers", (0, 13, 0.5), area=(12, 1, 16), colors=[(255, 255, 255), (255, 240, 205)], size=0.9, idle=4, run=9, dir="Bottom")
+    m.emit("Kira", (0, 5, 0.5), area=(12, 9, 18), colors=[(255, 245, 190), (255, 210, 90)], size=1.1, idle=8, run=16, boost=True)
+    m.emit("Burst", (0, 3, 0.5), colors=[(255, 225, 120), (255, 170, 40)], size=2.4, every=2.2)
+    m.emit("Impact", (0, 2, 0.5), colors=[(255, 240, 180)], size=1.8, every=4.4)
+    # (gold, so it stands out against the white marble and the light)
+    runner_aura(m, [(255, 225, 120), (255, 185, 50), (235, 130, 20)], 3.3, 24)
+    m.pulse((0, 0.22, 0.5), gold, radius=12, idle=2.5, run=1.0)
+    m.pulse((0, 0.24, 0.5), (255, 255, 240), radius=12, idle=2.5, run=1.0, phase=0.5)
+    streaks(m, [(255, 255, 240), (255, 215, 90)], 18)
+    m.sparkles((0, 6, 0.5), (255, 240, 180))
+    m.light((0, 8, 0.5), (255, 240, 190), rng=30, idle=2.5, run=3.5)
 
 
 REACH = 10.2  # (studs along the belt either way; the game keeps pens and podiums clear of this)
@@ -957,6 +1176,52 @@ def lua_part(p):
     return "{ " + ", ".join(f) + " }"
 
 
+def lua_colors(cols):
+    return "{ " + ", ".join("C(%d, %d, %d)" % tuple(int(x) for x in c) for c in cols) + " }"
+
+
+def lua_vfx(e):
+    k = e["kind"]
+    f = ['Kind = "%s"' % k]
+    if k == "Emit":
+        f += ['Preset = "%s"' % e["preset"], "Pos = " + v3(e["pos"]), "Area = " + v3(e["area"]), "Colors = " + lua_colors(e["colors"]),
+              "Size = " + num(e["size"]), "Idle = " + num(e["idle"]), "Run = " + num(e["run"])]
+        if e["dir"] != "Top":
+            f.append('Dir = "%s"' % e["dir"])
+        if e["shape"] != "Box":
+            f.append('Shape = "%s"' % e["shape"])
+        if e["boost"]:
+            f.append("Boost = true")
+        if e["every"]:
+            f.append("Every = " + num(e["every"]))
+        if e["every_idle"]:
+            f.append("EveryIdle = " + num(e["every_idle"]))
+    elif k == "Beam":
+        f += ['Style = "%s"' % e["style"], "From = " + v3(e["a"]), "To = " + v3(e["b"]), "Colors = " + lua_colors(e["colors"]),
+              "Width = " + num(e["width"]), "Width1 = " + num(e["width1"])]
+        if e["alpha"]:
+            f.append("Transparency = " + num(e["alpha"]))
+        if e["every"]:
+            f.append("Every = " + num(e["every"]))
+    elif k == "Light":
+        f += ["Pos = " + v3(e["pos"]), "Color = C(%d, %d, %d)" % e["col"], "Range = " + num(e["range"]), "Idle = " + num(e["idle"]), "Run = " + num(e["run"])]
+        if e["flicker"]:
+            f.append("Flicker = true")
+        if e["spot"]:
+            f += ["Spot = true", "Angle = " + num(e["angle"])]
+    elif k == "Pulse":
+        f += ["Pos = " + v3(e["pos"]), "Color = C(%d, %d, %d)" % e["col"], "Radius = " + num(e["radius"]), "Idle = " + num(e["idle"]), "Run = " + num(e["run"])]
+        if e["phase"]:
+            f.append("Phase = " + num(e["phase"]))
+    elif k == "Fire":
+        f += ["Pos = " + v3(e["pos"]), "Color = C(%d, %d, %d)" % e["col"], "Idle = " + num(e["idle"]), "Run = " + num(e["run"])]
+    elif k == "Sparkles":
+        f += ["Pos = " + v3(e["pos"]), "Color = C(%d, %d, %d)" % e["col"]]
+    if e.get("group"):
+        f.append('Group = "%s"' % e["group"])
+    return "{ " + ", ".join(f) + " }"
+
+
 def export(path, names):
     lines = [
         "--[[",
@@ -964,14 +1229,25 @@ def export(path, names):
         "\tBlender script that also renders them all). Don't edit this file: change the treadmills there and",
         "\trun it again.",
         "",
-        "\tModels[tier name] = { Parts, Groups, Fx }, in treadmill space (studs; y up from the ground, the",
+        "\tModels[tier name] = { Parts, Groups, Vfx }, in treadmill space (studs; y up from the ground, the",
         "\tconsole at -z, the belt 6 x 13 with its top at 1.5, centred on z = 0.5).",
         "\tA part: Shape (Block unless said: Cylinder runs along X, Ball, Wedge), Pos, Size, Rot (degrees, like",
         "\tCFrame.Angles), Color, Material (an Enum.Material name; SmoothPlastic unless said), Transparency,",
         "\tCollide (only the deck and belt), Tag (Belt, Slat, LED, Screen, Rainbow, Flicker), Index (slats and",
         "\tLEDs, in order), Group (it turns with that group).",
-        "\tGroups[name] = { Pivot, Axis (X / Y / Z of the pivot), Idle, Run (radians a second, standing / while",
-        "\tsomeone runs) }. Fx: { Kind (Light, Fire, Smoke, Sparkles), Pos, Color, Size, Range, Brightness }.",
+        "\tGroups[name] = { Pivot, Axis (X / Y / Z of the pivot), Idle, Run (how fast, standing / while someone",
+        "\truns), Mode (Spin: turns, radians a second; Swing: rocks Amp degrees to and fro; Wobble: rattles),",
+        "\tAmp, Dir (+1 / -1: which way a swing goes first) }.",
+        "\tVfx: the effects (built by server/TreadmillFX, animated by client/Treadmill). Idle / Run: how strong",
+        "\tstanding still / while the owner runs (particles a second, brightness, size, seconds; 0 = off).",
+        "\t  Emit: Preset (TreadmillFX.Presets), Pos, Area (a box, or a sphere with Shape = Sphere), Colors,",
+        "\t        Size, Dir (the way they fly: Top, Bottom, Front, Back...), Boost (allowed more particles),",
+        "\t        Every / EveryIdle (bursts: seconds between them, running / standing)",
+        "\t  Beam: From, To, Colors, Width, Width1, Style (Ray: a soft shaft of light; Arc: crackling",
+        "\t        electricity; Strike: a lightning bolt every Every seconds while running), Transparency",
+        "\t  Light: Pos, Color, Range, Idle, Run, Flicker, Spot (a turning spotlight, Angle)",
+        "\t  Pulse: Pos, Color, Radius, Idle, Run (seconds a ring takes to spread; 0 = off), Phase",
+        "\t  Fire: Pos, Color, Idle, Run (its size);  Sparkles: Pos, Color",
         "]]",
         "",
         "export type Part = {",
@@ -988,9 +1264,37 @@ def export(path, names):
         "\tIndex: number?,",
         "\tGroup: string?,",
         "}",
-        "export type Group = { Pivot: CFrame, Axis: string, Idle: number, Run: number }",
-        "export type Fx = { Kind: string, Pos: Vector3, Color: Color3, Size: number, Range: number, Brightness: number }",
-        "export type Model = { Parts: { Part }, Groups: { [string]: Group }, Fx: { Fx } }",
+        "export type Group = { Pivot: CFrame, Axis: string, Idle: number, Run: number, Mode: string?, Amp: number?, Dir: number? }",
+        "export type Vfx = {",
+        "\tKind: string,",
+        "\tPreset: string?,",
+        "\tPos: Vector3?,",
+        "\tArea: Vector3?,",
+        "\tShape: string?,",
+        "\tColors: { Color3 }?,",
+        "\tColor: Color3?,",
+        "\tSize: number?,",
+        "\tIdle: number?,",
+        "\tRun: number?,",
+        "\tDir: string?,",
+        "\tBoost: boolean?,",
+        "\tEvery: number?,",
+        "\tEveryIdle: number?,",
+        "\tFrom: Vector3?,",
+        "\tTo: Vector3?,",
+        "\tWidth: number?,",
+        "\tWidth1: number?,",
+        "\tStyle: string?,",
+        "\tTransparency: number?,",
+        "\tRange: number?,",
+        "\tFlicker: boolean?,",
+        "\tSpot: boolean?,",
+        "\tAngle: number?,",
+        "\tRadius: number?,",
+        "\tPhase: number?,",
+        "\tGroup: string?,",
+        "}",
+        "export type Model = { Parts: { Part }, Groups: { [string]: Group }, Vfx: { Vfx } }",
         "",
         "local V, C = Vector3.new, Color3.fromRGB",
         "local TreadmillModels: { [string]: Model } = {}",
@@ -1011,12 +1315,13 @@ def export(path, names):
             pivot = "CFrame.new(%s, %s, %s)" % tuple(num(x) for x in d["pivot"].p)
             if any(abs(a) > 1e-3 for a in (rx, ry, rz)):
                 pivot += " * CFrame.Angles(math.rad(%s), math.rad(%s), math.rad(%s))" % (num(rx), num(ry), num(rz))
-            lines.append('\t\t%s = { Pivot = %s, Axis = "%s", Idle = %s, Run = %s },' % (g, pivot, d["axis"], num(d["idle"]), num(d["run"])))
+            extra = ""
+            if d["mode"] != "Spin":
+                extra = ', Mode = "%s", Amp = %s, Dir = %d' % (d["mode"], num(d["amp"]), d["dir"])
+            lines.append('\t\t%s = { Pivot = %s, Axis = "%s", Idle = %s, Run = %s%s },' % (g, pivot, d["axis"], num(d["idle"]), num(d["run"]), extra))
         lines.append("\t},")
-        lines.append("\tFx = {")
-        for e in m.fx:
-            lines.append('\t\t{ Kind = "%s", Pos = %s, Color = C(%d, %d, %d), Size = %s, Range = %s, Brightness = %s },'
-                         % (e["kind"], v3(e["pos"]), *[int(c) for c in e["col"]], num(e["size"]), num(e["range"]), num(e["brightness"])))
+        lines.append("\tVfx = {")
+        lines += ["\t\t" + lua_vfx(e) + "," for e in m.effects]
         lines.append("\t},")
         lines.append("}")
         lines.append("")
@@ -1036,6 +1341,213 @@ MATS = {
     "Fabric": (0.95, 0.0, 0, 0, 1.0), "Rubber": (0.9, 0.0, 0, 0, 1.0), "Brick": (0.9, 0.0, 0, 0, 1.0),
     "ForceField": (0.2, 0.0, 1.5, 0, 1.0),
 }
+
+
+# ---- the effects, roughly, for the renders ------------------------------------------------------
+# The game's effects are Roblox particles, beams and lights (server/TreadmillFX); a still render
+# can't run them, so this draws a snapshot of each the way it looks mid-run: a puff of geometry
+# per particle (as many as the game's particle budget lets through), glowing rods for sparks,
+# streaks and lightning, crossed planes for rays of light, rings for pulses, real lamps for lights.
+DIRS = {"Top": (0, 1, 0), "Bottom": (0, -1, 0), "Front": (0, 0, -1), "Back": (0, 0, 1), "Left": (-1, 0, 0), "Right": (1, 0, 0)}
+
+
+def _add(a, b, k=1.0):
+    return tuple(a[i] + b[i] * k for i in range(3))
+
+
+def _unit(v):
+    n = math.sqrt(sum(x * x for x in v)) or 1.0
+    return tuple(x / n for x in v)
+
+
+def _spread(rnd, d, degrees):
+    # d turned a random amount up to `degrees` off
+    t = math.tan(math.radians(degrees))
+    return _unit(_add(d, (rnd.uniform(-1, 1) * t, rnd.uniform(-1, 1) * t, rnd.uniform(-1, 1) * t)))
+
+
+def _colour(cols, t):
+    if len(cols) == 1:
+        return tuple(cols[0])
+    x = t * (len(cols) - 1)
+    i = min(int(x), len(cols) - 2)
+    return mix(cols[i], cols[i + 1], x - i)
+
+
+FX_GLOW = 0.6  # (how bright the glowing bits are next to the game's Brightness)
+
+# preset: (seconds a particle lives, how it's drawn)
+PRESET_LOOK = {
+    "Smoke": (1.4, "puff"), "Dust": (0.85, "puff"), "Exhaust": (1.1, "puff"), "Mist": (2.5, "mist"), "Nebula": (4.0, "nebula"),
+    "Wisps": (1.2, "wisp"), "Sparks": (0.45, "spark"), "Streaks": (0.18, "streak"), "Shooting": (0.35, "shooting"),
+    "Rain": (0.32, "rain"), "Flame": (0.6, "flame"), "Breath": (0.55, "breath"), "Ki": (0.9, "ki"), "DarkFlame": (0.9, "ki"),
+    "Kira": (0.6, "star"), "Stars": (1.5, "star"), "Zaps": (0.25, "zap"), "Embers": (1.6, "ember"), "Bubbles": (0.7, "bubble"),
+    "Glitch": (0.14, "glitch"), "Feathers": (5.0, "feather"), "Suck": (0.5, "suck"), "Vortex": (1.9, "vortex"),
+    "Burst": (0.4, "burst"), "Impact": (0.4, "impact"),
+}
+
+
+def fx_shapes(m):
+    """Primitives (in treadmill space) for a snapshot of m's effects while someone runs on it."""
+    import random
+    out = []
+
+    def ball(c, r, col, glow, alpha=0.0, flat=1.0):
+        out.append(("ball", c, r, (col, glow * FX_GLOW, alpha), flat))
+
+    def rod(a, b, t, col, glow, alpha=0.0):
+        out.append(("rod", a, b, t, (col, glow * FX_GLOW, alpha)))
+
+    def lick(base, h, r, col, glow, alpha):
+        # a lick of flame: a tall soft blob
+        ball(_add(base, (0, 1, 0), h / 2), r, col, glow, alpha, h / (2 * r))
+
+    def star(c, r, col, glow):
+        rod(_add(c, (-r, 0, 0)), _add(c, (r, 0, 0)), r * 0.12, col, glow)
+        rod(_add(c, (0, -r, 0)), _add(c, (0, r, 0)), r * 0.12, col, glow)
+        rod(_add(c, (0, 0, -r * 0.7)), _add(c, (0, 0, r * 0.7)), r * 0.1, col, glow)
+
+    def ring(c, radius, t, col, glow, alpha=0.0, seg=36):
+        for i in range(seg):
+            a0, a1 = i / seg * math.tau, (i + 1) / seg * math.tau
+            rod(_add(c, (math.cos(a0) * radius, 0, math.sin(a0) * radius)), _add(c, (math.cos(a1) * radius, 0, math.sin(a1) * radius)), t, col, glow, alpha)
+
+    def jagged(a, b, reach, rnd, width, col):
+        pts = []
+        d = _unit(tuple(b[i] - a[i] for i in range(3)))
+        side = _unit((d[2], 0, -d[0])) if abs(d[1]) < 0.9 else (1, 0, 0)
+        up = _unit((d[1] * side[2] - d[2] * side[1], d[2] * side[0] - d[0] * side[2], d[0] * side[1] - d[1] * side[0]))
+        for i in range(7):
+            f = i / 6
+            p = tuple(a[k] + (b[k] - a[k]) * f for k in range(3))
+            mid = math.sin(math.pi * f)
+            pts.append(_add(_add(p, side, rnd.uniform(-1, 1) * reach * mid), up, rnd.uniform(-1, 1) * reach * mid))
+        for i in range(6):
+            rod(pts[i], pts[i + 1], width, light(col, 0.5), 7)
+            rod(pts[i], pts[i + 1], width * 3, col, 1.5, 0.88)
+
+    for index, e in enumerate(m.effects):
+        rnd = random.Random("%s:%d" % (m.name, index))
+        kind = e["kind"]
+        if kind == "Emit":
+            life, look = PRESET_LOOK[e["preset"]]
+            size, cols = e["size"], e["colors"]
+            rate = e["run"] or e["idle"]
+            burst = e.get("every") or e.get("every_idle")
+            # (the game's particle budget: 40% of the rate, at most 20 a second; 85% / 40 for the big ones)
+            rate = min(rate * 0.85, 40) if e.get("boost") else min(rate * 0.4, 20)
+            n = 1 if burst else max(3, min(48, round(rate * life)))
+            pos, area = e["pos"], e["area"]
+            d = DIRS.get(e["dir"], (0, 1, 0))
+            sphere = e.get("shape") == "Sphere"
+
+            def spawn():
+                if sphere or look == "suck":
+                    v = _unit((rnd.gauss(0, 1), rnd.gauss(0, 1), rnd.gauss(0, 1)))
+                    r = min(area) / 2 * (1 if look == "suck" else rnd.random() ** 0.33)
+                    return _add(pos, v, r)
+                return tuple(pos[i] + rnd.uniform(-0.5, 0.5) * area[i] for i in range(3))
+
+            for _ in range(n):
+                t = rnd.random()  # how far through its life this particle is
+                age = t * life
+                col = _colour(cols, t)
+                p = spawn()
+                if look == "puff":
+                    speed = {"Smoke": size * 2.2, "Dust": 3.5, "Exhaust": 5.5}[e["preset"]]
+                    q = _add(_add(p, _spread(rnd, d, 25 if e["preset"] != "Dust" else 50), speed * age * (1 - 0.35 * t)), (0, 1, 0), size * 0.6 * age * age)
+                    ball(q, size * (0.22 + 0.6 * t), col, 0, 0.3 + 0.55 * t)
+                elif look == "mist":
+                    ball(p, size * (0.8 + 0.6 * t), col, 0.2, 0.86, 0.45)
+                elif look == "nebula":
+                    ball(p, size * (1.0 + 0.6 * t), col, 1.6, 0.86)
+                elif look == "wisp":
+                    ball(_add(p, (0, 1, 0), 1.5 * age), size * (0.2 + 0.4 * t), col, 1.5, 0.55)
+                elif look == "spark":
+                    v = _spread(rnd, d, 35)
+                    sp = size * rnd.uniform(8, 16)
+                    q = _add(_add(p, v, sp * age), (0, -1, 0), 22 * age * age)
+                    rod(q, _add(q, v, -sp * 0.035), size * 0.06, col, 12)
+                elif look in ("streak", "shooting"):
+                    v = _spread(rnd, d, 3 if look == "streak" else 35)
+                    sp = size * 37 if look == "streak" else 55
+                    q = _add(p, v, sp * age)
+                    rod(q, _add(q, v, -(size * 2.2 if look == "streak" else 4.5)), size * 0.07 if look == "streak" else 0.09, col, 7, 0.25)
+                elif look == "rain":
+                    q = _add(p, d, 35 * age)
+                    rod(q, _add(q, d, -1.4), 0.04, col, 1.5, 0.45)
+                elif look in ("flame", "breath"):
+                    if look == "breath" or e["dir"] != "Top":
+                        v = _spread(rnd, d, 10 if look == "breath" else 8)
+                        q = _add(_add(p, v, size * (13 if look == "breath" else 7) * age), (0, 1, 0), size * 0.7 * age * age)
+                    else:
+                        q = _add(p, _spread(rnd, (0, 1, 0), 15), size * 2.2 * age)
+                    ball(q, size * (0.25 + 0.6 * t) * (1.3 if look == "breath" else 0.9), col, 7, 0.15 + 0.5 * t)
+                elif look == "ki":
+                    q = _add(p, (0, 1, 0), size * 1.2 * t)
+                    lick(q, size * (0.5 + 0.4 * rnd.random()), size * 0.12 * (1 - 0.5 * t), col, 4 if e["preset"] == "Ki" else 2, 0.4 + 0.45 * t)
+                elif look == "star":
+                    star(p, size * 0.35 * math.sin(math.pi * t) + 0.08, light(col, 0.2), 14)
+                elif look == "zap":
+                    a = p
+                    for _ in range(3):
+                        b = _add(a, _unit((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))), size * 0.5)
+                        rod(a, b, size * 0.05, light(col, 0.5), 14)
+                        a = b
+                elif look == "ember":
+                    ball(_add(p, _spread(rnd, (0, 1, 0), 40), 2.5 * age), size * 0.07, col, 10)
+                elif look == "bubble":
+                    ball(p, size * 0.3 * t, col, 7)
+                elif look == "glitch":
+                    out.append(("box", p, (size * 0.7, size * 0.35, 0.04), (0, rnd.uniform(0, 180), 0), (col, 9 * FX_GLOW, 0.2)))
+                elif look == "feather":
+                    q = _add(p, (rnd.uniform(-1, 1), -1, rnd.uniform(-1, 1)), 1.4 * age)
+                    out.append(("box", q, (size * 0.18, 0.03, size * 0.55), (rnd.uniform(-50, 50), rnd.uniform(0, 180), rnd.uniform(-50, 50)), (col, 0.6 * FX_GLOW, 0.0)))
+                elif look == "suck":
+                    v = _unit(tuple(pos[i] - p[i] for i in range(3)))
+                    q = _add(p, v, min(area) / 2 * t * 0.9)
+                    rod(q, _add(q, v, -size * 0.9), size * 0.06, col, 10)
+                elif look == "vortex":
+                    for arm in range(3):
+                        for j in range(14):
+                            f = j / 13
+                            a = arm / 3 * math.tau + f * 4.0
+                            r = size * (0.15 + 0.85 * f)
+                            ball(_add(pos, (math.cos(a) * r, 0, math.sin(a) * r)), size * 0.07 * (1.2 - f * 0.5), _colour(cols, f), 6, 0.2)
+                    break
+                elif look == "burst":
+                    for _ in range(16):
+                        v = _unit((rnd.gauss(0, 1), rnd.gauss(0, 1), rnd.gauss(0, 1)))
+                        rod(_add(pos, v, size * 0.5), _add(pos, v, size * rnd.uniform(2.2, 3.6)), size * 0.1, _colour(cols, rnd.random()), 9, 0.15)
+                    break
+                elif look == "impact":
+                    ring(pos, size * 1.8, size * 0.1, cols[0], 7, 0.25)
+                    for _ in range(6):
+                        v = _unit((rnd.uniform(-1, 1), rnd.uniform(-0.3, 0.6), rnd.uniform(-1, 1)))
+                        rod(pos, _add(pos, v, size * 2.4), size * 0.12, light(cols[0], 0.5), 11, 0.1)
+                    break
+        elif kind == "Beam":
+            a, b, cols = e["a"], e["b"], e["colors"]
+            if e["style"] == "Ray":
+                # (two crossed planes, each about half as strong as the beam)
+                out.append(("ray", a, b, e["width"], e["width1"], (cols[0], 1.4, 1 - (1 - e["alpha"]) * 0.6)))
+            else:
+                length = math.dist(a, b)
+                jagged(a, b, length * (0.11 if e["style"] == "Strike" else 0.08), rnd, e["width"] * 0.45, cols[0])
+        elif kind == "Pulse":
+            ring(e["pos"], e["radius"] * 0.55, 0.22, e["col"], 6, 0.35)
+        elif kind == "Fire":
+            size = e["run"] or e["idle"]
+            for _ in range(6):
+                base = _add(e["pos"], (rnd.uniform(-0.3, 0.3), 0, rnd.uniform(-0.3, 0.3)))
+                lick(base, size * rnd.uniform(0.35, 0.7), size * 0.12, mix(e["col"], (255, 240, 150), rnd.random() * 0.6), 5, 0.35)
+        elif kind == "Sparkles":
+            for _ in range(6):
+                star(_add(e["pos"], _unit((rnd.gauss(0, 1), rnd.gauss(0, 1), rnd.gauss(0, 1))), rnd.uniform(0.6, 1.6)), 0.18, e["col"], 12)
+        elif kind == "Light":
+            bright = (e["run"] or e["idle"]) * (0.55 if e["flicker"] else 1.0)
+            out.append(("light", e["pos"], e["col"], bright, e["range"], e["spot"], e["angle"]))
+    return out
 
 
 def render(out, names, tile=None):
@@ -1079,6 +1591,89 @@ def render(out, names, tile=None):
         R = cf.R
         M = Matrix(((R[0][0], R[0][1], R[0][2], cf.p[0]), (R[1][0], R[1][1], R[1][2], cf.p[1]), (R[2][0], R[2][1], R[2][2], cf.p[2]), (0, 0, 0, 1)))
         return P @ place @ M
+
+    show_fx = os.environ.get("VFX", "1") == "1"
+    fx_mats = {}
+
+    def fx_material(col, glow, alpha):
+        key = (tuple(col), round(glow, 2), round(alpha, 2))
+        if key not in fx_mats:
+            mm = bpy.data.materials.new("FX%d" % len(fx_mats))
+            mm.use_nodes = True
+            b = mm.node_tree.nodes["Principled BSDF"]
+            color = (*[lin(v / 255) for v in col], 1)
+            b.inputs["Base Color"].default_value = color
+            b.inputs["Roughness"].default_value = 0.8
+            if glow:
+                b.inputs["Emission Color"].default_value = color
+                b.inputs["Emission Strength"].default_value = glow
+            if alpha:
+                b.inputs["Alpha"].default_value = max(0.02, 1 - alpha)
+            fx_mats[key] = mm
+        return fx_mats[key]
+
+    def add_fx(m, place):
+        # a snapshot of its effects mid-run (fx_shapes), as one shadowless object, plus its lamps
+        bm = bmesh.new()
+        slots = []
+
+        def paint(geom_verts, look):
+            mm = fx_material(*look)
+            if mm not in slots:
+                slots.append(mm)
+            idx = slots.index(mm)
+            for f in {f for v in geom_verts for f in v.link_faces}:
+                f.material_index = idx
+
+        W = P @ place
+        for shape in fx_shapes(m):
+            kind = shape[0]
+            if kind == "ball":
+                _, c, r, look, flat = shape
+                M = W @ Matrix.Translation(c) @ Matrix.Diagonal((1, flat, 1, 1))
+                paint(bmesh.ops.create_uvsphere(bm, u_segments=12, v_segments=8, radius=max(r, 0.02), matrix=M)["verts"], look)
+            elif kind == "rod":
+                _, a, b, t, look = shape
+                if math.dist(a, b) < 1e-3:
+                    continue
+                cf, length = along(a, b)
+                M = matrix_of({"cf": cf}, place) @ Matrix.Diagonal((t, t, length, 1))
+                paint(bmesh.ops.create_cube(bm, size=1.0, matrix=M)["verts"], look)
+            elif kind == "box":
+                _, c, size, rot, look = shape
+                M = matrix_of({"cf": CF.angles(*rot, pos=c)}, place) @ Matrix.Diagonal((*size, 1))
+                paint(bmesh.ops.create_cube(bm, size=1.0, matrix=M)["verts"], look)
+            elif kind == "ray":
+                _, a, b, w0, w1, look = shape
+                d = _unit(tuple(b[i] - a[i] for i in range(3)))
+                s1 = _unit((d[2], 0, -d[0])) if abs(d[1]) < 0.95 else (1, 0, 0)
+                s2 = _unit((d[1] * s1[2] - d[2] * s1[1], d[2] * s1[0] - d[0] * s1[2], d[0] * s1[1] - d[1] * s1[0]))
+                for side in (s1, s2):
+                    vs = [bm.verts.new(W @ Vector(q)) for q in (_add(a, side, -w0 / 2), _add(a, side, w0 / 2), _add(b, side, w1 / 2), _add(b, side, -w1 / 2))]
+                    bm.faces.new(vs)
+                    paint(vs, look)
+            elif kind == "light":
+                _, pos, col, bright, rng, spot, angle = shape
+                lamp = bpy.data.lights.new("FXLight", "SPOT" if spot else "POINT")
+                lamp.color = tuple(lin(v / 255) for v in col)
+                lamp.energy = bright * 60 * rng / 12  # (a Roblox light stops at its Range; a lamp fades for ever)
+                lamp.shadow_soft_size = 0.4
+                if spot:
+                    lamp.spot_size = math.radians(min(angle * 2, 170))
+                lamp_obj = bpy.data.objects.new("FXLight", lamp)
+                lamp_obj.location = W @ Vector(pos)
+                if spot:
+                    lamp_obj.rotation_euler = (math.radians(90), 0, 0)  # (facing the front: -z in the game)
+                scene.collection.objects.link(lamp_obj)
+        mesh = bpy.data.meshes.new(m.name + "FX")
+        bm.normal_update()
+        bm.to_mesh(mesh)
+        bm.free()
+        for mm in slots:
+            mesh.materials.append(mm)
+        obj = bpy.data.objects.new(m.name + "FX", mesh)
+        obj.visible_shadow = False
+        scene.collection.objects.link(obj)
 
     cols = 4 if not tile else 1
     gap_x, gap_z = 26.0, 30.0
@@ -1133,11 +1728,15 @@ def render(out, names, tile=None):
             poly.use_smooth = False
         obj = bpy.data.objects.new(name, mesh)
         scene.collection.objects.link(obj)
+        if show_fx:
+            add_fx(m, place)
         if tile:
             bpy.ops.mesh.primitive_plane_add(size=1, location=(0, 0, -0.01))
             floor = bpy.context.object
             floor.scale = (3000, 3000, 1)
-            floor.data.materials.append(material((70, 76, 90), "SmoothPlastic", 0))
+            floor_mat = material((70, 76, 90), "SmoothPlastic", 0).copy()
+            floor_mat.node_tree.nodes["Principled BSDF"].inputs["Roughness"].default_value = 0.85
+            floor.data.materials.append(floor_mat)
             continue
         # its name in front of it, and a floor tile under it
         bpy.ops.object.text_add(location=(ox, -(oz + 12.6), 0.05))
@@ -1153,7 +1752,7 @@ def render(out, names, tile=None):
     rows = (len(names) + cols - 1) // cols
     # lights and camera: from behind and above on the runner's right (the side you walk up to)
     sun = bpy.data.lights.new("Sun", "SUN")
-    sun.energy = 3.0
+    sun.energy = 2.2 if show_fx else 3.0
     sun.angle = math.radians(6)
     sun_obj = bpy.data.objects.new("Sun", sun)
     sun_obj.rotation_euler = (math.radians(40), math.radians(15), math.radians(35))
@@ -1166,8 +1765,24 @@ def render(out, names, tile=None):
     world = bpy.data.worlds.new("World")
     world.use_nodes = True
     world.node_tree.nodes["Background"].inputs[0].default_value = (0.26, 0.3, 0.38, 1)
-    world.node_tree.nodes["Background"].inputs[1].default_value = 0.8
+    world.node_tree.nodes["Background"].inputs[1].default_value = 0.55 if show_fx else 0.8
     scene.world = world
+    if show_fx:
+        # bloom round anything glowing (Roblox's Bloom, roughly)
+        scene.use_nodes = True
+        tree = scene.node_tree
+        layers = tree.nodes.get("Render Layers") or tree.nodes.new("CompositorNodeRLayers")
+        composite = tree.nodes.get("Composite") or tree.nodes.new("CompositorNodeComposite")
+        glare = tree.nodes.new("CompositorNodeGlare")
+        glare.glare_type = "BLOOM"
+        for socket, value in (("Threshold", 1.0), ("Strength", 0.55), ("Size", 0.6)):
+            if socket in glare.inputs:
+                glare.inputs[socket].default_value = value
+        tree.links.new(layers.outputs["Image"], glare.inputs["Image"])
+        tree.links.new(glare.outputs["Image"], composite.inputs["Image"])
+    if os.environ.get("THREADS"):
+        scene.render.threads_mode = "FIXED"
+        scene.render.threads = int(os.environ["THREADS"])
     if tile:
         # frame everything but see-through glows (a light column)
         pts = []
@@ -1214,10 +1829,33 @@ def render(out, names, tile=None):
     scene.render.resolution_y = int(int(os.environ.get("RES", "2400")) * (height / width if height > width else 1) * 0.85)
     scene.view_settings.view_transform = "Standard"
     scene.render.filepath = out
-    bpy.ops.render.render(write_still=True)
+    if os.environ.get("RENDER", "1") == "1":
+        bpy.ops.render.render(write_still=True)
+        print("rendered", out)
     if os.environ.get("SAVE_BLEND", "1") == "1":
-        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, "treadmills.blend"))
-    print("rendered", out)
+        bpy.ops.wm.save_as_mainfile(filepath=os.path.join(HERE, "treadmills.blend"), compress=True)
+        print("saved treadmills.blend")
+
+
+def make_sheet(out, names):
+    # the close-ups in `out` on one sheet, four across, with their names
+    from PIL import Image, ImageDraw, ImageFont
+    w, h, cols = 800, 620, 4
+    rows = (len(names) + cols - 1) // cols
+    sheet = Image.new("RGB", (w * cols, h * rows), (40, 44, 54))
+    draw = ImageDraw.Draw(sheet)
+    font = None
+    for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",):
+        if os.path.exists(path):
+            font = ImageFont.truetype(path, 38)
+    for i, n in enumerate(names):
+        x, y = (i % cols) * w, (i // cols) * h
+        sheet.paste(Image.open(os.path.join(out, n + ".png")).convert("RGB").resize((w, h)), (x, y))
+        text = "%d  %s" % (ORDER.index(n) + 1, n.upper())
+        draw.text((x + 22, y + 16), text, fill=(0, 0, 0), font=font, stroke_width=0)
+        draw.text((x + 20, y + 14), text, fill=(255, 255, 255), font=font)
+    sheet.save(os.path.join(out, "sheet.png"))
+    print("sheet", os.path.join(out, "sheet.png"))
 
 
 if __name__ == "__main__":
@@ -1234,23 +1872,7 @@ if __name__ == "__main__":
         for n in names:
             render(os.path.join(out, n + ".png"), [n], tile=(800, 620))
         try:
-            from PIL import Image, ImageDraw, ImageFont
-            w, h, cols = 800, 620, 4
-            rows = (len(names) + cols - 1) // cols
-            sheet = Image.new("RGB", (w * cols, h * rows), (40, 44, 54))
-            draw = ImageDraw.Draw(sheet)
-            font = None
-            for path in ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",):
-                if os.path.exists(path):
-                    font = ImageFont.truetype(path, 38)
-            for i, n in enumerate(names):
-                x, y = (i % cols) * w, (i // cols) * h
-                sheet.paste(Image.open(os.path.join(out, n + ".png")).convert("RGB"), (x, y))
-                text = "%d  %s" % (ORDER.index(n) + 1, n.upper())
-                draw.text((x + 22, y + 16), text, fill=(0, 0, 0), font=font, stroke_width=0)
-                draw.text((x + 20, y + 14), text, fill=(255, 255, 255), font=font)
-            sheet.save(os.path.join(out, "sheet.png"))
-            print("sheet", os.path.join(out, "sheet.png"))
+            make_sheet(out, ORDER if all(os.path.exists(os.path.join(out, n + ".png")) for n in ORDER) else names)
         except ImportError:
             print("(no PIL: no sheet)")
     elif out != "-":

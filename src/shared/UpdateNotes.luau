@@ -70,6 +70,12 @@ UpdateNotes.List = {
 				"Turbines, planets, rings, rays and halos spin - and faster while you run",
 				"Your treadmill is the same one you had: nobody loses theirs",
 			} },
+			{ Title = "Treadmill Effects", Tag = "NEW", Lines = {
+				"The cheap treadmills look cheap: Rusty's lights are dead, it coughs black smoke, grinds sparks off the back of the belt, its bulb flickers and its console rattles while you run",
+				"Every step up gets better effects: exhaust and speed lines, jet flames, rings of light, lightning that crackles and strikes, rainbow rays, lava eruptions",
+				"The best ones are epic: a power-up aura round you while you run, a black hole sucking in light, a dragon that flaps its wings and breathes fire, a bursting supernova, rays of light from the sky and falling feathers",
+				"Everything goes all out while you run, and settles down when you step off",
+			} },
 			{ Title = "No More Flinging", Tag = "FIXED", Lines = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
 				"Fences are smooth to bump into now (you used to be able to climb them by accident, which shot you up at high speeds)",
