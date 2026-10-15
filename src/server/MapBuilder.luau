@@ -45,7 +45,7 @@ local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 26
+local MAP_VERSION = 27
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
@@ -126,26 +126,106 @@ local function buildLeaderboards(parent: Instance)
 	local folder = Instance.new("Folder")
 	folder.Name = "Leaderboards"
 	folder.Parent = parent
-	-- (either side of the back two bases; smaller if they'd not fit full size)
+	-- (edge to edge in the middle of the back wall, high up above the back two bases' shops, so
+	-- everyone in the lobby can read them)
 	local spots = Layout.LeaderboardSpots(#Config.Leaderboards.Boards)
+	local z = Layout.LeaderboardZ()
+	local bottom = Layout.LeaderboardBottom
 	for index, board in Config.Leaderboards.Boards do
 		local x, k = spots[index].X, spots[index].Scale
-		local z = Layout.LeaderboardZ()
+		local mid = bottom + 20 * k
 		local model = Instance.new("Model")
 		model.Name = "Board_" .. board.Id
-		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31 * k, 40 * k, 1.5), Position = Vector3.new(x, 1 + 20 * k, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
-		for _, side in { -1, 1 } do
-			Build.Part({ Parent = model, Name = "Leg", Size = Vector3.new(2, 2, 2), Position = Vector3.new(x + side * 12 * k, 1, z - 0.6), Color = board.Color:Lerp(Color3.new(0, 0, 0), 0.4), Material = Enum.Material.SmoothPlastic })
-		end
-		Build.Part({ Parent = model, Name = "Trim", Size = Vector3.new(32 * k, 1, 2), Position = Vector3.new(x, 1.5 + 40 * k, z - 0.6), Color = rgb(255, 255, 255), Material = Enum.Material.Neon })
+		local frame = Build.Part({ Parent = model, Name = "Frame", Size = Vector3.new(31 * k, 40 * k, 1.5), Position = Vector3.new(x, mid, z - 0.6), Color = board.Color, Material = Enum.Material.SmoothPlastic })
+		Build.Part({ Parent = model, Name = "Trim", Size = Vector3.new(31 * k, 1, 2), Position = Vector3.new(x, bottom + 40 * k + 0.5, z - 0.6), Color = rgb(255, 255, 255), Material = Enum.Material.Neon })
 		local screen = Build.Part({
 			Parent = model, Name = "Screen",
 			Size = Vector3.new(28 * k, 37 * k, 0.3),
-			CFrame = CFrame.lookAt(Vector3.new(x, 1 + 20 * k, z + 0.3), Vector3.new(x, 1 + 20 * k, z + 10)),
+			CFrame = CFrame.lookAt(Vector3.new(x, mid, z + 0.3), Vector3.new(x, mid, z + 10)),
 			Color = rgb(20, 20, 30), Material = Enum.Material.SmoothPlastic,
 		})
 		screen:SetAttribute("BoardId", board.Id)
 		model.PrimaryPart = frame
+		model.Parent = folder
+	end
+	-- the ledge they stand on, and a bracket under each join
+	local first, last = spots[1], spots[#spots]
+	local width = (last.X - first.X) + 31 * last.Scale + 2
+	Build.Part({ Parent = folder, Name = "Ledge", Size = Vector3.new(width, 1.2, 3.5), Position = Vector3.new((first.X + last.X) / 2, bottom - 0.6, z + 0.4), Color = rgb(90, 60, 40), Material = Enum.Material.WoodPlanks })
+	local joins = { first.X - 15.5 * first.Scale }
+	for _, spot in spots do
+		table.insert(joins, spot.X + 15.5 * spot.Scale)
+	end
+	for _, x in joins do
+		Build.Part({ Parent = folder, Name = "Bracket", Size = Vector3.new(1.2, 3, 2.5), Position = Vector3.new(x, bottom - 2.7, z), Color = rgb(70, 46, 30), Material = Enum.Material.WoodPlanks })
+	end
+end
+
+-- The conveyor belts down the walkway (Layout.Conveyors): a dark metal belt that carries whoever
+-- stands on it (its velocity: Config.Conveyors.Speed), low glowing rails, arrows the clients slide
+-- along it (client/Conveyors) and a sign over the end you get on at.
+local function setConveyorSpeed(belt: BasePart)
+	local direction = belt:GetAttribute("Direction")
+	if typeof(direction) == "Vector3" then
+		belt.AssemblyLinearVelocity = direction * Config.Conveyors.Speed
+	end
+end
+
+local function refreshConveyors(hub: Instance)
+	local conveyors = hub:FindFirstChild("Conveyors")
+	if conveyors then
+		for _, belt in conveyors:GetDescendants() do
+			if belt:IsA("BasePart") and belt.Name == "Belt" then
+				setConveyorSpeed(belt)
+			end
+		end
+	end
+end
+
+local function buildConveyors(hub: Instance)
+	local folder = Instance.new("Folder")
+	folder.Name = "Conveyors"
+	folder.Parent = hub
+	local c = Config.Conveyors
+	for _, info in Layout.Conveyors() do
+		local model = Instance.new("Model")
+		model.Name = info.Name
+		local toFront = info.Direction.Z > 0
+		local color = if toFront then rgb(80, 235, 120) else rgb(90, 175, 255)
+		-- (in `cf`, -Z is the way the belt goes; you get on at +Length / 2)
+		local cf = CFrame.lookAt(info.Center, info.Center + info.Direction)
+		local function at(x: number, y: number, z: number): CFrame
+			return cf * CFrame.new(x, y, z)
+		end
+		local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(c.Width, 0.6, info.Length), CFrame = at(0, 0.3, 0), Color = rgb(48, 48, 58), Material = Enum.Material.DiamondPlate })
+		belt:SetAttribute("Direction", info.Direction)
+		setConveyorSpeed(belt)
+		for _, side in { -1, 1 } do
+			Build.Decor({ Parent = model, Name = "RailGlow", Size = Vector3.new(0.3, 0.2, info.Length), CFrame = at(side * (c.Width / 2 - 0.2), 0.66, 0), Color = color, Material = Enum.Material.Neon })
+		end
+		-- arrows: a V of two glowing strips, pointing the way it goes
+		local count = math.floor(info.Length / c.ArrowSpacing) - 1
+		local angle = math.rad(38)
+		for i = 0, count - 1 do
+			local tipZ = info.Length / 2 - c.ArrowSpacing * (i + 0.5)
+			for _, side in { -1, 1 } do
+				local along = Vector3.new(side * math.sin(angle), 0, math.cos(angle))
+				local mid = Vector3.new(0, 0.66, tipZ) + along * 1.6
+				local arrow = Build.Decor({ Parent = model, Name = "Arrow", Size = Vector3.new(0.6, 0.1, 3.2), CFrame = cf * CFrame.lookAt(mid, mid + along), Color = color, Material = Enum.Material.Neon })
+				arrow:SetAttribute("ConveyorArrow", true)
+			end
+		end
+		-- where you get on: a glowing line across the belt, and a sign
+		Build.Decor({ Parent = model, Name = "Boarding", Size = Vector3.new(c.Width, 0.1, 1.2), CFrame = at(0, 0.66, info.Length / 2 - 0.8), Color = color, Material = Enum.Material.Neon })
+		local signPart = Build.Decor({ Parent = model, Name = "Sign", Size = Vector3.new(1, 1, 1), CFrame = at(0, 9, info.Length / 2 - 3), Transparency = 1 })
+		local sign = Instance.new("BillboardGui")
+		sign.Name = "SignGui"
+		sign.Size = UDim2.fromScale(14, 3)
+		sign.LightInfluence = 0
+		sign.MaxDistance = 220
+		sign.Parent = signPart
+		Build.Text(sign, if toFront then "TO THE LANE" else "TO THE BACK BASES", { TextColor3 = color, TextStrokeColor3 = color:Lerp(Color3.new(0, 0, 0), 0.75) })
+		model.PrimaryPart = belt
 		model.Parent = folder
 	end
 end
@@ -264,6 +344,7 @@ local function buildHub(parent: Folder)
 	buildPlaza(hub)
 	buildSellStall(hub)
 	buildLeaderboards(hub)
+	buildConveyors(hub)
 
 	-- (at the front of the walkway, facing the lane: new players are a few steps from the first biome)
 	local spawnAt = Layout.LobbyArrival().Position * Vector3.new(1, 0, 1) + Vector3.new(0, 0.5, 0)
@@ -801,7 +882,7 @@ function MapBuilder.BuildPen(plot: Model, slots: number)
 	fence.Name = "Fence"
 	fence.Parent = pen
 	local height = Config.Plots.FenceHeight
-	local gate = 7 -- half the gate's width
+	local gate = Layout.GateHalfWidth -- half the gate's width (a wide way in)
 	local function look(part: BasePart): BasePart
 		part.CanCollide = false
 		part.CanQuery = false
@@ -1126,10 +1207,9 @@ function MapBuilder.Build(): Folder
 				buildLeaderboards(hub)
 			end
 		end
-		-- (the conveyor belts are gone)
-		local belts = hub and hub:FindFirstChild("Conveyors")
-		if belts then
-			belts:Destroy()
+		-- (a saved belt loses its speed: give it back)
+		if hub then
+			refreshConveyors(hub)
 		end
 		refreshAreaSigns(existing)
 		buildLane(existing) -- adds any biomes that are missing

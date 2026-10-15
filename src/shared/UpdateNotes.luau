@@ -76,6 +76,12 @@ UpdateNotes.List = {
 				"The best ones are epic: a power-up aura round you while you run, a black hole sucking in light, a dragon that flaps its wings and breathes fire, a bursting supernova, rays of light from the sky and falling feathers",
 				"Everything goes all out while you run, and settles down when you step off",
 			} },
+			{ Title = "Lobby", Tag = "CHANGED", Lines = {
+				"Conveyor belts down both sides of the walkway: hop on to ride to the lane, or back to the bases at the back",
+				"Wider entrances to every base: 24 studs across, easy to run straight in",
+				"The leaderboards hang side by side in the middle of the back wall, up high where everyone can read them",
+				"The back wall is closer, right behind the back bases",
+			} },
 			{ Title = "No More Flinging", Tag = "FIXED", Lines = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
 				"Fences are smooth to bump into now (you used to be able to climb them by accident, which shot you up at high speeds)",
