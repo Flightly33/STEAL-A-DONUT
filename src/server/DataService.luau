@@ -100,7 +100,7 @@ export type Profile = {
 	NoSave: boolean,
 }
 
-local DATA_VERSION = 7
+local DATA_VERSION = 8
 
 local TEMPLATE: Data = {
 	Version = DATA_VERSION,
@@ -333,6 +333,13 @@ local function migrate(data: Data, isNew: boolean)
 			end
 		end
 		data.Version = 7
+	end
+	if data.Version < 8 then
+		-- Version 8: four new treadmills (Thunder, Magma, Dragon, Supernova) in between the old
+		-- ones: keep everyone on the treadmill they had (Config.Treadmill.OldLevels)
+		local old = math.clamp(math.floor(data.TreadmillLevel or 1), 1, #Config.Treadmill.OldLevels)
+		data.TreadmillLevel = if isNew then 1 else Config.Treadmill.OldLevels[old]
+		data.Version = 8
 	end
 end
 

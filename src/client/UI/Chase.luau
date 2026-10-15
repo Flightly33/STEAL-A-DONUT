@@ -29,6 +29,7 @@ local Theme = require(script.Parent.Theme)
 local Modal = require(script.Parent.Modal)
 local Notifications = require(script.Parent.Notifications)
 local Bases = require(script.Parent.Parent.Bases)
+local AntiFling = require(script.Parent.Parent.AntiFling)
 
 local Chase = {}
 
@@ -280,6 +281,8 @@ local function flingSelf(velocity: Vector3?)
 	if not root or not h then
 		return
 	end
+	-- (a fling the game means: AntiFling keeps its hands off until you've landed and got up)
+	AntiFling.Allow(if velocity then 2.2 else 3)
 	h:ChangeState(Enum.HumanoidStateType.FallingDown)
 	-- Caught: launched high and far back towards the hub, spinning (like getting bonked in Steal an Egg)
 	root.AssemblyLinearVelocity = velocity or Vector3.new(math.random(-25, 25), 95, -130)

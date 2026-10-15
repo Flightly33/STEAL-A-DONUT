@@ -208,10 +208,13 @@ Config.Speed = {
 
 -- Treadmills: the one by your base gives Speed every step while you run on it (StepsPerSecond steps
 -- a second). Buy the next one in the Shop. PerStep is before your Speed Multiplier, Index, pets
--- and 2x Speed pass.
+-- and 2x Speed pass. Every treadmill is its own model (shared/TreadmillModels, designed in Blender:
+-- art/treadmills), looked up by Name.
 -- Balance (economy sim, a good player with no passes or pets, sharing boxes with other players):
--- biome 6 at ~1.3 h, biome 12 at ~6.5 h, the last biome at ~12.5 h; the last treadmill at ~11 h.
--- Real players take longer (breaks, getting caught, losing boxes to bats).
+-- biome 6 at ~1.3 h, biome 12 at ~6.5 h, the last biome and the last treadmill (Heavenly) at
+-- ~13.4 h; never more than ~1.6 h between two treadmills (Thunder, Magma, Dragon and Supernova
+-- fill what were the longest waits). Real players take longer (breaks, getting caught, boxes lost
+-- to bats).
 local rgb = Color3.fromRGB
 Config.Treadmill = {
 	BeltSpeed = 13, -- how fast the belt stripes scroll (visual only)
@@ -223,13 +226,20 @@ Config.Treadmill = {
 		{ Name = "Pro", PerStep = 30, Cost = 3_000_000, Base = rgb(40, 90, 200), Accent = rgb(0, 220, 255), Material = Enum.Material.Metal, Neon = true },
 		{ Name = "Turbo", PerStep = 80, Cost = 75_000_000, Base = rgb(255, 140, 0), Accent = rgb(255, 240, 0), Material = Enum.Material.Metal, Neon = true, Fire = true },
 		{ Name = "Neon", PerStep = 100, Cost = 1_500_000_000, Base = rgb(20, 20, 30), Accent = rgb(0, 255, 120), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true },
+		{ Name = "Thunder", PerStep = 120, Cost = 10_000_000_000, Base = rgb(30, 40, 80), Accent = rgb(255, 225, 40), Material = Enum.Material.Metal, Neon = true, Light = true },
 		{ Name = "Diamond", PerStep = 250, Cost = 50_000_000_000, Base = rgb(150, 230, 255), Accent = rgb(255, 255, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true },
+		{ Name = "Magma", PerStep = 300, Cost = 250_000_000_000, Base = rgb(45, 35, 35), Accent = rgb(255, 110, 20), Material = Enum.Material.Basalt, Neon = true, Light = true, Fire = true },
 		{ Name = "Plasma", PerStep = 500, Cost = 1_000_000_000_000, Base = rgb(60, 10, 90), Accent = rgb(200, 60, 255), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true },
 		{ Name = "Quantum", PerStep = 1_000, Cost = 15_000_000_000_000, Base = rgb(10, 10, 10), Accent = rgb(255, 0, 170), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true },
 		{ Name = "Cosmic", PerStep = 1_500, Cost = 45_000_000_000_000, Base = rgb(40, 20, 90), Accent = rgb(120, 200, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true },
 		{ Name = "Void", PerStep = 2_000, Cost = 100_000_000_000_000, Base = rgb(5, 5, 10), Accent = rgb(150, 90, 255), Material = Enum.Material.Glass, Neon = true, Light = true, Sparkles = true, Halo = true },
-		{ Name = "Heavenly", PerStep = 3_000, Cost = 500_000_000_000_000, Base = rgb(255, 250, 235), Accent = rgb(255, 215, 90), Material = Enum.Material.Marble, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true, Heavenly = true },
+		{ Name = "Dragon", PerStep = 2_400, Cost = 300_000_000_000_000, Base = rgb(20, 120, 70), Accent = rgb(255, 200, 50), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Fire = true },
+		{ Name = "Supernova", PerStep = 3_000, Cost = 800_000_000_000_000, Base = rgb(255, 150, 40), Accent = rgb(255, 250, 210), Material = Enum.Material.SmoothPlastic, Neon = true, Light = true, Sparkles = true, Halo = true },
+		{ Name = "Heavenly", PerStep = 4_000, Cost = 3_000_000_000_000_000, Base = rgb(255, 250, 235), Accent = rgb(255, 215, 90), Material = Enum.Material.Marble, Neon = true, Light = true, Sparkles = true, Rainbow = true, Halo = true, Heavenly = true },
 	} :: { TreadmillTier },
+	-- Version 8 of the save data added Thunder, Magma, Dragon and Supernova: an old treadmill level
+	-- -> the same treadmill's level now (DataService migrates it)
+	OldLevels = { 1, 2, 3, 4, 5, 6, 8, 10, 11, 12, 13, 16 },
 }
 
 -- "Speed Multiplier" upgrade bought with money in the Shop. Every level adds PerLevel to your

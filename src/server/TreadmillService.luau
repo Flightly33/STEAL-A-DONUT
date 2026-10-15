@@ -5,11 +5,15 @@
 	it and plays a running animation (see client/Treadmill.luau). While the owner is on the belt they
 	gain Speed every tick (checked here, on the server).
 
-	Upgrading the treadmill (Shop) rebuilds it as a cooler model with a faster gain rate.
-	Every tier has LED strips and a fan (animated by the clients, faster while someone runs), and
-	while the owner runs the belt throws sparks and dust (the model's "Running" attribute).
-	The 12 treadmills give Speed per step (Config.Treadmill: StepsPerSecond steps a second); the
-	last one, Heavenly, is white marble and gold with angel wings and a column of light.
+	There are 16 treadmills (Config.Treadmill: Speed per step, StepsPerSecond steps a second), each
+	its own model designed in Blender (art/treadmills -> shared/TreadmillModels): from a rusty old
+	thing with a TV for a console, through turbines, tesla coils, lava and crystals, a dragon and a
+	supernova, to Heavenly - white marble and gold, angel wings and a column of light. Buying the
+	next one in the Shop rebuilds it.
+	Every one has LED strips, spinning parts (a fan, and on the cooler ones turbines, planets,
+	halos...) and lights the clients animate (faster while someone runs), and while the owner runs
+	the belt throws sparks and dust (the model's "Running" attribute).
+	Only the deck and the belt are solid: everything else is to look at, so you can't snag on it.
 ]]
 
 local CollectionService = game:GetService("CollectionService")
@@ -20,6 +24,7 @@ local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(Shared.Config)
 local Economy = require(Shared.Economy)
 local Format = require(Shared.Format)
+local TreadmillModels = require(Shared.TreadmillModels)
 
 local Build = require(script.Parent.Build)
 local DataService = require(script.Parent.DataService)
@@ -75,6 +80,68 @@ function TreadmillService.Remove(player: Player)
 	end
 end
 
+-- One part of a treadmill model (shared/TreadmillModels), placed relative to `origin`
+local function makePart(spec: TreadmillModels.Part, origin: CFrame, parent: Instance): BasePart
+	local part = Instance.new(if spec.Shape == "Wedge" then "WedgePart" else "Part") :: BasePart
+	if spec.Shape == "Cylinder" then
+		(part :: Part).Shape = Enum.PartType.Cylinder
+	elseif spec.Shape == "Ball" then
+		(part :: Part).Shape = Enum.PartType.Ball
+	end
+	part.Name = spec.Name or "Part"
+	part.Size = spec.Size
+	local placed = CFrame.new(spec.Pos)
+	local rot = spec.Rot
+	if rot then
+		placed *= CFrame.Angles(math.rad(rot.X), math.rad(rot.Y), math.rad(rot.Z))
+	end
+	part.CFrame = origin * placed
+	part.Color = spec.Color
+	part.Material = (Enum.Material :: any)[spec.Material or "SmoothPlastic"] or Enum.Material.SmoothPlastic
+	part.Transparency = spec.Transparency or 0
+	part.Anchored = true
+	part.TopSurface = Enum.SurfaceType.Smooth
+	part.BottomSurface = Enum.SurfaceType.Smooth
+	-- (only the deck and the belt are solid: nothing else to snag on or get flung by)
+	local solid = spec.Collide == true
+	part.CanCollide = solid
+	part.CanQuery = solid
+	part.CanTouch = solid
+	part.CastShadow = part.Transparency < 0.5 and part.Material ~= Enum.Material.Neon
+	part.Parent = parent
+	return part
+end
+
+local function makeEffect(fx: TreadmillModels.Fx, origin: CFrame, parent: Instance)
+	local holder = Build.Decor({ Parent = parent, Name = fx.Kind, Size = Vector3.one * 0.5, CFrame = origin * CFrame.new(fx.Pos), Transparency = 1 })
+	holder.CastShadow = false
+	if fx.Kind == "Light" then
+		local light = Instance.new("PointLight")
+		light.Color = fx.Color
+		light.Range = fx.Range
+		light.Brightness = fx.Brightness
+		light.Parent = holder
+	elseif fx.Kind == "Fire" then
+		local fire = Instance.new("Fire")
+		fire.Color = fx.Color
+		fire.SecondaryColor = fx.Color:Lerp(Color3.new(1, 1, 0.6), 0.5)
+		fire.Size = math.clamp(fx.Size * 2, 2, 30)
+		fire.Heat = 5
+		fire.Parent = holder
+	elseif fx.Kind == "Smoke" then
+		local smoke = Instance.new("Smoke")
+		smoke.Color = fx.Color
+		smoke.Size = fx.Size
+		smoke.Opacity = 0.12
+		smoke.RiseVelocity = 3
+		smoke.Parent = holder
+	elseif fx.Kind == "Sparkles" then
+		local sparkles = Instance.new("Sparkles")
+		sparkles.SparkleColor = fx.Color
+		sparkles.Parent = holder
+	end
+end
+
 function TreadmillService.Build(player: Player)
 	local plot = PlotService.GetPlotModel(player)
 	local profile = DataService.Get(player)
@@ -94,97 +161,81 @@ function TreadmillService.Build(player: Player)
 
 	local level = profile.Data.TreadmillLevel
 	local tier = Economy.TreadmillTier(level)
+	local design = TreadmillModels[tier.Name] or TreadmillModels.Rusty
 	local cf = anchor.CFrame
 	local model = Instance.new("Model")
 	model.Name = "Treadmill"
 	model:SetAttribute("OwnerUserId", player.UserId)
 	model:SetAttribute("Tier", level)
+	model:SetAttribute("Design", tier.Name)
 
 	local function at(x: number, y: number, z: number): CFrame
 		return cf * CFrame.new(x, y, z)
 	end
 
-	-- Frame + belt
-	Build.Part({ Parent = model, Name = "Base", Size = Vector3.new(BELT_WIDTH + 2, 1.2, BELT_LENGTH + 2), CFrame = at(0, 0.6, 0.5), Color = tier.Base, Material = tier.Material })
-	local belt = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(BELT_WIDTH, 0.3, BELT_LENGTH), CFrame = at(0, 1.35, 0.5), Color = rgb(30, 30, 35), Material = Enum.Material.Rubber })
-	CollectionService:AddTag(belt, "TreadmillBelt")
-	for i = 0, 5 do
-		local slat = Build.Decor({ Parent = model, Name = "Slat", Size = Vector3.new(BELT_WIDTH - 0.2, 0.06, 0.35), CFrame = at(0, 1.53, 0.5 - BELT_LENGTH / 2 + i * (BELT_LENGTH / 6)), Color = rgb(90, 90, 100), Material = Enum.Material.SmoothPlastic })
-		slat:SetAttribute("SlatIndex", i)
+	-- The model, designed in Blender (art/treadmills): its spinning groups first
+	local groups: { [string]: Model } = {}
+	for name, group in design.Groups do
+		local spinner = Instance.new("Model")
+		spinner.Name = name
+		local pivot = Build.Decor({ Parent = spinner, Name = "Pivot", Size = Vector3.one * 0.2, CFrame = cf * group.Pivot, Transparency = 1 })
+		pivot.CastShadow = false
+		spinner.PrimaryPart = pivot
+		spinner:SetAttribute("Axis", group.Axis)
+		spinner:SetAttribute("Idle", group.Idle)
+		spinner:SetAttribute("Run", group.Run)
+		groups[name] = spinner
+	end
+	local belt: BasePart? = nil
+	local screen: BasePart? = nil
+	for _, spec in design.Parts do
+		local parent: Instance = if spec.Group then groups[spec.Group] or model else model
+		local part = makePart(spec, cf, parent)
+		local tag = spec.Tag
+		if tag == "Belt" then
+			belt = part
+			CollectionService:AddTag(part, "TreadmillBelt")
+		elseif tag == "Slat" then
+			part:SetAttribute("SlatIndex", spec.Index or 0)
+		elseif tag == "LED" then
+			part:SetAttribute("LEDIndex", spec.Index or 0)
+			CollectionService:AddTag(part, "TreadmillLED")
+		elseif tag == "Screen" then
+			screen = part
+		elseif tag == "Rainbow" then
+			CollectionService:AddTag(part, "RainbowPart")
+		elseif tag == "Flicker" then
+			CollectionService:AddTag(part, "TreadmillFlicker")
+		end
+	end
+	for _, spinner in groups do
+		spinner.Parent = model
+		CollectionService:AddTag(spinner, "TreadmillSpin")
+	end
+	for _, fx in design.Fx do
+		makeEffect(fx, cf, model)
+	end
+	local beltPart: BasePart
+	if belt then
+		beltPart = belt
+	else
+		-- (every design has a belt; just in case)
+		beltPart = Build.Part({ Parent = model, Name = "Belt", Size = Vector3.new(BELT_WIDTH, 0.3, BELT_LENGTH), CFrame = at(0, 1.35, 0.5), Color = rgb(30, 30, 35), Material = Enum.Material.Rubber })
+		CollectionService:AddTag(beltPart, "TreadmillBelt")
 	end
 
-	-- Handrails
-	for _, side in { -1, 1 } do
-		for _, z in { -5.8, 3 } do
-			Build.Part({ Parent = model, Name = "RailPost", Size = Vector3.new(0.4, 3.2, 0.4), CFrame = at(side * 3.7, 2.8, z), Color = tier.Accent, Material = Enum.Material.Metal })
-		end
-		Build.Part({ Parent = model, Name = "Rail", Size = Vector3.new(0.45, 0.45, 9.6), CFrame = at(side * 3.7, 4.4, -1.4), Color = tier.Accent, Material = Enum.Material.Metal })
-		if tier.Neon then
-			local strip = Build.Decor({ Parent = model, Name = "Accent", Size = Vector3.new(0.25, 0.3, BELT_LENGTH + 2), CFrame = at(side * 4.1, 0.9, 0.5), Color = tier.Accent, Material = Enum.Material.Neon })
-			if tier.Rainbow then
-				CollectionService:AddTag(strip, "RainbowPart")
-			end
-		end
+	-- The console's screen: the treadmill's name and what a step gives you (facing the runner)
+	if screen then
+		local screenGui = Instance.new("SurfaceGui")
+		screenGui.Face = Enum.NormalId.Back
+		screenGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		screenGui.PixelsPerStud = 40
+		screenGui.LightInfluence = 0
+		screenGui.Parent = screen
+		Build.Text(screenGui, "", { Name = "TierName", Size = UDim2.fromScale(1, 0.4), TextColor3 = tier.Accent, Font = Enum.Font.FredokaOne })
+		Build.Text(screenGui, "", { Name = "Rate", Size = UDim2.fromScale(1, 0.6), Position = UDim2.fromScale(0, 0.4), TextColor3 = rgb(180, 120, 255) })
 	end
 
-	-- Console at the front
-	Build.Part({ Parent = model, Name = "ConsolePost", Size = Vector3.new(1.4, 4.5, 0.9), CFrame = at(0, 3.4, -6.4), Color = tier.Base, Material = tier.Material })
-	local screen = Build.Part({ Parent = model, Name = "Screen", Size = Vector3.new(5.4, 2.8, 0.4), CFrame = at(0, 6.2, -6.5) * CFrame.Angles(math.rad(-25), 0, 0), Color = rgb(15, 15, 20), Material = Enum.Material.SmoothPlastic })
-	local screenGui = Instance.new("SurfaceGui")
-	screenGui.Face = Enum.NormalId.Back -- faces the runner
-	screenGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	screenGui.PixelsPerStud = 40
-	screenGui.LightInfluence = 0
-	screenGui.Parent = screen
-	Build.Text(screenGui, "", { Name = "TierName", Size = UDim2.fromScale(1, 0.4), TextColor3 = tier.Accent, Font = Enum.Font.FredokaOne })
-	Build.Text(screenGui, "", { Name = "Rate", Size = UDim2.fromScale(1, 0.6), Position = UDim2.fromScale(0, 0.4), TextColor3 = rgb(180, 120, 255) })
-
-	if tier.Light then
-		local light = Instance.new("PointLight")
-		light.Color = tier.Accent
-		light.Range = 14
-		light.Brightness = 2
-		light.Parent = screen
-	end
-	if tier.Sparkles then
-		local sparkles = Instance.new("Sparkles")
-		sparkles.SparkleColor = tier.Accent
-		sparkles.Parent = belt
-	end
-	if tier.Fire then
-		local exhaust = Build.Decor({ Parent = model, Name = "Exhaust", Size = Vector3.new(1, 1, 1), CFrame = at(0, 1.2, 8), Transparency = 1 })
-		local fire = Instance.new("Fire")
-		fire.Size = 3
-		fire.Heat = 3
-		fire.Parent = exhaust
-	end
-	if tier.Rainbow or tier.Halo then
-		-- Glowing underglow so the top tiers look special even from far away
-		local glow = Build.Decor({ Parent = model, Name = "Underglow", Size = Vector3.new(BELT_WIDTH + 3, 0.2, BELT_LENGTH + 3), CFrame = at(0, 0.1, 0.5), Color = tier.Accent, Material = Enum.Material.Neon, Transparency = 0.3 })
-		if tier.Rainbow then
-			CollectionService:AddTag(glow, "RainbowPart")
-		end
-	end
-	-- LED strips along both sides of the belt (every tier): the clients run a chase pattern on them.
-	for _, side in { -1, 1 } do
-		for i = 0, 9 do
-			local led = Build.Decor({ Parent = model, Name = "LED", Size = Vector3.new(0.3, 0.2, 0.9), CFrame = at(side * 3.45, 1.32, 0.5 - BELT_LENGTH / 2 + 0.7 + i * (BELT_LENGTH - 1.4) / 9), Color = tier.Accent, Material = Enum.Material.Neon })
-			led:SetAttribute("LEDIndex", i)
-			CollectionService:AddTag(led, "TreadmillLED")
-		end
-	end
-	-- A fan on the console that spins (faster while someone runs)
-	local fan = Instance.new("Model")
-	fan.Name = "Fan"
-	local fanCenter = at(0, 3.2, -5.75) * CFrame.Angles(0, math.pi / 2, 0) -- on the runner's side of the console
-	local hub = Build.Decor({ Parent = fan, Name = "FanHub", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.3, 0.7, 0.7), CFrame = fanCenter, Color = tier.Accent, Material = Enum.Material.Neon })
-	for i = 0, 3 do
-		Build.Decor({ Parent = fan, Name = "Blade", Size = Vector3.new(0.12, 1.5, 0.45), CFrame = fanCenter * CFrame.Angles(i * math.pi / 2, 0, 0) * CFrame.new(0, 0.85, 0), Color = tier.Base:Lerp(Color3.new(1, 1, 1), 0.4), Material = Enum.Material.Metal })
-	end
-	Build.Decor({ Parent = fan, Name = "FanRing", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.2, 3.9, 3.9), CFrame = fanCenter, Color = tier.Base, Material = tier.Material, Transparency = 0.6 })
-	fan.PrimaryPart = hub
-	CollectionService:AddTag(fan, "TreadmillFan")
-	fan.Parent = model
 	-- Sparks + dust thrown off the back of the belt while the owner runs (switched on by the server)
 	local back = Build.Decor({ Parent = model, Name = "RunFX", Size = Vector3.new(BELT_WIDTH, 0.2, 0.2), CFrame = at(0, 1.6, 0.5 + BELT_LENGTH / 2), Transparency = 1 })
 	local sparks = Instance.new("ParticleEmitter")
@@ -212,8 +263,8 @@ function TreadmillService.Build(player: Player)
 	dust.Transparency = NumberSequence.new(0.5, 1)
 	dust.Enabled = false
 	dust.Parent = back
-	if level >= 9 then
-		-- The top treadmills: an energy column rises from the belt while running
+	if level >= 11 then
+		-- The top treadmills (Quantum and up): an energy column rises from the belt while running
 		local column = Instance.new("ParticleEmitter")
 		column.Name = "Aura"
 		column.Color = ColorSequence.new(tier.Accent, Color3.new(1, 1, 1))
@@ -225,39 +276,7 @@ function TreadmillService.Build(player: Player)
 		column.EmissionDirection = Enum.NormalId.Top
 		column.Size = NumberSequence.new(0.5, 0)
 		column.Enabled = false
-		column.Parent = belt
-	end
-
-	if tier.Heavenly then
-		-- The last treadmill: marble steps, golden angel wings either side and a column of light
-		for i = 0, 2 do
-			Build.Decor({ Parent = model, Name = "Step", Size = Vector3.new(BELT_WIDTH + 6 - i * 1.5, 0.5, BELT_LENGTH + 6 - i * 1.5), CFrame = at(0, 0.25 - i * 0.01, 0.5), Color = if i % 2 == 0 then rgb(255, 252, 240) else rgb(255, 225, 120), Material = if i % 2 == 0 then Enum.Material.Marble else Enum.Material.Foil })
-		end
-		for _, side in { -1, 1 } do
-			for f = 0, 4 do
-				Build.Decor({ Parent = model, Name = "Feather", Size = Vector3.new(0.4, 1.2 + f * 0.25, 5 - f * 0.55), CFrame = at(side * (5.2 + f * 0.9), 6 + f * 1.3, 2) * CFrame.Angles(math.rad(-15 - f * 6), 0, side * math.rad(25 + f * 8)), Color = if f % 2 == 0 then rgb(255, 255, 255) else rgb(255, 235, 170), Material = Enum.Material.SmoothPlastic })
-			end
-		end
-		local beam = Build.Decor({ Parent = model, Name = "LightColumn", Shape = Enum.PartType.Cylinder, Size = Vector3.new(60, 7, 7), CFrame = at(0, 31, 0.5) * CFrame.Angles(0, 0, math.pi / 2), Color = rgb(255, 245, 200), Material = Enum.Material.Neon, Transparency = 0.82 })
-		beam.CastShadow = false
-		local holy = Instance.new("PointLight")
-		holy.Color = rgb(255, 240, 190)
-		holy.Range = 26
-		holy.Brightness = 2.5
-		holy.Parent = beam
-	end
-	if tier.Halo then
-		local center = at(0, 9.5, 0.5)
-		local ring = Instance.new("Model")
-		ring.Name = "Halo"
-		local pivot = Build.Decor({ Parent = ring, Name = "Center", Size = Vector3.one, CFrame = center, Transparency = 1 })
-		for i = 0, 15 do
-			local angle = i / 16 * math.pi * 2
-			Build.Decor({ Parent = ring, Name = "HaloBall", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.8, CFrame = center * CFrame.new(math.cos(angle) * 4, 0, math.sin(angle) * 4), Color = tier.Accent, Material = Enum.Material.Neon })
-		end
-		ring.PrimaryPart = pivot
-		CollectionService:AddTag(ring, "SpinSlow")
-		ring.Parent = model
+		column.Parent = beltPart
 	end
 
 	-- Floating label
@@ -266,13 +285,13 @@ function TreadmillService.Build(player: Player)
 	label.StudsOffsetWorldSpace = Vector3.new(0, 10, 0)
 	label.MaxDistance = 90
 	label.LightInfluence = 0
-	label.Parent = belt
+	label.Parent = beltPart
 	Build.Text(label, "STEP ON TO RUN!", { Size = UDim2.fromScale(1, 0.5), TextColor3 = rgb(255, 255, 255) })
 	Build.Text(label, `Tier {level}/{Economy.MaxTreadmillLevel()} • upgrade in Shop`, { Size = UDim2.fromScale(1, 0.4), Position = UDim2.fromScale(0, 0.55), TextColor3 = rgb(255, 230, 90), Font = Enum.Font.FredokaOne })
 
-	model.PrimaryPart = belt
+	model.PrimaryPart = beltPart
 	model.Parent = plot
-	belts[player] = belt
+	belts[player] = beltPart
 	updateScreen(player)
 end
 

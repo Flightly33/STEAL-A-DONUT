@@ -61,6 +61,20 @@ UpdateNotes.List = {
 		Decor = "Sparkles",
 		Emblem = { Frosting = Color3.fromRGB(255, 170, 50), Sprinkles = { Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 220, 90), Color3.fromRGB(255, 90, 90) }, Dough = Color3.fromRGB(200, 140, 80) },
 		Sections = {
+			{ Title = "New Treadmills", Tag = "NEW", Lines = {
+				"Four new treadmills: Thunder (tesla coils crackling with lightning and a storm cloud over the console), Magma (lava cracks, a smoking volcano and rock pillars), Dragon (a dragon's head, gold horns, spread wings and a curly tail) and Supernova (a blazing star with turning rays)",
+				"That's 16 now, and the gaps between them are shorter: never much more than an hour and a half before the next one",
+				"Heavenly is still the very last one - and gives even more speed now",
+				"Every treadmill has been rebuilt from scratch: rollers, a motor hood, handlebars with grips, a console with buttons and speakers, a spinning fan, and lots more",
+				"Each one has its own look: the Rusty one's TV console with rabbit ears, Sporty's spoiler and wheels, Turbo's jet engines, Neon's glowing grid, Diamond's crystals, Plasma's orb, Quantum's atom and hologram, Cosmic's tiny solar system, Void's black hole, Heavenly's feathered wings",
+				"Turbines, planets, rings, rays and halos spin - and faster while you run",
+				"Your treadmill is the same one you had: nobody loses theirs",
+			} },
+			{ Title = "No More Flinging", Tag = "FIXED", Lines = {
+				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
+				"Fences are smooth to bump into now (you used to be able to climb them by accident, which shot you up at high speeds)",
+				"Getting caught by Domer, hit by a rock or a bat still sends you flying, just like before",
+			} },
 			{ Title = "Real Moves", Tag = "NEW", Lines = {
 				"In the opening movie and the Mythic box opening your character really moves now: hand-animated on every joint - elbows, wrists, knees, ankles, waist and neck, not just stiff arms and legs",
 				"Ask the baker with a friendly open hand, stamp your feet at Domer, shake your fist as you yell after him, bend over with your hands on your knees to catch your breath, then straighten up and point at your treadmill",

@@ -172,6 +172,11 @@ Layout.SideRows = 2 -- bases down each side of the walkway (the back two come af
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
+-- (plot space) how far either side of the pen's middle the treadmill, incubator and podium stand:
+-- clear of even the biggest pen. A treadmill reaches TreadmillReach studs either way along its belt
+-- (art/treadmills keeps every design within it).
+Layout.TreadmillReach = 10.2
+Layout.SideItemsX = Layout.PlotWidth / 2 - 9
 
 -- Z of the middle of the back two bases: right behind the last row down the sides.
 function Layout.BackRowZ(): number

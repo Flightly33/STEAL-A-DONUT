@@ -5,7 +5,8 @@
 	lines streak across the screen, a trail in your treadmill's colour follows you, and every time
 	you gain a whole point of WalkSpeed (every Config.Speed.SpeedPerWalk Speed) a "+1 WALK SPEED!"
 	burst pops up.
-	Every treadmill's LED strips and fan are animated here too (faster while someone runs on it).
+	Every treadmill's LED strips, spinning parts and electric arcs are animated here too (faster while
+	someone runs on it).
 
 	The server decides how much speed you actually get (TreadmillService); this only handles the
 	feel.
@@ -166,39 +167,62 @@ local function walkSpeedBurst(points: number)
 	end)
 end
 
--- LED strips chase along every treadmill, the fans spin (both faster while someone runs on it)
+-- LED strips chase along every treadmill, its spinning parts turn (a fan, turbines, planets, halos -
+-- all faster while someone runs on it), and the electric arcs flicker
 local function startTreadmillAnimations()
 	type LED = { Part: BasePart, Index: number, Model: Instance }
+	type Spinner = { Model: Model, Base: CFrame, Axis: string, Idle: number, Run: number, Angle: number }
 	local leds: { [Instance]: LED } = {}
-	local fans: { [Instance]: { Model: Model, Base: CFrame } } = {}
+	local spinners: { [Instance]: Spinner } = {}
+	local flickers: { [Instance]: BasePart } = {}
 	local function addLED(instance: Instance)
 		if instance:IsA("BasePart") then
 			leds[instance] = { Part = instance, Index = (instance:GetAttribute("LEDIndex") :: number?) or 0, Model = instance.Parent :: Instance }
 		end
 	end
-	local function addFan(instance: Instance)
+	local function addSpinner(instance: Instance)
 		if instance:IsA("Model") and instance.PrimaryPart then
-			fans[instance] = { Model = instance, Base = instance:GetPivot() }
+			local axis = instance:GetAttribute("Axis")
+			spinners[instance] = {
+				Model = instance,
+				Base = instance:GetPivot(),
+				Axis = if type(axis) == "string" then axis else "Y",
+				Idle = (instance:GetAttribute("Idle") :: number?) or 0.5,
+				Run = (instance:GetAttribute("Run") :: number?) or 2,
+				Angle = 0,
+			}
+		end
+	end
+	local function addFlicker(instance: Instance)
+		if instance:IsA("BasePart") then
+			flickers[instance] = instance
 		end
 	end
 	for _, led in CollectionService:GetTagged("TreadmillLED") do
 		addLED(led)
 	end
-	for _, fan in CollectionService:GetTagged("TreadmillFan") do
-		addFan(fan)
+	for _, spinner in CollectionService:GetTagged("TreadmillSpin") do
+		addSpinner(spinner)
+	end
+	for _, part in CollectionService:GetTagged("TreadmillFlicker") do
+		addFlicker(part)
 	end
 	CollectionService:GetInstanceAddedSignal("TreadmillLED"):Connect(addLED)
-	CollectionService:GetInstanceAddedSignal("TreadmillFan"):Connect(function(instance)
-		task.wait(0.2)
-		addFan(instance)
+	CollectionService:GetInstanceAddedSignal("TreadmillSpin"):Connect(function(instance)
+		task.wait(0.2) -- (let its parts replicate)
+		addSpinner(instance)
 	end)
+	CollectionService:GetInstanceAddedSignal("TreadmillFlicker"):Connect(addFlicker)
 	CollectionService:GetInstanceRemovedSignal("TreadmillLED"):Connect(function(instance)
 		leds[instance] = nil
 	end)
-	CollectionService:GetInstanceRemovedSignal("TreadmillFan"):Connect(function(instance)
-		fans[instance] = nil
+	CollectionService:GetInstanceRemovedSignal("TreadmillSpin"):Connect(function(instance)
+		spinners[instance] = nil
 	end)
-	local fanAngle: { [Instance]: number } = {}
+	CollectionService:GetInstanceRemovedSignal("TreadmillFlicker"):Connect(function(instance)
+		flickers[instance] = nil
+	end)
+	local flickerClock = 0
 	RunService.RenderStepped:Connect(function(dt: number)
 		local t = os.clock()
 		local camera = workspace.CurrentCamera
@@ -215,15 +239,30 @@ local function startTreadmillAnimations()
 				led.Part.Transparency = if running then 0.5 - wave * 0.5 else 0.35 - wave * 0.3
 			end
 		end
-		for instance, fan in fans do
-			if not instance.Parent then
-				fans[instance] = nil
+		for instance, spinner in spinners do
+			local treadmill = instance.Parent
+			if not treadmill then
+				spinners[instance] = nil
 				continue
 			end
-			if (fan.Base.Position - cam).Magnitude < 120 then
-				local running = (fan.Model.Parent :: Instance):GetAttribute("Running") == true
-				fanAngle[instance] = (fanAngle[instance] or 0) + dt * (if running then 22 else 3)
-				fan.Model:PivotTo(fan.Base * CFrame.Angles(fanAngle[instance], 0, 0))
+			if (spinner.Base.Position - cam).Magnitude < 120 then
+				local running = treadmill:GetAttribute("Running") == true
+				spinner.Angle += dt * (if running then spinner.Run else spinner.Idle)
+				local a = spinner.Angle
+				local turn = if spinner.Axis == "X" then CFrame.Angles(a, 0, 0) elseif spinner.Axis == "Z" then CFrame.Angles(0, 0, a) else CFrame.Angles(0, a, 0)
+				spinner.Model:PivotTo(spinner.Base * turn)
+			end
+		end
+		-- (arcs of electricity: on and off a few times a second)
+		flickerClock += dt
+		if flickerClock >= 0.07 then
+			flickerClock = 0
+			for instance, part in flickers do
+				if not instance.Parent then
+					flickers[instance] = nil
+				elseif (part.Position - cam).Magnitude < 120 then
+					part.Transparency = if math.random() < 0.3 then 0.85 else 0
+				end
 			end
 		end
 	end)
