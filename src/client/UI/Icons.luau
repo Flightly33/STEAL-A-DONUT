@@ -5,7 +5,8 @@
 	Theme.Button or a HUD square takes one by name: cart, book, paw, cycle, tools, house, building,
 	globe, rocket, palette, heart, news, note, gear, eye, bolt (Speed), cash, coin, clover (luck),
 	egg, gift, friends (the Friend Boost), plus, check, and the HUD's coloured ones: basket, indexBook,
-	pawPink, houseRed, globeBlue, paletteWood, newsYellow, gearSteel, toolsSteel, buildingBlue.
+	pawPink, houseRed, globeBlue, paletteWood, newsYellow, gearSteel, toolsSteel, buildingBlue,
+	backpack (Inventory), calendar (Daily Rewards).
 
 	Each icon is a list of shapes in a 1 x 1 box (x, y = centre; w, h = size; rot = degrees;
 	r = corner rounding, 0.5 = round):
@@ -476,6 +477,28 @@ SHAPES.indexBook = {
 	shine(0.42, 0.21, 0.13, 0.04, -14),
 }
 SHAPES.pawPink = tinted(SHAPES.paw, Color3.fromRGB(255, 150, 205))
+
+-- A purple-strapped brown backpack (Inventory) and a calendar page with a red top (Daily Rewards)
+local PACK = Color3.fromRGB(196, 120, 60)
+SHAPES.backpack = {
+	capsule(0.38, 0.2, 0.62, 0.2, 0.08, { color = Color3.fromRGB(150, 85, 40), back = 1 }), -- (the handle loop)
+	box(0.5, 0.56, 0.66, 0.7, { r = 0.22, color = PACK }),
+	box(0.5, 0.36, 0.66, 0.26, { r = 0.3, color = Color3.fromRGB(226, 150, 80) }), -- the flap
+	box(0.5, 0.72, 0.42, 0.26, { r = 0.25, color = Color3.fromRGB(226, 150, 80) }), -- the front pocket
+	box(0.5, 0.45, 0.1, 0.08, { r = 0.3, fill = Color3.fromRGB(255, 214, 70) }), -- the buckle
+	shine(0.32, 0.38, 0.12, 0.04, 0),
+}
+SHAPES.calendar = {
+	box(0.5, 0.56, 0.72, 0.66, { r = 0.12 }),
+	box(0.5, 0.33, 0.72, 0.2, { r = 0.2, color = Color3.fromRGB(240, 70, 80) }),
+	box(0.36, 0.2, 0.07, 0.16, { r = 0.5, fill = "ink" }),
+	box(0.64, 0.2, 0.07, 0.16, { r = 0.5, fill = "ink" }),
+	box(0.38, 0.55, 0.1, 0.08, { r = 0.2, fill = "ink", plain = true }),
+	box(0.5, 0.55, 0.1, 0.08, { r = 0.2, fill = "ink", plain = true }),
+	box(0.62, 0.55, 0.1, 0.08, { r = 0.2, fill = "ink", plain = true }),
+	box(0.38, 0.7, 0.1, 0.08, { r = 0.2, fill = "ink", plain = true }),
+	box(0.5, 0.7, 0.1, 0.08, { r = 0.2, fill = Color3.fromRGB(240, 70, 80), plain = true }),
+}
 
 -- ...and the right-hand ones: a house with a red roof (Home), a blue globe (Teleport), a wooden
 -- palette (Skins), a yellow newspaper (Updates), a steel gear (Settings), steel tools (Admin), a blue

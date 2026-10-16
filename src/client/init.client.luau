@@ -96,6 +96,9 @@ HUD.Init({
 	TrailReady = Trails.IsReady,
 	ReadyEggs = PetsWindow.ReadyEggs,
 	OpenDaily = DailyRewards.Open,
+	OpenInventory = function()
+		Hotbar.ToggleBag()
+	end,
 	DailyReady = DailyRewards.Ready,
 })
 Effects.Init()

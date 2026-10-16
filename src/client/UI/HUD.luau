@@ -1,19 +1,18 @@
 --[[
-	HUD: always-on screen UI in the chunky "Steal an Egg" style, kept away from Roblox's own UI
-	(chat top-left, player list top-right, hotbar bottom-centre):
-	  left   - a column of big drawn icons with their names under them (no button boxes): Shop (a red
-	           basket: upgrades, boosts, crates, skins, trails and tips all in one - UI/Shop), Index
-	           (a blue book), Pets (a pink paw), Daily (a present)
-	  right  - the same big drawn icons with their names: Admin, + Base after the base code,
-	           + Teleport for Teleporter pass owners (the Update Log is a tab of the Index), centred on the right edge
-	  corner - Settings (music, run speed, Hide UI...): a gear in Roblox's top bar, top right (the
-	           top bar's free space, so Roblox's player list below it never covers it)
-	  stats  - "Friend Boost: +N%" (the money your friends here add) with a green + that opens
-	           Roblox's invite-friends window; Speed; Money (a yellow + after it opens the money game
-	           passes); income per second (bottom-left; top-right on phones and tablets)
+	HUD: always-on screen UI in the chunky simulator style, kept away from Roblox's own UI (chat
+	top-left, player list top-right, hotbar bottom-centre):
+	  left   - big wide buttons, an icon and a bold name on each: Shop (green: upgrades, boosts,
+	           crates, skins, trails and tips - UI/Shop), Inventory (purple: every item you're
+	           carrying, UI/Hotbar's bag), Index (blue); and under them the Slow Mode switch (walk
+	           at Config.Speed.SlowModeSpeed - handy round your base; off: as fast as you can)
+	  right  - coloured squares with an icon and a name: Pets, + Admin, + Base after the base code,
+	           + Teleport for Teleporter pass owners
+	  top    - small round buttons in Roblox's top bar, top right: Daily Rewards (a "!" when one is
+	           waiting) and Settings (music, run speed, Hide UI...)
+	  stats  - bottom-left: Speed; Money with what you earn a second right after it (and a yellow +
+	           for the money game passes); "Friend Boost: +N%" with a green + to invite friends
 	  biomes - a banner at the top whenever you walk into a biome: its name, the Speed it needs and
 	           how fast its Domer runs (server events show their time left in the pills up there too)
-
 	  luck   - a pill at the top while a Luck Event runs (anyone can add 10 more minutes)
 ]]
 
@@ -50,6 +49,7 @@ export type Callbacks = {
 	ReadyEggs: () -> number,
 	OpenDaily: () -> (),
 	DailyReady: () -> boolean,
+	OpenInventory: () -> (),
 }
 
 -- Little red number bubble in a button's corner.
@@ -72,102 +72,168 @@ local function badge(button: GuiObject): TextLabel
 	return bubble
 end
 
--- A big drawn icon with its name under it, no button box around it (like the simulator games): every
--- button on both sides of the screen
-local ICON_BUTTON = Vector2.new(104, 94)
-local function iconButton(parent: Instance, name: string, icon: string, caption: string, order: number): TextButton
+-- A big wide button: a drawn icon on the left and its name in bold, on a bright colour with a chunky
+-- dark outline (the left column)
+local WIDE = Vector2.new(214, 64)
+local function wideButton(parent: Instance, name: string, icon: string, caption: string, color: Color3, order: number): TextButton
 	local button = Theme.new("TextButton", {
 		Name = name,
 		Text = "",
 		AutoButtonColor = false,
-		BackgroundTransparency = 1,
-		Size = UDim2.fromOffset(ICON_BUTTON.X, ICON_BUTTON.Y),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Size = UDim2.fromOffset(WIDE.X, WIDE.Y),
 		LayoutOrder = order,
 		Parent = parent,
+	}, {
+		Theme.Corner(10),
+		Theme.Gradient(Theme.Lighten(color, 0.25), Theme.Darken(color, 0.15)),
 	})
-	local drawn = Icons.Draw(icon, button, nil, {
-		Size = UDim2.fromScale(0.82, 0.82),
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.fromScale(0.5, 0),
+	Theme.new("UIStroke", { Thickness = 4, Color = Theme.Darken(color, 0.65), ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = button })
+	-- (a thin light rim inside, like a chunky plastic button)
+	Theme.new("Frame", {
+		Name = "Rim",
+		BackgroundTransparency = 1,
+		Size = UDim2.new(1, -6, 1, -6),
+		Position = UDim2.fromOffset(3, 3),
+		Parent = button,
+	}, { Theme.Corner(8), Theme.new("UIStroke", { Thickness = 2, Color = Theme.Lighten(color, 0.55), Transparency = 0.2 }) })
+	local drawn = Icons.Draw(icon, button, color, {
+		Size = UDim2.fromScale(0.92, 0.92),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 6, 0.5, 0),
 	})
-	drawn.ZIndex = 1
-	Theme.Label({ Name = "Caption", Text = caption, Size = UDim2.new(1, 0, 0, 26), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.fromScale(0.5, 1), StrokeThickness = 3, ZIndex = 3, Parent = button })
+	drawn.ZIndex = 2
+	Theme.Label({ Name = "Caption", Text = caption, Size = UDim2.new(1, -78, 0.66, 0), Position = UDim2.new(0, 70, 0.17, 0), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 3.5, ZIndex = 3, Parent = button })
 	button.MouseButton1Down:Connect(function()
 		Theme.Bounce(button)
 	end)
 	return button
 end
 
+-- A coloured square with an icon and its name across the bottom (the right column)
+local SQUARE = Vector2.new(92, 92)
+local function squareButton(parent: Instance, name: string, icon: string, caption: string, color: Color3, order: number): TextButton
+	local button = Theme.new("TextButton", {
+		Name = name,
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		Size = UDim2.fromOffset(SQUARE.X, SQUARE.Y),
+		LayoutOrder = order,
+		Parent = parent,
+	}, {
+		Theme.Corner(10),
+		Theme.Gradient(Theme.Lighten(color, 0.25), Theme.Darken(color, 0.15)),
+	})
+	Theme.new("UIStroke", { Thickness = 4, Color = Theme.Darken(color, 0.65), ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = button })
+	local drawn = Icons.Draw(icon, button, color, {
+		Size = UDim2.fromScale(0.7, 0.7),
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 4),
+	})
+	drawn.ZIndex = 2
+	Theme.Label({ Name = "Caption", Text = caption, Size = UDim2.new(1, -6, 0, 24), AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -3), StrokeThickness = 2.5, ZIndex = 3, Parent = button })
+	button.MouseButton1Down:Connect(function()
+		Theme.Bounce(button)
+	end)
+	return button
+end
+
+local GREEN = Color3.fromRGB(70, 200, 60)
+local PURPLE = Color3.fromRGB(130, 80, 230)
+local BLUE = Color3.fromRGB(40, 170, 245)
+
+-- The Slow Mode switch: a pill with a sliding knob (lit when on) and its name beside it
+local function buildSlowMode(parent: Instance)
+	local row = Theme.new("Frame", { Name = "SlowMode", BackgroundTransparency = 1, Size = UDim2.fromOffset(WIDE.X, 48), LayoutOrder = 10, Parent = parent })
+	local toggle = Theme.new("TextButton", {
+		Name = "Toggle",
+		Text = "",
+		AutoButtonColor = false,
+		BackgroundColor3 = Color3.fromRGB(40, 110, 50),
+		Size = UDim2.fromOffset(88, 42),
+		Position = UDim2.fromOffset(0, 3),
+		Parent = row,
+	}, {
+		Theme.Corner(8),
+		Theme.new("UIStroke", { Thickness = 3, Color = Color3.fromRGB(16, 40, 20) }),
+	})
+	local knob = Theme.new("Frame", {
+		Name = "Knob",
+		BackgroundColor3 = Color3.fromRGB(120, 230, 90),
+		Size = UDim2.fromOffset(36, 32),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 5, 0.5, 0),
+		Parent = toggle,
+	}, { Theme.Corner(6), Theme.new("UIStroke", { Thickness = 2, Color = Color3.fromRGB(16, 40, 20) }) })
+	Theme.Label({ Name = "Caption", Text = "Slow Mode", Size = UDim2.new(1, -98, 0.8, 0), Position = UDim2.new(0, 98, 0.1, 0), TextXAlignment = Enum.TextXAlignment.Left, StrokeThickness = 3, Parent = row })
+	local function show()
+		local on = State.Number("SpeedLimit") > 0
+		row:SetAttribute("On", on)
+		TweenService:Create(knob, TweenInfo.new(0.15), { Position = if on then UDim2.new(1, -41, 0.5, 0) else UDim2.new(0, 5, 0.5, 0) }):Play()
+		knob.BackgroundColor3 = if on then Color3.fromRGB(150, 255, 110) else Color3.fromRGB(110, 200, 90)
+		toggle.BackgroundColor3 = if on then Color3.fromRGB(60, 160, 60) else Color3.fromRGB(40, 110, 50)
+	end
+	toggle.Activated:Connect(function()
+		Theme.Bounce(toggle)
+		local on = State.Number("SpeedLimit") > 0
+		State.Action("SetSpeedLimit", if on then 0 else Config.Speed.SlowModeSpeed)
+	end)
+	State.OnAttribute("SpeedLimit", show)
+	show()
+end
+
 local function buildLeft(gui: ScreenGui, callbacks: Callbacks)
 	local left = Theme.new("Frame", {
 		Name = "LeftButtons",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 8, 0.42, 0),
-		Size = UDim2.fromOffset(106, 4 * (ICON_BUTTON.Y + 2)),
+		Position = UDim2.new(0, 10, 0.44, 0),
+		Size = UDim2.fromOffset(WIDE.X + 8, 3 * (WIDE.Y + 10) + 56),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIListLayout", { Padding = UDim.new(0, 2), HorizontalAlignment = Enum.HorizontalAlignment.Center, SortOrder = Enum.SortOrder.LayoutOrder }),
+		Theme.new("UIListLayout", { Padding = UDim.new(0, 10), HorizontalAlignment = Enum.HorizontalAlignment.Left, SortOrder = Enum.SortOrder.LayoutOrder }),
 	})
 	Theme.AutoScale(left)
 
-	local shop = iconButton(left, "Shop", "basket", "Shop", 1)
-	local index = iconButton(left, "Index", "indexBook", "Index", 2)
-	local pets = iconButton(left, "Pets", "pawPink", "Pets", 3)
-	local daily = iconButton(left, "Daily", "gift", "Daily", 4)
+	local shop = wideButton(left, "Shop", "basket", "Shop", GREEN, 1)
+	local inventory = wideButton(left, "Inventory", "backpack", "Inventory", PURPLE, 2)
+	local index = wideButton(left, "Index", "indexBook", "Index", BLUE, 3)
+	buildSlowMode(left)
 	shop.Activated:Connect(function()
 		callbacks.OpenShop(if callbacks.TrailReady() then "Trails" else "Upgrades")
 	end)
-	pets.Activated:Connect(callbacks.OpenPets)
+	inventory.Activated:Connect(callbacks.OpenInventory)
 	index.Activated:Connect(callbacks.OpenIndex)
-	daily.Activated:Connect(callbacks.OpenDaily)
 
-	-- Badges: unclaimed Index rewards, eggs ready to hatch, a daily reward waiting, a trail unlocked
-	-- but not worn (the Shop's Trails)
+	-- Badges: unclaimed Index rewards, a trail unlocked but not worn (the Shop's Trails)
 	local indexBadge = badge(index)
-	local petsBadge = badge(pets)
-	local dailyBadge = badge(daily)
 	local shopBadge = badge(shop)
 	shopBadge.Text = "!"
-	for _, bubble in { indexBadge, petsBadge, dailyBadge, shopBadge } do
-		bubble.Position = UDim2.new(0.5, 30, 0, 8) -- (the icon's top-right corner)
-	end
 	local function updateBadges()
 		local unclaimed = callbacks.UnclaimedIndex()
 		indexBadge.Visible = unclaimed > 0
 		indexBadge.Text = if unclaimed > 99 then "99+" else tostring(unclaimed)
-		local ready = callbacks.ReadyEggs()
-		petsBadge.Visible = ready > 0
-		petsBadge.Text = tostring(ready)
-		dailyBadge.Visible = callbacks.DailyReady()
-		dailyBadge.Text = "!"
 		shopBadge.Visible = callbacks.TrailReady()
 	end
 	State.Changed:Connect(updateBadges)
-	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do -- (and every 2 seconds below: a new day)
+	for _, name in { "Money", "Speed", "BestSpeed", "Trail" } do
 		State.OnAttribute(name, updateBadges)
 	end
-	task.spawn(function()
-		while true do
-			task.wait(2) -- eggs finish hatching on their own
-			updateBadges()
-		end
-	end)
 end
 
 local function buildRight(gui: ScreenGui, callbacks: Callbacks)
-	-- (on phones and tablets the stats are at the top right: the icons sit a little lower there)
+	-- (on phones and tablets the stats are at the top right: the squares sit a little lower there)
 	local right = Theme.new("Frame", {
 		Name = "RightButtons",
 		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -8, if Theme.IsTouch then 0.58 else 0.5, 0),
-		Size = UDim2.fromOffset(2 * ICON_BUTTON.X + 12, 4 * (ICON_BUTTON.Y + 2)),
+		Position = UDim2.new(1, -10, if Theme.IsTouch then 0.58 else 0.5, 0),
+		Size = UDim2.fromOffset(SQUARE.X + 8, 4 * (SQUARE.Y + 12)),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
-		Theme.new("UIGridLayout", {
-			CellSize = UDim2.fromOffset(ICON_BUTTON.X, ICON_BUTTON.Y),
-			CellPadding = UDim2.fromOffset(12, 2),
+		Theme.new("UIListLayout", {
+			Padding = UDim.new(0, 12),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 			HorizontalAlignment = Enum.HorizontalAlignment.Right,
 			VerticalAlignment = Enum.VerticalAlignment.Center,
@@ -175,27 +241,37 @@ local function buildRight(gui: ScreenGui, callbacks: Callbacks)
 	})
 	Theme.AutoScale(right)
 
-	local function button(name: string, icon: string, caption: string, order: number, onClick: () -> ()): TextButton
-		local b = iconButton(right, name, icon, caption, order)
+	local function button(name: string, icon: string, caption: string, color: Color3, order: number, onClick: () -> ()): TextButton
+		local b = squareButton(right, name, icon, caption, color, order)
 		b.Activated:Connect(onClick)
 		return b
 	end
-	local admin = button("Admin", "toolsSteel", "Admin", 0, callbacks.OpenAdmin)
+	local pets = button("Pets", "pawPink", "Pets", Color3.fromRGB(255, 140, 40), 1, callbacks.OpenPets)
+	local petsBadge = badge(pets)
+	task.spawn(function()
+		while true do
+			-- (eggs finish hatching on their own)
+			local ready = callbacks.ReadyEggs()
+			petsBadge.Visible = ready > 0
+			petsBadge.Text = tostring(ready)
+			task.wait(2)
+		end
+	end)
+	local admin = button("Admin", "toolsSteel", "Admin", Color3.fromRGB(110, 120, 140), 4, callbacks.OpenAdmin)
 	admin.Visible = false
 	-- The base code ("ender=rich"): just the bigger-base buttons
-	local baseSize = button("Base", "buildingBlue", "Base", 0, callbacks.OpenBaseSize)
+	local baseSize = button("Base", "buildingBlue", "Base", Color3.fromRGB(60, 110, 220), 3, callbacks.OpenBaseSize)
+	baseSize.Visible = false
 	State.OnAttribute("SizeAccess", function(value)
 		baseSize.Visible = value == true
 	end)
 	-- Teleporter pass owners: jump to any biome. Everyone else walks.
-	local teleport = button("Teleport", "globeBlue", "Teleport", 2, callbacks.OpenTeleport)
+	local teleport = button("Teleport", "globeBlue", "Teleport", Color3.fromRGB(40, 190, 200), 2, callbacks.OpenTeleport)
 	local function showTeleport()
 		teleport.Visible = State.Data.Passes ~= nil and State.Data.Passes.Teleporter == true
 	end
 	State.Changed:Connect(showTeleport)
 	showTeleport()
-	-- (Boosts, Skins, Trails and Donate are sections of the Shop now: its buttons on its right side;
-	-- the Update Log is a tab of the Index)
 	State.OnAttribute("Admin", function(value)
 		admin.Visible = value == true
 	end)
@@ -225,7 +301,7 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 		Name = "Stats",
 		AnchorPoint = if Theme.IsTouch then Vector2.new(1, 0) else Vector2.new(0, 1),
 		Position = if Theme.IsTouch then UDim2.new(1, -10, 0, 4) else UDim2.new(0, 10, 1, -10),
-		Size = UDim2.fromOffset(380, 170),
+		Size = UDim2.fromOffset(480, 160),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	})
@@ -266,20 +342,26 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 		end
 		return label
 	end
-	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 34)
+	local speedLabel = row("Speed", "bolt", Theme.Colors.Speed, 6)
 	-- (the +: the Shop's Boosts, which start with the money passes)
-	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 88, function()
+	local moneyLabel = row("Money", "cash", Theme.Colors.Money, 62, function()
 		callbacks.OpenShop("Passes")
 	end)
-	local incomeLabel = Theme.Label({ Text = "", TextColor3 = Color3.fromRGB(255, 255, 255), Size = UDim2.new(1, 0, 0, 26), Position = UDim2.fromOffset(0, 143), TextXAlignment = align, StrokeThickness = 3, Parent = stats })
+	-- what you earn a second, right after your money (like "$760K +$244/s")
+	local moneyLine = (moneyLabel.Parent :: Instance)
+	local incomeLabel = Theme.Label({ Name = "Income", Text = "", TextColor3 = Theme.Colors.Money, TextScaled = false, TextSize = 28, AutomaticSize = Enum.AutomaticSize.X, Size = UDim2.fromScale(0, 0.8), LayoutOrder = 2, StrokeThickness = 3, Parent = moneyLine })
+	local moneyPlus = moneyLine:FindFirstChild("Plus") :: GuiObject?
+	if moneyPlus then
+		moneyPlus.LayoutOrder = 3
+	end
 
-	-- Friend Boost, on top (above Speed): always there (+0% until a friend of yours is in the server:
-	-- FriendService), with a green + that opens Roblox's invite-friends window
+	-- Friend Boost, at the bottom (under Money): always there (+0% until a friend of yours is in the
+	-- server: FriendService), with a green + that opens Roblox's invite-friends window
 	local friendLine = Theme.new("Frame", {
 		Name = "FriendBoost",
 		BackgroundTransparency = 1,
 		Size = UDim2.new(1, -6, 0, 32),
-		Position = UDim2.fromOffset(if Theme.IsTouch then 0 else 6, 0),
+		Position = UDim2.fromOffset(if Theme.IsTouch then 0 else 6, 124),
 		Parent = stats,
 	}, {
 		Theme.new("UIListLayout", {
@@ -335,33 +417,51 @@ local function buildStats(gui: ScreenGui, callbacks: Callbacks)
 		local mult = State.Number("MoneyMultiplier")
 		local multText = if mult > 1 then `  (x{Format.Multiplier(mult)} money)` else ""
 		incomeLabel.Text = `+{Format.Money(State.Number("Income"))}/s{multText}`
+		incomeLabel.TextSize = if multText ~= "" then 22 else 28
 	end
 	State.OnAttribute("Income", updateIncome)
 	State.OnAttribute("MoneyMultiplier", updateIncome)
 end
 
 
--- Settings: a gear in the free part of Roblox's top bar, at the top right, the size of Roblox's own
--- top-bar buttons. (Just below the bar is where Roblox's player list opens, which would cover it.)
+-- Small round buttons in the free part of Roblox's top bar, at the top right, the size of Roblox's
+-- own top-bar buttons: Daily Rewards, then Settings at the right end. (Just below the bar is where
+-- Roblox's player list opens, which would cover them.)
 local function buildCorner(callbacks: Callbacks)
 	local gui = Theme.ScreenGui("TopBar", 1)
 	gui.ScreenInsets = Enum.ScreenInsets.None
 	local dark = Color3.fromRGB(18, 21, 30)
-	local button = Theme.new("TextButton", {
-		Name = "Settings",
-		Text = "",
-		AutoButtonColor = false,
-		BackgroundColor3 = dark,
-		BackgroundTransparency = 0.08,
-		AnchorPoint = Vector2.new(1, 0.5),
-		Parent = gui,
-	}, {
-		Theme.new("UICorner", { CornerRadius = UDim.new(1, 0) }),
-	})
-	Icons.Draw("gearSteel", button, dark, { Size = UDim2.fromScale(0.82, 0.82), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
-	button.Activated:Connect(callbacks.OpenSettings)
-	button.MouseButton1Down:Connect(function()
-		Theme.Bounce(button)
+	local function roundButton(name: string, icon: string, onClick: () -> ()): TextButton
+		local button = Theme.new("TextButton", {
+			Name = name,
+			Text = "",
+			AutoButtonColor = false,
+			BackgroundColor3 = dark,
+			BackgroundTransparency = 0.08,
+			AnchorPoint = Vector2.new(1, 0.5),
+			Parent = gui,
+		}, {
+			Theme.new("UICorner", { CornerRadius = UDim.new(1, 0) }),
+		})
+		Icons.Draw(icon, button, dark, { Size = UDim2.fromScale(0.82, 0.82), AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5) })
+		button.Activated:Connect(onClick)
+		button.MouseButton1Down:Connect(function()
+			Theme.Bounce(button)
+		end)
+		return button
+	end
+	local settings = roundButton("Settings", "gearSteel", callbacks.OpenSettings)
+	local daily = roundButton("Daily", "calendar", callbacks.OpenDaily)
+	-- (a red "!" when a reward is waiting)
+	local dot = badge(daily)
+	dot.Text = "!"
+	dot.Size = UDim2.fromOffset(18, 18)
+	dot.Position = UDim2.new(1, -3, 0, 3)
+	task.spawn(function()
+		while true do
+			dot.Visible = callbacks.DailyReady()
+			task.wait(1)
+		end
 	end)
 	local function place()
 		local inset = GuiService.TopbarInset
@@ -375,8 +475,12 @@ local function buildCorner(callbacks: Callbacks)
 		if width > 0 then
 			right = math.min(right, width - 12)
 		end
-		button.Size = UDim2.fromOffset(size, size)
-		button.Position = if right > 0 then UDim2.fromOffset(right, inset.Min.Y + height / 2) else UDim2.new(1, -12, 0, height / 2)
+		local y = inset.Min.Y + height / 2
+		for i, button in { settings, daily } do
+			local shift = (i - 1) * (size + 10)
+			button.Size = UDim2.fromOffset(size, size)
+			button.Position = if right > 0 then UDim2.fromOffset(right - shift, y) else UDim2.new(1, -12 - shift, 0, height / 2)
+		end
 	end
 	GuiService:GetPropertyChangedSignal("TopbarInset"):Connect(place)
 	if workspace.CurrentCamera then

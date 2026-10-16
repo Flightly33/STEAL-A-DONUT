@@ -33,8 +33,8 @@ local player = Players.LocalPlayer :: Player
 local rgb = Color3.fromRGB
 
 local SLOTS = 9 -- tiles on the bar (the 9th becomes the bag when there are more items)
-local TILE = 76
-local GAP = 8
+local TILE = 64
+local GAP = 6
 local GOLD = rgb(255, 214, 92)
 -- (number keys by name: 1 - 9)
 local KEYS: { [string]: number } = { One = 1, Two = 2, Three = 3, Four = 4, Five = 5, Six = 6, Seven = 7, Eight = 8, Nine = 9 }
@@ -158,25 +158,16 @@ local function newTile(parent: Instance, index: number?): Tile
 	local lift = Theme.new("Frame", {
 		Name = "Lift",
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = rgb(32, 30, 38),
+		BackgroundColor3 = rgb(28, 28, 34),
+		BackgroundTransparency = 0.3,
 		Parent = button,
-	}, { Theme.Corner(14) }) :: Frame
+	}, { Theme.Corner(8) }) :: Frame
 	local gradient = Theme.new("UIGradient", { Rotation = 90, Parent = lift }) :: UIGradient
-	local stroke = Theme.new("UIStroke", { Thickness = 2.5, Color = rgb(255, 255, 255), Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = lift }) :: UIStroke
-	-- a soft shine across the top half
-	Theme.new("Frame", {
-		Name = "Shine",
-		Size = UDim2.new(1, -8, 0.42, 0),
-		Position = UDim2.fromOffset(4, 3),
-		BackgroundColor3 = rgb(255, 255, 255),
-		BackgroundTransparency = 0.86,
-		ZIndex = 3,
-		Parent = lift,
-	}, { Theme.Corner(11) })
+	local stroke = Theme.new("UIStroke", { Thickness = 2, Color = rgb(255, 255, 255), Transparency = 0.5, ApplyStrokeMode = Enum.ApplyStrokeMode.Border, Parent = lift }) :: UIStroke
 	local view = Theme.new("ViewportFrame", {
 		Name = "Icon",
-		Size = UDim2.new(1, -6, 1, -24),
-		Position = UDim2.fromOffset(3, 3),
+		Size = UDim2.new(1, -10, 1, -20),
+		Position = UDim2.fromOffset(5, 4),
 		BackgroundTransparency = 1,
 		Ambient = rgb(190, 190, 190),
 		LightColor = rgb(255, 255, 255),
@@ -204,25 +195,16 @@ local function newTile(parent: Instance, index: number?): Tile
 		ZIndex = 4,
 		Parent = lift,
 	})
-	-- its name, on a dark strip along the bottom
-	local strip = Theme.new("Frame", {
-		Name = "NameStrip",
-		Size = UDim2.new(1, 0, 0, 22),
-		Position = UDim2.new(0, 0, 1, -22),
-		BackgroundColor3 = rgb(10, 8, 16),
-		BackgroundTransparency = 0.35,
-		ZIndex = 4,
-		Parent = lift,
-	}, { Theme.Corner(14) }) :: Frame
+	-- its name along the bottom
 	local title = Theme.Label({
 		Name = "ItemName",
 		Text = "",
-		Size = UDim2.new(1, -8, 1, -4),
-		Position = UDim2.fromOffset(4, 2),
+		Size = UDim2.new(1, -4, 0, 16),
+		Position = UDim2.new(0, 2, 1, -18),
 		TextWrapped = true,
-		StrokeThickness = 1.5,
+		StrokeThickness = 2,
 		ZIndex = 5,
-		Parent = strip,
+		Parent = lift,
 	})
 	return { Button = button, Lift = lift, Stroke = stroke, Gradient = gradient, Key = key, Tag = tag, Title = title, View = view, Tool = nil, Look = nil, Model = nil }
 end
@@ -258,7 +240,7 @@ local function showTool(tile: Tile, tool: Tool?)
 	end
 	local color, tagText, look, name = describe(tool)
 	tile.Title.Text = name
-	tile.Gradient.Color = ColorSequence.new(color:Lerp(rgb(255, 255, 255), 0.15), color:Lerp(rgb(20, 18, 28), 0.55))
+	tile.Gradient.Color = ColorSequence.new(rgb(255, 255, 255), rgb(200, 200, 210))
 	tile.Tag.Text = tagText
 	local mutation = tool:GetAttribute("Mutation")
 	tile.Tag.TextColor3 = if type(mutation) == "string" and mutation ~= "None" then Rarities.Mutation(mutation).Color else rgb(255, 255, 255)
@@ -276,10 +258,11 @@ local function showTool(tile: Tile, tool: Tool?)
 		end
 	end
 	local held = holding(tool)
-	tile.Stroke.Color = if held then GOLD else color:Lerp(rgb(255, 255, 255), 0.5)
-	tile.Stroke.Thickness = if held then 4 else 2.5
-	tile.Stroke.Transparency = if held then 0 else 0.25
-	tile.Lift.Position = if held then UDim2.fromOffset(0, -10) else UDim2.fromOffset(0, 0)
+	tile.Stroke.Color = if held then rgb(255, 255, 255) else color:Lerp(rgb(255, 255, 255), 0.35)
+	tile.Stroke.Thickness = if held then 3 else 2
+	tile.Stroke.Transparency = if held then 0 else 0.35
+	tile.Lift.BackgroundTransparency = if held then 0.1 else 0.3
+	tile.Lift.Position = if held then UDim2.fromOffset(0, -6) else UDim2.fromOffset(0, 0)
 end
 
 --------------------------------------------------------------------------------
@@ -368,10 +351,10 @@ function Hotbar.Refresh()
 				tile.Model:Destroy()
 				tile.Model = nil
 			end
-			tile.Gradient.Color = ColorSequence.new(rgb(120, 90, 60), rgb(60, 40, 28))
-			tile.Stroke.Color = if bagOpen then GOLD else rgb(255, 220, 170)
-			tile.Stroke.Thickness = 2.5
-			tile.Stroke.Transparency = 0.2
+			tile.Gradient.Color = ColorSequence.new(rgb(255, 255, 255), rgb(200, 200, 210))
+			tile.Stroke.Color = if bagOpen then GOLD else rgb(255, 255, 255)
+			tile.Stroke.Thickness = 2
+			tile.Stroke.Transparency = 0.35
 			tile.Lift.Position = UDim2.fromOffset(0, 0)
 			tile.Tag.Text = `+{#items - onBar}`
 			tile.Title.Text = "ALL ITEMS"
@@ -381,7 +364,7 @@ function Hotbar.Refresh()
 		end
 	end
 	bar.Visible = #items > 0
-	if bagOpen and overflow then
+	if bagOpen then
 		bag.Visible = true
 		refreshBag(items)
 	else
@@ -438,12 +421,9 @@ function Hotbar.Init()
 		Position = UDim2.fromScale(0.5, 1),
 		Size = UDim2.new(0, 0, 0, TILE + 16),
 		AutomaticSize = Enum.AutomaticSize.X,
-		BackgroundColor3 = rgb(18, 16, 24),
-		BackgroundTransparency = 0.35,
+		BackgroundTransparency = 1,
 		Parent = holder,
 	}, {
-		Theme.Corner(20),
-		Theme.Stroke(2, rgb(255, 255, 255)),
 		Theme.new("UIPadding", { PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8) }),
 		Theme.new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, GAP), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom }),
 	}) :: Frame

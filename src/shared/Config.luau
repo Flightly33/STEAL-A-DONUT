@@ -152,8 +152,8 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 394, -- wide and shallow: a row of 5 bases across the back, facing the lane
-	HubDepth = 344, -- (one base either side of the lane's entrance, the row of 5 behind, the leaderboards high on the back wall)
+	HubHalfWidth = 228, -- narrow: a walkway down the middle, bases side by side along both walls
+	HubDepth = 522, -- (four bases down the left wall, three down the right, the leaderboards in the spare spot at the back right)
 	HubWallHeight = 40,
 }
 
@@ -202,6 +202,7 @@ Config.Speed = {
 	BaseWalkSpeed = 24,
 	StatMultiplier = 2, -- your Speed counts double when you run
 	MinRunSpeed = 16, -- the slowest run speed you can type in Settings
+	SlowModeSpeed = 30, -- the HUD's Slow Mode switch: walk at this speed (handy round your base)
 	CurveScale = 4.6,
 	CurvePower = 0.2,
 }

@@ -77,9 +77,17 @@ UpdateNotes.List = {
 				"Everything goes all out while you run, and settles down when you step off",
 			} },
 			{ Title = "New Lobby Layout", Tag = "CHANGED", Lines = {
-				"7 bases now: a row of five side by side facing the lane, and one either side of the lane's entrance",
-				"Wider entrances to every base: 24 studs across, easy to run straight in",
-				"The leaderboards hang side by side high up in the middle of the back wall",
+				"7 bases side by side along the two side walls, every entrance facing the walkway down the middle - the first ones right by the lane",
+				"Bases grow backwards now: every upgrade adds rows at the back of your pen, so neighbours stay close",
+				"Walk straight through any fence; wider entrances to every base",
+				"The leaderboards stand side by side at the back of the lobby",
+			} },
+			{ Title = "New Buttons", Tag = "NEW", Lines = {
+				"Big Shop, Inventory and Index buttons down the left, Pets on the right",
+				"Inventory: see every item you're carrying at once",
+				"Slow Mode: flick it on to walk slowly round your base, off to run flat out again",
+				"Daily Rewards has its own little button at the top, next to Settings",
+				"A cleaner hotbar along the bottom",
 			} },
 			{ Title = "No More Flinging", Tag = "FIXED", Lines = {
 				"Running into a fence, a wall or anything else no longer flings you into the sky, however fast you are",
