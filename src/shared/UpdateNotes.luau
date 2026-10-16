@@ -77,10 +77,11 @@ UpdateNotes.List = {
 				"Everything goes all out while you run, and settles down when you step off",
 			} },
 			{ Title = "New Lobby Layout", Tag = "CHANGED", Lines = {
-				"7 bases side by side along the two side walls, every entrance facing the walkway down the middle - the first ones right by the lane",
+				"7 bases, all facing the lane: one in each front corner beside the lane, and five in a row across the back",
+				"The sell stall and the Cosmic Forge stand against the front wall either side of the lane - the round plaza is gone",
 				"Bases grow backwards now: every upgrade adds rows at the back of your pen, so neighbours stay close",
 				"Walk straight through any fence; wider entrances to every base",
-				"The leaderboards stand side by side at the back of the lobby",
+				"The leaderboards stand side by side high on the back wall",
 			} },
 			{ Title = "New Buttons", Tag = "NEW", Lines = {
 				"Big Shop, Inventory and Index buttons down the left, Pets on the right",

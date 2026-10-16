@@ -152,8 +152,8 @@ Config.Map = {
 	WallThickness = 40, -- the lane's walls are this thick (grass on top), so there's no void beside it
 
 	SafeZoneZ = 0, -- everything with Z < SafeZoneZ is the safe lobby (bases, treadmills, leaderboards)
-	HubHalfWidth = 228, -- narrow: a walkway down the middle, bases side by side along both walls
-	HubDepth = 522, -- (four bases down the left wall, three down the right, the leaderboards in the spare spot at the back right)
+	HubHalfWidth = 322, -- a row of 5 bases across the lobby, one more in each front corner
+	HubDepth = 376, -- (the corner bases by the lane, the row of 5 behind, the leaderboards high on the back wall)
 	HubWallHeight = 40,
 }
 

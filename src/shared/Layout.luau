@@ -138,41 +138,34 @@ function Layout.LeaderboardZ(): number
 end
 Layout.LeaderboardBottom = 22 -- how high the bottom of the boards is (clear of the shops' roofs)
 
--- The little round plaza at the front of the walkway, by the lane: the sell stall and the Cosmic
--- Forge either side of it.
-Layout.PlazaRadius = 44
-function Layout.PlazaCenter(): Vector3
-	return Vector3.new(0, 0, map.SafeZoneZ - 70)
-end
-
--- The Cosmic Forge (Config.CosmicDonut): on the plaza, left of the spawn, facing it.
+-- The Cosmic Forge (Config.CosmicDonut) and the sell stall: against the front wall either side of
+-- the lane's entrance (the forge on the left, the stall on the right), facing into the lobby.
 function Layout.CosmicForgeCFrame(): CFrame
-	local center = Layout.PlazaCenter()
-	return CFrame.lookAt(center + Vector3.new(-28, 0, 0), center)
+	local at = Vector3.new(-(map.LaneHalfWidth + 4 + 22), 0, map.SafeZoneZ - 12)
+	return CFrame.lookAt(at, at + Vector3.new(0, 0, -1))
 end
 
--- The sell stall: on the plaza, right of the spawn, facing it.
 function Layout.SellStallCFrame(): CFrame
-	local center = Layout.PlazaCenter()
-	return CFrame.lookAt(center + Vector3.new(28, 0, 0), center)
+	local at = Vector3.new(map.LaneHalfWidth + 4 + 22, 0, map.SafeZoneZ - 12)
+	return CFrame.lookAt(at, at + Vector3.new(0, 0, -1))
 end
 
 --------------------------------------------------------------------------------
--- Plots: 7 bases side by side along the two side walls (odd numbers on the left (-X), even on the
--- right, 1 / 2 nearest the lane), every entrance facing the walkway down the middle. Four on the
--- left, three on the right: the leaderboards stand in the spare spot at the back right.
+-- Plots: 7 bases, every entrance facing the lane. Two (1 and 2) in the front corners, either side
+-- of the lane's entrance; behind them a row of five side by side (3 in the middle, then 4 / 5, then
+-- 6 / 7 at the ends). New players get the lowest free number: the ones nearest the lane.
 --
 -- A base is a donut shop with an open pen in front of it (like Steal an Egg): a fenced patch of
 -- ground with a low gate at the front, where the donuts roam and boxes wait to open. The pen is
 -- always the same width and every base upgrade adds rows at the back: it only grows backwards,
--- towards the side wall (the shop moving back behind it), so the bases can stand close together.
+-- away from the lane (the shop moving back behind it), so the bases can stand close together.
 --------------------------------------------------------------------------------
 Layout.PenColumns = 4 -- donut patches across a pen (it grows by adding rows behind)
-Layout.PlotWidth = 124 -- plot space X (sideways: along the row)
-Layout.PlotDepth = 168 -- plot space Z (front, by the walkway, to back, by the side wall)
-Layout.PlotSpacing = 128 -- bases along a wall are this far apart (centre to centre)
-Layout.WalkwayHalfWidth = 56 -- the walkway down the middle (the plaza fits in it)
-Layout.FirstPlotZ = 6 -- the first base's edge, this far behind the safe-zone line
+Layout.PlotWidth = 124 -- plot space X (sideways)
+Layout.PlotDepth = 168 -- plot space Z (front, towards the lane, to back)
+Layout.PlotSpacing = 128 -- the row's bases are this far apart (centre to centre)
+Layout.RowCount = 5
+Layout.RowGap = 30 -- the walkway between the front corner bases and the row
 Layout.PlotFloorHeight = 0.4
 Layout.PenFront = -Layout.PlotDepth / 2 + 14 -- (plot space) the pen's front fence, where the gate is
 Layout.ShopDepth = 22 -- the donut shop behind the pen
@@ -183,7 +176,6 @@ Layout.GateHalfWidth = 12 -- the gap in the pen's front fence (24 studs: plenty 
 Layout.TreadmillReach = 10.2
 Layout.SideItemsX = Layout.PlotWidth / 2 - 9
 Layout.PenBorder = 2 -- the trim round a pen, outside its fence
-Layout.LeftCount = 4 -- bases down the left wall (the rest down the right)
 
 -- (plot space) How far back a base's things reach at its biggest (the owner's too): the back of
 -- the donut shop's roof behind the biggest pen.
@@ -193,34 +185,38 @@ function Layout.PlotBackReach(): number
 	return Layout.PenFront + depth + 3 + Layout.ShopDepth + 1.5
 end
 
--- Z of the middle of the `n`th spot along a wall (1: nearest the lane).
-function Layout.WallSpotZ(n: number): number
-	return map.SafeZoneZ - Layout.FirstPlotZ - Layout.PlotWidth / 2 - (n - 1) * Layout.PlotSpacing
+-- Z of the middle of the row of five.
+function Layout.RowZ(): number
+	return map.SafeZoneZ - 6 - Layout.PlotDepth - Layout.RowGap - Layout.PlotDepth / 2
 end
 
--- The leaderboards: a row edge to edge in the spare spot at the back of the right wall, facing the
--- walkway. Each board's middle X (along the back wall), left to right, and its size (1: full size,
--- 31 wide).
+-- The leaderboards: a row edge to edge in the middle of the back wall, behind the row's middle
+-- base. Each board's middle X, left to right, and its size (1: full size, 31 wide).
 Layout.LeaderboardSpacing = 31
 function Layout.LeaderboardSpots(count: number): { { X: number, Scale: number } }
-	local inner, outer = Layout.WalkwayHalfWidth + 4, map.HubHalfWidth - 4
-	local room = outer - inner
+	local room = (map.HubHalfWidth - 4) * 2
 	local spacing = math.min(Layout.LeaderboardSpacing, room / math.max(count, 1))
-	local middle = (inner + outer) / 2
 	local spots = {}
 	for index = 1, count do
-		table.insert(spots, { X = middle + (index - (count + 1) / 2) * spacing, Scale = spacing / Layout.LeaderboardSpacing })
+		table.insert(spots, { X = (index - (count + 1) / 2) * spacing, Scale = spacing / Layout.LeaderboardSpacing })
 	end
 	return spots
 end
 
+local ROW_SLOT = { [3] = 3, [4] = 2, [5] = 4, [6] = 1, [7] = 5 }
+
 function Layout.PlotCFrame(plotIndex: number, _worldId: number?): CFrame
-	local side = if plotIndex % 2 == 1 then -1 else 1
-	local n = (plotIndex + 1) // 2
-	local x = side * (Layout.WalkwayHalfWidth + Layout.PlotDepth / 2)
-	local center = Vector3.new(x, 0, Layout.WallSpotZ(n))
-	-- (facing the walkway: the pen's front by it, its back - where it grows - by the side wall)
-	return CFrame.lookAt(center, center + Vector3.new(-side, 0, 0))
+	local center: Vector3
+	if plotIndex <= 2 then
+		-- the front corners, either side of the lane's entrance
+		local side = if plotIndex == 1 then -1 else 1
+		center = Vector3.new(side * (map.HubHalfWidth - 4 - Layout.PlotWidth / 2), 0, map.SafeZoneZ - 6 - Layout.PlotDepth / 2)
+	else
+		local slot = ROW_SLOT[plotIndex] or 3
+		center = Vector3.new((slot - (Layout.RowCount + 1) / 2) * Layout.PlotSpacing, 0, Layout.RowZ())
+	end
+	-- (facing the lane: the pen's front towards it, growing backwards)
+	return CFrame.lookAt(center, center + Vector3.new(0, 0, 1))
 end
 
 -- The pen for a base with room for `slots` donuts: about CellSize x CellSize per donut, a little
