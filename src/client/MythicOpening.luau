@@ -90,7 +90,7 @@ function MythicOpening.CanPlay(): boolean
 	if playing or not player then
 		return false
 	end
-	if player:GetAttribute("Intro") or player:GetAttribute("LoadingScreen") or player:GetAttribute("CarryKind") ~= nil or Cinematic.IsPlaying() then
+	if player:GetAttribute("Intro") or player:GetAttribute("FreeCam") or player:GetAttribute("LoadingScreen") or player:GetAttribute("CarryKind") ~= nil or Cinematic.IsPlaying() then
 		return false
 	end
 	local character = player.Character

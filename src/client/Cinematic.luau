@@ -63,7 +63,7 @@ function Cinematic.CanPlay(): boolean
 	if playing or not player then
 		return false
 	end
-	return player:GetAttribute("CarryKind") == nil and not player:GetAttribute("Intro") and not player:GetAttribute("LoadingScreen")
+	return player:GetAttribute("CarryKind") == nil and not player:GetAttribute("Intro") and not player:GetAttribute("LoadingScreen") and not player:GetAttribute("FreeCam")
 end
 
 local function buildScreen(): ScreenGui

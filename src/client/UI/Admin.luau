@@ -393,6 +393,14 @@ local function build()
 	button(fun, "Random event", Theme.Colors.Orange, function()
 		command("Event")
 	end)
+	button(fun, "Free cam (F6)", Theme.Colors.Orange, function()
+		local ok, why = require(script.Parent.Parent.FreeCam).Toggle()
+		if ok then
+			modal:Close()
+		elseif why then
+			require(script.Parent.Notifications).Toast(why, "error")
+		end
+	end)
 	button(fun, "Fly", Theme.Colors.Blue, function()
 		command("Fly", "Fly")
 	end)
