@@ -41,11 +41,12 @@ local MapBuilder = {}
 
 local rgb = Color3.fromRGB
 local map = Config.Map
-local HUB_GREEN = { rgb(120, 210, 56), rgb(106, 196, 48) }
+-- (the lobby ground is exactly the pens' ground: the Classic skin's green checker)
+local HUB_GREEN = { Config.Skins[1].Floor, Config.Skins[1].FloorAlt }
 local WALL_BROWN = { rgb(206, 136, 78), rgb(192, 124, 68) }
 
 local mapFolder: Folder? = nil
-local MAP_VERSION = 33
+local MAP_VERSION = 34
 
 -- Every face of a part covered in studs (the classic Roblox brick look).
 local function studs(part: BasePart): BasePart
